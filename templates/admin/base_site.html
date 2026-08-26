@@ -1,0 +1,6 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{% block title %}{{ title }} | A+esthetic Buchung{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'booking/admin.css' %}">{% endblock %}
+{% block branding %}<div id="site-name"><a href="/verwaltung/">A+esthetic · Buchungsverwaltung</a></div>{% endblock %}
+{% block nav-global %}<a class="admin-home-link" href="/verwaltung/">Übersicht</a>{% endblock %}

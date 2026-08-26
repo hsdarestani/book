@@ -1,0 +1,73 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0d0d0d">
+  <title>Termin buchen | A+esthetic</title>
+  <meta name="description" content="Buchen Sie Ihren Termin bei A+esthetic online.">
+  <link rel="stylesheet" href="{% static 'booking/app.css' %}">
+</head>
+<body>
+  <main class="booking-shell">
+    <header class="brandbar">
+      <a class="brand" href="https://a-esthetic.de/" aria-label="A+esthetic Startseite">A<span>+</span>esthetic</a>
+      <div class="brand-meta">Terminbuchung</div>
+    </header>
+
+    <section class="hero">
+      <div class="eyebrow">Persönlich. Präzise. Diskret.</div>
+      <h1>Ihr Termin bei A+esthetic</h1>
+      <p>Wählen Sie Behandlung, Behandler und Ihren passenden Termin.</p>
+    </section>
+
+    <section class="booking-card" aria-live="polite">
+      <div class="progress" aria-label="Buchungsfortschritt">
+        <span class="progress-dot is-active" data-progress="1">1</span><span class="progress-line"></span>
+        <span class="progress-dot" data-progress="2">2</span><span class="progress-line"></span>
+        <span class="progress-dot" data-progress="3">3</span><span class="progress-line"></span>
+        <span class="progress-dot" data-progress="4">4</span>
+      </div>
+      <div id="booking-error" class="notice notice-error" hidden></div>
+
+      <section class="step is-active" data-step="1">
+        <div class="step-head"><span>01</span><div><h2>Behandlung wählen</h2><p>Was dürfen wir für Sie einplanen?</p></div></div>
+        <div id="services" class="choice-grid"></div>
+      </section>
+      <section class="step" data-step="2">
+        <button class="back" type="button" data-back="1">← Zurück</button>
+        <div class="step-head"><span>02</span><div><h2>Behandler wählen</h2><p>Wählen Sie die passende Person für Ihren Termin.</p></div></div>
+        <div id="staff" class="choice-grid staff-grid"></div>
+      </section>
+      <section class="step" data-step="3">
+        <button class="back" type="button" data-back="2">← Zurück</button>
+        <div class="step-head"><span>03</span><div><h2>Datum und Uhrzeit</h2><p>Nur tatsächlich verfügbare Zeiten werden angezeigt.</p></div></div>
+        <label class="field-label" for="booking-date">Datum</label>
+        <input id="booking-date" class="date-input" type="date">
+        <div id="slots" class="slot-grid"></div>
+      </section>
+      <section class="step" data-step="4">
+        <button class="back" type="button" data-back="3">← Zurück</button>
+        <div class="step-head"><span>04</span><div><h2>Ihre Kontaktdaten</h2><p>Damit wir Ihren Termin eindeutig zuordnen können.</p></div></div>
+        <form id="details-form" class="details-form">
+          {% csrf_token %}
+          <div class="field-row"><label>Vorname<input name="first_name" autocomplete="given-name" required maxlength="80"></label><label>Nachname<input name="last_name" autocomplete="family-name" required maxlength="80"></label></div>
+          <div class="field-row"><label>E-Mail<input name="email" type="email" autocomplete="email" required></label><label>Telefon <small>optional</small><input name="phone" type="tel" autocomplete="tel" maxlength="40"></label></div>
+          <label>Nachricht <small>optional</small><textarea name="message" rows="4" maxlength="3000" placeholder="Gibt es etwas, das wir vorab wissen sollten?"></textarea></label>
+          <div id="summary" class="summary"></div>
+          <label class="privacy-check"><input type="checkbox" required> <span>Ich stimme der Verarbeitung meiner Angaben zur Terminorganisation zu und habe die <a href="https://a-esthetic.de/datenschutz/" target="_blank" rel="noopener">Datenschutzhinweise</a> zur Kenntnis genommen.</span></label>
+          <button class="primary" type="submit">Termin verbindlich anfragen</button>
+        </form>
+      </section>
+      <section class="step success" data-step="5">
+        <div class="success-mark">✓</div><div class="eyebrow">Termin gespeichert</div><h2>Vielen Dank.</h2>
+        <p id="success-text">Ihr Termin wurde erfolgreich gespeichert.</p><div id="success-summary" class="summary"></div>
+        <a class="secondary-link" href="https://a-esthetic.de/">Zurück zu A+esthetic</a>
+      </section>
+    </section>
+    <footer><span>A+esthetic</span><a href="https://a-esthetic.de/impressum/">Impressum</a><a href="https://a-esthetic.de/datenschutz/">Datenschutz</a></footer>
+  </main>
+  <script src="{% static 'booking/app.js' %}" defer></script>
+</body>
+</html>
