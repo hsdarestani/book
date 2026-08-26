@@ -1,3 +1,4 @@
+import base64
 import os
 from pathlib import Path
 
@@ -99,7 +100,12 @@ if os.getenv('EMAIL_HOST'):
     EMAIL_HOST = os.getenv('EMAIL_HOST')
     EMAIL_PORT = int(os.getenv('EMAIL_PORT', '465'))
     EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+    encoded_password = os.getenv('EMAIL_HOST_PASSWORD_B64', '')
+    EMAIL_HOST_PASSWORD = (
+        base64.b64decode(encoded_password.encode('ascii')).decode('utf-8')
+        if encoded_password
+        else os.getenv('EMAIL_HOST_PASSWORD', '')
+    )
     EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', '1') == '1'
     EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', '0') == '1'
     EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '15'))
