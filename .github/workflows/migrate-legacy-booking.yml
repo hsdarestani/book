@@ -1,0 +1,45 @@
+name: Migrate existing A+esthetic app bookings
+
+on:
+  workflow_run:
+    workflows: ["Test and deploy A+esthetic Booking"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Import legacy booking data once
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: root
+          password: ${{ secrets.PASS }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            APP_ROOT="/opt/aesthetic-book"
+            APP_DIR="$APP_ROOT/app"
+            VENV="$APP_ROOT/venv"
+            ENV_FILE="/etc/aesthetic-book.env"
+            LEGACY_DB="/opt/a-esthetic-mobile/db.sqlite3"
+            MARKER="$APP_ROOT/.legacy-booking-import-v1-ok"
+
+            test -x "$VENV/bin/python"
+            test -f "$ENV_FILE"
+            test -f "$LEGACY_DB"
+
+            if [ ! -f "$MARKER" ]; then
+              runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$VENV/bin/python' manage.py import_legacy_booking --sqlite '$LEGACY_DB'"
+              touch "$MARKER"
+              chown aestheticbook:aestheticbook "$MARKER"
+            else
+              echo "Legacy-Buchungsdaten wurden bereits migriert."
+            fi
+
+            runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$VENV/bin/python' manage.py shell -c \"from booking.models import Service, StaffMember, Appointment; print(f'Buchungskatalog: {Service.objects.filter(active=True).count()} aktiv, {StaffMember.objects.filter(active=True).count()} Mitarbeiter, {Appointment.objects.count()} Termine')\""
+            curl -fsS --max-time 15 http://127.0.0.1:8017/api/health/ | grep -q '"ok": true'
