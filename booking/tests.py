@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, time, timedelta
+from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -78,3 +79,62 @@ class BookingApiTests(TestCase):
     def test_past_and_far_dates_have_no_slots(self):
         self.assertEqual(available_slots(self.service, self.staff, timezone.localdate() - timedelta(days=1)), [])
         self.assertEqual(available_slots(self.service, self.staff, timezone.localdate() + timedelta(days=91)), [])
+
+    def test_mobile_slots_aggregate_staff(self):
+        slot = self.future_slot()
+        response = self.client.get(f'/api/mobile/slots/?service_id={self.service.pk}&day={slot.date().isoformat()}')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertIn(slot.isoformat(), response.json()['slots'])
+
+    @patch('booking.mobile_api._member')
+    def test_mobile_booking_uses_canonical_booking_records(self, member_mock):
+        member_mock.return_value = ({
+            'email': 'mitglied@example.com',
+            'phone': '015100000000',
+            'first_name': 'Anna',
+            'last_name': 'Muster',
+        }, None)
+        slot = self.future_slot()
+        response = self.client.post(
+            '/api/mobile/booking/',
+            data=json.dumps({'service_id': self.service.pk, 'starts_at': slot.isoformat()}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        item = Appointment.objects.get()
+        self.assertEqual(item.source, 'app')
+        self.assertEqual(item.customer.email, 'mitglied@example.com')
+
+        listing = self.client.get('/api/mobile/booking/')
+        self.assertEqual(listing.status_code, 200, listing.content)
+        self.assertEqual(listing.json()['appointments'][0]['id'], str(item.public_id))
+        self.assertEqual(listing.json()['next_appointment']['id'], str(item.public_id))
+
+    @patch('booking.mobile_api._member')
+    def test_mobile_cancel_releases_slot(self, member_mock):
+        member_mock.return_value = ({
+            'email': 'mitglied@example.com',
+            'phone': '',
+            'first_name': 'Anna',
+            'last_name': 'Muster',
+        }, None)
+        slot = self.future_slot(days=3)
+        customer = Customer.objects.create(first_name='Anna', last_name='Muster', email='mitglied@example.com')
+        item = Appointment.objects.create(
+            customer=customer,
+            service=self.service,
+            staff=self.staff,
+            starts_at=slot,
+            ends_at=slot + timedelta(minutes=30),
+            status='confirmed',
+            source='app',
+        )
+        response = self.client.post(
+            f'/api/mobile/booking/{item.public_id}/change/',
+            data=json.dumps({'action': 'cancel'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        item.refresh_from_db()
+        self.assertEqual(item.status, 'cancelled')
+        self.assertIn(slot, available_slots(self.service, self.staff, slot.date()))
