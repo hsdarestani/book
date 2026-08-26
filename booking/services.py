@@ -7,7 +7,7 @@ LEAD_TIME = timedelta(hours=1)
 BOOKING_HORIZON_DAYS = 90
 
 
-def available_slots(service, staff, day, *, step_minutes=15):
+def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None):
     if not service.active or not service.bookable or not staff.active:
         return []
     if not staff.services.filter(pk=service.pk).exists():
@@ -32,8 +32,10 @@ def available_slots(service, staff, day, *, step_minutes=15):
                     status__in=['new', 'confirmed'],
                     starts_at__lt=slot_end,
                     ends_at__gt=cursor,
-                ).exists()
-                if not blocked and not conflict:
+                )
+                if exclude_appointment_id:
+                    conflict = conflict.exclude(public_id=exclude_appointment_id)
+                if not blocked and not conflict.exists():
                     slots.append(cursor)
             cursor += timedelta(minutes=step_minutes)
     return slots
