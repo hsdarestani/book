@@ -1,6 +1,10 @@
 name: Migrate existing A+esthetic app bookings
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/migrate-legacy-booking.yml"
   workflow_run:
     workflows: ["Test and deploy A+esthetic Booking"]
     types: [completed]
@@ -10,7 +14,7 @@ permissions:
 
 jobs:
   migrate:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Import legacy booking data once
