@@ -93,6 +93,10 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
+AESTHETIC_MEMBER_API_URL = os.getenv(
+    'AESTHETIC_MEMBER_API_URL',
+    'https://esthetic.smarbiz.sbs/api/mobile/me/',
+)
 BOOKING_NOTIFICATION_EMAIL = os.getenv('BOOKING_NOTIFICATION_EMAIL', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'A+esthetic <termin@a-esthetic.de>')
 if os.getenv('EMAIL_HOST'):
