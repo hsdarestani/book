@@ -103,7 +103,7 @@ class Customer(models.Model):
 
     class Meta:
         ordering = ['last_name', 'first_name']
-        indexes = [models.Index(fields=['email'])]
+        indexes = [models.Index(fields=['email'], name='booking_cus_email_4d5e77_idx')]
         verbose_name = 'Kunde'
         verbose_name_plural = 'Kunden'
 
@@ -140,7 +140,7 @@ class Appointment(models.Model):
 
     class Meta:
         ordering = ['starts_at']
-        indexes = [models.Index(fields=['starts_at', 'staff', 'status'])]
+        indexes = [models.Index(fields=['starts_at', 'staff', 'status'], name='booking_app_starts__1de48f_idx')]
         verbose_name = 'Termin'
         verbose_name_plural = 'Termine'
 
