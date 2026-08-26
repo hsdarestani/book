@@ -36,6 +36,11 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    env:
+      STRATO_SMTP_USER: ${{ secrets.STRATO_SMTP_USER }}
+      STRATO_SMTP_PASSWORD: ${{ secrets.STRATO_SMTP_PASSWORD }}
+      BOOKING_NOTIFICATION_EMAIL: ${{ secrets.BOOKING_NOTIFICATION_EMAIL }}
+      BOOKING_ADMIN_PASSWORD: ${{ secrets.BOOKING_ADMIN_PASSWORD }}
     steps:
       - name: Deploy to production server
         uses: appleboy/ssh-action@v1.2.0
@@ -44,9 +49,15 @@ jobs:
           username: root
           password: ${{ secrets.PASS }}
           command_timeout: 25m
+          envs: STRATO_SMTP_USER,STRATO_SMTP_PASSWORD,BOOKING_NOTIFICATION_EMAIL,BOOKING_ADMIN_PASSWORD
           script: |
             set -euo pipefail
             export DEBIAN_FRONTEND=noninteractive
+            : "${STRATO_SMTP_USER:?STRATO_SMTP_USER fehlt}"
+            : "${STRATO_SMTP_PASSWORD:?STRATO_SMTP_PASSWORD fehlt}"
+            : "${BOOKING_NOTIFICATION_EMAIL:?BOOKING_NOTIFICATION_EMAIL fehlt}"
+            : "${BOOKING_ADMIN_PASSWORD:?BOOKING_ADMIN_PASSWORD fehlt}"
+
             DOMAIN="book.a-esthetic.de"
             APP_ROOT="/opt/aesthetic-book"
             APP_DIR="$APP_ROOT/app"
@@ -87,9 +98,16 @@ jobs:
               runuser -u postgres -- createdb -O aestheticbook aestheticbook
             fi
 
-            if [ ! -f "$ENV_FILE" ]; then
+            SECRET_KEY=""
+            if [ -f "$ENV_FILE" ]; then
+              SECRET_KEY="$(sed -n 's/^DJANGO_SECRET_KEY=//p' "$ENV_FILE" | head -n1 | tr -d "'\"")"
+            fi
+            if [ -z "$SECRET_KEY" ]; then
               SECRET_KEY="$(openssl rand -hex 32)"
-              cat > "$ENV_FILE" <<EOF
+            fi
+            SMTP_PASSWORD_B64="$(printf '%s' "$STRATO_SMTP_PASSWORD" | base64 | tr -d '\n')"
+
+            cat > "$ENV_FILE" <<EOF
             DJANGO_SECRET_KEY=$SECRET_KEY
             DJANGO_DEBUG=0
             DJANGO_ALLOWED_HOSTS=$DOMAIN,127.0.0.1,localhost
@@ -100,12 +118,16 @@ jobs:
             DB_PASSWORD=
             DB_HOST=
             DB_PORT=
-            BOOKING_NOTIFICATION_EMAIL=
-            DEFAULT_FROM_EMAIL='A+esthetic <termin@a-esthetic.de>'
+            BOOKING_NOTIFICATION_EMAIL=$BOOKING_NOTIFICATION_EMAIL
+            DEFAULT_FROM_EMAIL='A+esthetic <$STRATO_SMTP_USER>'
+            EMAIL_HOST=smtp.strato.de
+            EMAIL_PORT=465
+            EMAIL_HOST_USER=$STRATO_SMTP_USER
+            EMAIL_HOST_PASSWORD_B64=$SMTP_PASSWORD_B64
+            EMAIL_USE_SSL=1
+            EMAIL_USE_TLS=0
+            EMAIL_TIMEOUT=15
             EOF
-            elif grep -q '^DEFAULT_FROM_EMAIL=A+esthetic <' "$ENV_FILE"; then
-              sed -i "s|^DEFAULT_FROM_EMAIL=.*|DEFAULT_FROM_EMAIL='A+esthetic <termin@a-esthetic.de>'|" "$ENV_FILE"
-            fi
             chown root:aestheticbook "$ENV_FILE"
             chmod 0640 "$ENV_FILE"
 
@@ -117,12 +139,10 @@ jobs:
             mkdir -p "$APP_DIR/media"
             chown -R aestheticbook:aestheticbook "$APP_DIR/media" "$APP_DIR/staticfiles"
 
-            if ! runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from django.contrib.auth import get_user_model; raise SystemExit(0 if get_user_model().objects.filter(is_superuser=True).exists() else 1)\""; then
-              ADMIN_PASS="$(openssl rand -hex 12)"
-              runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; BOOKING_ADMIN_PASSWORD='$ADMIN_PASS' '$VENV/bin/python' manage.py shell -c \"import os; from django.contrib.auth import get_user_model; U=get_user_model(); U.objects.create_superuser('admin','',os.environ['BOOKING_ADMIN_PASSWORD'])\""
-              printf 'Benutzer: admin\nPasswort: %s\nURL: https://%s/verwaltung/\n' "$ADMIN_PASS" "$DOMAIN" > /root/aesthetic-book-admin.txt
-              chmod 0600 /root/aesthetic-book-admin.txt
-            fi
+            export BOOKING_ADMIN_PASSWORD
+            runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"import os; from django.contrib.auth import get_user_model; U=get_user_model(); u, _ = U.objects.get_or_create(username='admin'); u.is_staff=True; u.is_superuser=True; u.is_active=True; u.set_password(os.environ['BOOKING_ADMIN_PASSWORD']); u.save()\""
+            printf 'Benutzer: admin\nPasswort: GitHub Secret BOOKING_ADMIN_PASSWORD\nURL: https://%s/verwaltung/\n' "$DOMAIN" > /root/aesthetic-book-admin.txt
+            chmod 0600 /root/aesthetic-book-admin.txt
 
             cat > /etc/systemd/system/${SERVICE}.service <<EOF
             [Unit]
@@ -185,8 +205,6 @@ jobs:
                 server_name $DOMAIN;
                 client_max_body_size 8m;
 
-                # Static assets are deliberately served by Django + WhiteNoise.
-                # This keeps manifest-hashed asset URLs and app releases atomic.
                 location /media/ {
                     alias $APP_DIR/media/;
                     access_log off;
@@ -218,4 +236,12 @@ jobs:
             curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.css" | grep -q '.booking-shell'
             curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.js" | grep -q 'fetch'
             systemctl is-active --quiet "$SERVICE"
+
+            SMTP_TEST_MARKER="$APP_ROOT/.smtp-test-v1-ok"
+            if [ ! -f "$SMTP_TEST_MARKER" ]; then
+              runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from django.conf import settings; from django.core.mail import send_mail; send_mail('A+esthetic Buchung – E-Mail-Test', 'Die STRATO E-Mail-Verbindung für die A+esthetic Terminbuchung wurde erfolgreich eingerichtet.', settings.DEFAULT_FROM_EMAIL, [settings.BOOKING_NOTIFICATION_EMAIL], fail_silently=False)\""
+              touch "$SMTP_TEST_MARKER"
+              chown aestheticbook:aestheticbook "$SMTP_TEST_MARKER"
+            fi
+
             echo "Deployment erfolgreich: https://$DOMAIN"
