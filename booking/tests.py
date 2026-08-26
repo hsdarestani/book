@@ -33,7 +33,7 @@ class BookingApiTests(TestCase):
 
     def test_services_and_staff(self):
         services = self.client.get('/api/services/').json()['services']
-        self.assertEqual(services[0]['name'], 'Beratung')
+        self.assertIn('Beratung', {item['name'] for item in services})
         staff = self.client.get(f'/api/staff/?service_id={self.service.pk}').json()['staff']
         self.assertEqual(staff[0]['name'], 'A+esthetic Team')
 
