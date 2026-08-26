@@ -184,11 +184,8 @@ jobs:
                 server_name $DOMAIN;
                 client_max_body_size 8m;
 
-                location /static/ {
-                    alias $APP_DIR/staticfiles/;
-                    access_log off;
-                    expires 7d;
-                }
+                # Static assets are deliberately served by Django + WhiteNoise.
+                # This keeps manifest-hashed asset URLs and app releases atomic.
                 location /media/ {
                     alias $APP_DIR/media/;
                     access_log off;
@@ -217,5 +214,7 @@ jobs:
 
             sleep 3
             curl -fsS --max-time 15 http://127.0.0.1:8017/api/health/ | grep -q '"ok": true'
+            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.css" | grep -q '.booking-shell'
+            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.js" | grep -q 'fetch'
             systemctl is-active --quiet "$SERVICE"
             echo "Deployment erfolgreich: https://$DOMAIN"
