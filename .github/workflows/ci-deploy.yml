@@ -1,0 +1,221 @@
+name: Test and deploy A+esthetic Booking
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Validate Django project
+        env:
+          DJANGO_DEBUG: '1'
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+          python manage.py migrate --noinput
+          python manage.py test
+          python manage.py collectstatic --noinput
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: root
+          password: ${{ secrets.PASS }}
+          command_timeout: 25m
+          script: |
+            set -euo pipefail
+            export DEBIAN_FRONTEND=noninteractive
+            DOMAIN="book.a-esthetic.de"
+            APP_ROOT="/opt/aesthetic-book"
+            APP_DIR="$APP_ROOT/app"
+            VENV="$APP_ROOT/venv"
+            ENV_FILE="/etc/aesthetic-book.env"
+            SERVICE="aesthetic-book"
+
+            apt-get update -y
+            apt-get install -y git python3 python3-venv python3-pip postgresql postgresql-contrib curl openssl
+
+            if ! getent group aestheticbook >/dev/null 2>&1; then
+              groupadd --system aestheticbook
+            fi
+            if ! id aestheticbook >/dev/null 2>&1; then
+              useradd --system --gid aestheticbook --create-home --home-dir "$APP_ROOT" --shell /usr/sbin/nologin aestheticbook
+            fi
+
+            mkdir -p "$APP_ROOT"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              rm -rf "$APP_DIR"
+              git clone https://github.com/hsdarestani/book.git "$APP_DIR"
+            else
+              git -C "$APP_DIR" fetch origin main
+              git -C "$APP_DIR" reset --hard origin/main
+            fi
+
+            if [ ! -x "$VENV/bin/python" ]; then
+              python3 -m venv "$VENV"
+            fi
+            "$VENV/bin/pip" install --upgrade pip
+            "$VENV/bin/pip" install -r "$APP_DIR/requirements.txt"
+
+            if ! runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='aestheticbook'" | grep -q 1; then
+              runuser -u postgres -- createuser aestheticbook
+            fi
+            if ! runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname='aestheticbook'" | grep -q 1; then
+              runuser -u postgres -- createdb -O aestheticbook aestheticbook
+            fi
+
+            if [ ! -f "$ENV_FILE" ]; then
+              SECRET_KEY="$(openssl rand -hex 32)"
+              cat > "$ENV_FILE" <<EOF
+            DJANGO_SECRET_KEY=$SECRET_KEY
+            DJANGO_DEBUG=0
+            DJANGO_ALLOWED_HOSTS=$DOMAIN,127.0.0.1,localhost
+            DJANGO_CSRF_TRUSTED_ORIGINS=https://$DOMAIN
+            DB_ENGINE=postgresql
+            DB_NAME=aestheticbook
+            DB_USER=aestheticbook
+            DB_PASSWORD=
+            DB_HOST=
+            DB_PORT=
+            BOOKING_NOTIFICATION_EMAIL=
+            DEFAULT_FROM_EMAIL='A+esthetic <termin@a-esthetic.de>'
+            EOF
+            elif grep -q '^DEFAULT_FROM_EMAIL=A+esthetic <' "$ENV_FILE"; then
+              sed -i "s|^DEFAULT_FROM_EMAIL=.*|DEFAULT_FROM_EMAIL='A+esthetic <termin@a-esthetic.de>'|" "$ENV_FILE"
+            fi
+            chown root:aestheticbook "$ENV_FILE"
+            chmod 0640 "$ENV_FILE"
+
+            chown -R aestheticbook:aestheticbook "$APP_ROOT"
+            cd "$APP_DIR"
+            runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py migrate --noinput"
+            runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py collectstatic --noinput"
+            runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py seed_booking"
+            mkdir -p "$APP_DIR/media"
+            chown -R aestheticbook:aestheticbook "$APP_DIR/media" "$APP_DIR/staticfiles"
+
+            if ! runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from django.contrib.auth import get_user_model; raise SystemExit(0 if get_user_model().objects.filter(is_superuser=True).exists() else 1)\""; then
+              ADMIN_PASS="$(openssl rand -hex 12)"
+              runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; BOOKING_ADMIN_PASSWORD='$ADMIN_PASS' '$VENV/bin/python' manage.py shell -c \"import os; from django.contrib.auth import get_user_model; U=get_user_model(); U.objects.create_superuser('admin','',os.environ['BOOKING_ADMIN_PASSWORD'])\""
+              printf 'Benutzer: admin\nPasswort: %s\nURL: https://%s/verwaltung/\n' "$ADMIN_PASS" "$DOMAIN" > /root/aesthetic-book-admin.txt
+              chmod 0600 /root/aesthetic-book-admin.txt
+            fi
+
+            cat > /etc/systemd/system/${SERVICE}.service <<EOF
+            [Unit]
+            Description=A+esthetic Booking
+            After=network.target postgresql.service
+
+            [Service]
+            User=aestheticbook
+            Group=aestheticbook
+            WorkingDirectory=$APP_DIR
+            EnvironmentFile=$ENV_FILE
+            ExecStart=$VENV/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8017 --workers 3 --timeout 60 --access-logfile - --error-logfile -
+            Restart=always
+            RestartSec=3
+            PrivateTmp=true
+            NoNewPrivileges=true
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+
+            systemctl daemon-reload
+            systemctl enable "$SERVICE"
+            systemctl restart "$SERVICE"
+
+            if command -v caddy >/dev/null 2>&1 && systemctl is-active --quiet caddy; then
+              CADDYFILE="/etc/caddy/Caddyfile"
+              cp "$CADDYFILE" "$CADDYFILE.backup.$(date +%s)"
+              awk '
+                /^# BEGIN AESTHETIC_BOOK$/ {skip=1; next}
+                /^# END AESTHETIC_BOOK$/ {skip=0; next}
+                !skip {print}
+              ' "$CADDYFILE" > /tmp/Caddyfile.aesthetic-book
+              cat >> /tmp/Caddyfile.aesthetic-book <<EOF
+            # BEGIN AESTHETIC_BOOK
+            $DOMAIN {
+                encode zstd gzip
+                handle_path /media/* {
+                    root * $APP_DIR/media
+                    file_server
+                }
+                reverse_proxy 127.0.0.1:8017
+                header {
+                    X-Content-Type-Options nosniff
+                    X-Frame-Options DENY
+                    Referrer-Policy strict-origin-when-cross-origin
+                }
+            }
+            # END AESTHETIC_BOOK
+            EOF
+              mv /tmp/Caddyfile.aesthetic-book "$CADDYFILE"
+              caddy validate --config "$CADDYFILE"
+              systemctl reload caddy || systemctl restart caddy
+            else
+              apt-get install -y nginx certbot python3-certbot-nginx
+              cat > /etc/nginx/sites-available/aesthetic-book.conf <<EOF
+            server {
+                listen 80;
+                listen [::]:80;
+                server_name $DOMAIN;
+                client_max_body_size 8m;
+
+                location /static/ {
+                    alias $APP_DIR/staticfiles/;
+                    access_log off;
+                    expires 7d;
+                }
+                location /media/ {
+                    alias $APP_DIR/media/;
+                    access_log off;
+                    expires 1d;
+                }
+                location / {
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto \$scheme;
+                    proxy_pass http://127.0.0.1:8017;
+                }
+
+                add_header X-Content-Type-Options nosniff always;
+                add_header X-Frame-Options DENY always;
+                add_header Referrer-Policy strict-origin-when-cross-origin always;
+            }
+            EOF
+              ln -sfn /etc/nginx/sites-available/aesthetic-book.conf /etc/nginx/sites-enabled/aesthetic-book.conf
+              rm -f /etc/nginx/sites-enabled/default
+              nginx -t
+              systemctl enable --now nginx
+              systemctl reload nginx
+              certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || true
+            fi
+
+            sleep 3
+            curl -fsS --max-time 15 http://127.0.0.1:8017/api/health/ | grep -q '"ok": true'
+            systemctl is-active --quiet "$SERVICE"
+            echo "Deployment erfolgreich: https://$DOMAIN"
