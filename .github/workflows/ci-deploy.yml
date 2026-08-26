@@ -69,6 +69,7 @@ jobs:
               rm -rf "$APP_DIR"
               git clone https://github.com/hsdarestani/book.git "$APP_DIR"
             else
+              git config --global --add safe.directory "$APP_DIR"
               git -C "$APP_DIR" fetch origin main
               git -C "$APP_DIR" reset --hard origin/main
             fi
