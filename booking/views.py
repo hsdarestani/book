@@ -1,15 +1,20 @@
+import mimetypes
+import uuid
 from datetime import datetime
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate, login, logout
-from django.http import HttpResponseBadRequest
+from django.db.models import Count
+from django.http import FileResponse, Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_time
-from django.views.decorators.http import require_http_methods
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_http_methods
 
-from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember, WorkingHour
+from .models import Appointment, BlockedPeriod, Customer, PatientRecord, Service, StaffMember, WorkingHour
 
 
 def booking_page(request):
@@ -46,6 +51,149 @@ def _local_dt(day, value):
     if not parsed_day or not parsed_time:
         return None
     return timezone.make_aware(datetime.combine(parsed_day, parsed_time), timezone.get_current_timezone())
+
+
+def _patient_file_path(stored_name):
+    root = Path(settings.PATIENT_FILES_ROOT).resolve()
+    candidate = (root / stored_name).resolve()
+    if candidate != root and root not in candidate.parents:
+        raise Http404('Datei nicht gefunden')
+    return candidate
+
+
+def _delete_patient_file(record):
+    if not record.stored_name:
+        return
+    try:
+        path = _patient_file_path(record.stored_name)
+        if path.exists() and path.is_file():
+            path.unlink()
+        parent = path.parent
+        root = Path(settings.PATIENT_FILES_ROOT).resolve()
+        if parent != root and parent.exists() and not any(parent.iterdir()):
+            parent.rmdir()
+    except (OSError, Http404):
+        pass
+
+
+@staff_member_required(login_url='/verwaltung/login/')
+@require_http_methods(['GET', 'POST'])
+def patient_file(request, customer_id):
+    customer = get_object_or_404(Customer, pk=customer_id)
+    notice = request.GET.get('notice', '')
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'add_record':
+            kind = (request.POST.get('kind') or 'document').strip()
+            allowed_kinds = {value for value, _ in PatientRecord.KIND}
+            if kind not in allowed_kinds:
+                return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=type-error')
+
+            uploaded = request.FILES.get('file')
+            note = (request.POST.get('note') or '').strip()[:6000]
+            title = (request.POST.get('title') or '').strip()[:180]
+            appointment = None
+            appointment_id = (request.POST.get('appointment_id') or '').strip()
+            if appointment_id:
+                appointment = Appointment.objects.filter(pk=appointment_id, customer=customer).first()
+
+            stored_name = ''
+            original_name = ''
+            mime_type = ''
+            file_size = 0
+
+            if uploaded:
+                original_name = Path(uploaded.name or 'datei').name[:255]
+                extension = Path(original_name).suffix.lower()
+                if extension not in settings.PATIENT_FILE_ALLOWED_EXTENSIONS:
+                    return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=file-type')
+                if uploaded.size > settings.PATIENT_FILE_MAX_BYTES:
+                    return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=file-size')
+                if uploaded.size <= 0:
+                    return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=file-empty')
+
+                root = Path(settings.PATIENT_FILES_ROOT)
+                patient_dir = root / str(customer.pk)
+                patient_dir.mkdir(parents=True, exist_ok=True)
+                stored_name = f'{customer.pk}/{uuid.uuid4().hex}{extension}'
+                destination = _patient_file_path(stored_name)
+                with destination.open('wb') as handle:
+                    for chunk in uploaded.chunks():
+                        handle.write(chunk)
+                file_size = uploaded.size
+                mime_type = (uploaded.content_type or mimetypes.guess_type(original_name)[0] or 'application/octet-stream')[:120]
+                if not title:
+                    title = Path(original_name).stem[:180] or 'Datei'
+
+            if not uploaded and not note:
+                return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=empty')
+            if not title:
+                title = 'Notiz'
+            if not uploaded:
+                kind = 'note' if kind == 'document' else kind
+
+            PatientRecord.objects.create(
+                customer=customer,
+                appointment=appointment,
+                kind=kind,
+                title=title,
+                note=note,
+                stored_name=stored_name,
+                original_name=original_name,
+                mime_type=mime_type,
+                file_size=file_size,
+                uploaded_by=request.user,
+            )
+            return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=added#akte')
+
+        if action == 'delete_record':
+            record = get_object_or_404(PatientRecord, pk=request.POST.get('record_id'), customer=customer)
+            _delete_patient_file(record)
+            record.delete()
+            return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=deleted#akte')
+
+    appointments = (
+        Appointment.objects.filter(customer=customer)
+        .select_related('service', 'staff')
+        .order_by('-starts_at')[:80]
+    )
+    records = (
+        PatientRecord.objects.filter(customer=customer)
+        .select_related('appointment', 'appointment__service', 'uploaded_by')
+        .order_by('-created_at', '-pk')
+    )
+    last_appointment = next((item for item in appointments if item.status != 'cancelled'), None)
+    context = {
+        'customer': customer,
+        'appointments': appointments,
+        'records': records,
+        'record_kinds': PatientRecord.KIND,
+        'notice': notice,
+        'last_appointment': last_appointment,
+        'max_upload_mb': settings.PATIENT_FILE_MAX_BYTES // (1024 * 1024),
+    }
+    return render(request, 'booking/patient_file.html', context)
+
+
+@staff_member_required(login_url='/verwaltung/login/')
+@require_http_methods(['GET'])
+def patient_record_file(request, customer_id, record_id):
+    record = get_object_or_404(PatientRecord, public_id=record_id, customer_id=customer_id)
+    if not record.stored_name:
+        raise Http404('Keine Datei vorhanden')
+    path = _patient_file_path(record.stored_name)
+    if not path.exists() or not path.is_file():
+        raise Http404('Datei nicht gefunden')
+    response = FileResponse(
+        path.open('rb'),
+        content_type=record.mime_type or 'application/octet-stream',
+        as_attachment=request.GET.get('download') == '1',
+        filename=record.original_name or path.name,
+    )
+    response['Cache-Control'] = 'private, no-store, max-age=0'
+    response['Pragma'] = 'no-cache'
+    return response
 
 
 @staff_member_required(login_url='/verwaltung/login/')
@@ -130,7 +278,13 @@ def dashboard(request):
         .filter(starts_at__gte=now)
         .order_by('starts_at')[:80]
     )
-    customers = Customer.objects.order_by('-updated_at')[:40]
+    customers = (
+        Customer.objects.annotate(
+            record_count=Count('patient_records', distinct=True),
+            appointment_count=Count('appointments', distinct=True),
+        )
+        .order_by('-updated_at')[:40]
+    )
     canonical_service_slugs = [
         'aesthetische-erstberatung', 'botox-neupatient', 'botox-bestandspatient', 'hyaluron',
         'laser-haarentfernung', 'rf-microneedling', 'skinbooster', 'infusionstherapie',
