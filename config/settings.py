@@ -90,6 +90,9 @@ PATIENT_FILE_ALLOWED_EXTENSIONS = {
     '.pdf', '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif',
     '.doc', '.docx', '.xls', '.xlsx', '.txt', '.rtf', '.csv',
 }
+# Shared only between server-side A+Esthetic services. Never expose this token to
+# browsers or mobile clients; the ingestion route is intended for trusted backends.
+PATIENT_SYNC_TOKEN = os.getenv('PATIENT_SYNC_TOKEN', '')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/admin/login/'
