@@ -2,6 +2,7 @@ import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 
 class Service(models.Model):
@@ -135,6 +136,10 @@ class PatientRecord(models.Model):
     original_name = models.CharField('Originaldatei', max_length=255, blank=True, editable=False)
     mime_type = models.CharField('Dateityp', max_length=120, blank=True, editable=False)
     file_size = models.PositiveBigIntegerField('Dateigröße', default=0, editable=False)
+    source = models.CharField('Quelle', max_length=60, default='manual', db_index=True)
+    external_id = models.CharField('Externe Referenz', max_length=180, blank=True)
+    captured_at = models.DateTimeField('Erfasst am', null=True, blank=True)
+    metadata = models.JSONField('Metadaten', default=dict, blank=True)
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -150,6 +155,13 @@ class PatientRecord(models.Model):
         verbose_name = 'Patientenakte-Eintrag'
         verbose_name_plural = 'Patientenakte-Einträge'
         indexes = [models.Index(fields=['customer', '-created_at'], name='patient_record_customer_idx')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['source', 'external_id'],
+                condition=~Q(external_id=''),
+                name='unique_patient_record_external_source',
+            )
+        ]
 
     @property
     def has_file(self):
