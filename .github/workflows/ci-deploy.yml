@@ -1,4 +1,4 @@
-name: Test and deploy A+esthetic Booking
+name: Test and deploy A+Esthetic Booking
 
 on:
   push:
@@ -64,6 +64,7 @@ jobs:
             VENV="$APP_ROOT/venv"
             ENV_FILE="/etc/aesthetic-book.env"
             SERVICE="aesthetic-book"
+            PATIENT_FILES="$APP_ROOT/private/patient-files"
 
             apt-get update -y
             apt-get install -y git python3 python3-venv python3-pip postgresql postgresql-contrib curl openssl
@@ -75,7 +76,7 @@ jobs:
               useradd --system --gid aestheticbook --create-home --home-dir "$APP_ROOT" --shell /usr/sbin/nologin aestheticbook
             fi
 
-            mkdir -p "$APP_ROOT"
+            mkdir -p "$APP_ROOT" "$PATIENT_FILES"
             if [ ! -d "$APP_DIR/.git" ]; then
               rm -rf "$APP_DIR"
               git clone https://github.com/hsdarestani/book.git "$APP_DIR"
@@ -118,8 +119,10 @@ jobs:
             DB_PASSWORD=
             DB_HOST=
             DB_PORT=
+            PATIENT_FILES_ROOT=$PATIENT_FILES
+            PATIENT_FILE_MAX_BYTES=26214400
             BOOKING_NOTIFICATION_EMAIL=$BOOKING_NOTIFICATION_EMAIL
-            DEFAULT_FROM_EMAIL='A+esthetic <$STRATO_SMTP_USER>'
+            DEFAULT_FROM_EMAIL='A+Esthetic <$STRATO_SMTP_USER>'
             EMAIL_HOST=smtp.strato.de
             EMAIL_PORT=465
             EMAIL_HOST_USER=$STRATO_SMTP_USER
@@ -132,12 +135,13 @@ jobs:
             chmod 0640 "$ENV_FILE"
 
             chown -R aestheticbook:aestheticbook "$APP_ROOT"
+            chmod 0750 "$APP_ROOT/private" "$PATIENT_FILES"
             cd "$APP_DIR"
             runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py migrate --noinput"
             runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py collectstatic --noinput"
             runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py seed_booking"
             mkdir -p "$APP_DIR/media"
-            chown -R aestheticbook:aestheticbook "$APP_DIR/media" "$APP_DIR/staticfiles"
+            chown -R aestheticbook:aestheticbook "$APP_DIR/media" "$APP_DIR/staticfiles" "$PATIENT_FILES"
 
             export BOOKING_ADMIN_PASSWORD
             runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"import os; from django.contrib.auth import get_user_model; U=get_user_model(); u, _ = U.objects.get_or_create(username='admin'); u.is_staff=True; u.is_superuser=True; u.is_active=True; u.set_password(os.environ['BOOKING_ADMIN_PASSWORD']); u.save()\""
@@ -146,7 +150,7 @@ jobs:
 
             cat > /etc/systemd/system/${SERVICE}.service <<EOF
             [Unit]
-            Description=A+esthetic Booking
+            Description=A+Esthetic Booking
             After=network.target postgresql.service
 
             [Service]
@@ -203,7 +207,7 @@ jobs:
                 listen 80;
                 listen [::]:80;
                 server_name $DOMAIN;
-                client_max_body_size 8m;
+                client_max_body_size 30m;
 
                 location /media/ {
                     alias $APP_DIR/media/;
@@ -234,12 +238,13 @@ jobs:
             sleep 3
             curl -fsS --max-time 15 http://127.0.0.1:8017/api/health/ | grep -q '"ok": true'
             curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.css" | grep -q '.booking-shell'
-            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.js" | grep -q 'fetch'
+            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.js" | grep -q 'treatmentIcon'
+            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/patient.css" | grep -q '.patient-file-layout'
             systemctl is-active --quiet "$SERVICE"
 
             SMTP_TEST_MARKER="$APP_ROOT/.smtp-test-v1-ok"
             if [ ! -f "$SMTP_TEST_MARKER" ]; then
-              runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from django.conf import settings; from django.core.mail import send_mail; send_mail('A+esthetic Buchung – E-Mail-Test', 'Die STRATO E-Mail-Verbindung für die A+esthetic Terminbuchung wurde erfolgreich eingerichtet.', settings.DEFAULT_FROM_EMAIL, [settings.BOOKING_NOTIFICATION_EMAIL], fail_silently=False)\""
+              runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from django.conf import settings; from django.core.mail import send_mail; send_mail('A+Esthetic Buchung – E-Mail-Test', 'Die STRATO E-Mail-Verbindung für die A+Esthetic Terminbuchung wurde erfolgreich eingerichtet.', settings.DEFAULT_FROM_EMAIL, [settings.BOOKING_NOTIFICATION_EMAIL], fail_silently=False)\""
               touch "$SMTP_TEST_MARKER"
               chown aestheticbook:aestheticbook "$SMTP_TEST_MARKER"
             fi
