@@ -90,9 +90,13 @@ PATIENT_FILE_ALLOWED_EXTENSIONS = {
     '.pdf', '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif',
     '.doc', '.docx', '.xls', '.xlsx', '.txt', '.rtf', '.csv',
 }
-# Shared only between server-side A+Esthetic services. Never expose this token to
-# browsers or mobile clients; the ingestion route is intended for trusted backends.
+# Optional shared-token auth plus a fail-closed DNS/IP allowlist for trusted
+# A+Esthetic server-to-server synchronization. Neither path is exposed to clients.
 PATIENT_SYNC_TOKEN = os.getenv('PATIENT_SYNC_TOKEN', '')
+PATIENT_SYNC_TOKEN_FILE = os.getenv('PATIENT_SYNC_TOKEN_FILE', '/etc/aesthetic-patient-sync.token')
+PATIENT_SYNC_ALLOWED_HOSTS = [
+    x.strip() for x in os.getenv('PATIENT_SYNC_ALLOWED_HOSTS', 'esthetic.smarbiz.sbs').split(',') if x.strip()
+]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/admin/login/'

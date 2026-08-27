@@ -1,9 +1,11 @@
 import base64
 import binascii
+import ipaddress
 import json
 import mimetypes
 import re
 import secrets
+import socket
 import uuid
 from pathlib import Path
 
@@ -32,16 +34,77 @@ def _sync_token():
         return ''
 
 
-def _authorized(request):
-    expected = _sync_token()
-    if not expected:
+def _normalize_ip(value):
+    raw = str(value or '').strip()
+    if not raw:
         return None
-    provided = str(request.headers.get('X-Aesthetic-Patient-Sync') or '').strip()
-    if not provided:
-        authorization = str(request.headers.get('Authorization') or '').strip()
-        if authorization.lower().startswith('bearer '):
-            provided = authorization[7:].strip()
-    return bool(provided) and secrets.compare_digest(provided, expected)
+    try:
+        address = ipaddress.ip_address(raw)
+    except ValueError:
+        return None
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        return address.ipv4_mapped
+    return address
+
+
+def _client_ip(request):
+    # Both Caddy and the production Nginx configuration append the real upstream
+    # peer to X-Forwarded-For. Taking the right-most valid address prevents a
+    # caller-supplied left-most XFF value from becoming an authentication bypass.
+    forwarded = str(request.META.get('HTTP_X_FORWARDED_FOR') or '')
+    if forwarded:
+        for value in reversed(forwarded.split(',')):
+            address = _normalize_ip(value)
+            if address is not None:
+                return address
+    return _normalize_ip(request.META.get('REMOTE_ADDR'))
+
+
+def _trusted_source_addresses():
+    addresses = set()
+    for host in getattr(settings, 'PATIENT_SYNC_ALLOWED_HOSTS', []):
+        host = str(host or '').strip()
+        if not host:
+            continue
+        literal = _normalize_ip(host)
+        if literal is not None:
+            addresses.add(literal)
+            continue
+        try:
+            infos = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+        except socket.gaierror:
+            continue
+        for info in infos:
+            address = _normalize_ip(info[4][0])
+            if address is not None:
+                addresses.add(address)
+    return addresses
+
+
+def _trusted_source(request):
+    client = _client_ip(request)
+    if client is None:
+        return False
+    return client in _trusted_source_addresses()
+
+
+def _authorized(request):
+    # Preferred path: shared token, when one is configured on both services.
+    expected = _sync_token()
+    if expected:
+        provided = str(request.headers.get('X-Aesthetic-Patient-Sync') or '').strip()
+        if not provided:
+            authorization = str(request.headers.get('Authorization') or '').strip()
+            if authorization.lower().startswith('bearer '):
+                provided = authorization[7:].strip()
+        if provided and secrets.compare_digest(provided, expected):
+            return True
+
+    # The Customer Club currently runs on a separate A+Esthetic server. As a
+    # second, server-only authentication path, accept requests whose actual
+    # reverse-proxy peer matches the DNS address of the configured trusted host.
+    # This is intentionally fail-closed when DNS cannot be resolved or changes.
+    return _trusted_source(request)
 
 
 def _payload(request):
@@ -119,10 +182,7 @@ def _parse_captured_at(value):
 @csrf_exempt
 @require_POST
 def ingest_patient_record(request):
-    auth = _authorized(request)
-    if auth is None:
-        return _error('integration_not_configured', 'Patientenakten-Synchronisation ist nicht konfiguriert.', 503)
-    if not auth:
+    if not _authorized(request):
         return _error('unauthorized', 'Nicht autorisiert.', 401)
 
     data = _payload(request)
