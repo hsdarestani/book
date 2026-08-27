@@ -1,12 +1,127 @@
 {% load static %}
 <!doctype html>
 <html lang="de">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verwaltung | A+esthetic Buchung</title><link rel="stylesheet" href="{% static 'booking/app.css' %}"><link rel="stylesheet" href="{% static 'booking/admin.css' %}"></head>
-<body class="admin-body"><main class="admin-shell">
-<header class="admin-topbar"><div><a class="brand" href="/verwaltung/">A<span>+</span>esthetic</a><div class="brand-meta">Buchungsverwaltung</div></div><div class="admin-actions"><a href="/" target="_blank">Buchungsseite öffnen</a><a href="/admin/logout/">Abmelden</a></div></header>
-<section class="admin-hero"><div><div class="eyebrow">Heute im Blick</div><h1>Buchungsübersicht</h1><p>Termine, Behandlungen, Mitarbeiter und Verfügbarkeiten zentral verwalten.</p></div></section>
-<section class="metric-grid"><article><strong>{{ today_count }}</strong><span>Termine heute</span></article><article><strong>{{ new_count }}</strong><span>Neue Anfragen</span></article><article><strong>{{ customer_count }}</strong><span>Kunden</span></article><article><strong>{{ staff_count }}</strong><span>Aktive Mitarbeiter</span></article></section>
-<section class="admin-grid"><article class="admin-panel wide"><div class="panel-head"><div><div class="eyebrow">Nächste Termine</div><h2>Kommende Buchungen</h2></div><a href="/admin/booking/appointment/">Alle Termine</a></div><div class="appointments-table">
-{% for item in upcoming %}<a class="appointment-row" href="/admin/booking/appointment/{{ item.pk }}/change/"><time>{{ item.starts_at|date:"d.m." }}<b>{{ item.starts_at|date:"H:i" }}</b></time><div><strong>{{ item.customer.full_name }}</strong><span>{{ item.service.name }} · {{ item.staff.display_name }}</span></div><em class="status status-{{ item.status }}">{{ item.get_status_display }}</em></a>{% empty %}<div class="empty">Aktuell stehen keine kommenden Termine an.</div>{% endfor %}</div></article>
-<aside class="admin-panel quicklinks"><div class="eyebrow">Verwalten</div><h2>Direktzugriff</h2><a href="/admin/booking/appointment/"><b>Termine</b><span>Status und Details bearbeiten</span></a><a href="/admin/booking/service/"><b>Behandlungen</b><span>Dauer, Preis und Buchbarkeit</span></a><a href="/admin/booking/staffmember/"><b>Mitarbeiter</b><span>Leistungen und Arbeitszeiten</span></a><a href="/admin/booking/blockedperiod/"><b>Abwesenheiten</b><span>Urlaub und Sperrzeiten</span></a><a href="/admin/booking/customer/"><b>Kunden</b><span>Kontaktdaten und Historie</span></a></aside></section>
-</main></body></html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Verwaltung | A+esthetic Buchung</title>
+  <link rel="stylesheet" href="{% static 'booking/app.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
+</head>
+<body class="admin-body">
+<main class="admin-shell">
+  <header class="admin-topbar">
+    <div class="admin-brand"><a class="brand" href="/verwaltung/">A<span>+</span>esthetic</a><div class="brand-meta">Buchungsverwaltung</div></div>
+    <nav class="admin-nav" aria-label="Verwaltung">
+      <a href="#uebersicht">Übersicht</a><a href="#kalender">Kalender</a><a href="#termine">Termine</a><a href="#behandlungen">Behandlungen</a><a href="#kunden">Kunden</a>
+    </nav>
+    <div class="admin-actions"><a href="/" target="_blank">Buchungsseite ↗</a><a href="/verwaltung/logout/">Abmelden</a></div>
+  </header>
+
+  {% if notice %}
+  <div class="admin-notice {% if notice == 'block-error' or notice == 'service-error' %}is-error{% endif %}">
+    {% if notice == 'hours' %}Verfügbarkeit wurde gespeichert.{% elif notice == 'block' %}Sperrzeit wurde angelegt.{% elif notice == 'block-deleted' %}Sperrzeit wurde entfernt.{% elif notice == 'appointment' %}Terminstatus wurde aktualisiert.{% elif notice == 'service' %}Behandlung wurde gespeichert.{% elif notice == 'block-error' %}Bitte prüfe Datum und Uhrzeit der Sperrzeit.{% elif notice == 'service-error' %}Bitte prüfe Dauer und Puffer.{% endif %}
+  </div>
+  {% endif %}
+
+  <section class="admin-hero" id="uebersicht">
+    <div><div class="eyebrow">Heute im Blick</div><h1>Buchungsübersicht</h1><p>Termine, Behandlungen und die Kalender deiner Ärztinnen und Ärzte an einem Ort.</p></div>
+  </section>
+
+  <section class="metric-grid">
+    <article><strong>{{ today_count }}</strong><span>Termine heute</span></article>
+    <article><strong>{{ new_count }}</strong><span>Neue Anfragen</span></article>
+    <article><strong>{{ customer_count }}</strong><span>Kunden</span></article>
+    <article><strong>{{ staff_count }}</strong><span>Aktive Behandler</span></article>
+  </section>
+
+  <section class="admin-panel calendar-panel" id="kalender">
+    <div class="panel-head calendar-title">
+      <div><div class="eyebrow">Verfügbarkeit</div><h2>Kalender & buchbare Zeiten</h2><p>Jeder Behandler hat seinen eigenen Wochenkalender. Änderungen wirken direkt auf die online sichtbaren Termine.</p></div>
+    </div>
+
+    <div class="doctor-switcher" role="navigation" aria-label="Behandler wählen">
+      {% for member in staff_members %}
+      <a href="/verwaltung/?staff={{ member.pk }}#kalender" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b>{{ member.display_name }}</b></a>
+      {% endfor %}
+    </div>
+
+    {% if selected_staff %}
+    <div class="calendar-layout">
+      <form method="post" class="availability-editor">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_hours">
+        <input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">
+        <div class="editor-head"><div><span>Wochenplan</span><h3>{{ selected_staff.display_name }}</h3></div><button type="submit" class="admin-primary">Zeiten speichern</button></div>
+        <div class="week-grid">
+          {% for row in availability_rows %}
+          <div class="week-row">
+            <label class="day-toggle"><input type="checkbox" name="day_{{ row.weekday }}_enabled" {% if row.enabled %}checked{% endif %}><span></span><b>{{ row.label }}</b></label>
+            <div class="time-period"><small>Zeitraum 1</small><div><input type="time" name="day_{{ row.weekday }}_start_1" value="{{ row.start_1 }}"><span>bis</span><input type="time" name="day_{{ row.weekday }}_end_1" value="{{ row.end_1 }}"></div></div>
+            <div class="time-period optional-period"><small>Zeitraum 2 <em>optional</em></small><div><input type="time" name="day_{{ row.weekday }}_start_2" value="{{ row.start_2 }}"><span>bis</span><input type="time" name="day_{{ row.weekday }}_end_2" value="{{ row.end_2 }}"></div></div>
+          </div>
+          {% endfor %}
+        </div>
+      </form>
+
+      <aside class="exceptions-panel">
+        <div class="editor-head"><div><span>Ausnahmen</span><h3>Sperrzeiten</h3></div></div>
+        <form method="post" class="block-form">
+          {% csrf_token %}<input type="hidden" name="action" value="add_block"><input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">
+          <label>Datum<input type="date" name="block_date" required></label>
+          <div class="block-time-row"><label>Von<input type="time" name="block_start" required></label><label>Bis<input type="time" name="block_end" required></label></div>
+          <label>Grund <small>optional</small><input type="text" name="block_reason" maxlength="160" placeholder="z. B. Urlaub, Fortbildung"></label>
+          <button class="admin-secondary" type="submit">Sperrzeit hinzufügen</button>
+        </form>
+        <div class="block-list">
+          {% for block in blocked_periods %}
+          <div class="block-item"><div><strong>{{ block.starts_at|date:"d.m.Y" }}</strong><span>{{ block.starts_at|date:"H:i" }}–{{ block.ends_at|date:"H:i" }}{% if block.reason %} · {{ block.reason }}{% endif %}</span></div><form method="post">{% csrf_token %}<input type="hidden" name="action" value="delete_block"><input type="hidden" name="staff_id" value="{{ selected_staff.pk }}"><input type="hidden" name="block_id" value="{{ block.pk }}"><button type="submit" aria-label="Sperrzeit löschen">×</button></form></div>
+          {% empty %}<div class="empty compact">Keine zukünftigen Sperrzeiten.</div>{% endfor %}
+        </div>
+      </aside>
+    </div>
+    {% else %}<div class="empty">Es ist noch kein aktiver Behandler angelegt.</div>{% endif %}
+  </section>
+
+  <section class="admin-panel" id="termine">
+    <div class="panel-head"><div><div class="eyebrow">Buchungen</div><h2>Kommende Termine</h2></div><span class="panel-count">{{ upcoming|length }} angezeigt</span></div>
+    <div class="admin-table appointment-table">
+      <div class="table-head"><span>Zeit</span><span>Kunde</span><span>Behandlung</span><span>Behandler</span><span>Status</span></div>
+      {% for item in upcoming %}
+      <div class="table-row">
+        <time>{{ item.starts_at|date:"d.m.Y" }}<b>{{ item.starts_at|date:"H:i" }}</b></time>
+        <div><strong>{{ item.customer.full_name }}</strong><small>{{ item.customer.email }} · {{ item.customer.phone }}</small></div>
+        <div><strong>{{ item.service.name }}</strong><small>{% if item.returning_customer %}Bestandspatient{% else %}Neupatient{% endif %} · {{ item.referral_source|default:"Quelle offen" }}</small></div>
+        <div>{{ item.staff.display_name }}</div>
+        <form method="post" class="status-form">{% csrf_token %}<input type="hidden" name="action" value="appointment_status"><input type="hidden" name="appointment_id" value="{{ item.pk }}">{% if selected_staff %}<input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">{% endif %}<select name="status" onchange="this.form.submit()">{% for value,label in appointment_statuses %}<option value="{{ value }}" {% if value == item.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></form>
+      </div>
+      {% empty %}<div class="empty">Aktuell stehen keine kommenden Termine an.</div>{% endfor %}
+    </div>
+  </section>
+
+  <section class="admin-panel" id="behandlungen">
+    <div class="panel-head"><div><div class="eyebrow">Katalog</div><h2>Behandlungen</h2><p>Dauer, Preis und Online-Buchbarkeit kannst du hier direkt ändern.</p></div></div>
+    <div class="service-editor-list">
+      {% for service in services %}
+      <form method="post" class="service-editor {% if not service.active %}is-muted{% endif %}">
+        {% csrf_token %}<input type="hidden" name="action" value="save_service"><input type="hidden" name="service_id" value="{{ service.pk }}">
+        <label class="service-name">Name<input name="name" value="{{ service.name }}" maxlength="140"></label>
+        <label>Dauer<input type="number" min="5" step="5" name="duration_minutes" value="{{ service.duration_minutes }}"><small>Min.</small></label>
+        <label>Puffer<input type="number" min="0" step="5" name="buffer_minutes" value="{{ service.buffer_minutes }}"><small>Min.</small></label>
+        <label class="service-price">Preisangabe<input name="price_label" value="{{ service.price_label }}" maxlength="80" placeholder="z. B. ab 119 €"></label>
+        <div class="service-checks"><label><input type="checkbox" name="active" {% if service.active %}checked{% endif %}> Aktiv</label><label><input type="checkbox" name="bookable" {% if service.bookable %}checked{% endif %}> Online buchbar</label><label><input type="checkbox" name="requires_confirmation" {% if service.requires_confirmation %}checked{% endif %}> Bestätigung nötig</label></div>
+        <button type="submit" class="mini-save">Speichern</button>
+      </form>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="admin-panel" id="kunden">
+    <div class="panel-head"><div><div class="eyebrow">CRM</div><h2>Letzte Kunden</h2></div></div>
+    <div class="customer-grid">
+      {% for customer in customers %}<article><div class="customer-avatar">{{ customer.first_name|slice:":1" }}{{ customer.last_name|slice:":1" }}</div><div><strong>{{ customer.full_name }}</strong><span>{{ customer.email }}</span><span>{{ customer.phone|default:"Keine Telefonnummer" }}</span></div></article>{% empty %}<div class="empty">Noch keine Kunden vorhanden.</div>{% endfor %}
+    </div>
+  </section>
+</main>
+</body>
+</html>
