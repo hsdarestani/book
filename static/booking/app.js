@@ -2,7 +2,7 @@
   const state = { service: null, staff: null, startsAt: null, slotLabel: null };
   const providerPhotos = {
     'Frau Ariane Regaei': '/static/booking/staff/ariane-regaei.jpg',
-    'A+esthetic Arzt': '/static/booking/staff/doctor-male.jpg',
+    'Qamar Hameed': '/static/booking/staff/doctor-male.jpg',
   };
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => [...document.querySelectorAll(s)];
