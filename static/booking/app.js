@@ -5,12 +5,14 @@
     startsAt: null,
     slotLabel: null,
     dateLabel: null,
+    availabilityDays: [],
+    selectedDayIndex: 0,
     currentStep: 1,
     maxStep: 1,
   };
 
   const providerPhotos = {
-    'Frau Ariane Regaei': '/static/booking/staff/ariane-regaei.jpg',
+    'Frau Ariane Regaei': '/static/booking/staff/ariane-regaei.jpg?v=e0a400ebbcee',
     'Qamar Hameed': '/static/booking/staff/doctor-male.jpg',
   };
   const providerTitles = {
@@ -90,6 +92,8 @@
         state.startsAt = null;
         state.slotLabel = null;
         state.dateLabel = null;
+        state.availabilityDays = [];
+        state.selectedDayIndex = 0;
         loadStaff();
         go(2);
       }));
@@ -123,6 +127,8 @@
         state.startsAt = null;
         state.slotLabel = null;
         state.dateLabel = null;
+        state.availabilityDays = [];
+        state.selectedDayIndex = 0;
         loadAvailabilityOverview();
         go(3);
       }));
@@ -136,9 +142,72 @@
     const d = new Date(`${isoDate}T12:00:00`);
     return {
       weekday: new Intl.DateTimeFormat('de-DE', { weekday: 'long' }).format(d),
-      short: new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' }).format(d),
+      weekdayShort: new Intl.DateTimeFormat('de-DE', { weekday: 'short' }).format(d).replace('.', ''),
+      day: new Intl.DateTimeFormat('de-DE', { day: '2-digit' }).format(d),
+      monthShort: new Intl.DateTimeFormat('de-DE', { month: 'short' }).format(d).replace('.', ''),
       full: new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(d),
     };
+  }
+
+  function renderSelectedDay(index, { scroll = true } = {}) {
+    const root = $('#slots');
+    const day = state.availabilityDays[index];
+    if (!day) return;
+    state.selectedDayIndex = index;
+    state.startsAt = null;
+    state.slotLabel = null;
+    state.dateLabel = null;
+
+    root.querySelectorAll('.date-chip').forEach((chip) => {
+      const selected = Number(chip.dataset.dayIndex) === index;
+      chip.classList.toggle('is-active', selected);
+      chip.setAttribute('aria-selected', selected ? 'true' : 'false');
+      chip.setAttribute('tabindex', selected ? '0' : '-1');
+    });
+
+    const label = formatDate(day.date);
+    const title = root.querySelector('[data-selected-day-title]');
+    const count = root.querySelector('[data-selected-day-count]');
+    const timeRoot = root.querySelector('[data-time-slots]');
+    if (title) title.textContent = `${label.weekday}, ${label.day}. ${label.monthShort}`;
+    if (count) count.textContent = `${day.slots.length} freie ${day.slots.length === 1 ? 'Zeit' : 'Zeiten'}`;
+    if (timeRoot) {
+      timeRoot.innerHTML = day.slots.map((s) => `<button type="button" class="slot" data-start="${esc(s.starts_at)}" data-label="${esc(s.label)}" data-date="${esc(label.full)}">${esc(s.label)}</button>`).join('');
+      timeRoot.querySelectorAll('.slot').forEach((btn) => btn.addEventListener('click', () => {
+        state.startsAt = btn.dataset.start;
+        state.slotLabel = btn.dataset.label;
+        state.dateLabel = btn.dataset.date;
+        renderSummary();
+        go(4);
+      }));
+    }
+
+    if (scroll) {
+      const active = root.querySelector(`.date-chip[data-day-index="${index}"]`);
+      active?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }
+
+  function bindAvailabilityControls() {
+    const root = $('#slots');
+    const rail = root.querySelector('[data-date-rail]');
+    root.querySelectorAll('.date-chip').forEach((chip) => chip.addEventListener('click', () => {
+      renderSelectedDay(Number(chip.dataset.dayIndex));
+    }));
+    root.querySelector('[data-date-prev]')?.addEventListener('click', () => {
+      rail?.scrollBy({ left: -Math.max(260, rail.clientWidth * 0.78), behavior: 'smooth' });
+    });
+    root.querySelector('[data-date-next]')?.addEventListener('click', () => {
+      rail?.scrollBy({ left: Math.max(260, rail.clientWidth * 0.78), behavior: 'smooth' });
+    });
+    rail?.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      const delta = event.key === 'ArrowRight' ? 1 : -1;
+      const next = Math.max(0, Math.min(state.availabilityDays.length - 1, state.selectedDayIndex + delta));
+      renderSelectedDay(next);
+      root.querySelector(`.date-chip[data-day-index="${next}"]`)?.focus({ preventScroll: true });
+    });
   }
 
   async function loadAvailabilityOverview() {
@@ -148,20 +217,30 @@
       const q = new URLSearchParams({ service_id: state.service.id, staff_id: state.staff.id, days: 30 });
       const data = await getJSON(`/api/availability/overview/?${q}`);
       if (!data.days.length) {
-        root.innerHTML = '<div class="slot-empty slot-empty-card">In den nächsten 30 Tagen ist online kein freier Termin verfügbar. Bitte melde dich direkt bei A+esthetic.</div>';
+        root.innerHTML = '<div class="slot-empty slot-empty-card">In den nächsten 30 Tagen ist online kein freier Termin verfügbar. Bitte melde dich direkt bei A+Esthetic.</div>';
         return;
       }
-      root.innerHTML = data.days.map((day) => {
-        const label = formatDate(day.date);
-        return `<section class="day-card"><header class="day-head"><div><strong>${esc(label.weekday)}</strong><span>${esc(label.short)}</span></div><small>${day.slots.length} freie ${day.slots.length === 1 ? 'Zeit' : 'Zeiten'}</small></header><div class="day-slots">${day.slots.map((s) => `<button type="button" class="slot" data-start="${esc(s.starts_at)}" data-label="${esc(s.label)}" data-date="${esc(label.full)}">${esc(s.label)}</button>`).join('')}</div></section>`;
-      }).join('');
-      root.querySelectorAll('.slot').forEach((btn) => btn.addEventListener('click', () => {
-        state.startsAt = btn.dataset.start;
-        state.slotLabel = btn.dataset.label;
-        state.dateLabel = btn.dataset.date;
-        renderSummary();
-        go(4);
-      }));
+      state.availabilityDays = data.days;
+      state.selectedDayIndex = 0;
+      root.innerHTML = `
+        <div class="availability-picker">
+          <div class="date-carousel-shell">
+            <button type="button" class="date-nav date-nav-prev" data-date-prev aria-label="Frühere verfügbare Tage">‹</button>
+            <div class="date-rail" data-date-rail role="tablist" aria-label="Verfügbare Tage">
+              ${data.days.map((day, index) => {
+                const label = formatDate(day.date);
+                return `<button type="button" class="date-chip${index === 0 ? ' is-active' : ''}" role="tab" aria-selected="${index === 0 ? 'true' : 'false'}" tabindex="${index === 0 ? '0' : '-1'}" data-day-index="${index}"><span>${esc(label.weekdayShort)}</span><strong>${esc(label.day)}</strong><small>${esc(label.monthShort)}</small><em>${day.slots.length}</em></button>`;
+              }).join('')}
+            </div>
+            <button type="button" class="date-nav date-nav-next" data-date-next aria-label="Spätere verfügbare Tage">›</button>
+          </div>
+          <div class="time-panel">
+            <div class="time-panel-head"><div><span>Verfügbare Uhrzeiten</span><strong data-selected-day-title></strong></div><small data-selected-day-count></small></div>
+            <div class="time-grid" data-time-slots></div>
+          </div>
+        </div>`;
+      bindAvailabilityControls();
+      renderSelectedDay(0, { scroll: false });
     } catch (e) {
       root.innerHTML = '';
       showError(e.message);
@@ -213,7 +292,7 @@
         body: JSON.stringify(data),
       });
       $('#success-text').textContent = result.appointment.status === 'new'
-        ? 'Deine Terminanfrage ist eingegangen und wird von A+esthetic bestätigt.'
+        ? 'Deine Terminanfrage ist eingegangen und wird von A+Esthetic bestätigt.'
         : 'Dein Termin wurde erfolgreich bestätigt.';
       renderSummary('#success-summary');
       go(5);

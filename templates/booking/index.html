@@ -5,20 +5,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0d0d0d">
-  <title>Termin buchen | A+esthetic</title>
-  <meta name="description" content="Buche deinen Termin bei A+esthetic online.">
+  <title>Termin buchen | A+Esthetic</title>
+  <meta name="description" content="Buche deinen Termin bei A+Esthetic online.">
   <link rel="stylesheet" href="{% static 'booking/app.css' %}">
 </head>
 <body>
   <main class="booking-shell">
     <header class="brandbar">
-      <a class="brand" href="https://a-esthetic.de/" aria-label="A+esthetic Startseite">A<span>+</span>esthetic</a>
+      <a class="brand brand-image" href="https://a-esthetic.de/" aria-label="A+Esthetic Startseite"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+Esthetic"></a>
       <div class="brand-meta">Terminbuchung</div>
     </header>
 
     <section class="hero">
       <div class="eyebrow">Persönlich. Präzise. Diskret.</div>
-      <h1>Dein Termin bei A+esthetic</h1>
+      <h1>Dein Termin bei A+Esthetic</h1>
       <p>Wähle deine Behandlung, deine Ärztin oder deinen Arzt und direkt einen freien Termin.</p>
     </section>
 
@@ -44,7 +44,7 @@
 
       <section class="step" data-step="3">
         <button class="back" type="button" data-back="2">← Zurück</button>
-        <div class="step-head"><span>03</span><div><h2>Freien Termin wählen</h2><p>Alle verfügbaren Tage und Uhrzeiten werden dir direkt angezeigt.</p></div></div>
+        <div class="step-head"><span>03</span><div><h2>Freien Termin wählen</h2><p>Wische durch die verfügbaren Tage und wähle darunter direkt deine Uhrzeit.</p></div></div>
         <div id="slots" class="availability-list"></div>
       </section>
 
@@ -75,7 +75,7 @@
                 <option value="Instagram">Instagram</option>
                 <option value="TikTok">TikTok</option>
                 <option value="Empfehlung">Empfehlung</option>
-                <option value="A+esthetic Website">A+esthetic Website</option>
+                <option value="A+Esthetic Website">A+Esthetic Website</option>
                 <option value="Vor Ort / Laufkundschaft">Vor Ort / Laufkundschaft</option>
                 <option value="Arzt / Partner">Arzt / Partner</option>
                 <option value="Sonstiges">Sonstiges</option>
@@ -86,16 +86,16 @@
           <div id="summary" class="summary"></div>
 
           <div class="consent-stack">
-            <label class="privacy-check"><input name="marketing_opt_in" type="checkbox" checked> <span>Ich möchte als Erstes von Aktionen, Angeboten und Neuigkeiten von A+esthetic erfahren.</span></label>
-            <label class="privacy-check"><input name="cancellation_terms_accepted" type="checkbox" required> <span>Ich stimme den <a href="#stornierungsbedingungen" data-open-terms>Stornierungsbedingungen von A+esthetic</a> zu.</span></label>
+            <label class="privacy-check"><input name="marketing_opt_in" type="checkbox" checked> <span>Ich möchte als Erstes von Aktionen, Angeboten und Neuigkeiten von A+Esthetic erfahren.</span></label>
+            <label class="privacy-check"><input name="cancellation_terms_accepted" type="checkbox" required> <span>Ich stimme den <a href="#stornierungsbedingungen" data-open-terms>Stornierungsbedingungen von A+Esthetic</a> zu.</span></label>
             <label class="privacy-check"><input name="privacy_accepted" type="checkbox" required> <span>Ich stimme der Verarbeitung meiner Angaben zur Terminorganisation zu und habe die <a href="https://a-esthetic.de/datenschutz/" target="_blank" rel="noopener">Datenschutzhinweise</a> gelesen.</span></label>
           </div>
 
           <details id="stornierungsbedingungen" class="terms-box">
             <summary>Stornierungsbedingungen lesen</summary>
             <div class="terms-content">
-              <div class="terms-kicker">A+ Esthetic – Zentrum für Ästhetik · Widerrufsbelehrung</div>
-              <h3>Stornierungsbedingungen für A+ Esthetic</h3>
+              <div class="terms-kicker">A+Esthetic – Zentrum für Ästhetik · Widerrufsbelehrung</div>
+              <h3>Stornierungsbedingungen für A+Esthetic</h3>
               <p><strong>1. Terminabsage oder -verschiebung:</strong><br>Falls du deinen Termin nicht wahrnehmen kannst, bitten wir dich, diesen <strong>mindestens 48 Stunden im Voraus</strong> zu stornieren oder zu verschieben.</p>
               <p><strong>2. Kurzfristige Absagen:</strong><br>Bei Absagen <strong>weniger als 48 Stunden</strong> vor dem Termin behalten wir uns vor, <strong>50% der Behandlungskosten</strong> in Rechnung zu stellen.</p>
               <p><strong>3. Nichterscheinen ohne Absage:</strong><br>Bei Nichterscheinen ohne vorherige Mitteilung berechnen wir <strong>100% der geplanten Behandlungskosten</strong>.</p>
@@ -112,11 +112,11 @@
       <section class="step success" data-step="5">
         <div class="success-mark">✓</div><div class="eyebrow">Termin gespeichert</div><h2>Vielen Dank.</h2>
         <p id="success-text">Dein Termin wurde erfolgreich gespeichert.</p><div id="success-summary" class="summary"></div>
-        <a class="secondary-link" href="https://a-esthetic.de/">Zurück zu A+esthetic</a>
+        <a class="secondary-link" href="https://a-esthetic.de/">Zurück zu A+Esthetic</a>
       </section>
     </section>
 
-    <footer><span>A+esthetic</span><a href="https://a-esthetic.de/impressum/">Impressum</a><a href="https://a-esthetic.de/datenschutz/">Datenschutz</a></footer>
+    <footer><span>A+Esthetic</span><a href="https://a-esthetic.de/impressum/">Impressum</a><a href="https://a-esthetic.de/datenschutz/">Datenschutz</a></footer>
   </main>
   <script src="{% static 'booking/app.js' %}" defer></script>
 </body>
