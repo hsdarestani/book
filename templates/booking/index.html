@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0d0d0d">
   <title>Termin buchen | A+esthetic</title>
-  <meta name="description" content="Buchen Sie Ihren Termin bei A+esthetic online.">
+  <meta name="description" content="Buche deinen Termin bei A+esthetic online.">
   <link rel="stylesheet" href="{% static 'booking/app.css' %}">
 </head>
 <body>
@@ -18,54 +18,104 @@
 
     <section class="hero">
       <div class="eyebrow">Persönlich. Präzise. Diskret.</div>
-      <h1>Ihr Termin bei A+esthetic</h1>
-      <p>Wählen Sie Behandlung, Ärztin oder Arzt und Ihren passenden Termin.</p>
+      <h1>Dein Termin bei A+esthetic</h1>
+      <p>Wähle deine Behandlung, deine Ärztin oder deinen Arzt und direkt einen freien Termin.</p>
     </section>
 
     <section class="booking-card" aria-live="polite">
       <div class="progress" aria-label="Buchungsfortschritt">
-        <span class="progress-dot is-active" data-progress="1">1</span><span class="progress-line"></span>
-        <span class="progress-dot" data-progress="2">2</span><span class="progress-line"></span>
-        <span class="progress-dot" data-progress="3">3</span><span class="progress-line"></span>
-        <span class="progress-dot" data-progress="4">4</span>
+        <button type="button" class="progress-dot is-active" data-progress="1" aria-label="Schritt 1 öffnen">1</button><span class="progress-line"></span>
+        <button type="button" class="progress-dot" data-progress="2" aria-label="Schritt 2 öffnen">2</button><span class="progress-line"></span>
+        <button type="button" class="progress-dot" data-progress="3" aria-label="Schritt 3 öffnen">3</button><span class="progress-line"></span>
+        <button type="button" class="progress-dot" data-progress="4" aria-label="Schritt 4 öffnen">4</button>
       </div>
       <div id="booking-error" class="notice notice-error" hidden></div>
 
       <section class="step is-active" data-step="1">
-        <div class="step-head"><span>01</span><div><h2>Behandlung wählen</h2><p>Was dürfen wir für Sie einplanen?</p></div></div>
+        <div class="step-head"><span>01</span><div><h2>Behandlung wählen</h2><p>Was dürfen wir für dich einplanen?</p></div></div>
         <div id="services" class="choice-grid"></div>
       </section>
+
       <section class="step" data-step="2">
         <button class="back" type="button" data-back="1">← Zurück</button>
-        <div class="step-head"><span>02</span><div><h2>Ärztin oder Arzt wählen</h2><p>Wählen Sie die passende Ärztin oder den passenden Arzt für Ihren Termin.</p></div></div>
+        <div class="step-head"><span>02</span><div><h2>Ärztin oder Arzt wählen</h2><p>Wähle, bei wem du deinen Termin buchen möchtest.</p></div></div>
         <div id="staff" class="choice-grid staff-grid"></div>
       </section>
+
       <section class="step" data-step="3">
         <button class="back" type="button" data-back="2">← Zurück</button>
-        <div class="step-head"><span>03</span><div><h2>Datum und Uhrzeit</h2><p>Nur tatsächlich verfügbare Zeiten werden angezeigt.</p></div></div>
-        <label class="field-label" for="booking-date">Datum</label>
-        <input id="booking-date" class="date-input" type="date">
-        <div id="slots" class="slot-grid"></div>
+        <div class="step-head"><span>03</span><div><h2>Freien Termin wählen</h2><p>Alle verfügbaren Tage und Uhrzeiten werden dir direkt angezeigt.</p></div></div>
+        <div id="slots" class="availability-list"></div>
       </section>
+
       <section class="step" data-step="4">
         <button class="back" type="button" data-back="3">← Zurück</button>
-        <div class="step-head"><span>04</span><div><h2>Ihre Kontaktdaten</h2><p>Damit wir Ihren Termin eindeutig zuordnen können.</p></div></div>
+        <div class="step-head"><span>04</span><div><h2>Deine Kontaktdaten</h2><p>Fast geschafft – trage deine Daten ein, um deinen Termin zu sichern.</p></div></div>
         <form id="details-form" class="details-form">
           {% csrf_token %}
-          <div class="field-row"><label>Vorname<input name="first_name" autocomplete="given-name" required maxlength="80"></label><label>Nachname<input name="last_name" autocomplete="family-name" required maxlength="80"></label></div>
-          <div class="field-row"><label>E-Mail<input name="email" type="email" autocomplete="email" required></label><label>Telefon <small>optional</small><input name="phone" type="tel" autocomplete="tel" maxlength="40"></label></div>
-          <label>Nachricht <small>optional</small><textarea name="message" rows="4" maxlength="3000" placeholder="Gibt es etwas, das wir vorab wissen sollten?"></textarea></label>
+          <div class="field-row">
+            <label>Vorname<input name="first_name" autocomplete="given-name" required maxlength="80"></label>
+            <label>Nachname<input name="last_name" autocomplete="family-name" required maxlength="80"></label>
+          </div>
+          <div class="field-row">
+            <label>E-Mail<input name="email" type="email" autocomplete="email" required></label>
+            <label>Telefon<input name="phone" type="tel" autocomplete="tel" required maxlength="40" placeholder="+49 …"></label>
+          </div>
+          <div class="field-row">
+            <label>Warst du schon einmal bei uns?
+              <select name="returning_customer" required>
+                <option value="nein" selected>Nein</option>
+                <option value="ja">Ja</option>
+              </select>
+            </label>
+            <label>Wie bist du auf uns aufmerksam geworden?
+              <select name="referral_source" required>
+                <option value="" selected disabled>Bitte auswählen</option>
+                <option value="Google">Google</option>
+                <option value="Instagram">Instagram</option>
+                <option value="TikTok">TikTok</option>
+                <option value="Empfehlung">Empfehlung</option>
+                <option value="A+esthetic Website">A+esthetic Website</option>
+                <option value="Vor Ort / Laufkundschaft">Vor Ort / Laufkundschaft</option>
+                <option value="Arzt / Partner">Arzt / Partner</option>
+                <option value="Sonstiges">Sonstiges</option>
+              </select>
+            </label>
+          </div>
+
           <div id="summary" class="summary"></div>
-          <label class="privacy-check"><input type="checkbox" required> <span>Ich stimme der Verarbeitung meiner Angaben zur Terminorganisation zu und habe die <a href="https://a-esthetic.de/datenschutz/" target="_blank" rel="noopener">Datenschutzhinweise</a> zur Kenntnis genommen.</span></label>
-          <button class="primary" type="submit">Termin verbindlich anfragen</button>
+
+          <div class="consent-stack">
+            <label class="privacy-check"><input name="marketing_opt_in" type="checkbox" checked> <span>Ich möchte als Erstes von Aktionen, Angeboten und Neuigkeiten von A+esthetic erfahren.</span></label>
+            <label class="privacy-check"><input name="cancellation_terms_accepted" type="checkbox" required> <span>Ich stimme den <a href="#stornierungsbedingungen" data-open-terms>Stornierungsbedingungen von A+esthetic</a> zu.</span></label>
+            <label class="privacy-check"><input name="privacy_accepted" type="checkbox" required> <span>Ich stimme der Verarbeitung meiner Angaben zur Terminorganisation zu und habe die <a href="https://a-esthetic.de/datenschutz/" target="_blank" rel="noopener">Datenschutzhinweise</a> gelesen.</span></label>
+          </div>
+
+          <details id="stornierungsbedingungen" class="terms-box">
+            <summary>Stornierungsbedingungen lesen</summary>
+            <div class="terms-content">
+              <div class="terms-kicker">A+ Esthetic – Zentrum für Ästhetik · Widerrufsbelehrung</div>
+              <h3>Stornierungsbedingungen für A+ Esthetic</h3>
+              <p><strong>1. Terminabsage oder -verschiebung:</strong><br>Falls du deinen Termin nicht wahrnehmen kannst, bitten wir dich, diesen <strong>mindestens 48 Stunden im Voraus</strong> zu stornieren oder zu verschieben.</p>
+              <p><strong>2. Kurzfristige Absagen:</strong><br>Bei Absagen <strong>weniger als 48 Stunden</strong> vor dem Termin behalten wir uns vor, <strong>50% der Behandlungskosten</strong> in Rechnung zu stellen.</p>
+              <p><strong>3. Nichterscheinen ohne Absage:</strong><br>Bei Nichterscheinen ohne vorherige Mitteilung berechnen wir <strong>100% der geplanten Behandlungskosten</strong>.</p>
+              <p><strong>4. Pünktlichkeit:</strong><br>Bitte erscheine pünktlich zu deinem Termin. Bei erheblicher Verspätung (mehr als 15 Minuten) kann die Behandlung verkürzt oder der Termin verschoben werden.</p>
+              <p><strong>5. Ausnahmen:</strong><br>Bei unvorhersehbaren Ereignissen oder nachgewiesener Krankheit finden wir gemeinsam eine Lösung – sprich uns einfach an.</p>
+              <p class="terms-note"><strong>Hinweis:</strong> Unsere Stornierungsbedingungen helfen uns, die Zeit für alle Kunden optimal zu planen. Wir danken dir für dein Verständnis und deine Rücksichtnahme!</p>
+            </div>
+          </details>
+
+          <button class="primary" type="submit">Jetzt Termin buchen</button>
         </form>
       </section>
+
       <section class="step success" data-step="5">
         <div class="success-mark">✓</div><div class="eyebrow">Termin gespeichert</div><h2>Vielen Dank.</h2>
-        <p id="success-text">Ihr Termin wurde erfolgreich gespeichert.</p><div id="success-summary" class="summary"></div>
+        <p id="success-text">Dein Termin wurde erfolgreich gespeichert.</p><div id="success-summary" class="summary"></div>
         <a class="secondary-link" href="https://a-esthetic.de/">Zurück zu A+esthetic</a>
       </section>
     </section>
+
     <footer><span>A+esthetic</span><a href="https://a-esthetic.de/impressum/">Impressum</a><a href="https://a-esthetic.de/datenschutz/">Datenschutz</a></footer>
   </main>
   <script src="{% static 'booking/app.js' %}" defer></script>
