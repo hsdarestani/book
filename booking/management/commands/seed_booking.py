@@ -42,11 +42,11 @@ class Command(BaseCommand):
             slug__in=['beratung', 'botulinumtoxin', 'hyaluronsaure', 'skinbooster', 'laserbehandlung']
         ).update(active=False, bookable=False)
 
-        # The provider records are seeded by migration 0003. If a fresh/manual database
+        # The provider records are seeded by migrations. If a fresh/manual database
         # is missing them, create safe defaults once. Existing provider settings, service
         # assignments and working hours are deliberately not reset on future deploys.
         if not StaffMember.objects.filter(role='doctor').exists():
-            for sort_order, name in [(10, 'Frau Ariane Regaei'), (20, 'A+esthetic Arzt')]:
+            for sort_order, name in [(10, 'Frau Ariane Regaei'), (20, 'Qamar Hameed')]:
                 provider = StaffMember.objects.create(
                     display_name=name,
                     role='doctor',
