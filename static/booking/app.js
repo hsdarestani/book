@@ -38,6 +38,24 @@
     d.textContent = s || '';
     return d.innerHTML;
   }
+
+  function treatmentIcon(slug) {
+    const icons = {
+      'aesthetische-erstberatung': ['consult', '<svg viewBox="0 0 24 24"><path d="M5 5.8h10.5a3 3 0 0 1 3 3v4.4a3 3 0 0 1-3 3H10l-4 3v-3.1a3 3 0 0 1-2-2.9V8.8a3 3 0 0 1 3-3Z"/><path d="M15.8 3v3.6M14 4.8h3.6"/></svg>'],
+      'botox-neupatient': ['syringe', '<svg viewBox="0 0 24 24"><path d="m7.2 16.8 8.9-8.9M13.7 5.8l4.5 4.5M15.8 3.7l4.5 4.5M6 15.8l2.2 2.2-2.7 2.7-2.2-2.2L6 15.8Z"/><path d="m3.8 20.2-1.9 1.9M18.2 3.7 20 1.9"/></svg>'],
+      'botox-bestandspatient': ['syringe', '<svg viewBox="0 0 24 24"><path d="m7.2 16.8 8.9-8.9M13.7 5.8l4.5 4.5M15.8 3.7l4.5 4.5M6 15.8l2.2 2.2-2.7 2.7-2.2-2.2L6 15.8Z"/><path d="m3.8 20.2-1.9 1.9M18.2 3.7 20 1.9"/></svg>'],
+      'hyaluron': ['drop', '<svg viewBox="0 0 24 24"><path d="M12 2.7S6.4 9.2 6.4 14a5.6 5.6 0 0 0 11.2 0C17.6 9.2 12 2.7 12 2.7Z"/><path d="M9.2 14.3c.3 1.6 1.3 2.5 2.8 2.8"/></svg>'],
+      'laser-haarentfernung': ['laser', '<svg viewBox="0 0 24 24"><path d="M4 19 14.2 8.8M15.8 3.3v3.4M14.1 5h3.4M19.5 8.5l1.8 1.8M18.6 13h2.6"/><path d="m4.2 14.8 5 5-2 2-5-5 2-2Z"/></svg>'],
+      'rf-microneedling': ['rf', '<svg viewBox="0 0 24 24"><path d="M5 5h14v14H5zM9 5v14M15 5v14M5 9h14M5 15h14"/><path d="M2.2 12c1.2-1.4 1.2-2.6 0-4M21.8 12c-1.2-1.4-1.2-2.6 0-4"/></svg>'],
+      'skinbooster': ['booster', '<svg viewBox="0 0 24 24"><path d="M10.2 3.2S6 8.2 6 11.7a4.2 4.2 0 0 0 8.4 0c0-3.5-4.2-8.5-4.2-8.5Z"/><path d="M18 13v6M15 16h6M17.4 5.2v3.2M15.8 6.8H19"/></svg>'],
+      'infusionstherapie': ['infusion', '<svg viewBox="0 0 24 24"><path d="M8 3h8v3.2a4 4 0 0 1-1 2.7l-1.4 1.5v7.1H10.4v-7.1L9 8.9a4 4 0 0 1-1-2.7V3Z"/><path d="M9 6h6M12 17.5v3.7M9.5 21.2h5M12 11.4s-1.6 1.8-1.6 3a1.6 1.6 0 1 0 3.2 0c0-1.2-1.6-3-1.6-3Z"/></svg>'],
+      'injektionslipolyse': ['lipolyse', '<svg viewBox="0 0 24 24"><path d="m4.2 18.8 7.2-7.2M9.8 8.8l5.4 5.4M12 6.6l5.4 5.4M3 17.6l2.8 2.8-2 2-2.8-2.8 2-2Z"/><circle cx="18.5" cy="5.2" r="2.2"/><circle cx="19.2" cy="17.7" r="1.4"/></svg>'],
+      'kontrolltermin': ['control', '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.2 12.2 2.4 2.4 5.3-5.4"/></svg>'],
+    };
+    const [key, svg] = icons[slug] || ['default', '<svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="8.5"/></svg>'];
+    return `<span class="treatment-icon icon-${key}" aria-hidden="true">${svg}</span>`;
+  }
+
   function canGo(step) {
     if (step === 1) return true;
     if (step === 2) return Boolean(state.service);
@@ -84,7 +102,7 @@
       }
       root.innerHTML = data.services.map((s) => {
         const price = s.price_label ? `<span>${esc(s.price_label)}</span>` : '';
-        return `<button type="button" class="choice-card" data-service='${JSON.stringify(s).replaceAll("'", "&#39;")}'><strong>${esc(s.name)}</strong><p>${esc(s.description || 'Dein Termin wird individuell auf die Behandlung abgestimmt.')}</p><div class="meta"><span>${s.duration_minutes} Min.</span>${price}</div></button>`;
+        return `<button type="button" class="choice-card treatment-card" data-slug="${esc(s.slug)}" data-service='${JSON.stringify(s).replaceAll("'", "&#39;")}'>${treatmentIcon(s.slug)}<strong>${esc(s.name)}</strong><p>${esc(s.description || 'Dein Termin wird individuell auf die Behandlung abgestimmt.')}</p><div class="meta"><span>${s.duration_minutes} Min.</span>${price}</div></button>`;
       }).join('');
       root.querySelectorAll('[data-service]').forEach((btn) => btn.addEventListener('click', () => {
         state.service = JSON.parse(btn.dataset.service);
@@ -288,7 +306,7 @@
     try {
       const result = await getJSON('/api/appointments/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value, 'Idempotency-Key': idem },
+        headers: { 'Content-Type':'application/json', 'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value, 'Idempotency-Key': idem },
         body: JSON.stringify(data),
       });
       $('#success-text').textContent = result.appointment.status === 'new'
