@@ -18,6 +18,24 @@ def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment
 
     duration = timedelta(minutes=service.duration_minutes + service.buffer_minutes)
     tz = timezone.get_current_timezone()
+    day_start = timezone.make_aware(datetime.combine(day, datetime.min.time()), tz)
+    day_end = day_start + timedelta(days=1)
+    now_with_lead = timezone.now() + LEAD_TIME
+
+    blocked_periods = list(
+        BlockedPeriod.objects.filter(staff=staff, starts_at__lt=day_end, ends_at__gt=day_start)
+        .values_list('starts_at', 'ends_at')
+    )
+    conflict_qs = Appointment.objects.filter(
+        staff=staff,
+        status__in=['new', 'confirmed'],
+        starts_at__lt=day_end,
+        ends_at__gt=day_start,
+    )
+    if exclude_appointment_id:
+        conflict_qs = conflict_qs.exclude(public_id=exclude_appointment_id)
+    conflicts = list(conflict_qs.values_list('starts_at', 'ends_at'))
+
     slots = []
     hours = WorkingHour.objects.filter(staff=staff, weekday=day.weekday(), active=True).order_by('start_time')
     for working in hours:
@@ -25,23 +43,18 @@ def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment
         end_of_work = timezone.make_aware(datetime.combine(day, working.end_time), tz)
         while cursor + duration <= end_of_work:
             slot_end = cursor + duration
-            if cursor >= timezone.now() + LEAD_TIME:
-                blocked = BlockedPeriod.objects.filter(staff=staff, starts_at__lt=slot_end, ends_at__gt=cursor).exists()
-                conflict = Appointment.objects.filter(
-                    staff=staff,
-                    status__in=['new', 'confirmed'],
-                    starts_at__lt=slot_end,
-                    ends_at__gt=cursor,
-                )
-                if exclude_appointment_id:
-                    conflict = conflict.exclude(public_id=exclude_appointment_id)
-                if not blocked and not conflict.exists():
+            if cursor >= now_with_lead:
+                blocked = any(start < slot_end and end > cursor for start, end in blocked_periods)
+                conflict = any(start < slot_end and end > cursor for start, end in conflicts)
+                if not blocked and not conflict:
                     slots.append(cursor)
             cursor += timedelta(minutes=step_minutes)
     return slots
 
 
-def create_appointment(*, customer, service, staff, starts_at, message='', idempotency_key=None, source='web'):
+def create_appointment(*, customer, service, staff, starts_at, message='', idempotency_key=None, source='web',
+                       returning_customer=False, referral_source='', marketing_opt_in=True,
+                       cancellation_terms_accepted=False, privacy_accepted=False):
     if idempotency_key:
         existing = Appointment.objects.filter(idempotency_key=idempotency_key).first()
         if existing:
@@ -62,6 +75,11 @@ def create_appointment(*, customer, service, staff, starts_at, message='', idemp
             status='new' if service.requires_confirmation else 'confirmed',
             source=source,
             notes_customer=message[:3000],
+            returning_customer=bool(returning_customer),
+            referral_source=(referral_source or '')[:100],
+            marketing_opt_in=bool(marketing_opt_in),
+            cancellation_terms_accepted=bool(cancellation_terms_accepted),
+            privacy_accepted=bool(privacy_accepted),
             idempotency_key=idempotency_key or None,
         )
         appointment.full_clean()
