@@ -2,6 +2,7 @@ import base64
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 
@@ -14,6 +15,7 @@ class PatientRecordSyncTests(TestCase):
         self.override = override_settings(
             PATIENT_FILES_ROOT=Path(self.tmp.name),
             PATIENT_SYNC_TOKEN='integration-secret',
+            PATIENT_SYNC_ALLOWED_HOSTS=['esthetic.smarbiz.sbs'],
             PATIENT_FILE_MAX_BYTES=1024 * 1024,
             PATIENT_FILE_ALLOWED_EXTENSIONS={'.pdf', '.jpg', '.txt'},
         )
@@ -39,8 +41,9 @@ class PatientRecordSyncTests(TestCase):
             'metadata': {'template_key': 'botox', 'version': '2.1'},
         }
 
-    def post(self, payload=None, token='integration-secret'):
+    def post(self, payload=None, token='integration-secret', **extra):
         headers = {'HTTP_X_AESTHETIC_PATIENT_SYNC': token} if token is not None else {}
+        headers.update(extra)
         return self.client.post(
             '/api/internal/patient-records/ingest/',
             data=json.dumps(payload or self.payload()),
@@ -48,10 +51,28 @@ class PatientRecordSyncTests(TestCase):
             **headers,
         )
 
-    def test_ingest_requires_shared_server_token(self):
+    @patch('booking.internal_api._trusted_source', return_value=False)
+    def test_ingest_rejects_wrong_token_from_untrusted_source(self, trusted_mock):
         response = self.post(token='wrong')
         self.assertEqual(response.status_code, 401)
         self.assertEqual(PatientRecord.objects.count(), 0)
+
+    @patch('booking.internal_api._trusted_source', return_value=True)
+    def test_trusted_server_can_sync_without_shared_token(self, trusted_mock):
+        response = self.post(token=None)
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(PatientRecord.objects.count(), 1)
+
+    @patch('booking.internal_api._trusted_source_addresses')
+    def test_rightmost_forwarded_address_is_used_for_trusted_server(self, addresses_mock):
+        import ipaddress
+        addresses_mock.return_value = {ipaddress.ip_address('203.0.113.20')}
+        response = self.post(
+            token=None,
+            HTTP_X_FORWARDED_FOR='198.51.100.8, 203.0.113.20',
+            REMOTE_ADDR='127.0.0.1',
+        )
+        self.assertEqual(response.status_code, 201, response.content)
 
     def test_consent_snapshot_creates_patient_and_record(self):
         response = self.post()
