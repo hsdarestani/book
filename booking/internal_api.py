@@ -1,5 +1,6 @@
 import base64
 import binascii
+import hashlib
 import ipaddress
 import json
 import mimetypes
@@ -8,6 +9,8 @@ import secrets
 import socket
 import uuid
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request as URLRequest, urlopen
 
 from django.conf import settings
 from django.http import JsonResponse
@@ -48,9 +51,6 @@ def _normalize_ip(value):
 
 
 def _client_ip(request):
-    # Both Caddy and the production Nginx configuration append the real upstream
-    # peer to X-Forwarded-For. Taking the right-most valid address prevents a
-    # caller-supplied left-most XFF value from becoming an authentication bypass.
     forwarded = str(request.META.get('HTTP_X_FORWARDED_FOR') or '')
     if forwarded:
         for value in reversed(forwarded.split(',')):
@@ -88,8 +88,42 @@ def _trusted_source(request):
     return client in _trusted_source_addresses()
 
 
+def _proof_authorized(request):
+    proof = str(request.headers.get('X-Aesthetic-Patient-Proof') or '').strip()
+    verify_url = str(getattr(settings, 'PATIENT_SYNC_PROOF_VERIFY_URL', '') or '').strip()
+    if not proof or not verify_url:
+        return False
+    content_type = (request.content_type or '').split(';', 1)[0].strip().lower()
+    if content_type != 'application/json':
+        return False
+    body = request.body or b''
+    if len(body) > int(getattr(settings, 'PATIENT_SYNC_PROOF_MAX_BODY_BYTES', 512 * 1024)):
+        return False
+    digest = hashlib.sha256(body).hexdigest()
+    verification_body = json.dumps(
+        {'proof': proof, 'sha256': digest}, separators=(',', ':')
+    ).encode('utf-8')
+    verification_request = URLRequest(
+        verify_url,
+        data=verification_body,
+        method='POST',
+        headers={
+            'Accept': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
+            'User-Agent': 'A+Esthetic-Booking-Patient-Proof/1.0',
+        },
+    )
+    try:
+        timeout = float(getattr(settings, 'PATIENT_SYNC_PROOF_TIMEOUT', 5))
+        with urlopen(verification_request, timeout=timeout) as response:
+            result = json.loads(response.read().decode('utf-8') or '{}')
+            return 200 <= response.status < 300 and result.get('ok') is True
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError):
+        return False
+
+
 def _authorized(request):
-    # Preferred path: shared token, when one is configured on both services.
+    # 1) Shared secret, when explicitly configured on both trusted backends.
     expected = _sync_token()
     if expected:
         provided = str(request.headers.get('X-Aesthetic-Patient-Sync') or '').strip()
@@ -100,10 +134,14 @@ def _authorized(request):
         if provided and secrets.compare_digest(provided, expected):
             return True
 
-    # The Customer Club currently runs on a separate A+Esthetic server. As a
-    # second, server-only authentication path, accept requests whose actual
-    # reverse-proxy peer matches the DNS address of the configured trusted host.
-    # This is intentionally fail-closed when DNS cannot be resolved or changes.
+    # 2) Short-lived proof signed by the Customer Club server's own Django secret.
+    # The proof is bound to SHA-256(request body); booking validates it by HTTPS
+    # callback to the trusted A+Esthetic domain, so no shared credential is needed.
+    if _proof_authorized(request):
+        return True
+
+    # 3) DNS/source-address fallback for deployments where the upstream address is
+    # directly resolvable. This remains fail-closed behind CDNs/NAT.
     return _trusted_source(request)
 
 
@@ -188,6 +226,8 @@ def ingest_patient_record(request):
     data = _payload(request)
     if data is None:
         return _error('invalid_json', 'Ungültige Nutzdaten.')
+    if data.get('action') == 'health':
+        return JsonResponse({'ok': True, 'integration': 'patient_records'})
 
     source = re.sub(r'[^a-zA-Z0-9_.:-]+', '-', str(data.get('source') or 'external').strip()).strip('-')[:60] or 'external'
     external_id = str(data.get('external_id') or '').strip()[:180]
