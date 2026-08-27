@@ -21,8 +21,19 @@ def _error(code, message, status=400):
     return JsonResponse({'ok': False, 'error': code, 'message': message}, status=status)
 
 
-def _authorized(request):
+def _sync_token():
     expected = str(getattr(settings, 'PATIENT_SYNC_TOKEN', '') or '').strip()
+    if expected:
+        return expected
+    token_file = Path(getattr(settings, 'PATIENT_SYNC_TOKEN_FILE', '/etc/aesthetic-patient-sync.token'))
+    try:
+        return token_file.read_text(encoding='utf-8').strip()
+    except (OSError, UnicodeError):
+        return ''
+
+
+def _authorized(request):
+    expected = _sync_token()
     if not expected:
         return None
     provided = str(request.headers.get('X-Aesthetic-Patient-Sync') or '').strip()
