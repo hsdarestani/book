@@ -8,16 +8,16 @@ logger = logging.getLogger(__name__)
 
 def send_booking_emails(appointment):
     local_start = timezone.localtime(appointment.starts_at)
-    subject = 'Ihre Terminbestätigung bei A+esthetic'
+    subject = 'Deine Terminbestätigung bei A+esthetic'
     customer_text = (
-        f'Guten Tag {appointment.customer.first_name},\n\n'
-        f'Ihr Termin wurde gespeichert.\n\n'
+        f'Hallo {appointment.customer.first_name},\n\n'
+        f'dein Termin wurde gespeichert.\n\n'
         f'Behandlung: {appointment.service.name}\n'
         f'Datum: {local_start:%d.%m.%Y}\n'
         f'Uhrzeit: {local_start:%H:%M}\n'
         f'Behandler: {appointment.staff.display_name}\n'
         f'Status: {appointment.get_status_display()}\n\n'
-        'Bei Fragen wenden Sie sich bitte direkt an A+esthetic.\n\n'
+        'Wenn du Fragen hast, melde dich bitte direkt bei A+esthetic.\n\n'
         'A+esthetic'
     )
     try:
