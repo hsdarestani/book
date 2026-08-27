@@ -26,6 +26,22 @@ class BookingApiTests(TestCase):
         tz = timezone.get_current_timezone()
         return timezone.make_aware(datetime.combine(day, time(hour, 0)), tz)
 
+    def web_payload(self, slot):
+        return {
+            'service_id': self.service.pk,
+            'staff_id': self.staff.pk,
+            'starts_at': slot.isoformat(),
+            'first_name': 'Anna',
+            'last_name': 'Muster',
+            'email': 'anna@example.com',
+            'phone': '015100000000',
+            'returning_customer': False,
+            'referral_source': 'Google',
+            'marketing_opt_in': True,
+            'cancellation_terms_accepted': True,
+            'privacy_accepted': True,
+        }
+
     def test_health(self):
         response = self.client.get('/api/health/')
         self.assertEqual(response.status_code, 200)
@@ -43,21 +59,21 @@ class BookingApiTests(TestCase):
         slots = available_slots(self.service, self.staff, slot.date())
         self.assertNotIn(slot, slots)
 
+    def test_availability_overview_groups_available_days(self):
+        response = self.client.get(f'/api/availability/overview/?service_id={self.service.pk}&staff_id={self.staff.pk}&days=7')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()['days'])
+        self.assertTrue(response.json()['days'][0]['slots'])
+
     def test_create_appointment_and_prevent_overlap(self):
         slot = self.future_slot()
-        payload = {
-            'service_id': self.service.pk,
-            'staff_id': self.staff.pk,
-            'starts_at': slot.isoformat(),
-            'first_name': 'Anna',
-            'last_name': 'Muster',
-            'email': 'anna@example.com',
-            'phone': '015100000000',
-            'message': 'Bitte kurz bestätigen.',
-        }
+        payload = self.web_payload(slot)
         response = self.client.post('/api/appointments/', data=json.dumps(payload), content_type='application/json', HTTP_IDEMPOTENCY_KEY='abc-1')
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(Appointment.objects.count(), 1)
+        item = Appointment.objects.get()
+        self.assertEqual(item.referral_source, 'Google')
+        self.assertTrue(item.cancellation_terms_accepted)
         repeat = self.client.post('/api/appointments/', data=json.dumps(payload), content_type='application/json', HTTP_IDEMPOTENCY_KEY='abc-1')
         self.assertEqual(repeat.status_code, 200)
         self.assertEqual(Appointment.objects.count(), 1)
@@ -66,6 +82,17 @@ class BookingApiTests(TestCase):
         overlap = self.client.post('/api/appointments/', data=json.dumps(payload), content_type='application/json', HTTP_IDEMPOTENCY_KEY='abc-2')
         self.assertEqual(overlap.status_code, 409)
         self.assertEqual(Appointment.objects.count(), 1)
+
+    def test_web_booking_requires_phone_and_cancellation_terms(self):
+        slot = self.future_slot()
+        payload = self.web_payload(slot)
+        payload['phone'] = ''
+        response = self.client.post('/api/appointments/', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        payload['phone'] = '015100000000'
+        payload['cancellation_terms_accepted'] = False
+        response = self.client.post('/api/appointments/', data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
 
     def test_cancelled_appointment_releases_slot(self):
         slot = self.future_slot()
