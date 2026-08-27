@@ -1,11 +1,15 @@
 import json
+import tempfile
 from datetime import datetime, time, timedelta
+from pathlib import Path
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember, WorkingHour
+from .models import Appointment, BlockedPeriod, Customer, PatientRecord, Service, StaffMember, WorkingHour
 from .services import available_slots
 
 
@@ -165,3 +169,90 @@ class BookingApiTests(TestCase):
         item.refresh_from_db()
         self.assertEqual(item.status, 'cancelled')
         self.assertIn(slot, available_slots(self.service, self.staff, slot.date()))
+
+
+class PatientFileTests(TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.settings_override = override_settings(
+            PATIENT_FILES_ROOT=Path(self.tmp.name),
+            PATIENT_FILE_MAX_BYTES=1024 * 1024,
+            PATIENT_FILE_ALLOWED_EXTENSIONS={'.jpg', '.pdf', '.txt'},
+        )
+        self.settings_override.enable()
+        self.user = get_user_model().objects.create_user(username='aktenadmin', password='secret', is_staff=True)
+        self.customer = Customer.objects.create(
+            first_name='Mina', last_name='Beispiel', email='mina@example.com', phone='015100000001'
+        )
+
+    def tearDown(self):
+        self.settings_override.disable()
+        self.tmp.cleanup()
+        super().tearDown()
+
+    def test_patient_file_requires_staff_login(self):
+        response = self.client.get(f'/verwaltung/patienten/{self.customer.pk}/')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/verwaltung/login/', response.url)
+
+    def test_staff_can_upload_and_privately_read_photo(self):
+        self.client.force_login(self.user)
+        upload = SimpleUploadedFile('before.jpg', b'fake-jpeg-content', content_type='image/jpeg')
+        response = self.client.post(
+            f'/verwaltung/patienten/{self.customer.pk}/',
+            data={'action': 'add_record', 'kind': 'photo', 'title': 'Vorher', 'note': 'Vor der Behandlung', 'file': upload},
+        )
+        self.assertEqual(response.status_code, 302)
+        record = PatientRecord.objects.get(customer=self.customer)
+        self.assertEqual(record.kind, 'photo')
+        self.assertEqual(record.uploaded_by, self.user)
+        stored = Path(self.tmp.name) / record.stored_name
+        self.assertTrue(stored.exists())
+
+        response = self.client.get(f'/verwaltung/patienten/{self.customer.pk}/datei/{record.public_id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0')
+
+        self.client.logout()
+        response = self.client.get(f'/verwaltung/patienten/{self.customer.pk}/datei/{record.public_id}/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_note_without_file_is_supported(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            f'/verwaltung/patienten/{self.customer.pk}/',
+            data={'action': 'add_record', 'kind': 'note', 'title': 'Interne Notiz', 'note': 'Kontrolle in zwei Wochen.'},
+        )
+        self.assertEqual(response.status_code, 302)
+        record = PatientRecord.objects.get(customer=self.customer)
+        self.assertEqual(record.kind, 'note')
+        self.assertFalse(record.has_file)
+
+    def test_executable_upload_is_rejected(self):
+        self.client.force_login(self.user)
+        upload = SimpleUploadedFile('bad.exe', b'not-allowed', content_type='application/octet-stream')
+        response = self.client.post(
+            f'/verwaltung/patienten/{self.customer.pk}/',
+            data={'action': 'add_record', 'kind': 'document', 'file': upload},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('notice=file-type', response.url)
+        self.assertEqual(PatientRecord.objects.count(), 0)
+
+    def test_delete_record_removes_private_file(self):
+        self.client.force_login(self.user)
+        upload = SimpleUploadedFile('form.pdf', b'%PDF-test', content_type='application/pdf')
+        self.client.post(
+            f'/verwaltung/patienten/{self.customer.pk}/',
+            data={'action': 'add_record', 'kind': 'form', 'title': 'Einwilligung', 'file': upload},
+        )
+        record = PatientRecord.objects.get(customer=self.customer)
+        path = Path(self.tmp.name) / record.stored_name
+        self.assertTrue(path.exists())
+        response = self.client.post(
+            f'/verwaltung/patienten/{self.customer.pk}/',
+            data={'action': 'delete_record', 'record_id': record.pk},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(path.exists())
+        self.assertFalse(PatientRecord.objects.filter(pk=record.pk).exists())

@@ -1,4 +1,5 @@
 import uuid
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -113,6 +114,53 @@ class Customer(models.Model):
 
     def __str__(self):
         return self.full_name
+
+
+class PatientRecord(models.Model):
+    KIND = [
+        ('photo', 'Foto'),
+        ('form', 'Formular'),
+        ('document', 'Dokument'),
+        ('note', 'Notiz'),
+        ('other', 'Sonstiges'),
+    ]
+
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='patient_records', verbose_name='Patient')
+    appointment = models.ForeignKey('Appointment', on_delete=models.SET_NULL, related_name='patient_records', null=True, blank=True, verbose_name='Termin')
+    kind = models.CharField('Typ', max_length=20, choices=KIND, default='document')
+    title = models.CharField('Titel', max_length=180)
+    note = models.TextField('Notiz', blank=True)
+    stored_name = models.CharField('Interner Dateiname', max_length=180, blank=True, editable=False)
+    original_name = models.CharField('Originaldatei', max_length=255, blank=True, editable=False)
+    mime_type = models.CharField('Dateityp', max_length=120, blank=True, editable=False)
+    file_size = models.PositiveBigIntegerField('Dateigröße', default=0, editable=False)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='patient_records_uploaded',
+        verbose_name='Hochgeladen von',
+    )
+    created_at = models.DateTimeField('Erstellt am', auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        verbose_name = 'Patientenakte-Eintrag'
+        verbose_name_plural = 'Patientenakte-Einträge'
+        indexes = [models.Index(fields=['customer', '-created_at'], name='patient_record_customer_idx')]
+
+    @property
+    def has_file(self):
+        return bool(self.stored_name)
+
+    @property
+    def is_image(self):
+        return self.mime_type.startswith('image/') if self.mime_type else False
+
+    def __str__(self):
+        return f'{self.customer} – {self.title}'
 
 
 class Appointment(models.Model):

@@ -82,6 +82,15 @@ STORAGES = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Patient files intentionally live outside MEDIA_ROOT. They are never served by
+# Caddy/Nginx directly; authenticated staff views stream them after permission checks.
+PATIENT_FILES_ROOT = Path(os.getenv('PATIENT_FILES_ROOT', str(BASE_DIR / 'private_patient_files')))
+PATIENT_FILE_MAX_BYTES = int(os.getenv('PATIENT_FILE_MAX_BYTES', str(25 * 1024 * 1024)))
+PATIENT_FILE_ALLOWED_EXTENSIONS = {
+    '.pdf', '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif',
+    '.doc', '.docx', '.xls', '.xlsx', '.txt', '.rtf', '.csv',
+}
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/admin/login/'
 LOGIN_REDIRECT_URL = '/verwaltung/'
@@ -98,7 +107,7 @@ AESTHETIC_MEMBER_API_URL = os.getenv(
     'https://esthetic.smarbiz.sbs/api/mobile/me/',
 )
 BOOKING_NOTIFICATION_EMAIL = os.getenv('BOOKING_NOTIFICATION_EMAIL', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'A+esthetic <termin@a-esthetic.de>')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'A+Esthetic <termin@a-esthetic.de>')
 if os.getenv('EMAIL_HOST'):
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_HOST = os.getenv('EMAIL_HOST')

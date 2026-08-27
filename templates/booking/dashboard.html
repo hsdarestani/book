@@ -7,13 +7,14 @@
   <title>Verwaltung | A+Esthetic Buchung</title>
   <link rel="stylesheet" href="{% static 'booking/app.css' %}">
   <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/patient.css' %}">
 </head>
 <body class="admin-body">
 <main class="admin-shell">
   <header class="admin-topbar">
     <div class="admin-brand"><a class="brand brand-image" href="/verwaltung/" aria-label="A+Esthetic Buchungsverwaltung"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+Esthetic"></a><div class="brand-meta">Buchungsverwaltung</div></div>
     <nav class="admin-nav" aria-label="Verwaltung">
-      <a href="#uebersicht">Übersicht</a><a href="#kalender">Kalender</a><a href="#termine">Termine</a><a href="#behandlungen">Behandlungen</a><a href="#kunden">Kunden</a>
+      <a href="#uebersicht">Übersicht</a><a href="#kalender">Kalender</a><a href="#termine">Termine</a><a href="#behandlungen">Behandlungen</a><a href="#kunden">Patientenakten</a>
     </nav>
     <div class="admin-actions"><a href="/" target="_blank">Buchungsseite ↗</a><a href="/verwaltung/logout/">Abmelden</a></div>
   </header>
@@ -25,13 +26,13 @@
   {% endif %}
 
   <section class="admin-hero" id="uebersicht">
-    <div><div class="eyebrow">Heute im Blick</div><h1>Buchungsübersicht</h1><p>Termine, Behandlungen und die Kalender deiner Ärztinnen und Ärzte an einem Ort.</p></div>
+    <div><div class="eyebrow">Heute im Blick</div><h1>Buchungsübersicht</h1><p>Termine, Behandlungen, Patientenakten und die Kalender deiner Ärztinnen und Ärzte an einem Ort.</p></div>
   </section>
 
   <section class="metric-grid">
     <article><strong>{{ today_count }}</strong><span>Termine heute</span></article>
     <article><strong>{{ new_count }}</strong><span>Neue Anfragen</span></article>
-    <article><strong>{{ customer_count }}</strong><span>Kunden</span></article>
+    <article><strong>{{ customer_count }}</strong><span>Patienten</span></article>
     <article><strong>{{ staff_count }}</strong><span>Aktive Behandler</span></article>
   </section>
 
@@ -86,11 +87,11 @@
   <section class="admin-panel" id="termine">
     <div class="panel-head"><div><div class="eyebrow">Buchungen</div><h2>Kommende Termine</h2></div><span class="panel-count">{{ upcoming|length }} angezeigt</span></div>
     <div class="admin-table appointment-table">
-      <div class="table-head"><span>Zeit</span><span>Kunde</span><span>Behandlung</span><span>Behandler</span><span>Status</span></div>
+      <div class="table-head"><span>Zeit</span><span>Patient</span><span>Behandlung</span><span>Behandler</span><span>Status</span></div>
       {% for item in upcoming %}
       <div class="table-row">
         <time>{{ item.starts_at|date:"d.m.Y" }}<b>{{ item.starts_at|date:"H:i" }}</b></time>
-        <div><strong>{{ item.customer.full_name }}</strong><small>{{ item.customer.email }} · {{ item.customer.phone }}</small></div>
+        <div><a class="patient-inline-link" href="/verwaltung/patienten/{{ item.customer.pk }}/"><strong>{{ item.customer.full_name }}</strong></a><small>{{ item.customer.email }} · {{ item.customer.phone }}</small></div>
         <div><strong>{{ item.service.name }}</strong><small>{% if item.returning_customer %}Bestandspatient{% else %}Neupatient{% endif %} · {{ item.referral_source|default:"Quelle offen" }}</small></div>
         <div>{{ item.staff.display_name }}</div>
         <form method="post" class="status-form">{% csrf_token %}<input type="hidden" name="action" value="appointment_status"><input type="hidden" name="appointment_id" value="{{ item.pk }}">{% if selected_staff %}<input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">{% endif %}<select name="status" onchange="this.form.submit()">{% for value,label in appointment_statuses %}<option value="{{ value }}" {% if value == item.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></form>
@@ -117,9 +118,15 @@
   </section>
 
   <section class="admin-panel" id="kunden">
-    <div class="panel-head"><div><div class="eyebrow">CRM</div><h2>Letzte Kunden</h2></div></div>
-    <div class="customer-grid">
-      {% for customer in customers %}<article><div class="customer-avatar">{{ customer.first_name|slice:":1" }}{{ customer.last_name|slice:":1" }}</div><div><strong>{{ customer.full_name }}</strong><span>{{ customer.email }}</span><span>{{ customer.phone|default:"Keine Telefonnummer" }}</span></div></article>{% empty %}<div class="empty">Noch keine Kunden vorhanden.</div>{% endfor %}
+    <div class="panel-head"><div><div class="eyebrow">Digital Patient File</div><h2>Patientenakten</h2><p>Alle Termine, Fotos, Formulare, Dokumente und Notizen pro Patient in einer geschützten digitalen Akte.</p></div><span class="panel-count">{{ customers|length }} zuletzt aktiv</span></div>
+    <div class="customer-grid patient-grid">
+      {% for customer in customers %}
+      <a class="patient-card" href="/verwaltung/patienten/{{ customer.pk }}/">
+        <div class="customer-avatar">{{ customer.first_name|slice:":1" }}{{ customer.last_name|slice:":1" }}</div>
+        <div class="patient-card-copy"><strong>{{ customer.full_name }}</strong><span>{{ customer.email }}</span><span>{{ customer.phone|default:"Keine Telefonnummer" }}</span><small>{{ customer.appointment_count }} Termine · {{ customer.record_count }} Akteneinträge</small></div>
+        <div class="patient-card-action"><span>Patientenakte</span><b>→</b></div>
+      </a>
+      {% empty %}<div class="empty">Noch keine Patienten vorhanden.</div>{% endfor %}
     </div>
   </section>
 </main>
