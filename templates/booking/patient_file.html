@@ -1,0 +1,95 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ customer.full_name }} · Patientenakte | A+Esthetic</title>
+  <link rel="stylesheet" href="{% static 'booking/app.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
+</head>
+<body class="admin-body patient-file-body">
+<main class="admin-shell patient-file-shell">
+  <header class="admin-topbar patient-file-topbar">
+    <div class="admin-brand"><a class="brand brand-image" href="/verwaltung/" aria-label="A+Esthetic Buchungsverwaltung"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+Esthetic"></a><div class="brand-meta">Patientenakte</div></div>
+    <nav class="admin-nav" aria-label="Patientenakte"><a href="#akte">Akte</a><a href="#termine">Terminhistorie</a></nav>
+    <div class="admin-actions"><a href="/verwaltung/#kunden">← Alle Patienten</a><a href="/verwaltung/logout/">Abmelden</a></div>
+  </header>
+
+  {% if notice %}
+  <div class="admin-notice {% if notice != 'added' and notice != 'deleted' %}is-error{% endif %}">
+    {% if notice == 'added' %}Eintrag wurde sicher in der Patientenakte gespeichert.
+    {% elif notice == 'deleted' %}Eintrag wurde entfernt.
+    {% elif notice == 'file-type' %}Dieser Dateityp ist nicht erlaubt. Nutze Bilder, PDF, Office-, Text- oder Tabellen-Dateien.
+    {% elif notice == 'file-size' %}Die Datei ist zu groß. Maximal {{ max_upload_mb }} MB pro Datei.
+    {% elif notice == 'file-empty' %}Die ausgewählte Datei ist leer.
+    {% elif notice == 'empty' %}Bitte lade eine Datei hoch oder schreibe eine Notiz.
+    {% elif notice == 'type-error' %}Bitte wähle einen gültigen Akten-Typ.
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <section class="patient-hero">
+    <div class="patient-identity">
+      <div class="patient-big-avatar">{{ customer.first_name|slice:":1" }}{{ customer.last_name|slice:":1" }}</div>
+      <div><div class="eyebrow">Digitale Patientenakte</div><h1>{{ customer.full_name }}</h1><div class="patient-contact-line"><a href="mailto:{{ customer.email }}">{{ customer.email }}</a><span>·</span><a href="tel:{{ customer.phone }}">{{ customer.phone|default:"Keine Telefonnummer" }}</a></div></div>
+    </div>
+    <div class="patient-facts">
+      <article><span>Patient seit</span><strong>{{ customer.created_at|date:"d.m.Y" }}</strong></article>
+      <article><span>Termine</span><strong>{{ appointments|length }}</strong></article>
+      <article><span>Akteneinträge</span><strong>{{ records|length }}</strong></article>
+      <article><span>Letzter Termin</span><strong>{% if last_appointment %}{{ last_appointment.starts_at|date:"d.m.Y" }}{% else %}–{% endif %}</strong></article>
+    </div>
+  </section>
+
+  <section class="patient-file-layout" id="akte">
+    <aside class="record-upload-card">
+      <div class="eyebrow">Neuer Eintrag</div>
+      <h2>Zur Akte hinzufügen</h2>
+      <p>Fotos, Formulare, PDFs, Dokumente oder reine Notizen werden direkt dieser Patientenakte zugeordnet.</p>
+      <form method="post" enctype="multipart/form-data" class="record-upload-form">
+        {% csrf_token %}<input type="hidden" name="action" value="add_record">
+        <label>Typ<select name="kind">{% for value,label in record_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+        <label>Titel <small>optional bei Datei</small><input name="title" maxlength="180" placeholder="z. B. Botoxbogen 27.08.2026"></label>
+        <label>Zu Termin <small>optional</small><select name="appointment_id"><option value="">Keinem Termin zuordnen</option>{% for item in appointments %}<option value="{{ item.pk }}">{{ item.starts_at|date:"d.m.Y H:i" }} · {{ item.service.name }}</option>{% endfor %}</select></label>
+        <label class="secure-upload-zone"><span class="upload-icon">＋</span><strong>Datei auswählen</strong><small>Foto, PDF, Word, Excel, Text · max. {{ max_upload_mb }} MB</small><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv,.heic,.heif"></label>
+        <label>Notiz <small>optional</small><textarea name="note" rows="5" maxlength="6000" placeholder="Interne Notiz zur Datei, Behandlung oder Dokumentation …"></textarea></label>
+        <button class="admin-primary record-save" type="submit">In Patientenakte speichern</button>
+      </form>
+      <div class="privacy-shield"><span>⌾</span><div><strong>Geschützter Bereich</strong><small>Patientendateien sind nicht öffentlich verlinkt und werden nur nach Admin-Anmeldung ausgeliefert.</small></div></div>
+    </aside>
+
+    <section class="record-stream-card">
+      <div class="panel-head"><div><div class="eyebrow">Chronologisch</div><h2>Digitale Akte</h2><p>Neueste Einträge zuerst. Bilder können direkt angesehen, alle Dateien sicher geöffnet oder heruntergeladen werden.</p></div><span class="panel-count">{{ records|length }} Einträge</span></div>
+      <div class="record-stream">
+        {% for record in records %}
+        <article class="record-item record-kind-{{ record.kind }}">
+          <div class="record-kind-icon" aria-hidden="true">{% if record.kind == 'photo' %}▧{% elif record.kind == 'form' %}✓{% elif record.kind == 'note' %}≡{% elif record.kind == 'document' %}▤{% else %}◇{% endif %}</div>
+          <div class="record-main">
+            <div class="record-topline"><div><span class="record-kind-label">{{ record.get_kind_display }}</span><time>{{ record.created_at|date:"d.m.Y · H:i" }}</time></div><form method="post" onsubmit="return confirm('Diesen Akteneintrag wirklich löschen?');">{% csrf_token %}<input type="hidden" name="action" value="delete_record"><input type="hidden" name="record_id" value="{{ record.pk }}"><button class="record-delete" type="submit" aria-label="Eintrag löschen">×</button></form></div>
+            <h3>{{ record.title }}</h3>
+            {% if record.appointment %}<a class="record-appointment" href="#termine">{{ record.appointment.starts_at|date:"d.m.Y H:i" }} · {{ record.appointment.service.name }}</a>{% endif %}
+            {% if record.note %}<p class="record-note">{{ record.note|linebreaksbr }}</p>{% endif %}
+            {% if record.has_file %}
+              {% if record.is_image %}<a class="record-photo-preview" href="/verwaltung/patienten/{{ customer.pk }}/datei/{{ record.public_id }}/" target="_blank"><img src="/verwaltung/patienten/{{ customer.pk }}/datei/{{ record.public_id }}/" alt="{{ record.title }}" loading="lazy"></a>{% endif %}
+              <div class="record-file-row"><div class="record-file-meta"><strong>{{ record.original_name }}</strong><span>{{ record.mime_type|default:"Datei" }} · {{ record.file_size|filesizeformat }}</span></div><div class="record-file-actions"><a href="/verwaltung/patienten/{{ customer.pk }}/datei/{{ record.public_id }}/" target="_blank">Öffnen</a><a href="/verwaltung/patienten/{{ customer.pk }}/datei/{{ record.public_id }}/?download=1">Download</a></div></div>
+            {% endif %}
+            <small class="record-audit">Gespeichert von {% if record.uploaded_by %}{{ record.uploaded_by.username }}{% else %}System{% endif %}</small>
+          </div>
+        </article>
+        {% empty %}<div class="patient-empty-state"><div>＋</div><h3>Noch keine Akteneinträge</h3><p>Füge links das erste Foto, Formular, Dokument oder eine interne Notiz hinzu.</p></div>{% endfor %}
+      </div>
+    </section>
+  </section>
+
+  <section class="admin-panel patient-history" id="termine">
+    <div class="panel-head"><div><div class="eyebrow">Behandlungsverlauf</div><h2>Terminhistorie</h2><p>Alle bisherigen und kommenden Buchungen dieses Patienten.</p></div></div>
+    <div class="patient-history-list">
+      {% for item in appointments %}
+      <article><time><strong>{{ item.starts_at|date:"d.m.Y" }}</strong><span>{{ item.starts_at|date:"H:i" }}</span></time><div><strong>{{ item.service.name }}</strong><span>{{ item.staff.display_name }}</span></div><em class="history-status status-{{ item.status }}">{{ item.get_status_display }}</em></article>
+      {% empty %}<div class="empty">Noch keine Termine vorhanden.</div>{% endfor %}
+    </div>
+  </section>
+</main>
+</body>
+</html>
