@@ -1,3 +1,4 @@
+import collections
 import json
 import os
 import urllib.error
@@ -60,6 +61,22 @@ def shape(value):
     return {'type': type(value).__name__, 'value_preview': str(value)[:120]}
 
 
+def safe_catalog(items):
+    if not isinstance(items, list):
+        return []
+    return [
+        {
+            'id': str(item.get('id', '')),
+            'name': str(item.get('name', ''))[:160],
+            'active': item.get('is_active'),
+            'visible': item.get('is_visible'),
+            'duration': item.get('duration'),
+            'position': item.get('position'),
+        }
+        for item in items if isinstance(item, dict)
+    ]
+
+
 class Command(BaseCommand):
     help = 'Read-only probe of SimplyBook Admin API for migration planning. Does not write local or remote data.'
 
@@ -85,10 +102,7 @@ class Command(BaseCommand):
         if not token:
             raise CommandError('SimplyBook returned an empty user token.')
 
-        headers = {
-            'X-Company-Login': company,
-            'X-User-Token': token,
-        }
+        headers = {'X-Company-Login': company, 'X-User-Token': token}
         calls = {
             'company': ('getCompanyInfo', []),
             'timezone': ('getCompanyTimezoneOffset', []),
@@ -104,17 +118,37 @@ class Command(BaseCommand):
             }]),
         }
 
+        results = {}
         report = {'authenticated': True, 'company_login': company, 'datasets': {}}
         for label, (method, params) in calls.items():
             try:
                 result = rpc(ADMIN_URL, method, params, headers=headers)
+                results[label] = result
                 report['datasets'][label] = {'ok': True, **shape(result)}
             except RpcError as exc:
                 report['datasets'][label] = {'ok': False, 'error': str(exc)}
 
-        # Probe one provider work calendar for the current month if providers are available.
+        services = results.get('services') or []
+        providers = results.get('providers') or []
+        bookings = results.get('bookings') or []
+        report['catalog'] = {
+            'services': safe_catalog(services),
+            'providers': safe_catalog(providers),
+        }
+        if isinstance(bookings, list):
+            event_counts = collections.Counter(str(row.get('event_id') or '') for row in bookings if isinstance(row, dict))
+            unit_counts = collections.Counter(str(row.get('unit_id') or '') for row in bookings if isinstance(row, dict))
+            dates = sorted(str(row.get('start_date') or '') for row in bookings if isinstance(row, dict) and row.get('start_date'))
+            report['booking_distribution'] = {
+                'event_counts': dict(event_counts),
+                'unit_counts': dict(unit_counts),
+                'first_start': dates[0] if dates else None,
+                'last_start': dates[-1] if dates else None,
+                'confirmed': sum(1 for row in bookings if str(row.get('is_confirm')) == '1'),
+                'cancelled': sum(1 for row in bookings if str(row.get('is_confirm')) == '0'),
+            }
+
         try:
-            providers = rpc(ADMIN_URL, 'getUnitList', [False, True, None, ''], headers=headers)
             first = providers[0] if isinstance(providers, list) and providers else None
             provider_id = first.get('id') if isinstance(first, dict) else None
             if provider_id:
@@ -122,7 +156,7 @@ class Command(BaseCommand):
                 today = timezone.localdate()
                 calendar = rpc(ADMIN_URL, 'getWorkCalendar', [today.year, today.month, int(provider_id)], headers=headers)
                 report['datasets']['provider_work_calendar_sample'] = {'ok': True, **shape(calendar)}
-        except Exception as exc:  # probe must keep reporting other datasets
+        except Exception as exc:
             report['datasets']['provider_work_calendar_sample'] = {'ok': False, 'error': str(exc)[:500]}
 
         self.stdout.write('SIMPLYBOOK_PROBE_JSON=' + json.dumps(report, ensure_ascii=False, sort_keys=True))
