@@ -72,6 +72,21 @@ class MobileAdminFlowTests(TestCase):
         self.assertContains(response, 'data-open-booking')
         self.assertContains(response, 'data-open-customer-picker')
 
+    def test_separate_admin_section_routes_render(self):
+        route_names = [
+            'admin_dashboard',
+            'admin_calendar',
+            'admin_bookings',
+            'admin_customers',
+            'admin_settings',
+            'admin_services',
+            'admin_information',
+        ]
+        for route_name in route_names:
+            with self.subTest(route_name=route_name):
+                response = self.client.get(reverse(f'booking:{route_name}'), {'staff': self.staff.pk})
+                self.assertEqual(response.status_code, 200)
+
     def test_admin_can_create_booking_at_quarter_hour(self):
         response = self.client.post(
             reverse('booking:dashboard'),
@@ -117,7 +132,7 @@ class MobileAdminFlowTests(TestCase):
         self.assertIn('10:00', quarter_hours)
         self.assertIn('10:15', quarter_hours)
 
-    def test_blocking_note_removes_overlapping_slots(self):
+    def test_blocking_note_removes_overlapping_slots_and_renders_in_calendar(self):
         response = self.client.post(
             reverse('booking:dashboard'),
             {
@@ -142,3 +157,12 @@ class MobileAdminFlowTests(TestCase):
         self.assertNotIn('10:00', quarter_hours)
         self.assertNotIn('10:15', quarter_hours)
         self.assertIn('11:00', quarter_hours)
+
+        calendar_response = self.client.get(
+            reverse('booking:admin_calendar'),
+            {'staff': self.staff.pk, 'date': self.day.isoformat(), 'cal_view': 'day'},
+        )
+        self.assertEqual(calendar_response.status_code, 200)
+        self.assertContains(calendar_response, 'sb-calendar-block is-blocked-note')
+        self.assertContains(calendar_response, 'Pause')
+        self.assertContains(calendar_response, '10:00–11:00')
