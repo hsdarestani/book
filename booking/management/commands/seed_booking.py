@@ -1,9 +1,7 @@
 from datetime import time
-from pathlib import Path
 
 from django.core.management.base import BaseCommand
-from booking.emails import send_customer_booking_email
-from booking.models import Appointment, Service, StaffMember, WorkingHour
+from booking.models import Service, StaffMember, WorkingHour
 
 
 class Command(BaseCommand):
@@ -67,28 +65,5 @@ class Command(BaseCommand):
 
         if StaffMember.objects.filter(role='doctor', active=True).exists():
             StaffMember.objects.filter(display_name='A+esthetic Team').update(active=False)
-
-        # One-time resend requested for the final customer-email design review.
-        resend_marker = Path('/opt/aesthetic-book/.ashkan-final-email-v3-ok')
-        if not resend_marker.exists():
-            appointment = (
-                Appointment.objects.filter(
-                    customer__first_name__iexact='Ashkan',
-                    customer__last_name__iexact='Asadian',
-                )
-                .order_by('-created_at')
-                .first()
-            )
-            if appointment:
-                original_email = appointment.customer.email
-                appointment.customer.email = 'ashkan.dian@outlook.de'
-                try:
-                    send_customer_booking_email(appointment)
-                    resend_marker.touch()
-                    self.stdout.write(self.style.SUCCESS('Finale Vorschau-E-Mail an ashkan.dian@outlook.de gesendet.'))
-                finally:
-                    appointment.customer.email = original_email
-            else:
-                self.stdout.write(self.style.WARNING('Kein Termin für Ashkan Asadian gefunden; Vorschau-E-Mail nicht gesendet.'))
 
         self.stdout.write(self.style.SUCCESS('Grundkonfiguration ist vorhanden.'))
