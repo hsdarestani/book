@@ -2,6 +2,8 @@
   // Deployment smoke-check compatibility: initPrettyTimePickers
   const FLATPICKR_JS = 'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js';
   const FLATPICKR_CSS = 'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css';
+  const RESUME_BOOKING_KEY = 'aestheticAdminResumeBooking';
+  const RESUME_CUSTOMER_EMAIL_KEY = 'aestheticAdminResumeCustomerEmail';
 
   function addStylesheet(href, marker) {
     if (document.querySelector(`link[${marker}]`)) return;
@@ -15,6 +17,7 @@
   function ensureStyles() {
     addStylesheet('/static/booking/admin-time.css', 'data-admin-time-picker');
     addStylesheet('/static/booking/admin-simply.css', 'data-admin-simply');
+    addStylesheet('/static/booking/admin-fixes.css', 'data-admin-fixes');
   }
 
   function usesNativeMobilePicker() {
@@ -42,16 +45,43 @@
     });
   }
 
-  function timeInputs() {
-    return [...document.querySelectorAll(
-      '.availability-editor input[type="time"], .block-form input[type="time"]'
-    )];
+  function allTimeInputs() {
+    return [...document.querySelectorAll('.sb-admin-body input[type="time"]')];
+  }
+
+  function allDateInputs() {
+    return [...document.querySelectorAll('.sb-admin-body input[type="date"]')];
+  }
+
+  function snapQuarterHour(input) {
+    if (!input || !input.value) return;
+    const match = /^(\d{1,2}):(\d{2})/.exec(input.value);
+    if (!match) return;
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return;
+    let total = (hour * 60) + minute;
+    total = Math.round(total / 15) * 15;
+    total = Math.max(0, Math.min((23 * 60) + 45, total));
+    const nextHour = Math.floor(total / 60);
+    const nextMinute = total % 60;
+    input.value = `${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`;
+  }
+
+  function prepareDateInputs() {
+    allDateInputs().forEach((input) => {
+      input.classList.add('admin-date-input');
+      input.setAttribute('autocomplete', 'off');
+    });
   }
 
   function prepareNativeInputs(inputs) {
     inputs.forEach((input) => {
-      input.step = '300';
+      input.step = '900';
       input.classList.add('admin-time-input', 'is-native');
+      input.setAttribute('autocomplete', 'off');
+      input.addEventListener('change', () => snapQuarterHour(input));
+      input.addEventListener('blur', () => snapQuarterHour(input));
     });
   }
 
@@ -60,14 +90,14 @@
       const flatpickr = await loadFlatpickr();
       if (!flatpickr) throw new Error('Flatpickr unavailable');
       inputs.forEach((input) => {
-        input.step = '300';
+        input.step = '900';
         input.classList.add('admin-time-input');
         flatpickr(input, {
           enableTime: true,
           noCalendar: true,
           dateFormat: 'H:i',
           time_24hr: true,
-          minuteIncrement: 5,
+          minuteIncrement: 15,
           allowInput: false,
           clickOpens: true,
           disableMobile: true,
@@ -77,6 +107,7 @@
             instance.input.classList.add('is-flatpickr');
             instance.input.setAttribute('autocomplete', 'off');
           },
+          onChange: (_selectedDates, _dateStr, instance) => snapQuarterHour(instance.input),
         });
       });
     } catch (error) {
@@ -86,7 +117,8 @@
   }
 
   function initTimePickers() {
-    const inputs = timeInputs();
+    prepareDateInputs();
+    const inputs = allTimeInputs();
     if (!inputs.length) return;
     if (usesNativeMobilePicker()) {
       prepareNativeInputs(inputs);
@@ -139,6 +171,7 @@
       event.stopPropagation();
       toggle();
     }));
+    menu.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => { menu.hidden = true; }));
     document.addEventListener('click', (event) => {
       if (!menu.hidden && !menu.contains(event.target)) menu.hidden = true;
     });
@@ -159,10 +192,68 @@
     }));
   }
 
+  function bookingForm() {
+    return document.querySelector('[data-modal="booking"] form');
+  }
+
+  function customerForm() {
+    return document.querySelector('[data-modal="customer"] form');
+  }
+
+  function serializeBookingForm() {
+    const form = bookingForm();
+    if (!form) return null;
+    const names = ['service_id', 'appointment_staff_id', 'appointment_date', 'appointment_time'];
+    const state = {};
+    names.forEach((name) => {
+      const field = form.querySelector(`[name="${name}"]`);
+      if (field) state[name] = field.value;
+    });
+    const customerId = form.querySelector('[data-picked-customer-id]');
+    const customerName = document.querySelector('[data-picked-customer-name]');
+    state.customer_id = customerId ? customerId.value : '';
+    state.customer_name = customerName ? customerName.textContent : '';
+    return state;
+  }
+
+  function restoreBookingForm(state) {
+    const form = bookingForm();
+    if (!form || !state) return;
+    ['service_id', 'appointment_staff_id', 'appointment_date', 'appointment_time'].forEach((name) => {
+      const field = form.querySelector(`[name="${name}"]`);
+      if (field && state[name] != null) field.value = state[name];
+    });
+    const customerId = form.querySelector('[data-picked-customer-id]');
+    const customerName = document.querySelector('[data-picked-customer-name]');
+    if (customerId && state.customer_id) customerId.value = state.customer_id;
+    if (customerName && state.customer_name) customerName.textContent = state.customer_name;
+  }
+
+  function rememberBookingForNewCustomer() {
+    try {
+      const state = serializeBookingForm();
+      if (state) sessionStorage.setItem(RESUME_BOOKING_KEY, JSON.stringify(state));
+    } catch (_error) {
+      // sessionStorage can be unavailable in strict/private browser modes.
+    }
+  }
+
   function initModals() {
     document.querySelectorAll('[data-open-booking]').forEach((button) => button.addEventListener('click', () => openModal('booking')));
     document.querySelectorAll('[data-open-note]').forEach((button) => button.addEventListener('click', () => openModal('note')));
-    document.querySelectorAll('[data-open-customer]').forEach((button) => button.addEventListener('click', () => openModal('customer')));
+    document.querySelectorAll('[data-open-customer]').forEach((button) => button.addEventListener('click', () => {
+      const fromPicker = Boolean(button.closest('[data-modal="customer-picker"]'));
+      const form = customerForm();
+      const returnTo = form ? form.querySelector('[name="return_to"]') : null;
+      if (fromPicker) {
+        rememberBookingForNewCustomer();
+        if (returnTo) returnTo.value = 'kalender';
+        closeModal(button.closest('.sb-modal'));
+      } else if (returnTo) {
+        returnTo.value = 'kunden';
+      }
+      openModal('customer');
+    }));
     document.querySelectorAll('[data-open-customer-picker]').forEach((button) => button.addEventListener('click', () => openModal('customer-picker')));
     document.querySelectorAll('[data-close-modal]').forEach((button) => button.addEventListener('click', () => closeModal(button.closest('.sb-modal'))));
     document.querySelectorAll('.sb-modal').forEach((modal) => modal.addEventListener('click', (event) => {
@@ -173,6 +264,19 @@
       const open = [...document.querySelectorAll('.sb-modal.is-open')].pop();
       if (open) closeModal(open);
     });
+
+    const form = customerForm();
+    if (form) {
+      form.addEventListener('submit', () => {
+        try {
+          if (!sessionStorage.getItem(RESUME_BOOKING_KEY)) return;
+          const email = form.querySelector('[name="email"]');
+          if (email && email.value) sessionStorage.setItem(RESUME_CUSTOMER_EMAIL_KEY, email.value.trim().toLowerCase());
+        } catch (_error) {
+          // Ignore storage errors and let the normal form submit continue.
+        }
+      });
+    }
   }
 
   function bindSearch(inputSelector, listSelector) {
@@ -183,21 +287,54 @@
       const term = input.value.trim().toLowerCase();
       list.querySelectorAll('[data-customer-search]').forEach((item) => {
         const haystack = (item.getAttribute('data-customer-search') || '').toLowerCase();
-        item.classList.toggle('is-hidden', term && !haystack.includes(term));
+        item.classList.toggle('is-hidden', Boolean(term) && !haystack.includes(term));
       });
     });
+  }
+
+  function selectCustomerButton(button) {
+    const hidden = document.querySelector('[data-picked-customer-id]');
+    const label = document.querySelector('[data-picked-customer-name]');
+    if (hidden) hidden.value = button.getAttribute('data-pick-customer') || '';
+    if (label) label.textContent = button.getAttribute('data-customer-name') || 'Kunde ausgewählt';
+  }
+
+  function resumeBookingAfterCustomerCreation() {
+    let storedState = null;
+    let email = '';
+    try {
+      const raw = sessionStorage.getItem(RESUME_BOOKING_KEY);
+      email = sessionStorage.getItem(RESUME_CUSTOMER_EMAIL_KEY) || '';
+      if (raw) storedState = JSON.parse(raw);
+    } catch (_error) {
+      return;
+    }
+    if (!storedState || !email) return;
+
+    restoreBookingForm(storedState);
+    const match = [...document.querySelectorAll('[data-pick-customer]')].find((button) => {
+      const haystack = (button.getAttribute('data-customer-search') || '').toLowerCase();
+      return haystack.includes(email.toLowerCase());
+    });
+    if (match) selectCustomerButton(match);
+
+    try {
+      sessionStorage.removeItem(RESUME_BOOKING_KEY);
+      sessionStorage.removeItem(RESUME_CUSTOMER_EMAIL_KEY);
+    } catch (_error) {
+      // Ignore cleanup errors.
+    }
+    openModal('booking');
   }
 
   function initCustomerPicker() {
     bindSearch('[data-customer-list-search]', '[data-customer-list]');
     bindSearch('[data-customer-picker-search]', '[data-customer-picker-list]');
-    const hidden = document.querySelector('[data-picked-customer-id]');
-    const label = document.querySelector('[data-picked-customer-name]');
     document.querySelectorAll('[data-pick-customer]').forEach((button) => button.addEventListener('click', () => {
-      if (hidden) hidden.value = button.getAttribute('data-pick-customer') || '';
-      if (label) label.textContent = button.getAttribute('data-customer-name') || 'Kunde ausgewählt';
+      selectCustomerButton(button);
       closeModal(button.closest('.sb-modal'));
     }));
+    resumeBookingAfterCustomerCreation();
   }
 
   function initNoteScopes() {
@@ -205,7 +342,7 @@
     if (!serviceRow) return;
     const refresh = () => {
       const selected = document.querySelector('input[name="note_scope"]:checked');
-      serviceRow.classList.toggle('is-visible', selected && selected.value === 'service');
+      serviceRow.classList.toggle('is-visible', Boolean(selected && selected.value === 'service'));
     };
     document.querySelectorAll('input[name="note_scope"]').forEach((input) => input.addEventListener('change', refresh));
     refresh();
