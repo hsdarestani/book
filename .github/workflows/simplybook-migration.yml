@@ -1,0 +1,31 @@
+name: SimplyBook migration
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[simplybook-probe]')
+    runs-on: ubuntu-latest
+    env:
+      SIMPLYBOOK_COMPANY_LOGIN: ${{ secrets.SIMPLYBOOK_COMPANY_LOGIN }}
+      SIMPLYBOOK_USER_LOGIN: ${{ secrets.SIMPLYBOOK_USER_LOGIN }}
+      SIMPLYBOOK_USER_PASSWORD: ${{ secrets.SIMPLYBOOK_USER_PASSWORD }}
+      SIMPLYBOOK_API_USER_KEY: ${{ secrets.SIMPLYBOOK_API_USER_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Probe SimplyBook API (read-only)
+        env:
+          DJANGO_DEBUG: '1'
+        run: python manage.py simplybook_probe
