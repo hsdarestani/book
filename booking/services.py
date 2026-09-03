@@ -22,8 +22,11 @@ def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment
     day_end = day_start + timedelta(days=1)
     now_with_lead = timezone.now() + LEAD_TIME
 
+    # Entries prefixed with [NOTE] are visual/admin calendar notes only and must
+    # never make a public booking slot unavailable.
     blocked_periods = list(
         BlockedPeriod.objects.filter(staff=staff, starts_at__lt=day_end, ends_at__gt=day_start)
+        .exclude(reason__startswith='[NOTE]')
         .values_list('starts_at', 'ends_at')
     )
     conflict_qs = Appointment.objects.filter(
