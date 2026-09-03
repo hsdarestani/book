@@ -18,3 +18,16 @@ body.admin-body{background:radial-gradient(circle at 10% 0,rgba(180,146,85,.11),
   .sb-drawer-backdrop:not(.is-open){visibility:hidden!important}
   .sb-drawer-backdrop.is-open{visibility:visible!important}
 }
+
+/* App-shell behaviour for the complete management UI. Scrolling remains native,
+   but browser zoom gestures and iOS focus-zoom are disabled so the same shell can
+   later be embedded in the A+ Esthetic app/WebView without layout jumps. */
+html{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body.admin-body{touch-action:pan-x pan-y;overscroll-behavior-y:none}
+@media(max-width:760px){
+  body.admin-body input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  body.admin-body select,
+  body.admin-body textarea{
+    font-size:16px!important;
+  }
+}
