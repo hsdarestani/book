@@ -1,11 +1,7 @@
 from datetime import time
-from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand
-
-from booking.emails import send_customer_booking_email
-from booking.models import Appointment, Service, StaffMember, WorkingHour
+from booking.models import Service, StaffMember, WorkingHour
 
 
 class Command(BaseCommand):
@@ -69,27 +65,5 @@ class Command(BaseCommand):
 
         if StaffMember.objects.filter(role='doctor', active=True).exists():
             StaffMember.objects.filter(display_name='A+esthetic Team').update(active=False)
-
-        # One-time preview resend requested after the September 2026 email redesign.
-        # The marker lives outside the git checkout, so future deploys cannot resend it.
-        resend_marker = Path(settings.BASE_DIR).parent / '.resend-ashkan-email-prev-image-v1'
-        if not resend_marker.exists():
-            appointment = (
-                Appointment.objects.select_related('customer', 'service', 'staff')
-                .filter(
-                    customer__first_name__iexact='Ashkan',
-                    customer__last_name__iexact='Asadian',
-                )
-                .order_by('-created_at')
-                .first()
-            )
-            if appointment:
-                send_customer_booking_email(appointment)
-                resend_marker.write_text(str(appointment.public_id), encoding='utf-8')
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f'Vorschau-E-Mail erneut an {appointment.customer.email} gesendet.'
-                    )
-                )
 
         self.stdout.write(self.style.SUCCESS('Grundkonfiguration ist vorhanden.'))
