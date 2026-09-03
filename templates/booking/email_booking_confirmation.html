@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% if is_admin %}Neue Terminanfrage{% else %}Terminbestätigung{% endif %}</title>
+</head>
+<body style="margin:0;padding:0;background:#f1efe9;color:#171612;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f1efe9;padding:28px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:#ffffff;border:1px solid #ded9cf;border-radius:24px;overflow:hidden;box-shadow:0 18px 50px rgba(30,26,18,.08);">
+          <tr>
+            <td style="padding:26px 28px 18px;text-align:center;background:#fff;">
+              <img src="{{ logo_url }}" width="170" alt="A+Esthetic" style="display:inline-block;max-width:170px;height:auto;border:0;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 28px 28px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#171612;border-radius:20px;overflow:hidden;">
+                <tr>
+                  <td style="padding:28px;color:#fff;vertical-align:middle;">
+                    <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#d9bf8a;font-weight:700;margin-bottom:8px;">A+Esthetic Terminbuchung</div>
+                    <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.08;margin:0 0 10px;">
+                      {% if is_admin %}Neue Terminanfrage{% else %}Dein Termin ist eingetragen{% endif %}
+                    </div>
+                    <div style="font-size:14px;line-height:1.55;color:#e7e3da;">
+                      {% if is_admin %}
+                        Eine neue Buchung ist über die Online-Terminseite eingegangen.
+                      {% else %}
+                        Hallo {{ appointment.customer.first_name }}, wir haben deine Buchung erhalten und alle wichtigen Details hier für dich zusammengefasst.
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td width="180" style="padding:18px 18px 18px 0;vertical-align:middle;text-align:right;">
+                    <img src="{{ staff_image_url }}" width="150" height="150" alt="{{ appointment.staff.display_name }}" style="display:block;width:150px;height:150px;object-fit:cover;border-radius:18px;border:1px solid rgba(255,255,255,.18);margin-left:auto;">
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 28px 8px;">
+              <div style="font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:#9a7a42;font-weight:700;margin-bottom:10px;">Termindetails</div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e5e0d6;border-radius:16px;overflow:hidden;background:#faf9f6;">
+                <tr>
+                  <td style="padding:15px 16px;border-bottom:1px solid #e8e3d9;color:#777167;font-size:12px;width:34%;">Behandlung</td>
+                  <td style="padding:15px 16px;border-bottom:1px solid #e8e3d9;font-size:13px;font-weight:700;">{{ appointment.service.name }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:15px 16px;border-bottom:1px solid #e8e3d9;color:#777167;font-size:12px;">Datum</td>
+                  <td style="padding:15px 16px;border-bottom:1px solid #e8e3d9;font-size:13px;font-weight:700;">{{ local_start|date:"d.m.Y" }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:15px 16px;border-bottom:1px solid #e8e3d9;color:#777167;font-size:12px;">Uhrzeit</td>
+                  <td style="padding:15px 16px;border-bottom:1px solid #e8e3d9;font-size:13px;font-weight:700;">{{ local_start|date:"H:i" }} Uhr</td>
+                </tr>
+                <tr>
+                  <td style="padding:15px 16px;border-bottom:1px solid #e8e3d9;color:#777167;font-size:12px;">Behandler</td>
+                  <td style="padding:15px 16px;border-bottom:1px solid #e8e3d9;font-size:13px;font-weight:700;">{{ appointment.staff.display_name }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:15px 16px;border-bottom:1px solid #e8e3d9;color:#777167;font-size:12px;">Preis</td>
+                  <td style="padding:15px 16px;border-bottom:1px solid #e8e3d9;font-size:13px;font-weight:700;">{{ appointment.service.price_label|default:"nach Beratung" }}</td>
+                </tr>
+                <tr>
+                  <td style="padding:15px 16px;color:#777167;font-size:12px;">Status</td>
+                  <td style="padding:15px 16px;font-size:13px;font-weight:700;">{{ appointment.get_status_display }}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {% if is_admin %}
+          <tr>
+            <td style="padding:18px 28px 0;">
+              <div style="font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:#9a7a42;font-weight:700;margin-bottom:10px;">Patient</div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:13px;line-height:1.7;color:#4d4942;">
+                <tr><td><strong style="color:#171612;">{{ appointment.customer.full_name }}</strong></td></tr>
+                <tr><td>{{ appointment.customer.email }}</td></tr>
+                {% if appointment.customer.phone %}<tr><td>{{ appointment.customer.phone }}</td></tr>{% endif %}
+              </table>
+            </td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td style="padding:24px 28px 28px;text-align:center;">
+              <a href="{% if is_admin %}{{ admin_url }}{% else %}{{ website_url }}{% endif %}" style="display:inline-block;background:#171612;color:#ffffff;text-decoration:none;border-radius:12px;padding:13px 20px;font-size:13px;font-weight:700;">
+                {% if is_admin %}Verwaltung öffnen{% else %}A+Esthetic Website{% endif %}
+              </a>
+              {% if not is_admin %}
+              <p style="margin:18px auto 0;max-width:470px;color:#777167;font-size:12px;line-height:1.6;">Wenn du Fragen zu deinem Termin hast, melde dich bitte direkt bei A+Esthetic.</p>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px;background:#f7f5ef;text-align:center;color:#8a847a;font-size:11px;line-height:1.6;border-top:1px solid #e8e3da;">
+              A+Esthetic · Ästhetische Medizin<br>
+              <a href="https://a-esthetic.de" style="color:#806634;text-decoration:none;">a-esthetic.de</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
