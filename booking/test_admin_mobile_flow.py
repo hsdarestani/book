@@ -9,7 +9,13 @@ from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember, 
 from .services import available_slots
 
 
-@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    },
+)
 class MobileAdminFlowTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
