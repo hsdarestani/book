@@ -8,9 +8,10 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-CLINIC_ADDRESS = 'Stiftstraße 14, 60313 Frankfurt am Main, 2. OG'
+CLINIC_ADDRESS = 'Stiftstraße 14, 60313 Frankfurt am Main · 2. OG'
 CLINIC_PHONE = '069 71417012'
 CLINIC_PHONE_HREF = 'tel:+496971417012'
+WHATSAPP_URL = 'https://wa.me/496971417012'
 INSTAGRAM_URL = 'https://www.instagram.com/aplus.esthetic/'
 DIRECTIONS_URL = 'https://www.google.com/maps/dir/?api=1&destination=Stiftstra%C3%9Fe+14%2C+60313+Frankfurt+am+Main'
 GOOGLE_REVIEWS_URL = 'https://www.google.com/maps/search/?api=1&query=A%2B+Esthetic%2C+Stiftstra%C3%9Fe+14%2C+60313+Frankfurt+am+Main'
@@ -73,6 +74,7 @@ def send_booking_emails(appointment):
         'directions_url': DIRECTIONS_URL,
         'instagram_url': INSTAGRAM_URL,
         'google_reviews_url': GOOGLE_REVIEWS_URL,
+        'whatsapp_url': WHATSAPP_URL,
         'clinic_address': CLINIC_ADDRESS,
         'clinic_phone': CLINIC_PHONE,
         'clinic_phone_href': CLINIC_PHONE_HREF,
@@ -80,19 +82,20 @@ def send_booking_emails(appointment):
 
     subject = 'Deine Terminbestätigung bei A+Esthetic'
     customer_text = (
-        f'Hallo {appointment.customer.first_name},\n\n'
-        'dein Termin wurde gespeichert.\n\n'
+        f'Hallo {appointment.customer.first_name},\n'
+        'hier findest du alle wichtigen Informationen zu deinem Termin auf einen Blick.\n\n'
         f'Behandlung: {appointment.service.name}\n'
         f'Datum: {local_start:%d.%m.%Y}\n'
         f'Uhrzeit: {local_start:%H:%M}\n'
         f'Behandelnde/r Arzt/Ärztin: {staff_email_name}\n\n'
+        'Kontaktdaten:\n'
+        f'A+ Esthetic Frankfurt · {CLINIC_ADDRESS}\n'
+        f'Telefon: {CLINIC_PHONE}\n\n'
         f'Zum Kalender hinzufügen: {calendar_url}\n'
         f'Wegbeschreibung: {DIRECTIONS_URL}\n'
         f'Instagram: {INSTAGRAM_URL}\n'
-        f'Google Bewertungen: {GOOGLE_REVIEWS_URL}\n\n'
-        'Kontaktdaten:\n'
-        f'A+Esthetic · {CLINIC_ADDRESS}\n'
-        f'Telefon: {CLINIC_PHONE}\n\n'
+        f'Google Bewertungen: {GOOGLE_REVIEWS_URL}\n'
+        f'WhatsApp: {WHATSAPP_URL}\n\n'
         'Wenn du Fragen hast, melde dich bitte direkt bei A+Esthetic.\n\n'
         'A+Esthetic'
     )
