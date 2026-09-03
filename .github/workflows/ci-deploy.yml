@@ -236,10 +236,18 @@ jobs:
             fi
 
             sleep 3
-            curl -fsS --max-time 15 http://127.0.0.1:8017/api/health/ | grep -q '"ok": true'
-            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.css" | grep -q '.booking-shell'
-            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.js" | grep -q 'treatmentIcon'
-            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/patient.css" | grep -q '.patient-file-layout'
+            curl -fsS --max-time 15 http://127.0.0.1:8017/api/health/ -o /tmp/aesthetic-health.json
+            grep -q '"ok": true' /tmp/aesthetic-health.json
+            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.css" -o /tmp/aesthetic-app.css
+            grep -q '.booking-shell' /tmp/aesthetic-app.css
+            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.js" -o /tmp/aesthetic-app.js
+            grep -q 'treatmentIcon' /tmp/aesthetic-app.js
+            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/patient.css" -o /tmp/aesthetic-patient.css
+            grep -q '.patient-file-layout' /tmp/aesthetic-patient.css
+            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/admin.js" -o /tmp/aesthetic-admin.js
+            grep -q 'initPrettyTimePickers' /tmp/aesthetic-admin.js
+            curl -fsS --max-time 20 "https://$DOMAIN/static/booking/admin-time.css" -o /tmp/aesthetic-admin-time.css
+            grep -q '.pretty-time-picker' /tmp/aesthetic-admin-time.css
             systemctl is-active --quiet "$SERVICE"
 
             SMTP_TEST_MARKER="$APP_ROOT/.smtp-test-v1-ok"
