@@ -142,6 +142,64 @@
     min-height:calc(100vh - 64px);
   }
 
+  /* The dashboard page deliberately unhides these nodes in admin.js. The older
+     SimplyBook mobile stylesheet hid them unconditionally, leaving a blank page. */
+  .admin-hero:not(.sb-page-hidden){
+    display:block !important;
+    margin:12px 12px 10px !important;
+    padding:20px 18px !important;
+    border-radius:16px !important;
+    background:linear-gradient(145deg,#2f2b25,#1f1d19) !important;
+    color:#fff !important;
+    box-shadow:0 12px 30px rgba(31,29,25,.12) !important;
+  }
+  .admin-hero:not(.sb-page-hidden) .eyebrow{
+    display:block !important;
+    color:#d6b77d !important;
+    font-size:10px !important;
+    letter-spacing:.16em !important;
+    text-transform:uppercase !important;
+  }
+  .admin-hero:not(.sb-page-hidden) h1{
+    color:#fff !important;
+    font-size:25px !important;
+    line-height:1.05 !important;
+    margin:7px 0 8px !important;
+  }
+  .admin-hero:not(.sb-page-hidden) p{
+    color:#ded7cb !important;
+    font-size:12px !important;
+    line-height:1.5 !important;
+    margin:0 !important;
+  }
+  .metric-grid:not(.sb-page-hidden){
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:10px !important;
+    margin:0 12px 14px !important;
+  }
+  .metric-grid:not(.sb-page-hidden) article{
+    min-width:0 !important;
+    min-height:100px !important;
+    padding:15px !important;
+    border:1px solid #e6dfd3 !important;
+    border-radius:15px !important;
+    background:#fff !important;
+    box-shadow:0 5px 16px rgba(41,35,28,.045) !important;
+  }
+  .metric-grid:not(.sb-page-hidden) strong{
+    display:block !important;
+    margin-bottom:8px !important;
+    color:#2f2b25 !important;
+    font:700 28px/1 Georgia,serif !important;
+  }
+  .metric-grid:not(.sb-page-hidden) span{
+    display:block !important;
+    color:#7e7568 !important;
+    font-size:11px !important;
+    line-height:1.3 !important;
+  }
+
   /* prev.png is a branded visual, not an avatar. Keep its natural presentation
      instead of squeezing it into the old circular SimplyBook-style logo slot. */
   .sb-drawer-brand{
