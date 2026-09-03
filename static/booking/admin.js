@@ -1,100 +1,107 @@
 (() => {
-  const pad = (value) => String(value).padStart(2, '0');
+  const FLATPICKR_JS = 'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js';
+  const FLATPICKR_CSS = 'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css';
 
-  function ensureTimePickerStyles() {
-    if (document.querySelector('link[data-admin-time-picker]')) return;
+  function addStylesheet(href, marker) {
+    if (document.querySelector(`link[${marker}]`)) return;
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/static/booking/admin-time.css';
-    link.dataset.adminTimePicker = '1';
+    link.href = href;
+    link.setAttribute(marker, '1');
     document.head.appendChild(link);
   }
 
-  function addOption(select, value, label) {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = label;
-    select.appendChild(option);
+  function ensureStyles() {
+    addStylesheet('/static/booking/admin-time.css', 'data-admin-time-picker');
   }
 
-  function enhanceTimeInput(input) {
-    if (input.dataset.prettyTime === '1') return;
-    input.dataset.prettyTime = '1';
-
-    const required = input.required;
-    const initialValue = input.value || '';
-    input.required = false;
-    input.type = 'hidden';
-
-    const picker = document.createElement('div');
-    picker.className = 'pretty-time-picker';
-
-    const icon = document.createElement('span');
-    icon.className = 'pretty-time-icon';
-    icon.setAttribute('aria-hidden', 'true');
-    icon.textContent = '◷';
-
-    const hourSelect = document.createElement('select');
-    hourSelect.className = 'pretty-time-select pretty-time-hour';
-    hourSelect.setAttribute('aria-label', 'Stunde');
-    if (required) hourSelect.required = true;
-    addOption(hourSelect, '', 'Std.');
-    for (let hour = 0; hour < 24; hour += 1) {
-      addOption(hourSelect, pad(hour), pad(hour));
-    }
-
-    const separator = document.createElement('span');
-    separator.className = 'pretty-time-separator';
-    separator.textContent = ':';
-
-    const minuteSelect = document.createElement('select');
-    minuteSelect.className = 'pretty-time-select pretty-time-minute';
-    minuteSelect.setAttribute('aria-label', 'Minute');
-    if (required) minuteSelect.required = true;
-    addOption(minuteSelect, '', 'Min.');
-    for (let minute = 0; minute < 60; minute += 5) {
-      addOption(minuteSelect, pad(minute), pad(minute));
-    }
-
-    const currentParts = initialValue.match(/^(\d{2}):(\d{2})/);
-    if (currentParts) {
-      const [, hour, minute] = currentParts;
-      if (![...minuteSelect.options].some((option) => option.value === minute)) {
-        addOption(minuteSelect, minute, minute);
-      }
-      hourSelect.value = hour;
-      minuteSelect.value = minute;
-    }
-
-    const sync = () => {
-      if (hourSelect.value && minuteSelect.value) {
-        input.value = `${hourSelect.value}:${minuteSelect.value}`;
-        picker.classList.add('has-value');
-      } else {
-        input.value = '';
-        picker.classList.remove('has-value');
-      }
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    };
-
-    hourSelect.addEventListener('change', sync);
-    minuteSelect.addEventListener('change', sync);
-
-    picker.append(icon, hourSelect, separator, minuteSelect);
-    input.insertAdjacentElement('afterend', picker);
-    sync();
+  function usesNativeMobilePicker() {
+    return window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 760;
   }
 
-  function initPrettyTimePickers() {
-    ensureTimePickerStyles();
-    document
-      .querySelectorAll('.availability-editor input[type="time"], .block-form input[type="time"]')
-      .forEach(enhanceTimeInput);
+  function loadFlatpickr() {
+    if (window.flatpickr) return Promise.resolve(window.flatpickr);
+    const existing = document.querySelector('script[data-flatpickr]');
+    if (existing) {
+      return new Promise((resolve, reject) => {
+        existing.addEventListener('load', () => resolve(window.flatpickr), { once: true });
+        existing.addEventListener('error', reject, { once: true });
+      });
+    }
+
+    addStylesheet(FLATPICKR_CSS, 'data-flatpickr-css');
+
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = FLATPICKR_JS;
+      script.defer = true;
+      script.setAttribute('data-flatpickr', '1');
+      script.onload = () => resolve(window.flatpickr);
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  function timeInputs() {
+    return [...document.querySelectorAll(
+      '.availability-editor input[type="time"], .block-form input[type="time"]'
+    )];
+  }
+
+  function prepareNativeInputs(inputs) {
+    inputs.forEach((input) => {
+      input.step = '300';
+      input.classList.add('admin-time-input', 'is-native');
+    });
+  }
+
+  async function initDesktopPicker(inputs) {
+    try {
+      const flatpickr = await loadFlatpickr();
+      if (!flatpickr) throw new Error('Flatpickr unavailable');
+
+      inputs.forEach((input) => {
+        input.step = '300';
+        input.classList.add('admin-time-input');
+        flatpickr(input, {
+          enableTime: true,
+          noCalendar: true,
+          dateFormat: 'H:i',
+          time_24hr: true,
+          minuteIncrement: 5,
+          allowInput: false,
+          clickOpens: true,
+          disableMobile: true,
+          defaultDate: input.value || null,
+          position: 'auto center',
+          onReady: (_selectedDates, _dateStr, instance) => {
+            instance.input.classList.add('is-flatpickr');
+            instance.input.setAttribute('autocomplete', 'off');
+          },
+        });
+      });
+    } catch (error) {
+      console.warn('Desktop time picker fallback:', error);
+      prepareNativeInputs(inputs);
+    }
+  }
+
+  function initTimePickers() {
+    ensureStyles();
+    const inputs = timeInputs();
+    if (!inputs.length) return;
+
+    if (usesNativeMobilePicker()) {
+      prepareNativeInputs(inputs);
+      return;
+    }
+
+    initDesktopPicker(inputs);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initPrettyTimePickers);
+    document.addEventListener('DOMContentLoaded', initTimePickers, { once: true });
   } else {
-    initPrettyTimePickers();
+    initTimePickers();
   }
 })();
