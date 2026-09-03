@@ -110,7 +110,7 @@ html{scroll-behavior:auto!important}
 }
 .sb-calendar-pro .sb-calendar-event span,
 .sb-calendar-pro .sb-calendar-event small{
-  color:rgba(255,255,255,.88)!important;
+  color:rgba(255,255,255,.92)!important;
 }
 .sb-calendar-pro .sb-calendar-block.is-block,
 .sb-calendar-pro .sb-calendar-block.is-blocked,
@@ -140,11 +140,8 @@ html{scroll-behavior:auto!important}
 }
 
 @media(max-width:760px){
-  /* The mobile top bar already exposes the view menu. Keep one three-dot control only. */
   .sb-calendar-head-actions{display:none!important}
 
-  /* 100px per hour gives 25px per quarter hour. This keeps 15-minute
-     appointments readable instead of stacking text on top of neighbouring cards. */
   .sb-calendar-pro .sb-calendar-shell{
     min-height:1485px!important;
   }
@@ -171,28 +168,53 @@ html{scroll-behavior:auto!important}
     right:0;
     transform:translateY(-50%)!important;
     line-height:1;
+    font-size:11px!important;
   }
-  .sb-calendar-pro .sb-calendar-event{
+
+  /* App-like day cards: readable type, clean right gutter and fully rounded edge. */
+  .sb-calendar-pro .sb-calendar-shell:not(.is-week) .sb-calendar-event{
+    left:6px!important;
+    right:10px!important;
+    width:auto!important;
+    max-width:calc(100% - 16px)!important;
+    min-height:28px;
+    box-sizing:border-box;
+    padding:4px 8px!important;
+    border-radius:8px!important;
+    border-left-width:3px!important;
+    overflow:hidden!important;
+  }
+  .sb-calendar-pro .sb-calendar-shell:not(.is-week) .sb-calendar-event strong{
+    font-size:12.5px!important;
+    line-height:1.08!important;
+    font-weight:800!important;
+    letter-spacing:.005em;
+  }
+  .sb-calendar-pro .sb-calendar-shell:not(.is-week) .sb-calendar-event span{
+    font-size:10.5px!important;
+    line-height:1.08!important;
+    margin-top:2px!important;
+  }
+  .sb-calendar-pro .sb-calendar-shell:not(.is-week) .sb-calendar-event small{
+    display:none!important;
+  }
+
+  .sb-calendar-pro .sb-calendar-shell.is-week .sb-calendar-event{
     min-height:23px;
     box-sizing:border-box;
     padding:3px 5px;
     border-radius:5px;
   }
-  .sb-calendar-pro .sb-calendar-event strong{
-    font-size:9px;
-    line-height:1.05;
-  }
-  .sb-calendar-pro .sb-calendar-event span{
-    font-size:7px;
-    line-height:1.05;
-    margin-top:1px;
-  }
-  .sb-calendar-pro .sb-calendar-event small{
-    display:none;
-  }
+  .sb-calendar-pro .sb-calendar-shell.is-week .sb-calendar-event strong{font-size:9px;line-height:1.05}
+  .sb-calendar-pro .sb-calendar-shell.is-week .sb-calendar-event span{font-size:7px;line-height:1.05;margin-top:1px}
+  .sb-calendar-pro .sb-calendar-shell.is-week .sb-calendar-event small{display:none}
+
   .sb-calendar-pro .sb-calendar-block{
     box-sizing:border-box;
+    font-size:11px;
   }
+  .sb-calendar-pro .sb-calendar-block strong{font-size:11px!important;line-height:1.15}
+  .sb-calendar-pro .sb-calendar-block small{font-size:9px!important}
   .sb-working-segment-editable b{width:22px;height:22px;right:5px;top:5px}
   .sb-day-hours-edit{width:25px;height:25px;right:4px}
   .sb-day-availability-modal .sb-modal-card{height:100%}
