@@ -71,6 +71,9 @@ class MobileAdminFlowTests(TestCase):
         self.assertContains(response, 'name="note_end" step="900"')
         self.assertContains(response, 'data-open-booking')
         self.assertContains(response, 'data-open-customer-picker')
+        self.assertContains(response, 'https://a-esthetic.de/wp-content/uploads/prev.png')
+        self.assertContains(response, 'Zeitraum blockieren')
+        self.assertContains(response, 'force_block')
 
     def test_separate_admin_section_routes_render(self):
         route_names = [
@@ -166,3 +169,34 @@ class MobileAdminFlowTests(TestCase):
         self.assertContains(calendar_response, 'sb-calendar-block is-blocked-note')
         self.assertContains(calendar_response, 'Pause')
         self.assertContains(calendar_response, '10:00–11:00')
+
+    def test_explicit_block_action_cannot_fall_back_to_plain_note(self):
+        response = self.client.post(
+            reverse('booking:admin_calendar'),
+            {
+                'action': 'add_calendar_note',
+                'staff_id': self.staff.pk,
+                'note_date': self.day.isoformat(),
+                'note_start': '11:15',
+                'note_end': '12:00',
+                'note_scope': 'staff',
+                'note_text': 'Behandlungspause',
+                'force_block': '1',
+                'return_date': self.day.isoformat(),
+                'return_view': 'day',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        block = BlockedPeriod.objects.get(staff=self.staff)
+        self.assertTrue(block.reason.startswith('[BLOCKNOTE]'))
+        self.assertIn('notice=block', response['Location'])
+        self.assertIn(f'focus_block={block.pk}', response['Location'])
+        self.assertIn(f'date={self.day.isoformat()}', response['Location'])
+        self.assertIn(f'staff={self.staff.pk}', response['Location'])
+
+        focused = self.client.get(response['Location'])
+        self.assertEqual(focused.status_code, 200)
+        self.assertContains(focused, 'sb-calendar-block is-blocked-note')
+        self.assertContains(focused, 'Behandlungspause')
+        self.assertContains(focused, '11:15–12:00')
+        self.assertContains(focused, 'is-focused-block')
