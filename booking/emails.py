@@ -74,7 +74,7 @@ def send_customer_booking_email(appointment):
     staff_email_name = context['staff_email_name']
     calendar_url = context['calendar_url']
 
-    subject = 'Deine Terminbestätigung bei A+Esthetic'
+    subject = 'Deine Terminbestätigung bei A+ Esthetic'
     customer_text = (
         f'Hallo {appointment.customer.first_name},\n'
         'hier findest du alle wichtigen Informationen zu deinem Termin auf einen Blick.\n\n'
