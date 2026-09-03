@@ -98,7 +98,7 @@ jobs:
             BACKUP="$APP_ROOT/private/simplybook-backup-$(date +%Y%m%d-%H%M%S).json"
             export SIMPLYBOOK_COMPANY_LOGIN SIMPLYBOOK_USER_LOGIN SIMPLYBOOK_USER_PASSWORD SIMPLYBOOK_API_USER_KEY
             cd "$APP_DIR"
-            runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py migrate --noinput; '$VENV/bin/python' manage.py simplybook_import --backup '$BACKUP'; '$VENV/bin/python' manage.py fix_simplybook_owner"
+            runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py migrate --noinput; '$VENV/bin/python' manage.py simplybook_import --backup '$BACKUP'; '$VENV/bin/python' manage.py fix_simplybook_owner; '$VENV/bin/python' manage.py sync_simplybook_notes"
             chown aestheticbook:aestheticbook "$BACKUP"
             chmod 0600 "$BACKUP"
-            echo "SimplyBook production import completed for Frau Ariane Regaei. Raw backup: $BACKUP"
+            echo "SimplyBook production import + calendar-note sync completed for Frau Ariane Regaei. Raw backup: $BACKUP"
