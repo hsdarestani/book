@@ -141,4 +141,23 @@
   body.sb-admin-body main.sb-admin-shell{
     min-height:calc(100vh - 64px);
   }
+
+  /* prev.png is a branded visual, not an avatar. Keep its natural presentation
+     instead of squeezing it into the old circular SimplyBook-style logo slot. */
+  .sb-drawer-brand{
+    grid-template-columns:96px minmax(0,1fr) !important;
+    gap:14px !important;
+    padding:24px 18px 18px !important;
+  }
+  .sb-drawer-brand img{
+    display:block !important;
+    width:96px !important;
+    height:48px !important;
+    max-width:none !important;
+    object-fit:cover !important;
+    object-position:center !important;
+    border-radius:8px !important;
+    background:#f7f0e4 !important;
+    box-shadow:0 0 0 1px rgba(181,138,76,.18) !important;
+  }
 }
