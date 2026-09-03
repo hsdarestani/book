@@ -15,6 +15,7 @@ WHATSAPP_URL = 'https://wa.me/496971417012'
 INSTAGRAM_URL = 'https://www.instagram.com/aplus.esthetic/'
 DIRECTIONS_URL = 'https://www.google.com/maps/dir/?api=1&destination=Stiftstra%C3%9Fe+14%2C+60313+Frankfurt+am+Main'
 GOOGLE_REVIEWS_URL = 'https://www.google.com/maps/search/?api=1&query=A%2B+Esthetic%2C+Stiftstra%C3%9Fe+14%2C+60313+Frankfurt+am+Main'
+EMAIL_HERO_IMAGE_URL = 'https://a-esthetic.de/wp-content/uploads/prev.png'
 
 
 def _public_base_url():
@@ -22,19 +23,7 @@ def _public_base_url():
 
 
 def _staff_image_url(appointment):
-    base_url = _public_base_url()
-    if appointment.staff.photo:
-        try:
-            photo_url = appointment.staff.photo.url
-            if photo_url.startswith(('http://', 'https://')):
-                return photo_url
-            return f'{base_url}{photo_url}'
-        except ValueError:
-            pass
-
-    name = appointment.staff.display_name.lower()
-    filename = 'ariane-regaei.jpg' if 'ariane' in name else 'doctor-male.jpg'
-    return f'{base_url}/static/booking/staff/{filename}'
+    return EMAIL_HERO_IMAGE_URL
 
 
 def _email_staff_name(staff):
@@ -58,19 +47,17 @@ def _send_html_mail(subject, text_body, html_body, recipients):
     message.send(fail_silently=False)
 
 
-def send_booking_emails(appointment):
+def _booking_email_context(appointment):
     local_start = timezone.localtime(appointment.starts_at)
     base_url = _public_base_url()
-    staff_email_name = _email_staff_name(appointment.staff)
-    calendar_url = f'{base_url}/termin/{appointment.public_id}/kalender.ics'
-    common_context = {
+    return {
         'appointment': appointment,
         'local_start': local_start,
-        'staff_email_name': staff_email_name,
+        'staff_email_name': _email_staff_name(appointment.staff),
         'staff_image_url': _staff_image_url(appointment),
         'website_url': 'https://a-esthetic.de',
         'admin_url': f'{base_url}/verwaltung/#termine',
-        'calendar_url': calendar_url,
+        'calendar_url': f'{base_url}/termin/{appointment.public_id}/kalender.ics',
         'directions_url': DIRECTIONS_URL,
         'instagram_url': INSTAGRAM_URL,
         'google_reviews_url': GOOGLE_REVIEWS_URL,
@@ -79,6 +66,13 @@ def send_booking_emails(appointment):
         'clinic_phone': CLINIC_PHONE,
         'clinic_phone_href': CLINIC_PHONE_HREF,
     }
+
+
+def send_customer_booking_email(appointment):
+    context = _booking_email_context(appointment)
+    local_start = context['local_start']
+    staff_email_name = context['staff_email_name']
+    calendar_url = context['calendar_url']
 
     subject = 'Deine Terminbestätigung bei A+Esthetic'
     customer_text = (
@@ -101,11 +95,17 @@ def send_booking_emails(appointment):
     )
     customer_html = render_to_string(
         'booking/email_booking_confirmation.html',
-        {**common_context, 'is_admin': False},
+        {**context, 'is_admin': False},
     )
+    _send_html_mail(subject, customer_text, customer_html, [appointment.customer.email])
+
+
+def send_booking_emails(appointment):
+    context = _booking_email_context(appointment)
+    local_start = context['local_start']
 
     try:
-        _send_html_mail(subject, customer_text, customer_html, [appointment.customer.email])
+        send_customer_booking_email(appointment)
 
         if settings.BOOKING_NOTIFICATION_EMAIL:
             admin_subject = f'Neuer Termin: {appointment.service.name}'
@@ -120,7 +120,7 @@ def send_booking_emails(appointment):
             )
             admin_html = render_to_string(
                 'booking/email_booking_confirmation.html',
-                {**common_context, 'is_admin': True},
+                {**context, 'is_admin': True},
             )
             _send_html_mail(
                 admin_subject,
