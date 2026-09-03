@@ -1,16 +1,23 @@
 {% load static %}
 <!doctype html>
 <html lang="de">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anmelden | A+Esthetic Verwaltung</title><link rel="stylesheet" href="{% static 'booking/app.css' %}"><link rel="stylesheet" href="{% static 'booking/admin.css' %}"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><title>Anmelden | A+Esthetic Verwaltung</title><link rel="stylesheet" href="{% static 'booking/app.css' %}"><link rel="stylesheet" href="{% static 'booking/admin.css' %}"></head>
 <body class="admin-body login-body">
 <main class="login-shell">
   <a class="brand brand-image" href="/" aria-label="A+Esthetic Buchungsseite"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+Esthetic"></a>
   <section class="login-card">
     <div class="eyebrow">Buchungsverwaltung</div><h1>Willkommen zurück.</h1><p>Melde dich an, um Termine und Kalender zu verwalten.</p>
     {% if error %}<div class="admin-notice is-error">{{ error }}</div>{% endif %}
-    <form method="post" class="login-form">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}"><label>Benutzername<input name="username" autocomplete="username" required autofocus></label><label>Passwort<input name="password" type="password" autocomplete="current-password" required></label><button class="admin-primary" type="submit">Anmelden</button></form>
+    <form method="post" action="{% url 'booking:admin_login' %}" class="login-form">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}"><label>Benutzername<input name="username" autocomplete="username" required autofocus></label><label>Passwort<input name="password" type="password" autocomplete="current-password" required></label><button class="admin-primary" type="submit">Anmelden</button></form>
   </section>
   <a class="login-back" href="/">← Zur Buchungsseite</a>
 </main>
+<script>
+window.addEventListener('pageshow', function (event) {
+  if (event.persisted) {
+    window.location.reload();
+  }
+});
+</script>
 </body>
 </html>

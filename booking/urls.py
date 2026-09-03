@@ -1,5 +1,5 @@
 from django.urls import path
-from . import admin_views, api, calendar, calendar_admin_api, internal_api, mobile_api, views
+from . import admin_views, api, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, views
 
 app_name = 'booking'
 urlpatterns = [
@@ -14,8 +14,9 @@ urlpatterns = [
     path('verwaltung/behandlungen/', admin_views.dashboard_proxy, name='admin_services'),
     path('verwaltung/information/', admin_views.dashboard_proxy, name='admin_information'),
     path('verwaltung/api/day-availability/', calendar_admin_api.day_availability, name='admin_day_availability'),
-    path('verwaltung/login/', views.admin_login, name='admin_login'),
-    path('verwaltung/logout/', views.admin_logout, name='admin_logout'),
+    path('verwaltung/api/calendar-day/', calendar_admin_api.calendar_day, name='admin_calendar_day'),
+    path('verwaltung/login/', auth_views.admin_login, name='admin_login'),
+    path('verwaltung/logout/', auth_views.admin_logout, name='admin_logout'),
     path('verwaltung/patienten/<int:customer_id>/', views.patient_file, name='patient_file'),
     path('verwaltung/patienten/<int:customer_id>/datei/<uuid:record_id>/', views.patient_record_file, name='patient_record_file'),
     path('api/health/', api.health, name='health'),
