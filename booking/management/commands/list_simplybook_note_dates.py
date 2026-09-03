@@ -32,6 +32,10 @@ class Command(BaseCommand):
 
         future = [row for row in rows if row['date'] >= today.isoformat()][:12]
         recent_past = [row for row in rows if row['date'] < today.isoformat()][-12:]
+        blocked_rows = [row for row in rows if row['blocked']]
+        nonblocked_rows = [row for row in rows if not row['blocked']]
+        nonblocked_future = [row for row in nonblocked_rows if row['date'] >= today.isoformat()][:12]
+        nonblocked_recent = [row for row in nonblocked_rows if row['date'] < today.isoformat()][-12:]
 
         counts = list(
             qs.values('starts_at__date')
@@ -47,10 +51,14 @@ class Command(BaseCommand):
         payload = {
             'today': today.isoformat(),
             'total': len(rows),
+            'blocked_count': len(blocked_rows),
+            'nonblocked_count': len(nonblocked_rows),
             'earliest': rows[0] if rows else None,
             'latest': rows[-1] if rows else None,
             'nearest_dates': nearest_dates[:12],
             'future_samples': future,
             'recent_past_samples': recent_past,
+            'nonblocked_future_samples': nonblocked_future,
+            'nonblocked_recent_samples': nonblocked_recent,
         }
         self.stdout.write('SIMPLYBOOK_NOTE_DATES_JSON=' + json.dumps(payload, sort_keys=True))
