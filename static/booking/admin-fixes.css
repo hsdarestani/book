@@ -1,19 +1,25 @@
 /* Final visibility and interaction fixes for the SimplyBook-inspired admin UI. */
 
+.sb-page-hidden{display:none!important}
+
 .sb-form-row input[type="date"],
 .sb-form-row input[type="time"],
+.sb-form-row .admin-time-input,
 .block-form input[type="date"],
 .block-form input[type="time"],
-.time-period input[type="time"]{
+.block-form .admin-time-input,
+.time-period input[type="time"],
+.time-period .admin-time-input{
   box-sizing:border-box;
   width:100%;
   min-height:44px;
   border:1px solid #d8cdbc !important;
   border-radius:11px !important;
-  background:#fbf8f1 !important;
+  background-color:#fbf8f1 !important;
   color:#25221d !important;
   -webkit-text-fill-color:#25221d !important;
-  padding:9px 11px !important;
+  padding-top:9px !important;
+  padding-bottom:9px !important;
   font-size:14px !important;
   font-weight:750 !important;
   line-height:1.2;
@@ -23,13 +29,14 @@
 
 .sb-form-row input[type="date"]:focus,
 .sb-form-row input[type="time"]:focus,
+.sb-form-row .admin-time-input:focus,
 .block-form input[type="date"]:focus,
 .block-form input[type="time"]:focus,
 .time-period input[type="time"]:focus{
   outline:none;
   border-color:#b58a4c !important;
   box-shadow:0 0 0 3px rgba(181,138,76,.14) !important;
-  background:#fffdf8 !important;
+  background-color:#fffdf8 !important;
 }
 
 .sb-form-row input[type="date"]::-webkit-calendar-picker-indicator,
@@ -41,18 +48,21 @@
 }
 
 .sb-form-row:has(input[type="date"]),
-.sb-form-row:has(input[type="time"]){
+.sb-form-row:has(input[type="time"]),
+.sb-form-row:has(.admin-time-input){
   padding-top:9px;
   padding-bottom:9px;
 }
 
 .sb-form-row:has(input[type="date"]) > div,
-.sb-form-row:has(input[type="time"]) > div{
+.sb-form-row:has(input[type="time"]) > div,
+.sb-form-row:has(.admin-time-input) > div{
   gap:7px;
 }
 
 .sb-form-row:has(input[type="date"]) small,
-.sb-form-row:has(input[type="time"]) small{
+.sb-form-row:has(input[type="time"]) small,
+.sb-form-row:has(.admin-time-input) small{
   color:#655c50;
   font-size:11px;
   font-weight:800;
@@ -86,17 +96,20 @@
 @media(max-width:760px){
   .sb-form-row input[type="date"],
   .sb-form-row input[type="time"],
+  .sb-form-row .admin-time-input,
   .block-form input[type="date"],
   .block-form input[type="time"],
-  .time-period input[type="time"]{
+  .block-form .admin-time-input,
+  .time-period input[type="time"],
+  .time-period .admin-time-input{
     min-height:50px;
-    padding:11px 12px !important;
     font-size:16px !important;
     border-width:1.5px !important;
   }
 
   .sb-form-row:has(input[type="date"]),
-  .sb-form-row:has(input[type="time"]){
+  .sb-form-row:has(input[type="time"]),
+  .sb-form-row:has(.admin-time-input){
     min-height:88px;
     align-items:flex-start;
     padding-top:10px;
@@ -104,13 +117,15 @@
   }
 
   .sb-form-row:has(input[type="date"]) .sb-row-icon,
-  .sb-form-row:has(input[type="time"]) .sb-row-icon{
+  .sb-form-row:has(input[type="time"]) .sb-row-icon,
+  .sb-form-row:has(.admin-time-input) .sb-row-icon{
     margin-top:27px;
     color:#8a6736;
   }
 
   .sb-form-row:has(input[type="date"]) small,
-  .sb-form-row:has(input[type="time"]) small{
+  .sb-form-row:has(input[type="time"]) small,
+  .sb-form-row:has(.admin-time-input) small{
     font-size:11px;
   }
 
@@ -121,5 +136,9 @@
 
   .sb-sheet-save{
     min-height:50px;
+  }
+
+  body.sb-admin-body main.sb-admin-shell{
+    min-height:calc(100vh - 64px);
   }
 }
