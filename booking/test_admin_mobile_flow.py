@@ -5,7 +5,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember, WorkingHour
+from .models import Appointment, BlockedPeriod, Customer, DailyAvailabilityOverride, Service, StaffMember, WorkingHour
 from .services import available_slots
 
 
@@ -347,3 +347,68 @@ class MobileAdminFlowTests(TestCase):
         self.assertFalse(Appointment.objects.filter(pk=appointment.pk).exists())
         labels = {timezone.localtime(slot).strftime('%H:%M') for slot in available_slots(self.service, self.staff, self.day)}
         self.assertIn('10:00', labels)
+
+    def test_daily_availability_override_replaces_weekly_hours_for_public_booking(self):
+        response = self.client.post(
+            reverse('booking:admin_day_availability'),
+            {
+                'action': 'save',
+                'staff_id': self.staff.pk,
+                'date': self.day.isoformat(),
+                'start_1': '10:00',
+                'end_1': '12:00',
+                'start_2': '',
+                'end_2': '',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        override = DailyAvailabilityOverride.objects.get(staff=self.staff, date=self.day)
+        self.assertFalse(override.closed)
+        labels = {timezone.localtime(slot).strftime('%H:%M') for slot in available_slots(self.service, self.staff, self.day)}
+        self.assertNotIn('09:00', labels)
+        self.assertIn('10:00', labels)
+        self.assertIn('11:30', labels)
+        self.assertNotIn('12:00', labels)
+
+        api_response = self.client.get(
+            reverse('booking:admin_day_availability'),
+            {'staff': self.staff.pk, 'date': self.day.isoformat()},
+        )
+        self.assertEqual(api_response.status_code, 200)
+        payload = api_response.json()
+        self.assertTrue(payload['is_override'])
+        self.assertEqual(payload['ranges'], [{'start': '10:00', 'end': '12:00'}])
+
+    def test_closed_daily_override_removes_all_public_slots(self):
+        response = self.client.post(
+            reverse('booking:admin_day_availability'),
+            {
+                'action': 'save',
+                'staff_id': self.staff.pk,
+                'date': self.day.isoformat(),
+                'closed': 'on',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(available_slots(self.service, self.staff, self.day), [])
+
+    def test_reset_daily_override_restores_weekly_hours(self):
+        DailyAvailabilityOverride.objects.create(
+            staff=self.staff,
+            date=self.day,
+            start_time_1=time(10, 0),
+            end_time_1=time(12, 0),
+        )
+        response = self.client.post(
+            reverse('booking:admin_day_availability'),
+            {
+                'action': 'reset',
+                'staff_id': self.staff.pk,
+                'date': self.day.isoformat(),
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(DailyAvailabilityOverride.objects.filter(staff=self.staff, date=self.day).exists())
+        labels = {timezone.localtime(slot).strftime('%H:%M') for slot in available_slots(self.service, self.staff, self.day)}
+        self.assertIn('09:00', labels)
+        self.assertIn('12:30', labels)
