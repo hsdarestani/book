@@ -3,48 +3,202 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Verwaltung | A+Esthetic Buchung</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Verwaltung | A+ Esthetic Buchung</title>
   <link rel="stylesheet" href="{% static 'booking/app.css' %}">
   <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
   <link rel="stylesheet" href="{% static 'booking/patient.css' %}">
   <script defer src="{% static 'booking/admin.js' %}"></script>
 </head>
-<body class="admin-body">
-<main class="admin-shell">
-  <header class="admin-topbar">
-    <div class="admin-brand"><a class="brand brand-image" href="/verwaltung/" aria-label="A+Esthetic Buchungsverwaltung"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+Esthetic"></a><div class="brand-meta">Buchungsverwaltung</div></div>
+<body class="admin-body sb-admin-body">
+
+<header class="sb-mobile-bar">
+  <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
+  <strong class="sb-mobile-title">Kalender{% if calendar_view == 'week' %} (Woche){% else %} (Tagesansicht){% endif %}</strong>
+  <button type="button" class="sb-icon-button" data-view-menu-open aria-label="Ansicht ändern">⋯</button>
+</header>
+
+<div class="sb-drawer-backdrop" data-drawer-backdrop></div>
+<aside class="sb-drawer" data-drawer aria-hidden="true">
+  <div class="sb-drawer-brand">
+    <img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic">
+    <div><strong>A+ Esthetic</strong><span>Buchungsverwaltung</span></div>
+  </div>
+  <nav class="sb-drawer-nav">
+    <a href="#uebersicht"><span>▦</span>Dashboard</a>
+    <a href="#kalender"><span>▣</span>Kalender</a>
+    <a href="#termine"><span>✓</span>Buchungen</a>
+    <button type="button" data-open-note><span>✎</span>Notizen</button>
+    <a href="#kunden"><span>♙</span>Kunden</a>
+    <a href="#einstellungen"><span>⚙</span>Einstellungen</a>
+    <a href="#information"><span>ⓘ</span>Information</a>
+    <a href="/verwaltung/logout/"><span>↪</span>Logout</a>
+  </nav>
+</aside>
+
+<div class="sb-view-menu" data-view-menu hidden>
+  <a href="?date={{ calendar_date|date:'Y-m-d' }}&cal_view=day{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender">Tagesansicht</a>
+  <a href="?date={{ calendar_date|date:'Y-m-d' }}&cal_view=week{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender">Woche</a>
+  <a href="#einstellungen">Dienstleister-Ansicht</a>
+  <a href="#behandlungen">Dienstleistungsansicht</a>
+</div>
+
+<main class="admin-shell sb-admin-shell">
+  <header class="admin-topbar sb-desktop-topbar">
+    <div class="admin-brand">
+      <a class="brand brand-image" href="/verwaltung/" aria-label="A+ Esthetic Buchungsverwaltung"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"></a>
+      <div class="brand-meta">Buchungsverwaltung</div>
+    </div>
     <nav class="admin-nav" aria-label="Verwaltung">
-      <a href="#uebersicht">Übersicht</a><a href="#kalender">Kalender</a><a href="#termine">Termine</a><a href="#behandlungen">Behandlungen</a><a href="#kunden">Patientenakten</a>
+      <a href="#uebersicht">Übersicht</a><a href="#kalender">Kalender</a><a href="#termine">Buchungen</a><a href="#kunden">Kunden</a><a href="#einstellungen">Einstellungen</a>
     </nav>
     <div class="admin-actions"><a href="/" target="_blank">Buchungsseite ↗</a><a href="/verwaltung/logout/">Abmelden</a></div>
   </header>
 
   {% if notice %}
-  <div class="admin-notice {% if notice == 'block-error' or notice == 'service-error' %}is-error{% endif %}">
-    {% if notice == 'hours' %}Verfügbarkeit wurde gespeichert.{% elif notice == 'block' %}Sperrzeit wurde angelegt.{% elif notice == 'block-deleted' %}Sperrzeit wurde entfernt.{% elif notice == 'appointment' %}Terminstatus wurde aktualisiert.{% elif notice == 'service' %}Behandlung wurde gespeichert.{% elif notice == 'block-error' %}Bitte prüfe Datum und Uhrzeit der Sperrzeit.{% elif notice == 'service-error' %}Bitte prüfe Dauer und Puffer.{% endif %}
+  <div class="admin-notice {% if 'error' in notice or 'conflict' in notice %}is-error{% endif %}">
+    {% if notice == 'hours' %}Verfügbarkeit wurde gespeichert.
+    {% elif notice == 'block' %}Sperrzeit wurde angelegt.
+    {% elif notice == 'block-deleted' %}Sperrzeit wurde entfernt.
+    {% elif notice == 'appointment' %}Terminstatus wurde aktualisiert.
+    {% elif notice == 'service' %}Behandlung wurde gespeichert.
+    {% elif notice == 'booking' %}Termin wurde angelegt und die Bestätigung an den Kunden gesendet.
+    {% elif notice == 'customer' %}Kunde wurde gespeichert.
+    {% elif notice == 'note' %}Notiz wurde gespeichert.
+    {% elif notice == 'booking-conflict' %}Dieser Zeitraum ist bereits belegt oder gesperrt.
+    {% elif notice == 'booking-service-error' %}Diese Dienstleistung ist dem gewählten Dienstleister nicht zugeordnet.
+    {% elif notice == 'booking-error' %}Bitte Dienstleistung, Kunde, Datum und Uhrzeit vollständig auswählen.
+    {% elif notice == 'customer-error' %}Bitte mindestens Vorname und gültige E-Mail-Adresse eingeben.
+    {% elif notice == 'note-error' %}Bitte Datum und Zeitraum der Notiz prüfen.
+    {% elif notice == 'block-error' %}Bitte Datum und Uhrzeit der Sperrzeit prüfen.
+    {% elif notice == 'service-error' %}Bitte Dauer und Puffer prüfen.
+    {% endif %}
   </div>
   {% endif %}
 
   <section class="admin-hero" id="uebersicht">
-    <div><div class="eyebrow">Heute im Blick</div><h1>Buchungsübersicht</h1><p>Termine, Behandlungen, Patientenakten und die Kalender deiner Ärztinnen und Ärzte an einem Ort.</p></div>
+    <div><div class="eyebrow">Heute im Blick</div><h1>Buchungsübersicht</h1><p>Kalender, Buchungen, Kunden und Verfügbarkeiten an einem Ort.</p></div>
   </section>
 
   <section class="metric-grid">
     <article><strong>{{ today_count }}</strong><span>Termine heute</span></article>
     <article><strong>{{ new_count }}</strong><span>Neue Anfragen</span></article>
-    <article><strong>{{ customer_count }}</strong><span>Patienten</span></article>
+    <article><strong>{{ customer_count }}</strong><span>Kunden</span></article>
     <article><strong>{{ staff_count }}</strong><span>Aktive Behandler</span></article>
   </section>
 
-  <section class="admin-panel calendar-panel" id="kalender">
-    <div class="panel-head calendar-title">
-      <div><div class="eyebrow">Verfügbarkeit</div><h2>Kalender & buchbare Zeiten</h2><p>Jeder Behandler hat seinen eigenen Wochenkalender. Änderungen wirken direkt auf die online sichtbaren Termine.</p></div>
+  <section class="admin-panel sb-calendar-panel" id="kalender">
+    <div class="sb-calendar-head">
+      <div class="sb-calendar-heading">
+        <div class="eyebrow">Kalender</div>
+        <h2>{% if calendar_view == 'week' %}Wochenansicht{% else %}Tagesansicht{% endif %}</h2>
+      </div>
+      <div class="sb-calendar-head-actions">
+        <button type="button" class="sb-subtle-button" data-view-menu-open>Ansicht ▾</button>
+      </div>
     </div>
+
+    <div class="doctor-switcher sb-provider-switcher" role="navigation" aria-label="Behandler wählen">
+      {% for member in staff_members %}
+      <a href="/verwaltung/?staff={{ member.pk }}&date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b>{{ member.display_name }}</b></a>
+      {% endfor %}
+    </div>
+
+    <div class="sb-date-nav">
+      <a class="sb-date-arrow" href="?date={{ previous_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" aria-label="Zurück">‹</a>
+      <div class="sb-date-title">
+        {% if calendar_view == 'week' %}
+          <strong>{{ range_start|date:"d.m." }} – {{ range_end_display|date:"d.m.Y" }}</strong>
+          <span>Woche</span>
+        {% else %}
+          <strong>{{ calendar_date|date:"l, d.m.Y" }}</strong>
+          <span>{{ calendar_date|date:"F Y" }}</span>
+        {% endif %}
+      </div>
+      <a class="sb-date-arrow" href="?date={{ next_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" aria-label="Weiter">›</a>
+    </div>
+
+    {% if selected_staff %}
+    <div class="sb-calendar-shell {% if calendar_view == 'week' %}is-week{% else %}is-day{% endif %}">
+      <div class="sb-time-axis">
+        {% for hour in calendar_hour_labels %}<span>{{ hour }}</span>{% endfor %}
+      </div>
+      <div class="sb-calendar-days" style="--day-count:{{ calendar_days|length }}">
+        {% for day in calendar_days %}
+        <div class="sb-calendar-day {% if day.is_today %}is-today{% endif %}">
+          <div class="sb-day-head"><span>{{ day.day_name }}</span><b>{{ day.date|date:"d.m." }}</b></div>
+          <div class="sb-day-track">
+            {% for segment in day.working_segments %}
+            <div class="sb-working-segment" style="top:{{ segment.top }}%;height:{{ segment.height }}%;"><span>{{ segment.label }}</span></div>
+            {% endfor %}
+
+            {% for event in day.appointments %}
+            <a class="sb-calendar-event" href="#termine" style="top:{{ event.top }}%;height:{{ event.height }}%;" title="{{ event.item.customer.full_name }} – {{ event.item.service.name }}">
+              <strong>{{ event.item.customer.full_name }}</strong>
+              <span>{{ event.item.service.name }}</span>
+              <small>{{ event.item.starts_at|date:"H:i" }}–{{ event.item.ends_at|date:"H:i" }}</small>
+            </a>
+            {% endfor %}
+
+            {% for block in day.blocks %}
+            <div class="sb-calendar-block is-{{ block.kind }}" style="top:{{ block.top }}%;height:{{ block.height }}%;">
+              <strong>{{ block.label }}</strong>
+              <small>{{ block.item.starts_at|date:"H:i" }}–{{ block.item.ends_at|date:"H:i" }}</small>
+              <form method="post" class="sb-event-delete">{% csrf_token %}<input type="hidden" name="action" value="delete_calendar_item"><input type="hidden" name="block_id" value="{{ block.item.pk }}"><input type="hidden" name="staff_id" value="{{ selected_staff.pk }}"><input type="hidden" name="return_date" value="{{ calendar_date|date:'Y-m-d' }}"><input type="hidden" name="return_view" value="{{ calendar_view }}"><button type="submit" aria-label="Eintrag löschen">×</button></form>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="sb-fab-wrap" data-fab-wrap>
+      <div class="sb-fab-actions" data-fab-actions hidden>
+        <button type="button" data-open-note><span>Notiz hinzufügen / Zeitenfenster blockieren</span><b>✎</b></button>
+        <button type="button" data-open-booking><span>Buchung hinzufügen</span><b>＋</b></button>
+      </div>
+      <button type="button" class="sb-fab" data-fab aria-label="Hinzufügen">＋</button>
+    </div>
+    {% else %}<div class="empty">Es ist noch kein aktiver Behandler angelegt.</div>{% endif %}
+  </section>
+
+  <section class="admin-panel" id="termine">
+    <div class="panel-head"><div><div class="eyebrow">Buchungen</div><h2>Kommende Termine</h2></div><span class="panel-count">{{ upcoming|length }} angezeigt</span></div>
+    <div class="admin-table appointment-table sb-booking-list">
+      <div class="table-head"><span>Zeit</span><span>Patient</span><span>Behandlung</span><span>Behandler</span><span>Status</span></div>
+      {% for item in upcoming %}
+      <div class="table-row">
+        <time>{{ item.starts_at|date:"d.m.Y" }}<b>{{ item.starts_at|date:"H:i" }}</b></time>
+        <div><a class="patient-inline-link" href="/verwaltung/patienten/{{ item.customer.pk }}/"><strong>{{ item.customer.full_name }}</strong></a><small>{{ item.customer.email }} · {{ item.customer.phone }}</small></div>
+        <div><strong>{{ item.service.name }}</strong><small>{% if item.returning_customer %}Bestandspatient{% else %}Neupatient{% endif %}</small></div>
+        <div>{{ item.staff.display_name }}</div>
+        <form method="post" class="status-form">{% csrf_token %}<input type="hidden" name="action" value="appointment_status"><input type="hidden" name="appointment_id" value="{{ item.pk }}">{% if selected_staff %}<input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">{% endif %}<select name="status" onchange="this.form.submit()">{% for value,label in appointment_statuses %}<option value="{{ value }}" {% if value == item.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></form>
+      </div>
+      {% empty %}<div class="empty">Aktuell stehen keine kommenden Termine an.</div>{% endfor %}
+    </div>
+  </section>
+
+  <section class="admin-panel sb-customers-panel" id="kunden">
+    <div class="panel-head"><div><div class="eyebrow">Kunden</div><h2>Kunden</h2><p>Suchen, auswählen oder direkt eine Patientenakte öffnen.</p></div><button type="button" class="admin-primary" data-open-customer>＋ Neuer Kunde</button></div>
+    <label class="sb-search-field"><span>⌕</span><input type="search" placeholder="Kunden suchen..." data-customer-list-search></label>
+    <div class="sb-customer-list" data-customer-list>
+      {% for customer in customers %}
+      <a class="sb-customer-row" href="/verwaltung/patienten/{{ customer.pk }}/" data-customer-search="{{ customer.full_name|lower }} {{ customer.email|lower }} {{ customer.phone|lower }}">
+        <div class="customer-avatar">{{ customer.first_name|slice:":1" }}</div>
+        <div><strong>{{ customer.full_name }}</strong><span>{{ customer.email }}{% if customer.phone %} / {{ customer.phone }}{% endif %}</span></div>
+        <b>⋮</b>
+      </a>
+      {% empty %}<div class="empty">Noch keine Kunden vorhanden.</div>{% endfor %}
+    </div>
+  </section>
+
+  <section class="admin-panel calendar-panel sb-settings-panel" id="einstellungen">
+    <div class="panel-head"><div><div class="eyebrow">Einstellungen</div><h2>Verfügbarkeit</h2><p>Arbeitszeiten und Sperrzeiten des gewählten Behandlers.</p></div></div>
 
     <div class="doctor-switcher" role="navigation" aria-label="Behandler wählen">
       {% for member in staff_members %}
-      <a href="/verwaltung/?staff={{ member.pk }}#kalender" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b>{{ member.display_name }}</b></a>
+      <a href="/verwaltung/?staff={{ member.pk }}#einstellungen" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b>{{ member.display_name }}</b></a>
       {% endfor %}
     </div>
 
@@ -54,7 +208,7 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="save_hours">
         <input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">
-        <div class="editor-head"><div><span>Wochenplan</span><h3>{{ selected_staff.display_name }}</h3></div><button type="submit" class="admin-primary">Zeiten speichern</button></div>
+        <div class="editor-head"><div><span>Wochenplan</span><h3>{{ selected_staff.display_name }}</h3></div><button type="submit" class="admin-primary">Speichern</button></div>
         <div class="week-grid">
           {% for row in availability_rows %}
           <div class="week-row">
@@ -82,27 +236,11 @@
         </div>
       </aside>
     </div>
-    {% else %}<div class="empty">Es ist noch kein aktiver Behandler angelegt.</div>{% endif %}
-  </section>
-
-  <section class="admin-panel" id="termine">
-    <div class="panel-head"><div><div class="eyebrow">Buchungen</div><h2>Kommende Termine</h2></div><span class="panel-count">{{ upcoming|length }} angezeigt</span></div>
-    <div class="admin-table appointment-table">
-      <div class="table-head"><span>Zeit</span><span>Patient</span><span>Behandlung</span><span>Behandler</span><span>Status</span></div>
-      {% for item in upcoming %}
-      <div class="table-row">
-        <time>{{ item.starts_at|date:"d.m.Y" }}<b>{{ item.starts_at|date:"H:i" }}</b></time>
-        <div><a class="patient-inline-link" href="/verwaltung/patienten/{{ item.customer.pk }}/"><strong>{{ item.customer.full_name }}</strong></a><small>{{ item.customer.email }} · {{ item.customer.phone }}</small></div>
-        <div><strong>{{ item.service.name }}</strong><small>{% if item.returning_customer %}Bestandspatient{% else %}Neupatient{% endif %} · {{ item.referral_source|default:"Quelle offen" }}</small></div>
-        <div>{{ item.staff.display_name }}</div>
-        <form method="post" class="status-form">{% csrf_token %}<input type="hidden" name="action" value="appointment_status"><input type="hidden" name="appointment_id" value="{{ item.pk }}">{% if selected_staff %}<input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">{% endif %}<select name="status" onchange="this.form.submit()">{% for value,label in appointment_statuses %}<option value="{{ value }}" {% if value == item.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></form>
-      </div>
-      {% empty %}<div class="empty">Aktuell stehen keine kommenden Termine an.</div>{% endfor %}
-    </div>
+    {% endif %}
   </section>
 
   <section class="admin-panel" id="behandlungen">
-    <div class="panel-head"><div><div class="eyebrow">Katalog</div><h2>Behandlungen</h2><p>Dauer, Preis und Online-Buchbarkeit kannst du hier direkt ändern.</p></div></div>
+    <div class="panel-head"><div><div class="eyebrow">Dienstleistungen</div><h2>Behandlungen</h2><p>Dauer, Preis und Online-Buchbarkeit direkt ändern.</p></div></div>
     <div class="service-editor-list">
       {% for service in services %}
       <form method="post" class="service-editor {% if not service.active %}is-muted{% endif %}">
@@ -110,7 +248,7 @@
         <label class="service-name">Name<input name="name" value="{{ service.name }}" maxlength="140"></label>
         <label>Dauer<input type="number" min="5" step="5" name="duration_minutes" value="{{ service.duration_minutes }}"><small>Min.</small></label>
         <label>Puffer<input type="number" min="0" step="5" name="buffer_minutes" value="{{ service.buffer_minutes }}"><small>Min.</small></label>
-        <label class="service-price">Preisangabe<input name="price_label" value="{{ service.price_label }}" maxlength="80" placeholder="z. B. ab 119 €"></label>
+        <label class="service-price">Preisangabe<input name="price_label" value="{{ service.price_label }}" maxlength="80"></label>
         <div class="service-checks"><label><input type="checkbox" name="active" {% if service.active %}checked{% endif %}> Aktiv</label><label><input type="checkbox" name="bookable" {% if service.bookable %}checked{% endif %}> Online buchbar</label><label><input type="checkbox" name="requires_confirmation" {% if service.requires_confirmation %}checked{% endif %}> Bestätigung nötig</label></div>
         <button type="submit" class="mini-save">Speichern</button>
       </form>
@@ -118,18 +256,83 @@
     </div>
   </section>
 
-  <section class="admin-panel" id="kunden">
-    <div class="panel-head"><div><div class="eyebrow">Digital Patient File</div><h2>Patientenakten</h2><p>Alle Termine, Fotos, Formulare, Dokumente und Notizen pro Patient in einer geschützten digitalen Akte.</p></div><span class="panel-count">{{ customers|length }} zuletzt aktiv</span></div>
-    <div class="customer-grid patient-grid">
-      {% for customer in customers %}
-      <a class="patient-card" href="/verwaltung/patienten/{{ customer.pk }}/">
-        <div class="customer-avatar">{{ customer.first_name|slice:":1" }}{{ customer.last_name|slice:":1" }}</div>
-        <div class="patient-card-copy"><strong>{{ customer.full_name }}</strong><span>{{ customer.email }}</span><span>{{ customer.phone|default:"Keine Telefonnummer" }}</span><small>{{ customer.appointment_count }} Termine · {{ customer.record_count }} Akteneinträge</small></div>
-        <div class="patient-card-action"><span>Patientenakte</span><b>→</b></div>
-      </a>
-      {% empty %}<div class="empty">Noch keine Patienten vorhanden.</div>{% endfor %}
-    </div>
+  <section class="admin-panel sb-info-panel" id="information">
+    <div class="eyebrow">Information</div><h2>A+ Esthetic Buchungsverwaltung</h2><p>Die mobile Oberfläche orientiert sich an den schnellen Kalender-Abläufen von SimplyBook, verwendet aber vollständig die A+ Esthetic Gestaltung und Daten.</p>
   </section>
 </main>
+
+<!-- Buchung hinzufügen -->
+<div class="sb-modal" data-modal="booking" aria-hidden="true">
+  <div class="sb-modal-card sb-form-sheet">
+    <div class="sb-sheet-head"><button type="button" data-close-modal>×</button><strong>Neuen Termin buchen</strong><span></span></div>
+    <div class="sb-sheet-section-title">Buchungsinformationen</div>
+    <form method="post" class="sb-sheet-form">
+      {% csrf_token %}<input type="hidden" name="action" value="add_appointment"><input type="hidden" name="staff_id" value="{{ selected_staff.pk }}"><input type="hidden" name="return_date" value="{{ calendar_date|date:'Y-m-d' }}"><input type="hidden" name="return_view" value="{{ calendar_view }}">
+      <label class="sb-form-row"><span class="sb-row-icon">◒</span><div><small>Dienstleistung</small><select name="service_id" required><option value="">Eine Dienstleistung auswählen</option>{% for service in services %}<option value="{{ service.pk }}">{{ service.name }}</option>{% endfor %}</select></div></label>
+      <label class="sb-form-row"><span class="sb-provider-avatar">{% if selected_staff %}{{ selected_staff.display_name|slice:":1" }}{% else %}A{% endif %}</span><div><small>Dienstleister</small><select name="appointment_staff_id" required>{% for member in staff_members %}<option value="{{ member.pk }}" {% if selected_staff and member.pk == selected_staff.pk %}selected{% endif %}>{{ member.display_name }}</option>{% endfor %}</select></div></label>
+      <button type="button" class="sb-form-row sb-customer-picker-trigger" data-open-customer-picker><span class="sb-row-icon">♙</span><div><small>Kunde</small><strong data-picked-customer-name>Einen Kunden auswählen</strong></div><b>⌄</b></button>
+      <input type="hidden" name="customer_id" data-picked-customer-id required>
+      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Datum</small><input type="date" name="appointment_date" value="{{ calendar_date|date:'Y-m-d' }}" required></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">◷</span><div><small>Uhrzeit</small><input type="time" name="appointment_time" step="900" required></div></label>
+      <button type="submit" class="sb-sheet-save">Speichern</button>
+    </form>
+  </div>
+</div>
+
+<!-- Kunde wählen -->
+<div class="sb-modal sb-submodal" data-modal="customer-picker" aria-hidden="true">
+  <div class="sb-modal-card sb-picker-card">
+    <div class="sb-picker-head"><strong>Kunde wählen</strong><button type="button" data-close-modal>×</button></div>
+    <label class="sb-search-field"><input type="search" placeholder="Suchen..." data-customer-picker-search><span>⌕</span></label>
+    <button type="button" class="sb-add-customer-link" data-open-customer>Neuen Kunden hinzufügen</button>
+    <div class="sb-picker-list" data-customer-picker-list>
+      {% for customer in customers %}
+      <button type="button" class="sb-picker-customer" data-pick-customer="{{ customer.pk }}" data-customer-name="{{ customer.full_name }}" data-customer-search="{{ customer.full_name|lower }} {{ customer.email|lower }} {{ customer.phone|lower }}">
+        <span class="customer-avatar">{{ customer.first_name|slice:":1" }}</span><div><strong>{{ customer.full_name }}</strong><small>{{ customer.email }}{% if customer.phone %} / {{ customer.phone }}{% endif %}</small></div>
+      </button>
+      {% endfor %}
+    </div>
+    <button type="button" class="sb-cancel-button" data-close-modal>Abbrechen</button>
+  </div>
+</div>
+
+<!-- Neuer Kunde -->
+<div class="sb-modal" data-modal="customer" aria-hidden="true">
+  <div class="sb-modal-card sb-form-sheet compact-sheet">
+    <div class="sb-sheet-head"><button type="button" data-close-modal>×</button><strong>Neuen Kunden hinzufügen</strong><span></span></div>
+    <form method="post" class="sb-sheet-form sb-customer-form">
+      {% csrf_token %}<input type="hidden" name="action" value="add_customer"><input type="hidden" name="return_to" value="kunden">
+      <label>Vorname<input name="first_name" required></label>
+      <label>Nachname<input name="last_name"></label>
+      <label>E-Mail<input type="email" name="email" required></label>
+      <label>Telefon<input type="tel" name="phone"></label>
+      <button type="submit" class="sb-sheet-save">Speichern</button>
+    </form>
+  </div>
+</div>
+
+<!-- Notiz -->
+<div class="sb-modal" data-modal="note" aria-hidden="true">
+  <div class="sb-modal-card sb-form-sheet">
+    <div class="sb-sheet-head"><button type="button" data-close-modal>×</button><strong>Neue Notiz</strong><span></span></div>
+    <div class="sb-sheet-section-title">Details</div>
+    <form method="post" class="sb-sheet-form">
+      {% csrf_token %}<input type="hidden" name="action" value="add_calendar_note"><input type="hidden" name="staff_id" value="{{ selected_staff.pk }}"><input type="hidden" name="return_date" value="{{ calendar_date|date:'Y-m-d' }}"><input type="hidden" name="return_view" value="{{ calendar_view }}">
+      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Startdatum und -uhrzeit</small><input type="date" name="note_date" value="{{ calendar_date|date:'Y-m-d' }}" required><input type="time" name="note_start" step="900" required></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Enddatum und -uhrzeit</small><input type="time" name="note_end" step="900" required></div></label>
+      <label class="sb-block-toggle"><div><strong>Zeitraum blockieren</strong><span>Wenn aus, bleibt der Zeitraum online buchbar.</span></div><input type="checkbox" name="note_blocked"><i></i></label>
+      <div class="sb-sheet-section-title inner">Anwendung der Notiz</div>
+      <div class="sb-scope-tabs">
+        <label><input type="radio" name="note_scope" value="all" checked><span>Für alle<br>anwenden</span></label>
+        <label><input type="radio" name="note_scope" value="staff"><span>Für Dienstleister<br>anwenden</span></label>
+        <label><input type="radio" name="note_scope" value="service"><span>Für Dienstleistung<br>anwenden</span></label>
+      </div>
+      <label class="sb-form-row sb-service-scope-row"><span class="sb-row-icon">◒</span><div><small>Dienstleistung</small><select name="note_service_id"><option value="">Dienstleistung auswählen</option>{% for service in services %}<option value="{{ service.pk }}">{{ service.name }}</option>{% endfor %}</select></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">☷</span><div><small>Text der Notiz</small><input type="text" name="note_text" maxlength="120" placeholder="Notiz"></div></label>
+      <button type="submit" class="sb-sheet-save">Speichern</button>
+    </form>
+  </div>
+</div>
+
 </body>
 </html>
