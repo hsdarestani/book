@@ -122,7 +122,7 @@ jobs:
             PATIENT_FILES_ROOT=$PATIENT_FILES
             PATIENT_FILE_MAX_BYTES=26214400
             BOOKING_NOTIFICATION_EMAIL=$BOOKING_NOTIFICATION_EMAIL
-            DEFAULT_FROM_EMAIL='A+Esthetic <$STRATO_SMTP_USER>'
+            DEFAULT_FROM_EMAIL='A+ Esthetic <$STRATO_SMTP_USER>'
             EMAIL_HOST=smtp.strato.de
             EMAIL_PORT=465
             EMAIL_HOST_USER=$STRATO_SMTP_USER
@@ -252,7 +252,7 @@ jobs:
 
             SMTP_TEST_MARKER="$APP_ROOT/.smtp-test-v1-ok"
             if [ ! -f "$SMTP_TEST_MARKER" ]; then
-              runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from django.conf import settings; from django.core.mail import send_mail; send_mail('A+Esthetic Buchung – E-Mail-Test', 'Die STRATO E-Mail-Verbindung für die A+Esthetic Terminbuchung wurde erfolgreich eingerichtet.', settings.DEFAULT_FROM_EMAIL, [settings.BOOKING_NOTIFICATION_EMAIL], fail_silently=False)\""
+              runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from django.conf import settings; from django.core.mail import send_mail; send_mail('A+ Esthetic Buchung – E-Mail-Test', 'Die STRATO E-Mail-Verbindung für die A+ Esthetic Terminbuchung wurde erfolgreich eingerichtet.', settings.DEFAULT_FROM_EMAIL, [settings.BOOKING_NOTIFICATION_EMAIL], fail_silently=False)\""
               touch "$SMTP_TEST_MARKER"
               chown aestheticbook:aestheticbook "$SMTP_TEST_MARKER"
             fi
