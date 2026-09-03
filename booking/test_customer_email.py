@@ -51,7 +51,8 @@ class CustomerEmailPresentationTests(TestCase):
                 'directions_url': 'https://example.com/directions',
                 'instagram_url': 'https://instagram.com/aplus.esthetic/',
                 'google_reviews_url': 'https://example.com/reviews',
-                'clinic_address': 'Stiftstraße 14, 60313 Frankfurt am Main, 2. OG',
+                'whatsapp_url': 'https://wa.me/496971417012',
+                'clinic_address': 'Stiftstraße 14, 60313 Frankfurt am Main · 2. OG',
                 'clinic_phone': '069 71417012',
                 'clinic_phone_href': 'tel:+496971417012',
                 'website_url': 'https://a-esthetic.de',
@@ -63,11 +64,17 @@ class CustomerEmailPresentationTests(TestCase):
         self.assertNotIn('>Status<', html)
         self.assertIn('Behandelnde/r Arzt/Ärztin', html)
         self.assertIn('Frau A. Regaei', html)
+        self.assertIn('Hallo Anna,<br>', html)
         self.assertIn('Zum Kalender hinzufügen', html)
         self.assertIn('Wegbeschreibung', html)
         self.assertIn('Instagram', html)
         self.assertIn('Google Bewertungen', html)
-        self.assertIn('Kontaktdaten', html)
+        self.assertIn('WhatsApp', html)
+        self.assertIn('A+ Esthetic Frankfurt', html)
+        self.assertIn('Frankfurt am Main · 2. OG', html)
+        self.assertNotIn('Frankfurt am Main, 2. OG', html)
+        self.assertIn('phone.png', html)
+        self.assertLess(html.index('Kontaktdaten'), html.index('Hilfreiche Links'))
 
     def test_calendar_download_is_valid_ics(self):
         response = self.client.get(f'/termin/{self.appointment.public_id}/kalender.ics')
