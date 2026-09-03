@@ -1,0 +1,137 @@
+.sb-working-segment-editable{
+  appearance:none;
+  border-left:0;
+  border-right:0;
+  cursor:pointer;
+  text-align:center;
+  font-family:inherit;
+}
+.sb-working-segment-editable b{
+  position:absolute;
+  right:6px;
+  top:5px;
+  width:24px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:rgba(255,255,255,.72);
+  color:#6f562f;
+  font-size:12px;
+  box-shadow:0 1px 5px rgba(82,60,28,.12);
+}
+.sb-working-segment-editable.is-day-override{
+  background:linear-gradient(180deg,#edc568,#e7b951);
+  box-shadow:inset 0 0 0 2px rgba(150,105,37,.2);
+}
+.sb-day-head{position:relative}
+.sb-day-hours-edit{
+  position:absolute;
+  right:5px;
+  top:50%;
+  transform:translateY(-50%);
+  width:27px;
+  height:27px;
+  border:1px solid #e2d8c8;
+  border-radius:50%;
+  background:#fff;
+  color:#8d652e;
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  font-size:12px;
+  z-index:6;
+}
+.sb-calendar-day.is-day-closed .sb-day-head{background:#f6f2eb}
+
+.sb-day-availability-form{padding-top:8px}
+.sb-day-ranges{display:grid;gap:12px;padding:16px 0;border-bottom:1px solid #eee9e1;transition:.2s}
+.sb-day-ranges.is-disabled{opacity:.35;pointer-events:none}
+.sb-day-range{display:grid;gap:7px}
+.sb-day-range>small{font-size:10px;font-weight:800;color:#756b5d;text-transform:uppercase;letter-spacing:.06em}
+.sb-day-range>small em{font-style:normal;font-weight:500;color:#a0988d;text-transform:none;letter-spacing:0}
+.sb-day-range>div{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center}
+.sb-day-range select{
+  width:100%;
+  min-height:46px;
+  border:1px solid #d8cdbc;
+  border-radius:11px;
+  background:#fbf8f1;
+  color:#25221d;
+  padding:0 11px;
+  font:750 14px inherit;
+}
+.sb-day-source-note{font-size:10px;line-height:1.5;color:#7c7265;padding:13px 0 0}
+.sb-day-reset{
+  appearance:none;
+  width:100%;
+  border:1px solid #d9cdbc;
+  border-radius:12px;
+  padding:13px 16px;
+  background:#fff;
+  color:#5d554a;
+  font:800 12px inherit;
+  cursor:pointer;
+}
+.sb-calendar-event.is-overlap-layout{
+  border-radius:6px;
+  padding-left:5px;
+  padding-right:5px;
+}
+
+@media(max-width:760px){
+  /* 100px per hour gives 25px per quarter hour. This keeps 15-minute
+     appointments readable instead of stacking text on top of neighbouring cards. */
+  .sb-calendar-pro .sb-calendar-shell{
+    min-height:1485px!important;
+  }
+  .sb-calendar-pro .sb-day-track{
+    height:1440px!important;
+    background-image:repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 119px,
+      #eee9df 119px,
+      #eee9df 120px
+    )!important;
+  }
+  .sb-calendar-pro .sb-time-axis{
+    height:1485px!important;
+    padding:0!important;
+    display:block!important;
+    position:relative!important;
+    box-sizing:border-box;
+  }
+  .sb-calendar-pro .sb-time-axis span{
+    position:absolute!important;
+    left:0;
+    right:0;
+    transform:translateY(-50%)!important;
+    line-height:1;
+  }
+  .sb-calendar-pro .sb-calendar-event{
+    min-height:23px;
+    box-sizing:border-box;
+    padding:3px 5px;
+    border-radius:5px;
+  }
+  .sb-calendar-pro .sb-calendar-event strong{
+    font-size:9px;
+    line-height:1.05;
+  }
+  .sb-calendar-pro .sb-calendar-event span{
+    font-size:7px;
+    line-height:1.05;
+    margin-top:1px;
+  }
+  .sb-calendar-pro .sb-calendar-event small{
+    display:none;
+  }
+  .sb-calendar-pro .sb-calendar-block{
+    box-sizing:border-box;
+  }
+  .sb-working-segment-editable b{width:22px;height:22px;right:5px;top:5px}
+  .sb-day-hours-edit{width:25px;height:25px;right:4px}
+  .sb-day-availability-modal .sb-modal-card{height:100%}
+  .sb-day-range select{min-height:50px;font-size:16px}
+}
