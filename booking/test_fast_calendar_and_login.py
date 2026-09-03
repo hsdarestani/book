@@ -7,6 +7,12 @@ from django.utils import timezone
 from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember, WorkingHour
 
 
+TEST_STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
+
+
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 class FastCalendarDayApiTests(TestCase):
     def setUp(self):
@@ -90,7 +96,10 @@ class FastCalendarDayApiTests(TestCase):
         self.assertIn('no-store', response['Cache-Control'])
 
 
-@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+@override_settings(
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    STORAGES=TEST_STORAGES,
+)
 class AdminLoginCsrfRecoveryTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
