@@ -28,11 +28,12 @@
                     <div style="font-family:Georgia,'Times New Roman',serif;font-size:29px;line-height:1.12;margin:0 0 10px;color:#fff;">
                       {% if is_admin %}Neue Terminanfrage{% else %}Dein Termin ist eingetragen{% endif %}
                     </div>
-                    <div style="font-size:14px;line-height:1.6;color:#eee8dd;">
+                    <div style="font-size:14px;line-height:1.65;color:#eee8dd;">
                       {% if is_admin %}
                         Eine neue Buchung ist über die Online-Terminseite eingegangen.
                       {% else %}
-                        Hallo {{ appointment.customer.first_name }}, hier findest du alle wichtigen Informationen zu deinem Termin auf einen Blick.
+                        Hallo {{ appointment.customer.first_name }},<br>
+                        hier findest du alle wichtigen Informationen zu deinem Termin auf einen Blick.
                       {% endif %}
                     </div>
                   </td>
@@ -97,18 +98,19 @@
           </tr>
 
           <tr>
-            <td style="padding:20px 28px 4px;">
-              <div style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#a0783d;font-weight:700;margin-bottom:10px;">Hilfreiche Links</div>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+            <td style="padding:22px 28px 4px;">
+              <div style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#a0783d;font-weight:700;margin-bottom:10px;">Kontaktdaten</div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#342d25;border-radius:16px;color:#fff;">
                 <tr>
-                  <td width="33.33%" style="padding:0 4px 0 0;vertical-align:top;">
-                    <a href="{{ directions_url }}" style="display:block;text-decoration:none;background:#f8f5ee;border:1px solid #e5ddd0;border-radius:13px;padding:14px 8px;text-align:center;color:#4d4337;font-size:12px;font-weight:700;line-height:1.35;">⌖<br><span style="display:inline-block;margin-top:5px;">Wegbeschreibung</span></a>
+                  <td style="padding:18px 16px 18px 20px;font-size:12px;line-height:1.7;color:#eee8dd;vertical-align:middle;">
+                    <strong style="display:block;color:#fff;font-size:13px;margin-bottom:2px;">A+ Esthetic Frankfurt</strong>
+                    {{ clinic_address }}
                   </td>
-                  <td width="33.33%" style="padding:0 2px;vertical-align:top;">
-                    <a href="{{ instagram_url }}" style="display:block;text-decoration:none;background:#f8f5ee;border:1px solid #e5ddd0;border-radius:13px;padding:14px 8px;text-align:center;color:#4d4337;font-size:12px;font-weight:700;line-height:1.35;">◎<br><span style="display:inline-block;margin-top:5px;">Instagram</span></a>
-                  </td>
-                  <td width="33.33%" style="padding:0 0 0 4px;vertical-align:top;">
-                    <a href="{{ google_reviews_url }}" style="display:block;text-decoration:none;background:#f8f5ee;border:1px solid #e5ddd0;border-radius:13px;padding:14px 8px;text-align:center;color:#4d4337;font-size:12px;font-weight:700;line-height:1.35;">★<br><span style="display:inline-block;margin-top:5px;">Google Bewertungen</span></a>
+                  <td style="padding:18px 20px 18px 8px;text-align:right;white-space:nowrap;vertical-align:middle;">
+                    <a href="{{ clinic_phone_href }}" style="display:inline-block;color:#fff;text-decoration:none;font-size:13px;font-weight:700;line-height:22px;">
+                      <img src="https://img.icons8.com/fluency/48/phone.png" width="18" height="18" alt="Telefon" style="display:inline-block;width:18px;height:18px;border:0;vertical-align:middle;margin-right:6px;">
+                      <span style="vertical-align:middle;">{{ clinic_phone }}</span>
+                    </a>
                   </td>
                 </tr>
               </table>
@@ -117,15 +119,42 @@
 
           <tr>
             <td style="padding:22px 28px 4px;">
-              <div style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#a0783d;font-weight:700;margin-bottom:10px;">Kontaktdaten</div>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#342d25;border-radius:16px;color:#fff;">
+              <div style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#a0783d;font-weight:700;margin-bottom:10px;">Hilfreiche Links</div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  <td style="padding:18px 18px 18px 20px;font-size:12px;line-height:1.7;color:#eee8dd;">
-                    <strong style="display:block;color:#fff;font-size:13px;margin-bottom:2px;">A+Esthetic Frankfurt</strong>
-                    {{ clinic_address }}
+                  <td width="50%" style="padding:0 5px 5px 0;vertical-align:top;">
+                    <a href="{{ directions_url }}" style="display:block;text-decoration:none;background:#ffffff;border:1px solid #e7e0d5;border-radius:15px;padding:15px 12px;color:#3f3932;box-shadow:0 5px 16px rgba(48,42,34,.05);">
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
+                        <td width="42" style="vertical-align:middle;"><img src="https://img.icons8.com/color/48/google-maps-new.png" width="32" height="32" alt="Google Maps" style="display:block;width:32px;height:32px;border:0;"></td>
+                        <td style="vertical-align:middle;font-size:12px;font-weight:700;line-height:1.35;color:#3f3932;">Wegbeschreibung</td>
+                      </tr></table>
+                    </a>
                   </td>
-                  <td style="padding:18px 20px 18px 10px;text-align:right;white-space:nowrap;">
-                    <a href="{{ clinic_phone_href }}" style="display:inline-block;color:#d8b779;text-decoration:none;font-size:13px;font-weight:700;">{{ clinic_phone }}</a>
+                  <td width="50%" style="padding:0 0 5px 5px;vertical-align:top;">
+                    <a href="{{ instagram_url }}" style="display:block;text-decoration:none;background:#ffffff;border:1px solid #e7e0d5;border-radius:15px;padding:15px 12px;color:#3f3932;box-shadow:0 5px 16px rgba(48,42,34,.05);">
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
+                        <td width="42" style="vertical-align:middle;"><img src="https://img.icons8.com/fluency/48/instagram-new.png" width="32" height="32" alt="Instagram" style="display:block;width:32px;height:32px;border:0;"></td>
+                        <td style="vertical-align:middle;font-size:12px;font-weight:700;line-height:1.35;color:#3f3932;">Instagram</td>
+                      </tr></table>
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <td width="50%" style="padding:5px 5px 0 0;vertical-align:top;">
+                    <a href="{{ google_reviews_url }}" style="display:block;text-decoration:none;background:#ffffff;border:1px solid #e7e0d5;border-radius:15px;padding:15px 12px;color:#3f3932;box-shadow:0 5px 16px rgba(48,42,34,.05);">
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
+                        <td width="42" style="vertical-align:middle;"><img src="https://img.icons8.com/color/48/google-logo.png" width="32" height="32" alt="Google" style="display:block;width:32px;height:32px;border:0;"></td>
+                        <td style="vertical-align:middle;font-size:12px;font-weight:700;line-height:1.35;color:#3f3932;">Google Bewertungen</td>
+                      </tr></table>
+                    </a>
+                  </td>
+                  <td width="50%" style="padding:5px 0 0 5px;vertical-align:top;">
+                    <a href="{{ whatsapp_url }}" style="display:block;text-decoration:none;background:#ffffff;border:1px solid #e7e0d5;border-radius:15px;padding:15px 12px;color:#3f3932;box-shadow:0 5px 16px rgba(48,42,34,.05);">
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
+                        <td width="42" style="vertical-align:middle;"><img src="https://img.icons8.com/color/48/whatsapp--v1.png" width="32" height="32" alt="WhatsApp" style="display:block;width:32px;height:32px;border:0;"></td>
+                        <td style="vertical-align:middle;font-size:12px;font-weight:700;line-height:1.35;color:#3f3932;">WhatsApp</td>
+                      </tr></table>
+                    </a>
                   </td>
                 </tr>
               </table>
@@ -138,7 +167,7 @@
               {% if is_admin %}
               <a href="{{ admin_url }}" style="display:inline-block;background:#342d25;color:#ffffff;text-decoration:none;border-radius:12px;padding:13px 20px;font-size:13px;font-weight:700;">Verwaltung öffnen</a>
               {% else %}
-              <p style="margin:0 auto;max-width:480px;color:#777167;font-size:12px;line-height:1.65;">Wenn du Fragen zu deinem Termin hast, sind wir telefonisch gerne für dich da.</p>
+              <p style="margin:0 auto;max-width:480px;color:#777167;font-size:12px;line-height:1.65;">Wenn du Fragen zu deinem Termin hast, sind wir telefonisch oder per WhatsApp gerne für dich da.</p>
               {% endif %}
             </td>
           </tr>
