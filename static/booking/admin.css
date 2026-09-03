@@ -7,3 +7,14 @@ body.admin-body{background:radial-gradient(circle at 10% 0,rgba(180,146,85,.11),
 @media(max-width:1080px){.admin-topbar{grid-template-columns:auto 1fr}.admin-nav{grid-row:2;grid-column:1/-1;justify-content:flex-start;padding-bottom:10px}.admin-actions{grid-column:2}.calendar-layout{grid-template-columns:1fr}.table-head,.table-row{grid-template-columns:90px minmax(170px,1.2fr) minmax(170px,1.1fr) 125px}.table-head span:nth-child(4),.table-row>div:nth-child(4){display:none}.service-editor{grid-template-columns:minmax(220px,1.6fr) 90px 90px minmax(150px,1fr);align-items:end}.service-checks{grid-column:1/4}.mini-save{grid-column:4}.customer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.admin-shell{width:calc(100% - 20px)}.admin-topbar{position:relative;display:flex;flex-wrap:wrap;gap:10px;padding:16px 0}.admin-brand{width:100%;justify-content:space-between}.admin-nav{order:3;width:100%;overflow-x:auto;flex-wrap:nowrap}.admin-actions{margin-left:auto}.admin-hero{padding:34px 0 20px}.admin-hero h1{font-size:43px}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.metric-grid article{padding:16px}.metric-grid strong{font-size:31px}.admin-panel,.calendar-panel{padding:16px;border-radius:18px}.week-row{grid-template-columns:1fr}.time-period{padding-left:46px}.optional-period{border-top:1px dashed var(--admin-line);padding-top:8px}.table-head{display:none}.table-row{grid-template-columns:74px 1fr;gap:8px 12px}.table-row>div:nth-child(3){grid-column:2}.status-form{grid-column:2}.status-form select{max-width:180px}.service-editor{grid-template-columns:1fr 1fr}.service-name,.service-price{grid-column:1/-1}.service-checks{grid-column:1/-1}.mini-save{grid-column:1/-1}.customer-grid{grid-template-columns:1fr}.panel-head{display:block}.panel-count{display:inline-block;margin-top:8px}.doctor-switcher{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.doctor-pill{flex:none}}
 @media(max-width:430px){.admin-actions a:first-child{display:none}.metric-grid{grid-template-columns:1fr 1fr}.metric-grid span{font-size:10px}.editor-head{align-items:flex-start}.editor-head .admin-primary{padding:10px}.time-period{padding-left:0}.block-time-row{grid-template-columns:1fr}.login-card{padding:22px}.login-card h1{font-size:37px}}
+
+/* Critical first-paint state for the mobile admin drawer. admin-simply.css is
+   enhanced by deferred JavaScript, so keep the drawer/backdrop invisible from
+   the first stylesheet paint until the user explicitly opens it. */
+.sb-mobile-bar,.sb-drawer,.sb-drawer-backdrop,.sb-view-menu{display:none}
+@media(max-width:760px){
+  .sb-drawer[aria-hidden="true"]{visibility:hidden!important}
+  .sb-drawer[aria-hidden="false"]{visibility:visible!important}
+  .sb-drawer-backdrop:not(.is-open){visibility:hidden!important}
+  .sb-drawer-backdrop.is-open{visibility:visible!important}
+}
