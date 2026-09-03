@@ -27,6 +27,10 @@ def _local_dt(day, value):
     )
 
 
+def _is_quarter(value):
+    return bool(value) and value.minute % 15 == 0
+
+
 def _scope_prefix(scope, service_id=None):
     if scope == 'all':
         return '[ALL]'
@@ -65,11 +69,24 @@ def _create_scoped_periods(*, staff_qs, selected_staff, starts_at, ends_at, reas
             ends_at=ends_at,
             reason=reason,
         )
-        if first_created is None:
-            first_created = item
+        first_created = first_created or item
         if member.pk == selected_staff.pk:
             created_for_selected = item
     return created_for_selected or first_created
+
+
+def _normalize_calendar_css(html):
+    """Django's de-DE localization turns 12.5 into 12,5 in templates.
+
+    Inline CSS percentages with decimal commas are invalid, which caused calendar
+    appointments/blocks to lose their calculated top/height and collapse at the top.
+    Only normalize the calendar positioning declarations we generate server-side.
+    """
+    return re.sub(
+        r'(?P<prop>\b(?:top|height)):(?P<int>\d+),(?P<frac>\d+)%',
+        r'\g<prop>:\g<int>.\g<frac>%',
+        html,
+    )
 
 
 def _polish_admin_response(response, *, selected_staff_id=None, calendar_day=None, focus_block=None):
@@ -82,9 +99,9 @@ def _polish_admin_response(response, *, selected_staff_id=None, calendar_day=Non
     except (AttributeError, UnicodeDecodeError):
         return response
 
+    html = _normalize_calendar_css(html)
     html = html.replace('/static/booking/logo.png', PREV_LOGO_URL)
 
-    # Replace the old combined Note/Block action with two genuinely separate actions.
     old_fab = '<button type="button" data-open-note><span>Notiz hinzufügen / Zeitenfenster blockieren</span><b>✎</b></button>'
     new_fab = (
         '<button type="button" data-open-block><span>Zeitraum blockieren</span><b>⛔</b></button>'
@@ -221,19 +238,10 @@ def dashboard_proxy(request):
 
         starts_at = _local_dt(request.POST.get('block_date'), request.POST.get('block_start'))
         ends_at = _local_dt(request.POST.get('block_date'), request.POST.get('block_end'))
-        if not starts_at or not ends_at or ends_at <= starts_at:
+        if not starts_at or not ends_at or ends_at <= starts_at or not _is_quarter(starts_at) or not _is_quarter(ends_at):
             fallback_day = parse_date(request.POST.get('block_date') or '') or timezone.localdate()
             return redirect(_calendar_url(
                 day=fallback_day,
-                view='day',
-                staff_id=selected_staff.pk,
-                notice='block-error',
-            ))
-
-        # Server-side enforcement: admin blocking always follows 15-minute boundaries.
-        if starts_at.minute % 15 or ends_at.minute % 15:
-            return redirect(_calendar_url(
-                day=timezone.localtime(starts_at).date(),
                 view='day',
                 staff_id=selected_staff.pk,
                 notice='block-error',
@@ -274,7 +282,7 @@ def dashboard_proxy(request):
         starts_at = _local_dt(request.POST.get('note_date'), request.POST.get('note_start'))
         ends_at = _local_dt(request.POST.get('note_date'), request.POST.get('note_end'))
         return_view = request.POST.get('return_view') or 'day'
-        if not starts_at or not ends_at or ends_at <= starts_at:
+        if not starts_at or not ends_at or ends_at <= starts_at or not _is_quarter(starts_at) or not _is_quarter(ends_at):
             fallback_day = parse_date(request.POST.get('return_date') or '') or timezone.localdate()
             return redirect(_calendar_url(
                 day=fallback_day,
@@ -286,7 +294,6 @@ def dashboard_proxy(request):
         text = (request.POST.get('note_text') or '').strip()[:120]
         scope = request.POST.get('note_scope') or 'all'
         service_id = request.POST.get('note_service_id') or None
-        # Notes are now always notes. Blocking has its own dedicated form/action.
         reason = f'[NOTE]{_scope_prefix(scope, service_id)} {text or "Notiz"}'[:160]
         focus = _create_scoped_periods(
             staff_qs=staff_qs,
