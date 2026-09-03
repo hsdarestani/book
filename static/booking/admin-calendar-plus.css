@@ -79,6 +79,66 @@
   padding-right:5px;
 }
 
+/* Calendar colour semantics requested for the production admin:
+   white = free/bookable, dark yellow = blocked, blue = appointment,
+   light yellow = note. Outside working hours stays neutral grey. */
+html{scroll-behavior:auto!important}
+.sb-calendar-pro .sb-day-track{
+  background-color:#f1f2f3!important;
+}
+.sb-calendar-pro .sb-working-segment,
+.sb-calendar-pro .sb-working-segment-editable,
+.sb-calendar-pro .sb-working-segment-editable.is-day-override{
+  background:#fff!important;
+  border-top:1px solid #dedede!important;
+  border-bottom:1px solid #dedede!important;
+  box-shadow:none!important;
+}
+.sb-calendar-pro .sb-working-segment span{
+  color:#777!important;
+}
+.sb-calendar-pro .sb-working-segment-editable b{
+  background:#fff!important;
+  color:#8d652e!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.10)!important;
+}
+.sb-calendar-pro .sb-calendar-event{
+  background:#3d8fd1!important;
+  border-left-color:#276fa9!important;
+  color:#fff!important;
+  box-shadow:0 3px 10px rgba(31,101,157,.22)!important;
+}
+.sb-calendar-pro .sb-calendar-event span,
+.sb-calendar-pro .sb-calendar-event small{
+  color:rgba(255,255,255,.88)!important;
+}
+.sb-calendar-pro .sb-calendar-block.is-block,
+.sb-calendar-pro .sb-calendar-block.is-blocked,
+.sb-calendar-pro .sb-calendar-block.is-blocked-note{
+  background:#d0aa4d!important;
+  border-color:#b58c2f!important;
+  color:#3f3217!important;
+}
+.sb-calendar-pro .sb-calendar-block.is-note{
+  background:#fff0ad!important;
+  border-color:#e5cf75!important;
+  color:#594b21!important;
+}
+
+/* Day navigation is a page change, not a visual transition. Prevent the old
+   anchor/smooth-scroll effect and any inherited calendar motion. */
+.sb-calendar-pro .sb-date-nav,
+.sb-calendar-pro .sb-calendar-shell,
+.sb-calendar-pro .sb-calendar-days,
+.sb-calendar-pro .sb-calendar-day,
+.sb-calendar-pro .sb-day-track,
+.sb-calendar-pro .sb-working-segment,
+.sb-calendar-pro .sb-calendar-event,
+.sb-calendar-pro .sb-calendar-block{
+  animation:none!important;
+  transition:none!important;
+}
+
 @media(max-width:760px){
   /* The mobile top bar already exposes the view menu. Keep one three-dot control only. */
   .sb-calendar-head-actions{display:none!important}
@@ -94,8 +154,8 @@
       to bottom,
       transparent 0,
       transparent 119px,
-      #eee9df 119px,
-      #eee9df 120px
+      #e3e4e5 119px,
+      #e3e4e5 120px
     )!important;
   }
   .sb-calendar-pro .sb-time-axis{
