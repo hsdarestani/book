@@ -14,6 +14,7 @@ urlpatterns = [
     path('verwaltung/behandlungen/', admin_views.dashboard_proxy, name='admin_services'),
     path('verwaltung/information/', admin_views.dashboard_proxy, name='admin_information'),
     path('verwaltung/api/day-availability/', calendar_admin_api.day_availability, name='admin_day_availability'),
+    path('verwaltung/api/calendar-day/', calendar_admin_api.calendar_day, name='admin_calendar_day'),
     path('verwaltung/login/', auth_views.admin_login, name='admin_login'),
     path('verwaltung/logout/', auth_views.admin_logout, name='admin_logout'),
     path('verwaltung/patienten/<int:customer_id>/', views.patient_file, name='patient_file'),
