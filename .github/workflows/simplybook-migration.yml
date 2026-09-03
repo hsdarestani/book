@@ -8,15 +8,16 @@ on:
 permissions:
   contents: read
 
+env:
+  SIMPLYBOOK_COMPANY_LOGIN: ${{ secrets.SIMPLYBOOK_COMPANY_LOGIN }}
+  SIMPLYBOOK_USER_LOGIN: ${{ secrets.SIMPLYBOOK_USER_LOGIN }}
+  SIMPLYBOOK_USER_PASSWORD: ${{ secrets.SIMPLYBOOK_USER_PASSWORD }}
+  SIMPLYBOOK_API_USER_KEY: ${{ secrets.SIMPLYBOOK_API_USER_KEY }}
+
 jobs:
   probe:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[simplybook-probe]')
     runs-on: ubuntu-latest
-    env:
-      SIMPLYBOOK_COMPANY_LOGIN: ${{ secrets.SIMPLYBOOK_COMPANY_LOGIN }}
-      SIMPLYBOOK_USER_LOGIN: ${{ secrets.SIMPLYBOOK_USER_LOGIN }}
-      SIMPLYBOOK_USER_PASSWORD: ${{ secrets.SIMPLYBOOK_USER_PASSWORD }}
-      SIMPLYBOOK_API_USER_KEY: ${{ secrets.SIMPLYBOOK_API_USER_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,3 +30,75 @@ jobs:
         env:
           DJANGO_DEBUG: '1'
         run: python manage.py simplybook_probe
+
+  dry-run:
+    if: contains(github.event.head_commit.message, '[simplybook-import-dry-run]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Prepare temporary database
+        env:
+          DJANGO_DEBUG: '1'
+        run: |
+          python manage.py migrate --noinput
+          python manage.py seed_booking
+      - name: Simulate full SimplyBook import and rollback
+        env:
+          DJANGO_DEBUG: '1'
+        run: python manage.py simplybook_import --dry-run --backup /tmp/simplybook-raw-backup.json
+
+  import-production:
+    if: contains(github.event.head_commit.message, '[simplybook-import]') && !contains(github.event.head_commit.message, '[simplybook-import-dry-run]')
+    runs-on: ubuntu-latest
+    env:
+      TARGET_SHA: ${{ github.sha }}
+    steps:
+      - name: Wait for matching production deploy and import
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: root
+          password: ${{ secrets.PASS }}
+          command_timeout: 25m
+          envs: SIMPLYBOOK_COMPANY_LOGIN,SIMPLYBOOK_USER_LOGIN,SIMPLYBOOK_USER_PASSWORD,SIMPLYBOOK_API_USER_KEY,TARGET_SHA
+          script: |
+            set -euo pipefail
+            APP_ROOT="/opt/aesthetic-book"
+            APP_DIR="$APP_ROOT/app"
+            VENV="$APP_ROOT/venv"
+            ENV_FILE="/etc/aesthetic-book.env"
+            : "${SIMPLYBOOK_COMPANY_LOGIN:?missing company login}"
+            : "${SIMPLYBOOK_USER_LOGIN:?missing user login}"
+            if [ -z "${SIMPLYBOOK_API_USER_KEY:-}" ] && [ -z "${SIMPLYBOOK_USER_PASSWORD:-}" ]; then
+              echo "SimplyBook credential missing" >&2
+              exit 1
+            fi
+
+            echo "Waiting until production contains commit $TARGET_SHA ..."
+            matched=0
+            for _ in $(seq 1 90); do
+              current="$(git -C "$APP_DIR" rev-parse HEAD 2>/dev/null || true)"
+              if [ "$current" = "$TARGET_SHA" ]; then
+                matched=1
+                break
+              fi
+              sleep 10
+            done
+            if [ "$matched" != "1" ]; then
+              echo "Production deploy did not reach target commit in time" >&2
+              exit 1
+            fi
+
+            BACKUP="$APP_ROOT/private/simplybook-backup-$(date +%Y%m%d-%H%M%S).json"
+            export SIMPLYBOOK_COMPANY_LOGIN SIMPLYBOOK_USER_LOGIN SIMPLYBOOK_USER_PASSWORD SIMPLYBOOK_API_USER_KEY
+            cd "$APP_DIR"
+            runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py migrate --noinput; '$VENV/bin/python' manage.py simplybook_import --backup '$BACKUP'"
+            chown aestheticbook:aestheticbook "$BACKUP"
+            chmod 0600 "$BACKUP"
+            echo "SimplyBook production import completed. Raw backup: $BACKUP"
