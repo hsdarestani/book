@@ -1,6 +1,15 @@
 (() => {
   const pad = (value) => String(value).padStart(2, '0');
 
+  function ensureTimePickerStyles() {
+    if (document.querySelector('link[data-admin-time-picker]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/static/booking/admin-time.css';
+    link.dataset.adminTimePicker = '1';
+    document.head.appendChild(link);
+  }
+
   function addOption(select, value, label) {
     const option = document.createElement('option');
     option.value = value;
@@ -77,6 +86,7 @@
   }
 
   function initPrettyTimePickers() {
+    ensureTimePickerStyles();
     document
       .querySelectorAll('.availability-editor input[type="time"], .block-form input[type="time"]')
       .forEach(enhanceTimeInput);
