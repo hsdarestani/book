@@ -1,11 +1,18 @@
 (() => {
-  const API = '/verwaltung/api/day-availability/';
+  const AVAILABILITY_API = '/verwaltung/api/day-availability/';
+  const CALENDAR_DAY_API = '/verwaltung/api/calendar-day/';
   const CAL_START = 8 * 60;
   const CAL_END = 20 * 60;
   const CAL_TOTAL = CAL_END - CAL_START;
+  const dayCache = new Map();
+  const pendingDays = new Map();
 
   function onCalendarPage() {
     return window.location.pathname.includes('/verwaltung/kalender/') || window.location.pathname === '/verwaltung/';
+  }
+
+  function currentCalendarView() {
+    return new URLSearchParams(window.location.search).get('cal_view') || 'day';
   }
 
   function parseIsoDate(value) {
@@ -32,6 +39,10 @@
     const mondayOffset = (selected.getDay() + 6) % 7;
     const monday = addDays(selected, -mondayOffset);
     return Array.from({ length: 7 }, (_, index) => isoDate(addDays(monday, index)));
+  }
+
+  function currentCalendarDate() {
+    return calendarDates()[0] || isoDate(new Date());
   }
 
   function selectedStaff() {
@@ -78,19 +89,19 @@
     return out.join('');
   }
 
-  let modal = null;
+  let availabilityModal = null;
   let activeData = null;
 
-  function buildModal() {
-    if (modal) return modal;
-    modal = document.createElement('div');
-    modal.className = 'sb-modal sb-day-availability-modal';
-    modal.setAttribute('aria-hidden', 'true');
-    modal.innerHTML = `
+  function buildAvailabilityModal() {
+    if (availabilityModal) return availabilityModal;
+    availabilityModal = document.createElement('div');
+    availabilityModal.className = 'sb-modal sb-day-availability-modal';
+    availabilityModal.setAttribute('aria-hidden', 'true');
+    availabilityModal.innerHTML = `
       <div class="sb-modal-card sb-form-sheet">
         <div class="sb-sheet-head"><button type="button" data-day-close>×</button><strong>Tages-Verfügbarkeit</strong><span></span></div>
         <div class="sb-sheet-section-title" data-day-title>Arbeitszeit für diesen Tag</div>
-        <form method="post" action="${API}" class="sb-sheet-form sb-day-availability-form">
+        <form method="post" action="${AVAILABILITY_API}" class="sb-sheet-form sb-day-availability-form">
           <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken()}">
           <input type="hidden" name="staff_id">
           <input type="hidden" name="date">
@@ -115,25 +126,25 @@
           </div>
         </form>
       </div>`;
-    document.body.appendChild(modal);
-    modal.querySelectorAll('[data-day-close]').forEach((button) => button.addEventListener('click', closeModal));
-    modal.addEventListener('click', (event) => { if (event.target === modal) closeModal(); });
-    modal.querySelector('[name="closed"]').addEventListener('change', syncClosedState);
-    return modal;
+    document.body.appendChild(availabilityModal);
+    availabilityModal.querySelectorAll('[data-day-close]').forEach((button) => button.addEventListener('click', closeAvailabilityModal));
+    availabilityModal.addEventListener('click', (event) => { if (event.target === availabilityModal) closeAvailabilityModal(); });
+    availabilityModal.querySelector('[name="closed"]').addEventListener('change', syncClosedState);
+    return availabilityModal;
   }
 
-  function closeModal() {
-    if (!modal) return;
-    modal.classList.remove('is-open');
-    modal.setAttribute('aria-hidden', 'true');
+  function closeAvailabilityModal() {
+    if (!availabilityModal) return;
+    availabilityModal.classList.remove('is-open');
+    availabilityModal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('sb-modal-open');
   }
 
   function syncClosedState() {
-    if (!modal) return;
-    const closed = modal.querySelector('[name="closed"]').checked;
-    modal.querySelector('.sb-day-ranges').classList.toggle('is-disabled', closed);
-    modal.querySelectorAll('.sb-day-ranges select').forEach((select) => { select.disabled = closed; });
+    if (!availabilityModal) return;
+    const closed = availabilityModal.querySelector('[name="closed"]').checked;
+    availabilityModal.querySelector('.sb-day-ranges').classList.toggle('is-disabled', closed);
+    availabilityModal.querySelectorAll('.sb-day-ranges select').forEach((select) => { select.disabled = closed; });
   }
 
   function formatGermanDate(value) {
@@ -143,8 +154,9 @@
 
   function openAvailabilityEditor(data) {
     activeData = data;
-    const node = buildModal();
+    const node = buildAvailabilityModal();
     const form = node.querySelector('form');
+    form.elements.csrfmiddlewaretoken.value = csrfToken();
     form.elements.staff_id.value = data.staff_id;
     form.elements.date.value = data.date;
     form.elements.closed.checked = Boolean(data.closed);
@@ -172,12 +184,41 @@
   }
 
   async function loadAvailability(staffId, date) {
-    const response = await fetch(`${API}?staff=${encodeURIComponent(staffId)}&date=${encodeURIComponent(date)}`, {
+    const response = await fetch(`${AVAILABILITY_API}?staff=${encodeURIComponent(staffId)}&date=${encodeURIComponent(date)}`, {
       credentials: 'same-origin',
       cache: 'no-store',
     });
     if (!response.ok) throw new Error(`Availability HTTP ${response.status}`);
     return response.json();
+  }
+
+  function dayCacheKey(staffId, date) {
+    return `${staffId}:${date}`;
+  }
+
+  function loadCalendarDay(staffId, date) {
+    const key = dayCacheKey(staffId, date);
+    if (dayCache.has(key)) return Promise.resolve(dayCache.get(key));
+    if (pendingDays.has(key)) return pendingDays.get(key);
+
+    const request = fetch(`${CALENDAR_DAY_API}?staff=${encodeURIComponent(staffId)}&date=${encodeURIComponent(date)}`, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Calendar HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((data) => {
+        if (!data.ok) throw new Error(data.error || 'Calendar payload invalid');
+        dayCache.set(key, data);
+        return data;
+      })
+      .finally(() => pendingDays.delete(key));
+
+    pendingDays.set(key, request);
+    return request;
   }
 
   function renderWorkingSegments(dayNode, data) {
@@ -193,7 +234,11 @@
       segment.className = `sb-working-segment sb-working-segment-editable${data.is_override ? ' is-day-override' : ''}`;
       segment.style.top = `${pos.top}%`;
       segment.style.height = `${pos.height}%`;
-      segment.innerHTML = `<span>${range.start}–${range.end}</span><b>✎</b>`;
+      const label = document.createElement('span');
+      label.textContent = `${range.start}–${range.end}`;
+      const edit = document.createElement('b');
+      edit.textContent = '✎';
+      segment.append(label, edit);
       segment.setAttribute('aria-label', `Arbeitszeit ${range.start} bis ${range.end} bearbeiten`);
       segment.addEventListener('click', (event) => {
         event.preventDefault();
@@ -218,6 +263,242 @@
       head.appendChild(edit);
     }
     dayNode.classList.toggle('is-day-closed', Boolean(data.closed));
+  }
+
+  function showExistingModal(name) {
+    const node = document.querySelector(`[data-modal="${name}"]`);
+    if (!node) return null;
+    node.classList.add('is-open');
+    node.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sb-modal-open');
+    return node;
+  }
+
+  function openDynamicAppointment(data) {
+    const modal = showExistingModal('appointment-edit');
+    const form = modal?.querySelector('[data-appointment-edit-form]');
+    if (!form) return;
+    form.elements.appointment_id.value = data.id;
+    form.elements.service_id.value = data.service_id;
+    form.elements.appointment_staff_id.value = data.staff_id;
+    form.elements.customer_id.value = data.customer_id;
+    form.elements.appointment_date.value = data.date;
+    form.elements.appointment_time.value = data.time;
+    form.elements.status.value = data.status;
+  }
+
+  function openDynamicBlock(data) {
+    const modal = showExistingModal('calendar-item-edit');
+    const form = modal?.querySelector('[data-calendar-item-edit-form]');
+    if (!form) return;
+    form.elements.block_id.value = data.id;
+    form.elements.staff_id.value = data.staff_id;
+    form.elements.item_kind.value = data.kind;
+    form.elements.item_date.value = data.date;
+    form.elements.item_start.value = data.start;
+    form.elements.item_end.value = data.end;
+    form.elements.item_text.value = data.text || '';
+    form.elements.item_service_id.value = data.service_id || '';
+    form.querySelectorAll('input[name="item_scope"]').forEach((radio) => { radio.checked = radio.value === data.scope; });
+    form.querySelector('.sb-edit-service-row')?.classList.toggle('is-visible', data.scope === 'service');
+    const title = modal.querySelector('[data-edit-block-title]');
+    if (title) title.textContent = data.kind === 'note' ? 'Notiz bearbeiten' : 'Sperrzeit bearbeiten';
+  }
+
+  function createAppointmentNode(data) {
+    const node = document.createElement('a');
+    node.className = 'sb-calendar-event';
+    node.href = '#termine';
+    node.style.top = `${data.top}%`;
+    node.style.height = `${data.height}%`;
+    node.dataset.fastAppointmentId = String(data.id);
+    node.title = `${data.customer_name} – ${data.service_name}`;
+
+    const customer = document.createElement('strong');
+    customer.textContent = data.customer_name;
+    const service = document.createElement('span');
+    service.textContent = data.service_name;
+    const time = document.createElement('small');
+    time.textContent = `${data.start}–${data.end}`;
+    node.append(customer, service, time);
+    node.addEventListener('click', (event) => {
+      event.preventDefault();
+      openDynamicAppointment(data);
+    });
+    return node;
+  }
+
+  function createBlockNode(data) {
+    const node = document.createElement('div');
+    node.className = `sb-calendar-block is-${data.visual_kind || (data.kind === 'note' ? 'note' : 'blocked')}`;
+    node.style.top = `${data.top}%`;
+    node.style.height = `${data.height}%`;
+    node.dataset.fastBlockId = String(data.id);
+    node.tabIndex = 0;
+    node.setAttribute('role', 'button');
+
+    const label = document.createElement('strong');
+    label.textContent = data.text || (data.kind === 'note' ? 'Notiz' : 'Gesperrt');
+    const time = document.createElement('small');
+    time.textContent = `${data.start}–${data.end}`;
+    const menu = document.createElement('button');
+    menu.type = 'button';
+    menu.className = 'sb-event-menu';
+    menu.textContent = '⋮';
+    menu.setAttribute('aria-label', 'Eintrag bearbeiten');
+    menu.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openDynamicBlock(data);
+    });
+    node.append(label, time, menu);
+    node.addEventListener('click', () => openDynamicBlock(data));
+    node.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openDynamicBlock(data);
+      }
+    });
+    return node;
+  }
+
+  function dateLabels(dateValue) {
+    const date = parseIsoDate(dateValue);
+    if (!date) return null;
+    return {
+      title: new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date),
+      month: new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' }).format(date),
+      weekday: new Intl.DateTimeFormat('de-DE', { weekday: 'long' }).format(date),
+      shortDate: new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' }).format(date),
+    };
+  }
+
+  function navHref(dateValue) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('date', dateValue);
+    params.set('cal_view', 'day');
+    const staffId = selectedStaff();
+    if (staffId) params.set('staff', staffId);
+    params.delete('notice');
+    params.delete('focus_block');
+    params.delete('focus_appointment');
+    return `${window.location.pathname}?${params.toString()}#kalender`;
+  }
+
+  function syncDateControls(dateValue) {
+    document.querySelectorAll('input[name="return_date"]').forEach((input) => { input.value = dateValue; });
+    document.querySelectorAll('input[name="return_view"]').forEach((input) => { input.value = 'day'; });
+    ['note_date', 'block_date', 'appointment_date'].forEach((name) => {
+      document.querySelectorAll(`input[name="${name}"]`).forEach((input) => {
+        if (!input.closest('[data-modal="appointment-edit"]') && !input.closest('[data-modal="calendar-item-edit"]')) {
+          input.value = dateValue;
+        }
+      });
+    });
+  }
+
+  function updateDateNavigation(dateValue) {
+    const date = parseIsoDate(dateValue);
+    if (!date) return;
+    const arrows = document.querySelectorAll('.sb-date-nav .sb-date-arrow');
+    if (arrows[0]) arrows[0].href = navHref(isoDate(addDays(date, -1)));
+    if (arrows[1]) arrows[1].href = navHref(isoDate(addDays(date, 1)));
+  }
+
+  function renderCalendarDay(data, { updateHistory = true } = {}) {
+    const dayNode = document.querySelector('.sb-calendar-days .sb-calendar-day');
+    const track = dayNode?.querySelector('.sb-day-track');
+    if (!dayNode || !track) return;
+
+    const labels = dateLabels(data.date);
+    const title = document.querySelector('.sb-date-title');
+    if (labels && title) {
+      const strong = title.querySelector('strong');
+      const span = title.querySelector('span');
+      if (strong) strong.textContent = labels.title;
+      if (span) span.textContent = labels.month;
+    }
+
+    const head = dayNode.querySelector('.sb-day-head');
+    if (labels && head) {
+      head.replaceChildren();
+      const weekday = document.createElement('span');
+      weekday.textContent = labels.weekday;
+      const date = document.createElement('b');
+      date.textContent = labels.shortDate;
+      head.append(weekday, date);
+    }
+
+    dayNode.classList.toggle('is-today', Boolean(data.is_today));
+    track.replaceChildren();
+    (data.appointments || []).forEach((item) => track.appendChild(createAppointmentNode(item)));
+    (data.blocks || []).forEach((item) => track.appendChild(createBlockNode(item)));
+    renderWorkingSegments(dayNode, data);
+    syncDateControls(data.date);
+    updateDateNavigation(data.date);
+    layoutAppointments();
+
+    if (updateHistory) {
+      const params = new URLSearchParams(window.location.search);
+      params.set('date', data.date);
+      params.set('cal_view', 'day');
+      params.set('staff', String(data.staff_id));
+      params.delete('notice');
+      params.delete('focus_block');
+      params.delete('focus_appointment');
+      window.history.pushState({ calendarDate: data.date }, '', `${window.location.pathname}?${params.toString()}#kalender`);
+    }
+
+    document.querySelector('.sb-calendar-panel')?.setAttribute('aria-busy', 'false');
+    prefetchNeighbors(String(data.staff_id), data.date);
+  }
+
+  function prefetchNeighbors(staffId, dateValue) {
+    const date = parseIsoDate(dateValue);
+    if (!staffId || !date) return;
+    [isoDate(addDays(date, -1)), isoDate(addDays(date, 1))].forEach((neighbor) => {
+      loadCalendarDay(staffId, neighbor).catch(() => {});
+    });
+  }
+
+  async function navigateToDay(dateValue, { updateHistory = true } = {}) {
+    if (currentCalendarView() !== 'day') return false;
+    const staffId = selectedStaff();
+    if (!staffId || !parseIsoDate(dateValue)) return false;
+    const panel = document.querySelector('.sb-calendar-panel');
+    panel?.setAttribute('aria-busy', 'true');
+    try {
+      const data = await loadCalendarDay(staffId, dateValue);
+      renderCalendarDay(data, { updateHistory });
+      return true;
+    } catch (error) {
+      console.warn('Fast calendar navigation failed:', error);
+      panel?.setAttribute('aria-busy', 'false');
+      return false;
+    }
+  }
+
+  function installFastDayNavigation() {
+    if (currentCalendarView() !== 'day') return;
+    document.addEventListener('click', async (event) => {
+      const arrow = event.target.closest('.sb-date-nav .sb-date-arrow');
+      if (!arrow) return;
+      let targetDate = '';
+      try {
+        targetDate = new URL(arrow.href, window.location.origin).searchParams.get('date') || '';
+      } catch (_error) {
+        return;
+      }
+      if (!targetDate) return;
+      event.preventDefault();
+      const success = await navigateToDay(targetDate);
+      if (!success) window.location.assign(arrow.href);
+    });
+
+    window.addEventListener('popstate', () => {
+      const dateValue = new URLSearchParams(window.location.search).get('date');
+      if (dateValue) navigateToDay(dateValue, { updateHistory: false });
+    });
   }
 
   function positionTimeAxis() {
@@ -297,6 +578,13 @@
     document.body.classList.add('sb-calendar-pro');
     positionTimeAxis();
     layoutAppointments();
+    installFastDayNavigation();
+
+    const staffId = selectedStaff();
+    if (currentCalendarView() === 'day' && staffId) {
+      prefetchNeighbors(staffId, currentCalendarDate());
+    }
+
     await initEditableAvailability();
     layoutAppointments();
     window.addEventListener('resize', () => {
