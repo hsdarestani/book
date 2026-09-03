@@ -93,6 +93,37 @@
   font-weight:750 !important;
 }
 
+/* The base SimplyBook stylesheet originally made the view menu mobile-only.
+   Keep it available on desktop too; admin.js controls the hidden attribute. */
+@media(min-width:761px){
+  .sb-view-menu{
+    display:grid !important;
+    position:absolute !important;
+    top:236px !important;
+    right:max(28px,calc((100vw - 1140px)/2 + 22px)) !important;
+    width:230px !important;
+    z-index:120 !important;
+    overflow:hidden !important;
+    border:1px solid #e2dacd !important;
+    border-radius:12px !important;
+    background:#fff !important;
+    box-shadow:0 16px 42px rgba(31,29,25,.18) !important;
+  }
+  .sb-view-menu[hidden]{display:none !important}
+  .sb-view-menu a{
+    display:block !important;
+    padding:13px 16px !important;
+    border-bottom:1px solid #eee8df !important;
+    color:#3e3933 !important;
+    background:#fff !important;
+    text-decoration:none !important;
+    font-size:12px !important;
+    font-weight:650 !important;
+  }
+  .sb-view-menu a:last-child{border-bottom:0 !important}
+  .sb-view-menu a:hover{background:#f7f3eb !important;color:#8a6736 !important}
+}
+
 @media(max-width:760px){
   .sb-form-row input[type="date"],
   .sb-form-row input[type="time"],
