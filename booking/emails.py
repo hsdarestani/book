@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 CLINIC_ADDRESS = 'Stiftstraße 14, 60313 Frankfurt am Main · 2. OG'
 CLINIC_PHONE = '069 71417012'
 CLINIC_PHONE_HREF = 'tel:+496971417012'
+CLINIC_REPLY_EMAIL = 'info@a-esthetic.de'
 WHATSAPP_URL = 'https://wa.me/496971417012'
 INSTAGRAM_URL = 'https://www.instagram.com/aplus.esthetic/'
 DIRECTIONS_URL = 'https://www.google.com/maps/dir/?api=1&destination=Stiftstra%C3%9Fe+14%2C+60313+Frankfurt+am+Main'
@@ -36,12 +37,13 @@ def _email_staff_name(staff):
     return name
 
 
-def _send_html_mail(subject, text_body, html_body, recipients):
+def _send_html_mail(subject, text_body, html_body, recipients, reply_to=None):
     message = EmailMultiAlternatives(
         subject=subject,
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=recipients,
+        reply_to=reply_to,
     )
     message.attach_alternative(html_body, 'text/html')
     message.send(fail_silently=False)
@@ -90,14 +92,20 @@ def send_customer_booking_email(appointment):
         f'Instagram: {INSTAGRAM_URL}\n'
         f'Google Bewertungen: {GOOGLE_REVIEWS_URL}\n'
         f'WhatsApp: {WHATSAPP_URL}\n\n'
-        'Wenn du Fragen hast, melde dich bitte direkt bei A+Esthetic.\n\n'
-        'A+Esthetic'
+        'Wenn du Fragen hast, melde dich bitte direkt bei A+ Esthetic.\n\n'
+        'A+ Esthetic'
     )
     customer_html = render_to_string(
         'booking/email_booking_confirmation.html',
         {**context, 'is_admin': False},
     )
-    _send_html_mail(subject, customer_text, customer_html, [appointment.customer.email])
+    _send_html_mail(
+        subject,
+        customer_text,
+        customer_html,
+        [appointment.customer.email],
+        reply_to=[CLINIC_REPLY_EMAIL],
+    )
 
 
 def send_booking_emails(appointment):
