@@ -76,6 +76,66 @@ class WorkingHour(models.Model):
         return f'{self.staff} – {self.get_weekday_display()} {self.start_time:%H:%M}–{self.end_time:%H:%M}'
 
 
+class DailyAvailabilityOverride(models.Model):
+    """One-off availability for a concrete calendar date.
+
+    If a row exists, it replaces the recurring WorkingHour entries for that day.
+    This mirrors the day-specific schedule exception flow used by booking systems:
+    recurring hours stay untouched while one date can be shortened, extended,
+    split into two periods, or marked fully unavailable.
+    """
+    staff = models.ForeignKey(
+        StaffMember,
+        on_delete=models.CASCADE,
+        related_name='daily_availability_overrides',
+        verbose_name='Mitarbeiter',
+    )
+    date = models.DateField('Datum')
+    closed = models.BooleanField('Ganztägig nicht verfügbar', default=False)
+    start_time_1 = models.TimeField('Beginn 1', null=True, blank=True)
+    end_time_1 = models.TimeField('Ende 1', null=True, blank=True)
+    start_time_2 = models.TimeField('Beginn 2', null=True, blank=True)
+    end_time_2 = models.TimeField('Ende 2', null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['date', 'staff']
+        constraints = [
+            models.UniqueConstraint(fields=['staff', 'date'], name='unique_staff_daily_availability')
+        ]
+        verbose_name = 'Tages-Verfügbarkeit'
+        verbose_name_plural = 'Tages-Verfügbarkeiten'
+
+    def clean(self):
+        if self.closed:
+            return
+        if not self.start_time_1 or not self.end_time_1:
+            raise ValidationError('Für einen offenen Tag muss mindestens ein Zeitraum angegeben werden.')
+        if self.end_time_1 <= self.start_time_1:
+            raise ValidationError('Das Ende des ersten Zeitraums muss nach dem Beginn liegen.')
+        has_second = bool(self.start_time_2 or self.end_time_2)
+        if has_second and not (self.start_time_2 and self.end_time_2):
+            raise ValidationError('Der zweite Zeitraum muss vollständig angegeben werden.')
+        if self.start_time_2 and self.end_time_2:
+            if self.end_time_2 <= self.start_time_2:
+                raise ValidationError('Das Ende des zweiten Zeitraums muss nach dem Beginn liegen.')
+            if self.start_time_2 < self.end_time_1:
+                raise ValidationError('Die Tages-Zeiträume dürfen sich nicht überschneiden.')
+
+    def ranges(self):
+        if self.closed:
+            return []
+        result = []
+        if self.start_time_1 and self.end_time_1:
+            result.append((self.start_time_1, self.end_time_1))
+        if self.start_time_2 and self.end_time_2:
+            result.append((self.start_time_2, self.end_time_2))
+        return result
+
+    def __str__(self):
+        return f'{self.staff} – {self.date:%d.%m.%Y}'
+
+
 class BlockedPeriod(models.Model):
     staff = models.ForeignKey(StaffMember, on_delete=models.CASCADE, related_name='blocked_periods', verbose_name='Mitarbeiter')
     starts_at = models.DateTimeField('Beginn')
