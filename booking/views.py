@@ -1,11 +1,13 @@
+import logging
 import mimetypes
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate, login, logout
+from django.core.exceptions import ValidationError
 from django.db.models import Count
 from django.http import FileResponse, Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,7 +16,13 @@ from django.utils.dateparse import parse_date, parse_time
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
+from .emails import send_customer_booking_email
 from .models import Appointment, BlockedPeriod, Customer, PatientRecord, Service, StaffMember, WorkingHour
+
+logger = logging.getLogger(__name__)
+
+CALENDAR_START_HOUR = 8
+CALENDAR_END_HOUR = 20
 
 
 def booking_page(request):
@@ -74,6 +82,49 @@ def _delete_patient_file(record):
             parent.rmdir()
     except (OSError, Http404):
         pass
+
+
+def _calendar_position(starts_at, ends_at):
+    local_start = timezone.localtime(starts_at)
+    local_end = timezone.localtime(ends_at)
+    start_minute = max(CALENDAR_START_HOUR * 60, local_start.hour * 60 + local_start.minute)
+    end_minute = min(CALENDAR_END_HOUR * 60, local_end.hour * 60 + local_end.minute)
+    total = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60
+    top = max(0, ((start_minute - CALENDAR_START_HOUR * 60) / total) * 100)
+    height = max(1.6, ((max(end_minute, start_minute + 10) - start_minute) / total) * 100)
+    return round(top, 4), round(height, 4)
+
+
+def _clean_calendar_reason(reason):
+    value = (reason or '').strip()
+    prefixes = ('[NOTE]', '[BLOCKNOTE]', '[ALL]', '[STAFF]', '[SERVICE]')
+    changed = True
+    while changed:
+        changed = False
+        for prefix in prefixes:
+            if value.startswith(prefix):
+                value = value[len(prefix):].lstrip()
+                changed = True
+    if value.startswith('[SERVICE:') and ']' in value:
+        value = value.split(']', 1)[1].lstrip()
+    return value or 'Notiz'
+
+
+def _calendar_block_kind(reason):
+    value = reason or ''
+    if value.startswith('[NOTE]'):
+        return 'note'
+    if value.startswith('[BLOCKNOTE]'):
+        return 'blocked-note'
+    return 'blocked'
+
+
+def _calendar_scope_prefix(scope, service_id=None):
+    if scope == 'all':
+        return '[ALL]'
+    if scope == 'service' and service_id:
+        return f'[SERVICE:{service_id}]'
+    return '[STAFF]'
 
 
 @staff_member_required(login_url='/verwaltung/login/')
@@ -207,9 +258,19 @@ def dashboard(request):
     if not selected_staff:
         selected_staff = staff_qs.first()
 
+    calendar_date = parse_date(request.GET.get('date') or '') or timezone.localdate()
+    calendar_view = request.GET.get('cal_view') or 'day'
+    if calendar_view not in {'day', 'week'}:
+        calendar_view = 'day'
+
     notice = request.GET.get('notice', '')
     if request.method == 'POST':
         action = request.POST.get('action')
+        return_date = request.POST.get('return_date') or calendar_date.isoformat()
+        return_view = request.POST.get('return_view') or calendar_view
+        staff_suffix = f'&staff={selected_staff.pk}' if selected_staff else ''
+        calendar_return = f'/verwaltung/?date={return_date}&cal_view={return_view}{staff_suffix}#kalender'
+
         if action == 'save_hours' and selected_staff:
             WorkingHour.objects.filter(staff=selected_staff).delete()
             for weekday in range(7):
@@ -226,24 +287,119 @@ def dashboard(request):
                             end_time=end,
                             active=True,
                         )
-            return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=hours#kalender')
+            return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=hours#einstellungen')
 
         if action == 'add_block' and selected_staff:
             starts_at = _local_dt(request.POST.get('block_date'), request.POST.get('block_start'))
             ends_at = _local_dt(request.POST.get('block_date'), request.POST.get('block_end'))
             if not starts_at or not ends_at or ends_at <= starts_at:
-                return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=block-error#kalender')
+                return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=block-error#einstellungen')
             BlockedPeriod.objects.create(
                 staff=selected_staff,
                 starts_at=starts_at,
                 ends_at=ends_at,
                 reason=(request.POST.get('block_reason') or '').strip()[:160],
             )
-            return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=block#kalender')
+            return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=block#einstellungen')
 
         if action == 'delete_block' and selected_staff:
             BlockedPeriod.objects.filter(pk=request.POST.get('block_id'), staff=selected_staff).delete()
-            return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=block-deleted#kalender')
+            return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=block-deleted#einstellungen')
+
+        if action == 'add_calendar_note' and selected_staff:
+            starts_at = _local_dt(request.POST.get('note_date'), request.POST.get('note_start'))
+            ends_at = _local_dt(request.POST.get('note_date'), request.POST.get('note_end'))
+            if not starts_at or not ends_at or ends_at <= starts_at:
+                return redirect(f'{calendar_return}&notice=note-error')
+            text = (request.POST.get('note_text') or '').strip()[:120]
+            scope = request.POST.get('note_scope') or 'all'
+            service_id = request.POST.get('note_service_id') or None
+            is_blocked = request.POST.get('note_blocked') == 'on'
+            prefix = '[BLOCKNOTE]' if is_blocked else '[NOTE]'
+            scope_prefix = _calendar_scope_prefix(scope, service_id)
+            reason = f'{prefix}{scope_prefix} {text or "Notiz"}'[:160]
+
+            targets = staff_qs
+            if scope == 'staff':
+                targets = staff_qs.filter(pk=selected_staff.pk)
+            elif scope == 'service' and service_id:
+                targets = staff_qs.filter(services__pk=service_id).distinct()
+            created = 0
+            for member in targets:
+                BlockedPeriod.objects.create(staff=member, starts_at=starts_at, ends_at=ends_at, reason=reason)
+                created += 1
+            if not created:
+                return redirect(f'{calendar_return}&notice=note-error')
+            return redirect(f'{calendar_return}&notice=note')
+
+        if action == 'delete_calendar_item':
+            item = BlockedPeriod.objects.filter(pk=request.POST.get('block_id')).first()
+            if item:
+                item.delete()
+            return redirect(calendar_return)
+
+        if action == 'add_customer':
+            first_name = (request.POST.get('first_name') or '').strip()[:80]
+            last_name = (request.POST.get('last_name') or '').strip()[:80]
+            email = (request.POST.get('email') or '').strip().lower()
+            phone = (request.POST.get('phone') or '').strip()[:40]
+            if not first_name or not email or '@' not in email:
+                return redirect('/verwaltung/?notice=customer-error#kunden')
+            customer = Customer.objects.filter(email__iexact=email).order_by('pk').first()
+            if customer:
+                customer.first_name = first_name
+                customer.last_name = last_name or customer.last_name
+                customer.phone = phone or customer.phone
+                customer.save(update_fields=['first_name', 'last_name', 'phone', 'updated_at'])
+            else:
+                customer = Customer.objects.create(first_name=first_name, last_name=last_name, email=email, phone=phone)
+            destination = request.POST.get('return_to') or 'kunden'
+            return redirect(f'/verwaltung/?notice=customer#{destination}')
+
+        if action == 'add_appointment':
+            service = Service.objects.filter(pk=request.POST.get('service_id'), active=True).first()
+            staff = staff_qs.filter(pk=request.POST.get('appointment_staff_id') or (selected_staff.pk if selected_staff else None)).first()
+            customer = Customer.objects.filter(pk=request.POST.get('customer_id')).first()
+            starts_at = _local_dt(request.POST.get('appointment_date'), request.POST.get('appointment_time'))
+            if not service or not staff or not customer or not starts_at:
+                return redirect(f'{calendar_return}&notice=booking-error')
+            if not staff.services.filter(pk=service.pk).exists():
+                return redirect(f'{calendar_return}&notice=booking-service-error')
+            ends_at = starts_at + timedelta(minutes=service.duration_minutes + service.buffer_minutes)
+            conflict = Appointment.objects.filter(
+                staff=staff,
+                status__in=['new', 'confirmed'],
+                starts_at__lt=ends_at,
+                ends_at__gt=starts_at,
+            ).exists()
+            blocked = BlockedPeriod.objects.filter(
+                staff=staff,
+                starts_at__lt=ends_at,
+                ends_at__gt=starts_at,
+            ).exclude(reason__startswith='[NOTE]').exists()
+            if conflict or blocked:
+                return redirect(f'{calendar_return}&notice=booking-conflict')
+            appointment = Appointment(
+                customer=customer,
+                service=service,
+                staff=staff,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                status='confirmed',
+                source='admin',
+                returning_customer=Appointment.objects.filter(customer=customer).exists(),
+                marketing_opt_in=False,
+            )
+            try:
+                appointment.full_clean()
+                appointment.save()
+            except ValidationError:
+                return redirect(f'{calendar_return}&notice=booking-conflict')
+            try:
+                send_customer_booking_email(appointment)
+            except Exception:
+                logger.exception('Admin-Termin gespeichert, Bestätigungs-E-Mail konnte nicht versendet werden')
+            return redirect(f'{calendar_return}&notice=booking')
 
         if action == 'appointment_status':
             appointment = get_object_or_404(Appointment, pk=request.POST.get('appointment_id'))
@@ -283,7 +439,7 @@ def dashboard(request):
             record_count=Count('patient_records', distinct=True),
             appointment_count=Count('appointments', distinct=True),
         )
-        .order_by('-updated_at')[:40]
+        .order_by('last_name', 'first_name')[:250]
     )
     canonical_service_slugs = [
         'aesthetische-erstberatung', 'botox-neupatient', 'botox-bestandspatient', 'hyaluron',
@@ -314,6 +470,79 @@ def dashboard(request):
     if selected_staff:
         blocked = BlockedPeriod.objects.filter(staff=selected_staff, ends_at__gte=now).order_by('starts_at')[:30]
 
+    if calendar_view == 'week':
+        range_start = calendar_date - timedelta(days=calendar_date.weekday())
+        range_end = range_start + timedelta(days=7)
+        previous_date = range_start - timedelta(days=7)
+        next_date = range_start + timedelta(days=7)
+    else:
+        range_start = calendar_date
+        range_end = range_start + timedelta(days=1)
+        previous_date = range_start - timedelta(days=1)
+        next_date = range_start + timedelta(days=1)
+
+    calendar_appointments = Appointment.objects.none()
+    calendar_blocks = BlockedPeriod.objects.none()
+    if selected_staff:
+        start_dt = timezone.make_aware(datetime.combine(range_start, datetime.min.time()), timezone.get_current_timezone())
+        end_dt = timezone.make_aware(datetime.combine(range_end, datetime.min.time()), timezone.get_current_timezone())
+        calendar_appointments = (
+            Appointment.objects.filter(
+                staff=selected_staff,
+                starts_at__lt=end_dt,
+                ends_at__gt=start_dt,
+            )
+            .exclude(status='cancelled')
+            .select_related('customer', 'service', 'staff')
+            .order_by('starts_at')
+        )
+        calendar_blocks = BlockedPeriod.objects.filter(
+            staff=selected_staff,
+            starts_at__lt=end_dt,
+            ends_at__gt=start_dt,
+        ).order_by('starts_at')
+
+    day_names = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+    calendar_days = []
+    day_cursor = range_start
+    while day_cursor < range_end:
+        working_segments = []
+        for working in hour_map.get(day_cursor.weekday(), []):
+            start = timezone.make_aware(datetime.combine(day_cursor, working.start_time), timezone.get_current_timezone())
+            end = timezone.make_aware(datetime.combine(day_cursor, working.end_time), timezone.get_current_timezone())
+            top, height = _calendar_position(start, end)
+            working_segments.append({'top': top, 'height': height, 'label': f'{working.start_time:%H:%M}–{working.end_time:%H:%M}'})
+
+        appointments_for_day = []
+        for item in calendar_appointments:
+            if timezone.localtime(item.starts_at).date() != day_cursor:
+                continue
+            top, height = _calendar_position(item.starts_at, item.ends_at)
+            appointments_for_day.append({'item': item, 'top': top, 'height': height})
+
+        blocks_for_day = []
+        for block in calendar_blocks:
+            if timezone.localtime(block.starts_at).date() != day_cursor:
+                continue
+            top, height = _calendar_position(block.starts_at, block.ends_at)
+            blocks_for_day.append({
+                'item': block,
+                'top': top,
+                'height': height,
+                'kind': _calendar_block_kind(block.reason),
+                'label': _clean_calendar_reason(block.reason),
+            })
+
+        calendar_days.append({
+            'date': day_cursor,
+            'day_name': day_names[day_cursor.weekday()],
+            'working_segments': working_segments,
+            'appointments': appointments_for_day,
+            'blocks': blocks_for_day,
+            'is_today': day_cursor == today,
+        })
+        day_cursor += timedelta(days=1)
+
     context = {
         'today_count': Appointment.objects.filter(starts_at__date=today).exclude(status='cancelled').count(),
         'new_count': Appointment.objects.filter(status='new', starts_at__gte=now).count(),
@@ -328,5 +557,15 @@ def dashboard(request):
         'customers': customers,
         'appointment_statuses': Appointment.STATUS,
         'notice': notice,
+        'calendar_date': calendar_date,
+        'calendar_view': calendar_view,
+        'calendar_days': calendar_days,
+        'calendar_hour_labels': [f'{hour:02d}:00' for hour in range(CALENDAR_START_HOUR, CALENDAR_END_HOUR + 1)],
+        'calendar_start_hour': CALENDAR_START_HOUR,
+        'calendar_end_hour': CALENDAR_END_HOUR,
+        'previous_date': previous_date,
+        'next_date': next_date,
+        'range_start': range_start,
+        'range_end_display': range_end - timedelta(days=1),
     }
     return render(request, 'booking/dashboard.html', context)
