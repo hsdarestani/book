@@ -262,3 +262,21 @@
     box-shadow:0 0 0 1px rgba(181,138,76,.18) !important;
   }
 }
+
+/* Never paint the wrong admin page while deferred JavaScript is still deciding
+   which route is active. admin.js marks the non-active sections with
+   .sb-page-hidden in one synchronous task; until that marker exists, keep every
+   route-controlled section invisible. This prevents the dashboard from flashing
+   for a frame when navigating to Buchungen, Kunden, Einstellungen, etc. */
+body.sb-admin-body:not(:has(.sb-page-hidden)) .admin-hero,
+body.sb-admin-body:not(:has(.sb-page-hidden)) .metric-grid,
+body.sb-admin-body:not(:has(.sb-page-hidden)) main > section.admin-panel{
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+@media(max-width:760px){
+  body.sb-admin-body:not(:has(.sb-page-hidden)) .sb-mobile-title{
+    visibility:hidden!important;
+  }
+}
