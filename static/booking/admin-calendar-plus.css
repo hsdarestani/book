@@ -80,6 +80,9 @@
 }
 
 @media(max-width:760px){
+  /* The mobile top bar already exposes the view menu. Keep one three-dot control only. */
+  .sb-calendar-head-actions{display:none!important}
+
   /* 100px per hour gives 25px per quarter hour. This keeps 15-minute
      appointments readable instead of stacking text on top of neighbouring cards. */
   .sb-calendar-pro .sb-calendar-shell{
