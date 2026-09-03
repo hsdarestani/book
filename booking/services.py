@@ -1,10 +1,27 @@
 from datetime import datetime, timedelta
 from django.db import transaction
 from django.utils import timezone
-from .models import Appointment, BlockedPeriod, StaffMember, WorkingHour
+from .models import Appointment, BlockedPeriod, DailyAvailabilityOverride, StaffMember, WorkingHour
 
 LEAD_TIME = timedelta(hours=1)
 BOOKING_HORIZON_DAYS = 90
+
+
+def effective_working_ranges(staff, day):
+    """Return the effective availability ranges for one concrete date.
+
+    A DailyAvailabilityOverride replaces the recurring weekday schedule for that
+    one date. Without an override, the normal WorkingHour rows are used.
+    """
+    override = DailyAvailabilityOverride.objects.filter(staff=staff, date=day).first()
+    if override:
+        return override.ranges(), override
+    hours = WorkingHour.objects.filter(
+        staff=staff,
+        weekday=day.weekday(),
+        active=True,
+    ).order_by('start_time')
+    return [(item.start_time, item.end_time) for item in hours], None
 
 
 def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None):
@@ -40,10 +57,10 @@ def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment
     conflicts = list(conflict_qs.values_list('starts_at', 'ends_at'))
 
     slots = []
-    hours = WorkingHour.objects.filter(staff=staff, weekday=day.weekday(), active=True).order_by('start_time')
-    for working in hours:
-        cursor = timezone.make_aware(datetime.combine(day, working.start_time), tz)
-        end_of_work = timezone.make_aware(datetime.combine(day, working.end_time), tz)
+    ranges, _override = effective_working_ranges(staff, day)
+    for start_time, end_time in ranges:
+        cursor = timezone.make_aware(datetime.combine(day, start_time), tz)
+        end_of_work = timezone.make_aware(datetime.combine(day, end_time), tz)
         while cursor + duration <= end_of_work:
             slot_end = cursor + duration
             if cursor >= now_with_lead:
