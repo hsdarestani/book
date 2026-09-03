@@ -125,6 +125,18 @@
 }
 
 @media(max-width:760px){
+  /* iOS/Safari zooms form fields below 16px and can keep the page zoomed after
+     saving a note. Keep every editable modal field at 16px so the admin behaves
+     like an app and returns to the normal viewport after note entry. */
+  .sb-modal .sb-form-row input:not([type="hidden"]),
+  .sb-modal .sb-form-row select,
+  .sb-modal .sb-form-row textarea,
+  .sb-customer-form input,
+  .sb-customer-form select,
+  .sb-customer-form textarea{
+    font-size:16px !important;
+  }
+
   .sb-form-row input[type="date"],
   .sb-form-row input[type="time"],
   .sb-form-row .admin-time-input,
