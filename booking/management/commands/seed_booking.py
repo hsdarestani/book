@@ -9,7 +9,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         service_specs = [
-            ('Ästhetische Erstberatung', 'aesthetische-erstberatung', 30, 10, 'Individuelle Beratung', True),
+            ('Ästhetische Erstberatung', 'aesthetische-erstberatung', 30, 10, '30 €', True),
             ('Botox Beratung', 'botox-beratung', 30, 10, 'ab 119 €', True),
             ('Hyaluron Beratung', 'hyaluron-beratung', 30, 10, 'ab 200 €', True),
             ('Laser-Haarentfernung', 'laser-haarentfernung', 45, 10, 'je nach Areal', False),
