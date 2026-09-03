@@ -60,6 +60,12 @@ class MobileAdminFlowTests(TestCase):
             active=True,
         )
 
+    def _dt(self, hour, minute=0):
+        return timezone.make_aware(
+            timezone.datetime.combine(self.day, time(hour, minute)),
+            timezone.get_current_timezone(),
+        )
+
     def test_dashboard_contains_quarter_hour_mobile_controls(self):
         response = self.client.get(
             reverse('booking:dashboard'),
@@ -76,6 +82,12 @@ class MobileAdminFlowTests(TestCase):
         self.assertContains(response, 'data-open-block')
         self.assertContains(response, 'data-modal="block"')
         self.assertContains(response, 'name="action" value="add_calendar_block"')
+        self.assertContains(response, 'data-modal="calendar-item-edit"')
+        self.assertContains(response, 'data-modal="appointment-edit"')
+        self.assertContains(response, 'value="edit_calendar_item"')
+        self.assertContains(response, 'value="delete_calendar_item"')
+        self.assertContains(response, 'value="edit_appointment"')
+        self.assertContains(response, 'value="delete_appointment"')
         self.assertContains(response, 'https://a-esthetic.de/wp-content/uploads/prev.png')
 
     def test_separate_admin_section_routes_render(self):
@@ -187,3 +199,151 @@ class MobileAdminFlowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('notice=block-error', response['Location'])
         self.assertFalse(BlockedPeriod.objects.exists())
+
+    def test_admin_can_edit_block_and_public_slots_follow_change(self):
+        block = BlockedPeriod.objects.create(
+            staff=self.staff,
+            starts_at=self._dt(9, 30),
+            ends_at=self._dt(10, 30),
+            reason='[BLOCKNOTE][STAFF] Pause',
+        )
+        response = self.client.post(
+            reverse('booking:admin_calendar'),
+            {
+                'action': 'edit_calendar_item',
+                'block_id': block.pk,
+                'staff_id': self.staff.pk,
+                'item_kind': 'block',
+                'item_date': self.day.isoformat(),
+                'item_start': '10:30',
+                'item_end': '11:30',
+                'item_scope': 'staff',
+                'item_text': 'Fortbildung',
+                'return_view': 'day',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('notice=block-updated', response['Location'])
+        edited = BlockedPeriod.objects.get(staff=self.staff)
+        self.assertIn('Fortbildung', edited.reason)
+        self.assertEqual(timezone.localtime(edited.starts_at).strftime('%H:%M'), '10:30')
+        self.assertEqual(timezone.localtime(edited.ends_at).strftime('%H:%M'), '11:30')
+
+        labels = {timezone.localtime(slot).strftime('%H:%M') for slot in available_slots(self.service, self.staff, self.day)}
+        self.assertIn('09:30', labels)
+        self.assertNotIn('10:30', labels)
+        self.assertNotIn('11:00', labels)
+        self.assertIn('11:30', labels)
+
+    def test_admin_can_delete_block_and_slots_return(self):
+        block = BlockedPeriod.objects.create(
+            staff=self.staff,
+            starts_at=self._dt(10, 0),
+            ends_at=self._dt(11, 0),
+            reason='[BLOCKNOTE][STAFF] Pause',
+        )
+        response = self.client.post(
+            reverse('booking:admin_calendar'),
+            {
+                'action': 'delete_calendar_item',
+                'block_id': block.pk,
+                'staff_id': self.staff.pk,
+                'return_view': 'day',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('notice=block-deleted', response['Location'])
+        self.assertFalse(BlockedPeriod.objects.exists())
+        labels = {timezone.localtime(slot).strftime('%H:%M') for slot in available_slots(self.service, self.staff, self.day)}
+        self.assertIn('10:00', labels)
+
+    def test_admin_can_edit_appointment_and_old_slot_becomes_free(self):
+        appointment = Appointment.objects.create(
+            customer=self.customer,
+            service=self.service,
+            staff=self.staff,
+            starts_at=self._dt(9, 0),
+            ends_at=self._dt(9, 30),
+            status='confirmed',
+            source='admin',
+        )
+        response = self.client.post(
+            reverse('booking:admin_calendar'),
+            {
+                'action': 'edit_appointment',
+                'appointment_id': appointment.pk,
+                'service_id': self.service.pk,
+                'appointment_staff_id': self.staff.pk,
+                'customer_id': self.customer.pk,
+                'appointment_date': self.day.isoformat(),
+                'appointment_time': '11:15',
+                'status': 'confirmed',
+                'return_view': 'day',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('notice=appointment-updated', response['Location'])
+        appointment.refresh_from_db()
+        self.assertEqual(timezone.localtime(appointment.starts_at).strftime('%H:%M'), '11:15')
+        labels = {timezone.localtime(slot).strftime('%H:%M') for slot in available_slots(self.service, self.staff, self.day)}
+        self.assertIn('09:00', labels)
+        self.assertNotIn('11:15', labels)
+
+    def test_admin_cannot_move_appointment_into_blocked_period(self):
+        appointment = Appointment.objects.create(
+            customer=self.customer,
+            service=self.service,
+            staff=self.staff,
+            starts_at=self._dt(9, 0),
+            ends_at=self._dt(9, 30),
+            status='confirmed',
+            source='admin',
+        )
+        BlockedPeriod.objects.create(
+            staff=self.staff,
+            starts_at=self._dt(10, 0),
+            ends_at=self._dt(11, 0),
+            reason='[BLOCKNOTE][STAFF] Pause',
+        )
+        response = self.client.post(
+            reverse('booking:admin_calendar'),
+            {
+                'action': 'edit_appointment',
+                'appointment_id': appointment.pk,
+                'service_id': self.service.pk,
+                'appointment_staff_id': self.staff.pk,
+                'customer_id': self.customer.pk,
+                'appointment_date': self.day.isoformat(),
+                'appointment_time': '10:15',
+                'status': 'confirmed',
+                'return_view': 'day',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('notice=appointment-edit-error', response['Location'])
+        appointment.refresh_from_db()
+        self.assertEqual(timezone.localtime(appointment.starts_at).strftime('%H:%M'), '09:00')
+
+    def test_admin_can_delete_appointment_and_slot_returns(self):
+        appointment = Appointment.objects.create(
+            customer=self.customer,
+            service=self.service,
+            staff=self.staff,
+            starts_at=self._dt(10, 0),
+            ends_at=self._dt(10, 30),
+            status='confirmed',
+            source='admin',
+        )
+        response = self.client.post(
+            reverse('booking:admin_calendar'),
+            {
+                'action': 'delete_appointment',
+                'appointment_id': appointment.pk,
+                'return_view': 'day',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('notice=appointment-deleted', response['Location'])
+        self.assertFalse(Appointment.objects.filter(pk=appointment.pk).exists())
+        labels = {timezone.localtime(slot).strftime('%H:%M') for slot in available_slots(self.service, self.staff, self.day)}
+        self.assertIn('10:00', labels)
