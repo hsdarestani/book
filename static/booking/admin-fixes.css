@@ -1,0 +1,125 @@
+/* Final visibility and interaction fixes for the SimplyBook-inspired admin UI. */
+
+.sb-form-row input[type="date"],
+.sb-form-row input[type="time"],
+.block-form input[type="date"],
+.block-form input[type="time"],
+.time-period input[type="time"]{
+  box-sizing:border-box;
+  width:100%;
+  min-height:44px;
+  border:1px solid #d8cdbc !important;
+  border-radius:11px !important;
+  background:#fbf8f1 !important;
+  color:#25221d !important;
+  -webkit-text-fill-color:#25221d !important;
+  padding:9px 11px !important;
+  font-size:14px !important;
+  font-weight:750 !important;
+  line-height:1.2;
+  color-scheme:light;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.55);
+}
+
+.sb-form-row input[type="date"]:focus,
+.sb-form-row input[type="time"]:focus,
+.block-form input[type="date"]:focus,
+.block-form input[type="time"]:focus,
+.time-period input[type="time"]:focus{
+  outline:none;
+  border-color:#b58a4c !important;
+  box-shadow:0 0 0 3px rgba(181,138,76,.14) !important;
+  background:#fffdf8 !important;
+}
+
+.sb-form-row input[type="date"]::-webkit-calendar-picker-indicator,
+.sb-form-row input[type="time"]::-webkit-calendar-picker-indicator,
+.block-form input[type="date"]::-webkit-calendar-picker-indicator,
+.block-form input[type="time"]::-webkit-calendar-picker-indicator{
+  opacity:.8;
+  cursor:pointer;
+}
+
+.sb-form-row:has(input[type="date"]),
+.sb-form-row:has(input[type="time"]){
+  padding-top:9px;
+  padding-bottom:9px;
+}
+
+.sb-form-row:has(input[type="date"]) > div,
+.sb-form-row:has(input[type="time"]) > div{
+  gap:7px;
+}
+
+.sb-form-row:has(input[type="date"]) small,
+.sb-form-row:has(input[type="time"]) small{
+  color:#655c50;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.01em;
+}
+
+.sb-form-row .admin-date-input,
+.sb-form-row .admin-time-input{
+  cursor:pointer;
+}
+
+/* Avoid the native control text disappearing in some Android/iOS webviews. */
+.sb-form-row input[type="date"]::-webkit-date-and-time-value,
+.sb-form-row input[type="time"]::-webkit-date-and-time-value{
+  text-align:left;
+  min-height:22px;
+}
+
+/* Flatpickr popup: 15-minute rhythm and enough touch space on desktop/tablet. */
+.flatpickr-calendar.hasTime.noCalendar{
+  width:250px !important;
+}
+.flatpickr-time{
+  min-height:52px !important;
+}
+.flatpickr-time input{
+  font-size:17px !important;
+  font-weight:750 !important;
+}
+
+@media(max-width:760px){
+  .sb-form-row input[type="date"],
+  .sb-form-row input[type="time"],
+  .block-form input[type="date"],
+  .block-form input[type="time"],
+  .time-period input[type="time"]{
+    min-height:50px;
+    padding:11px 12px !important;
+    font-size:16px !important;
+    border-width:1.5px !important;
+  }
+
+  .sb-form-row:has(input[type="date"]),
+  .sb-form-row:has(input[type="time"]){
+    min-height:88px;
+    align-items:flex-start;
+    padding-top:10px;
+    padding-bottom:10px;
+  }
+
+  .sb-form-row:has(input[type="date"]) .sb-row-icon,
+  .sb-form-row:has(input[type="time"]) .sb-row-icon{
+    margin-top:27px;
+    color:#8a6736;
+  }
+
+  .sb-form-row:has(input[type="date"]) small,
+  .sb-form-row:has(input[type="time"]) small{
+    font-size:11px;
+  }
+
+  .sb-sheet-form{
+    padding-left:14px !important;
+    padding-right:14px !important;
+  }
+
+  .sb-sheet-save{
+    min-height:50px;
+  }
+}
