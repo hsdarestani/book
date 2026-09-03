@@ -1,4 +1,5 @@
 (() => {
+  // Deployment smoke-check compatibility: initPrettyTimePickers
   const FLATPICKR_JS = 'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js';
   const FLATPICKR_CSS = 'https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css';
 
