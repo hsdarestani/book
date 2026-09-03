@@ -69,11 +69,14 @@ class MobileAdminFlowTests(TestCase):
         self.assertContains(response, 'name="appointment_time" step="900"')
         self.assertContains(response, 'name="note_start" step="900"')
         self.assertContains(response, 'name="note_end" step="900"')
+        self.assertContains(response, 'name="block_start" step="900"')
+        self.assertContains(response, 'name="block_end" step="900"')
         self.assertContains(response, 'data-open-booking')
         self.assertContains(response, 'data-open-customer-picker')
+        self.assertContains(response, 'data-open-block')
+        self.assertContains(response, 'data-modal="block"')
+        self.assertContains(response, 'name="action" value="add_calendar_block"')
         self.assertContains(response, 'https://a-esthetic.de/wp-content/uploads/prev.png')
-        self.assertContains(response, 'Zeitraum blockieren')
-        self.assertContains(response, 'force_block')
 
     def test_separate_admin_section_routes_render(self):
         route_names = [
@@ -135,55 +138,17 @@ class MobileAdminFlowTests(TestCase):
         self.assertIn('10:00', quarter_hours)
         self.assertIn('10:15', quarter_hours)
 
-    def test_blocking_note_removes_overlapping_slots_and_renders_in_calendar(self):
-        response = self.client.post(
-            reverse('booking:dashboard'),
-            {
-                'action': 'add_calendar_note',
-                'staff_id': self.staff.pk,
-                'note_date': self.day.isoformat(),
-                'note_start': '10:00',
-                'note_end': '11:00',
-                'note_scope': 'staff',
-                'note_text': 'Pause',
-                'note_blocked': 'on',
-                'return_date': self.day.isoformat(),
-                'return_view': 'day',
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        note = BlockedPeriod.objects.get(staff=self.staff)
-        self.assertTrue(note.reason.startswith('[BLOCKNOTE]'))
-
-        slots = available_slots(self.service, self.staff, self.day)
-        quarter_hours = {timezone.localtime(slot).strftime('%H:%M') for slot in slots}
-        self.assertNotIn('10:00', quarter_hours)
-        self.assertNotIn('10:15', quarter_hours)
-        self.assertIn('11:00', quarter_hours)
-
-        calendar_response = self.client.get(
-            reverse('booking:admin_calendar'),
-            {'staff': self.staff.pk, 'date': self.day.isoformat(), 'cal_view': 'day'},
-        )
-        self.assertEqual(calendar_response.status_code, 200)
-        self.assertContains(calendar_response, 'sb-calendar-block is-blocked-note')
-        self.assertContains(calendar_response, 'Pause')
-        self.assertContains(calendar_response, '10:00–11:00')
-
-    def test_explicit_block_action_cannot_fall_back_to_plain_note(self):
+    def test_dedicated_block_action_blocks_slots_and_renders_in_calendar(self):
         response = self.client.post(
             reverse('booking:admin_calendar'),
             {
-                'action': 'add_calendar_note',
+                'action': 'add_calendar_block',
                 'staff_id': self.staff.pk,
-                'note_date': self.day.isoformat(),
-                'note_start': '11:15',
-                'note_end': '12:00',
-                'note_scope': 'staff',
-                'note_text': 'Behandlungspause',
-                'force_block': '1',
-                'return_date': self.day.isoformat(),
-                'return_view': 'day',
+                'block_date': self.day.isoformat(),
+                'block_start': '10:00',
+                'block_end': '11:00',
+                'block_scope': 'staff',
+                'block_text': 'Pause',
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -194,9 +159,31 @@ class MobileAdminFlowTests(TestCase):
         self.assertIn(f'date={self.day.isoformat()}', response['Location'])
         self.assertIn(f'staff={self.staff.pk}', response['Location'])
 
+        slots = available_slots(self.service, self.staff, self.day)
+        quarter_hours = {timezone.localtime(slot).strftime('%H:%M') for slot in slots}
+        self.assertNotIn('10:00', quarter_hours)
+        self.assertNotIn('10:15', quarter_hours)
+        self.assertIn('11:00', quarter_hours)
+
         focused = self.client.get(response['Location'])
         self.assertEqual(focused.status_code, 200)
         self.assertContains(focused, 'sb-calendar-block is-blocked-note')
-        self.assertContains(focused, 'Behandlungspause')
-        self.assertContains(focused, '11:15–12:00')
+        self.assertContains(focused, 'Pause')
+        self.assertContains(focused, '10:00–11:00')
         self.assertContains(focused, 'is-focused-block')
+
+    def test_block_action_rejects_non_quarter_hour_times(self):
+        response = self.client.post(
+            reverse('booking:admin_calendar'),
+            {
+                'action': 'add_calendar_block',
+                'staff_id': self.staff.pk,
+                'block_date': self.day.isoformat(),
+                'block_start': '10:10',
+                'block_end': '11:00',
+                'block_scope': 'staff',
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('notice=block-error', response['Location'])
+        self.assertFalse(BlockedPeriod.objects.exists())
