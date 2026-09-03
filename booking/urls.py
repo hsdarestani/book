@@ -1,9 +1,10 @@
 from django.urls import path
-from . import api, internal_api, mobile_api, views
+from . import api, calendar, internal_api, mobile_api, views
 
 app_name = 'booking'
 urlpatterns = [
     path('', views.booking_page, name='home'),
+    path('termin/<uuid:appointment_id>/kalender.ics', calendar.appointment_calendar, name='appointment_calendar'),
     path('verwaltung/', views.dashboard, name='dashboard'),
     path('verwaltung/login/', views.admin_login, name='admin_login'),
     path('verwaltung/logout/', views.admin_logout, name='admin_logout'),
