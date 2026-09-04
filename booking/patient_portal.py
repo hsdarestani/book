@@ -17,6 +17,7 @@ from .models import Appointment, Customer, PatientRecord
 
 logger = logging.getLogger(__name__)
 APP_DOCUMENT_NOTIFICATION_URL = "https://esthetic.smarbiz.sbs/api/internal/patient-document/shared/"
+APP_SHARED_SOURCES = {"a_esthetic_app", "a_esthetic_app_customer"}
 
 
 def _notify_customer(record):
@@ -26,7 +27,7 @@ def _notify_customer(record):
         "record_id": str(record.public_id),
         "title": record.title,
         "kind": record.kind,
-        "shared": metadata.get("shared_with_customer") is True,
+        "shared": metadata.get("shared_with_customer") is True or record.source in APP_SHARED_SOURCES,
     }).encode("utf-8")
     request = Request(
         APP_DOCUMENT_NOTIFICATION_URL,
@@ -142,12 +143,12 @@ def staff_toggle_share(request, customer_id, record_id):
     customer = get_object_or_404(Customer, pk=customer_id)
     record = get_object_or_404(PatientRecord, public_id=record_id, customer=customer)
     metadata = record.metadata.copy() if isinstance(record.metadata, dict) else {}
-    current = metadata.get("shared_with_customer") is True or record.source in {"a_esthetic_app", "a_esthetic_app_customer"}
+    current = metadata.get("shared_with_customer") is True or record.source in APP_SHARED_SOURCES
 
-    # Customer-originated and consent records belong to the shared patient timeline.
-    # Clinic staff may hide clinic-originated documents, but never silently revoke
-    # the patient's access to a document they uploaded themselves.
-    if record.source == "a_esthetic_app_customer":
+    # App-originated records are part of the shared timeline by definition. Staff
+    # can control sharing for clinic-originated entries, not silently revoke data
+    # that the customer submitted or consented to in their own account.
+    if record.source in APP_SHARED_SOURCES:
         return redirect(f"/verwaltung/patienten/{customer.pk}/?notice=customer-owned#akte")
 
     target = not current
