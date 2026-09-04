@@ -1,5 +1,5 @@
 from django.urls import path
-from . import admin_views, api, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, views
+from . import admin_views, api, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
@@ -30,4 +30,5 @@ urlpatterns = [
     path('api/mobile/booking/', mobile_api.mobile_booking, name='mobile_booking'),
     path('api/mobile/booking/manageable/', mobile_api.mobile_manageable_appointments, name='mobile_manageable_appointments'),
     path('api/mobile/booking/<uuid:appointment_id>/change/', mobile_api.mobile_appointment_change, name='mobile_appointment_change'),
+    path('api/mobile/referral-email/', referral_relay.referral_email, name='mobile_referral_email'),
 ]
