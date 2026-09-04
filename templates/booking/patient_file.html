@@ -18,8 +18,12 @@
   </header>
 
   {% if notice %}
-  <div class="admin-notice {% if notice != 'added' and notice != 'deleted' %}is-error{% endif %}">
-    {% if notice == 'added' %}Eintrag wurde sicher in der Patientenakte gespeichert.
+  <div class="admin-notice {% if notice != 'added' and notice != 'added-shared' and notice != 'deleted' and notice != 'shared' and notice != 'unshared' and notice != 'customer-owned' %}is-error{% endif %}">
+    {% if notice == 'added' %}Eintrag wurde sicher als interner Akteneintrag gespeichert.
+    {% elif notice == 'added-shared' %}Eintrag wurde gespeichert und für den Kunden in der A+ App freigegeben.
+    {% elif notice == 'shared' %}Der Eintrag ist jetzt für den Kunden in der A+ App sichtbar.
+    {% elif notice == 'unshared' %}Der Eintrag ist jetzt nur noch intern für das A+ Team sichtbar.
+    {% elif notice == 'customer-owned' %}Dieser Eintrag stammt aus dem Kundenkonto und bleibt Bestandteil der gemeinsamen Patientenakte.
     {% elif notice == 'deleted' %}Eintrag wurde entfernt.
     {% elif notice == 'file-type' %}Dieser Dateityp ist nicht erlaubt. Nutze Bilder, PDF, Office-, Text- oder Tabellen-Dateien.
     {% elif notice == 'file-size' %}Die Datei ist zu groß. Maximal {{ max_upload_mb }} MB pro Datei.
@@ -33,7 +37,7 @@
   <section class="patient-hero">
     <div class="patient-identity">
       <div class="patient-big-avatar">{{ customer.first_name|slice:":1" }}{{ customer.last_name|slice:":1" }}</div>
-      <div><div class="eyebrow">Digitale Patientenakte</div><h1>{{ customer.full_name }}</h1><div class="patient-contact-line"><a href="mailto:{{ customer.email }}">{{ customer.email }}</a><span>·</span><a href="tel:{{ customer.phone }}">{{ customer.phone|default:"Keine Telefonnummer" }}</a></div></div>
+      <div><div class="eyebrow">Gemeinsame digitale Patientenakte</div><h1>{{ customer.full_name }}</h1><div class="patient-contact-line"><a href="mailto:{{ customer.email }}">{{ customer.email }}</a><span>·</span><a href="tel:{{ customer.phone }}">{{ customer.phone|default:"Keine Telefonnummer" }}</a></div></div>
     </div>
     <div class="patient-facts">
       <article><span>Patient seit</span><strong>{{ customer.created_at|date:"d.m.Y" }}</strong></article>
@@ -43,31 +47,53 @@
     </div>
   </section>
 
+  <section class="patient-share-explainer">
+    <div><strong>Eine Akte, zwei Ansichten</strong><span>Interne medizinische Notizen bleiben beim A+ Team. Dokumente mit „In A+ App teilen“ erscheinen zusätzlich im geschützten Kundenkonto. Uploads des Kunden landen automatisch hier in derselben Akte.</span></div>
+    <div class="share-legend"><span class="share-pill shared">● Mit Kunde geteilt</span><span class="share-pill private">● Nur intern</span></div>
+  </section>
+
   <section class="patient-file-layout" id="akte">
     <aside class="record-upload-card">
       <div class="eyebrow">Neuer Eintrag</div>
       <h2>Zur Akte hinzufügen</h2>
-      <p>Fotos, Formulare, PDFs, Dokumente oder reine Notizen werden direkt dieser Patientenakte zugeordnet.</p>
-      <form method="post" enctype="multipart/form-data" class="record-upload-form">
-        {% csrf_token %}<input type="hidden" name="action" value="add_record">
+      <p>Fotos, Formulare, PDFs, Dokumente oder Notizen werden direkt dieser Patientenakte zugeordnet.</p>
+      <form method="post" action="/verwaltung/patienten/{{ customer.pk }}/shared/add/" enctype="multipart/form-data" class="record-upload-form">
+        {% csrf_token %}
         <label>Typ<select name="kind">{% for value,label in record_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-        <label>Titel <small>optional bei Datei</small><input name="title" maxlength="180" placeholder="z. B. Botoxbogen 27.08.2026"></label>
+        <label>Titel <small>optional bei Datei</small><input name="title" maxlength="180" placeholder="z. B. Behandlungsinformation 04.09.2026"></label>
         <label>Zu Termin <small>optional</small><select name="appointment_id"><option value="">Keinem Termin zuordnen</option>{% for item in appointments %}<option value="{{ item.pk }}">{{ item.starts_at|date:"d.m.Y H:i" }} · {{ item.service.name }}</option>{% endfor %}</select></label>
         <label class="secure-upload-zone"><span class="upload-icon">＋</span><strong>Datei auswählen</strong><small>Foto, PDF, Word, Excel, Text · max. {{ max_upload_mb }} MB</small><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv,.heic,.heif"></label>
-        <label>Notiz <small>optional</small><textarea name="note" rows="5" maxlength="6000" placeholder="Interne Notiz zur Datei, Behandlung oder Dokumentation …"></textarea></label>
+        <label>Notiz <small>optional</small><textarea name="note" rows="5" maxlength="6000" placeholder="Interne oder mit dem Kunden geteilte Information …"></textarea></label>
+        <label class="patient-share-toggle"><input type="checkbox" name="shared_with_customer"><span><strong>In A+ App mit dem Kunden teilen</strong><small>Der Kunde kann diesen Eintrag dann in „Meine Patientenakte“ sehen und die Datei sicher öffnen.</small></span></label>
         <button class="admin-primary record-save" type="submit">In Patientenakte speichern</button>
       </form>
-      <div class="privacy-shield"><span>⌾</span><div><strong>Geschützter Bereich</strong><small>Patientendateien sind nicht öffentlich verlinkt und werden nur nach Admin-Anmeldung ausgeliefert.</small></div></div>
+      <div class="privacy-shield"><span>⌾</span><div><strong>Geschützter Bereich</strong><small>Patientendateien werden nicht öffentlich verlinkt. Zugriff erfolgt nur nach authentifizierter Kunden- oder Admin-Anmeldung.</small></div></div>
     </aside>
 
     <section class="record-stream-card">
-      <div class="panel-head"><div><div class="eyebrow">Chronologisch</div><h2>Digitale Akte</h2><p>Neueste Einträge zuerst. Bilder können direkt angesehen, alle Dateien sicher geöffnet oder heruntergeladen werden.</p></div><span class="panel-count">{{ records|length }} Einträge</span></div>
+      <div class="panel-head"><div><div class="eyebrow">Chronologisch</div><h2>Digitale Akte</h2><p>Gemeinsame Timeline aus Klinik-Dokumenten, App-Uploads, Formularen und internen Notizen.</p></div><span class="panel-count">{{ records|length }} Einträge</span></div>
       <div class="record-stream">
         {% for record in records %}
         <article class="record-item record-kind-{{ record.kind }}">
           <div class="record-kind-icon" aria-hidden="true">{% if record.kind == 'photo' %}▧{% elif record.kind == 'form' %}✓{% elif record.kind == 'note' %}≡{% elif record.kind == 'document' %}▤{% else %}◇{% endif %}</div>
           <div class="record-main">
-            <div class="record-topline"><div><span class="record-kind-label">{{ record.get_kind_display }}</span><time>{{ record.created_at|date:"d.m.Y · H:i" }}</time></div><form method="post" onsubmit="return confirm('Diesen Akteneintrag wirklich löschen?');">{% csrf_token %}<input type="hidden" name="action" value="delete_record"><input type="hidden" name="record_id" value="{{ record.pk }}"><button class="record-delete" type="submit" aria-label="Eintrag löschen">×</button></form></div>
+            <div class="record-topline">
+              <div><span class="record-kind-label">{{ record.get_kind_display }}</span><time>{{ record.created_at|date:"d.m.Y · H:i" }}</time></div>
+              <form method="post" onsubmit="return confirm('Diesen Akteneintrag wirklich löschen?');">{% csrf_token %}<input type="hidden" name="action" value="delete_record"><input type="hidden" name="record_id" value="{{ record.pk }}"><button class="record-delete" type="submit" aria-label="Eintrag löschen">×</button></form>
+            </div>
+            <div class="record-share-row">
+              {% if record.source == 'a_esthetic_app_customer' %}
+                <span class="share-pill shared">● Vom Kunden hochgeladen</span>
+              {% elif record.source == 'a_esthetic_app' %}
+                <span class="share-pill shared">● Aus A+ App · geteilt</span>
+              {% elif record.metadata.shared_with_customer %}
+                <span class="share-pill shared">● Mit Kunde geteilt</span>
+                <form method="post" action="/verwaltung/patienten/{{ customer.pk }}/shared/{{ record.public_id }}/toggle/">{% csrf_token %}<button type="submit" class="share-action">Nur intern setzen</button></form>
+              {% else %}
+                <span class="share-pill private">● Nur intern</span>
+                <form method="post" action="/verwaltung/patienten/{{ customer.pk }}/shared/{{ record.public_id }}/toggle/">{% csrf_token %}<button type="submit" class="share-action">In A+ App teilen</button></form>
+              {% endif %}
+            </div>
             <h3>{{ record.title }}</h3>
             {% if record.appointment %}<a class="record-appointment" href="#termine">{{ record.appointment.starts_at|date:"d.m.Y H:i" }} · {{ record.appointment.service.name }}</a>{% endif %}
             {% if record.note %}<p class="record-note">{{ record.note|linebreaksbr }}</p>{% endif %}
@@ -75,10 +101,10 @@
               {% if record.is_image %}<a class="record-photo-preview" href="/verwaltung/patienten/{{ customer.pk }}/datei/{{ record.public_id }}/" target="_blank"><img src="/verwaltung/patienten/{{ customer.pk }}/datei/{{ record.public_id }}/" alt="{{ record.title }}" loading="lazy"></a>{% endif %}
               <div class="record-file-row"><div class="record-file-meta"><strong>{{ record.original_name }}</strong><span>{{ record.mime_type|default:"Datei" }} · {{ record.file_size|filesizeformat }}</span></div><div class="record-file-actions"><a href="/verwaltung/patienten/{{ customer.pk }}/datei/{{ record.public_id }}/" target="_blank">Öffnen</a><a href="/verwaltung/patienten/{{ customer.pk }}/datei/{{ record.public_id }}/?download=1">Download</a></div></div>
             {% endif %}
-            <small class="record-audit">Gespeichert von {% if record.uploaded_by %}{{ record.uploaded_by.username }}{% else %}System{% endif %}</small>
+            <small class="record-audit">Quelle: {% if record.source == 'a_esthetic_app_customer' %}Kundenkonto{% elif record.source == 'a_esthetic_app' %}A+ App{% else %}A+ Team{% endif %} · Gespeichert von {% if record.uploaded_by %}{{ record.uploaded_by.username }}{% else %}System{% endif %}</small>
           </div>
         </article>
-        {% empty %}<div class="patient-empty-state"><div>＋</div><h3>Noch keine Akteneinträge</h3><p>Füge links das erste Foto, Formular, Dokument oder eine interne Notiz hinzu.</p></div>{% endfor %}
+        {% empty %}<div class="patient-empty-state"><div>＋</div><h3>Noch keine Akteneinträge</h3><p>Füge links das erste Foto, Formular, Dokument oder eine Notiz hinzu.</p></div>{% endfor %}
       </div>
     </section>
   </section>
