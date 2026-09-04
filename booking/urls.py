@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/appointments/', api.appointments, name='appointments'),
     path('api/internal/patient-records/ingest/', internal_api.ingest_patient_record, name='patient_record_ingest'),
     path('api/internal/patient-records/portal/list/', patient_portal_api.portal_list, name='patient_portal_list'),
+    path('api/internal/patient-records/portal/upload/', patient_portal_api.portal_upload, name='patient_portal_upload'),
     path('api/internal/patient-records/portal/file/', patient_portal_api.portal_file, name='patient_portal_file'),
     path('api/internal/patient-records/portal/archive/', patient_portal_api.portal_archive, name='patient_portal_archive'),
     path('api/mobile/slots/', mobile_api.mobile_slots, name='mobile_slots'),
