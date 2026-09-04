@@ -14,6 +14,7 @@ from django.views.decorators.http import require_http_methods
 
 from .emails import send_booking_emails
 from .models import Appointment, Customer, Service, StaffMember
+from .package_bridge import sync_package
 from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, create_appointment
 
 CHANGE_DEADLINE_HOURS = 24
@@ -91,10 +92,7 @@ def _customer(member):
         item.save(update_fields=['first_name', 'last_name', 'phone', 'updated_at'])
         return item
     return Customer.objects.create(
-        first_name=member['first_name'],
-        last_name=member['last_name'],
-        phone=member['phone'],
-        email=member['email'],
+        first_name=member['first_name'], last_name=member['last_name'], phone=member['phone'], email=member['email'],
     )
 
 
@@ -122,6 +120,7 @@ def _appointment_payload(item):
     return {
         'id': str(item.public_id),
         'service_id': item.service_id,
+        'service_slug': item.service.slug,
         'service': item.service.name,
         'staff_id': item.staff_id,
         'staff': item.staff.display_name,
@@ -135,9 +134,7 @@ def _appointment_payload(item):
 @require_http_methods(['GET'])
 def mobile_slots(request):
     service = Service.objects.filter(
-        pk=request.GET.get('service_id'),
-        active=True,
-        bookable=True,
+        pk=request.GET.get('service_id'), active=True, bookable=True,
     ).first()
     if not service:
         return _error('service_not_found', 'Diese Terminart ist aktuell nicht verfügbar.', 400)
@@ -171,6 +168,7 @@ def mobile_booking(request):
     member, error = _member(request)
     if error:
         return error
+    authorization = request.headers.get('Authorization', '').strip()
 
     if request.method == 'POST':
         data = _json(request)
@@ -218,6 +216,7 @@ def mobile_booking(request):
 
         if created:
             transaction.on_commit(lambda: send_booking_emails(appointment))
+        package = sync_package(authorization, 'reserve', appointment)
         return JsonResponse({
             'ok': True,
             'appointment_id': str(appointment.public_id),
@@ -225,6 +224,7 @@ def mobile_booking(request):
             'status_code': appointment.status,
             'staff': appointment.staff.display_name,
             'starts_at': appointment.starts_at.isoformat(),
+            'package': package,
         }, status=201 if created else 200)
 
     services = Service.objects.filter(active=True, bookable=True).order_by('sort_order', 'name')
@@ -247,6 +247,7 @@ def mobile_booking(request):
         'services': [
             {
                 'id': item.pk,
+                'slug': item.slug,
                 'name': item.name,
                 'duration_minutes': item.duration_minutes,
                 'price_label': item.price_label,
@@ -309,6 +310,7 @@ def mobile_appointment_change(request, appointment_id):
     member, error = _member(request)
     if error:
         return error
+    authorization = request.headers.get('Authorization', '').strip()
     data = _json(request)
     action = str(data.get('action') or '').strip().lower()
     if action not in {'cancel', 'reschedule'}:
@@ -338,33 +340,41 @@ def mobile_appointment_change(request, appointment_id):
         if action == 'cancel':
             item.status = 'cancelled'
             item.save(update_fields=['status', 'updated_at'])
-            return JsonResponse({'ok': True, 'action': 'cancel', 'status': item.get_status_display()})
+        else:
+            starts_at = parse_datetime(str(data.get('starts_at') or ''))
+            if not starts_at:
+                return _error('invalid_start_time', 'Bitte wählen Sie Datum und Uhrzeit.', 400)
+            if timezone.is_naive(starts_at):
+                starts_at = timezone.make_aware(starts_at, timezone.get_current_timezone())
+            if starts_at < timezone.now() + LEAD_TIME:
+                return _error('start_time_too_soon', 'Bitte wählen Sie einen späteren Termin.', 400)
 
-        starts_at = parse_datetime(str(data.get('starts_at') or ''))
-        if not starts_at:
-            return _error('invalid_start_time', 'Bitte wählen Sie Datum und Uhrzeit.', 400)
-        if timezone.is_naive(starts_at):
-            starts_at = timezone.make_aware(starts_at, timezone.get_current_timezone())
-        if starts_at < timezone.now() + LEAD_TIME:
-            return _error('start_time_too_soon', 'Bitte wählen Sie einen späteren Termin.', 400)
+            staff = _pick_staff(
+                item.service,
+                starts_at,
+                data.get('staff_id'),
+                exclude_appointment_id=str(item.public_id),
+            )
+            if not staff:
+                return _error('time_not_available', 'Diese Zeit ist inzwischen nicht mehr verfügbar.', 409)
 
-        staff = _pick_staff(
-            item.service,
-            starts_at,
-            data.get('staff_id'),
-            exclude_appointment_id=str(item.public_id),
-        )
-        if not staff:
-            return _error('time_not_available', 'Diese Zeit ist inzwischen nicht mehr verfügbar.', 409)
+            duration = timedelta(minutes=item.service.duration_minutes + item.service.buffer_minutes)
+            item.staff = staff
+            item.starts_at = starts_at
+            item.ends_at = starts_at + duration
+            item.status = 'new' if item.service.requires_confirmation else 'confirmed'
+            item.full_clean()
+            item.save(update_fields=['staff', 'starts_at', 'ends_at', 'status', 'updated_at'])
+            transaction.on_commit(lambda: send_booking_emails(item))
 
-        duration = timedelta(minutes=item.service.duration_minutes + item.service.buffer_minutes)
-        item.staff = staff
-        item.starts_at = starts_at
-        item.ends_at = starts_at + duration
-        item.status = 'new' if item.service.requires_confirmation else 'confirmed'
-        item.full_clean()
-        item.save(update_fields=['staff', 'starts_at', 'ends_at', 'status', 'updated_at'])
-        transaction.on_commit(lambda: send_booking_emails(item))
+    if action == 'cancel':
+        package = sync_package(authorization, 'release', item)
+        return JsonResponse({
+            'ok': True,
+            'action': 'cancel',
+            'status': item.get_status_display(),
+            'package': package,
+        })
 
     return JsonResponse({
         'ok': True,
