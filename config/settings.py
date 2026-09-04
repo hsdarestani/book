@@ -84,9 +84,12 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Patient files intentionally live outside MEDIA_ROOT. They are never served by
-# Caddy/Nginx directly; authenticated staff views stream them after permission checks.
+# Caddy/Nginx directly; authenticated staff/customer gateways stream them after
+# permission checks. JSON uploads from the app use base64, so allow enough request
+# headroom for the 10 MB customer limit without increasing the 25 MB file limit.
 PATIENT_FILES_ROOT = Path(os.getenv('PATIENT_FILES_ROOT', str(BASE_DIR / 'private_patient_files')))
 PATIENT_FILE_MAX_BYTES = int(os.getenv('PATIENT_FILE_MAX_BYTES', str(25 * 1024 * 1024)))
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('DATA_UPLOAD_MAX_MEMORY_SIZE', str(35 * 1024 * 1024)))
 PATIENT_FILE_ALLOWED_EXTENSIONS = {
     '.pdf', '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif',
     '.doc', '.docx', '.xls', '.xlsx', '.txt', '.rtf', '.csv',
