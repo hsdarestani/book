@@ -1,3 +1,5 @@
+import base64
+import binascii
 import json
 import uuid
 
@@ -6,7 +8,8 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from .internal_api import _authorized, _error, _find_customer, _patient_path
+from . import mobile_api
+from .internal_api import _authorized, _error, _find_customer, _parse_captured_at, _patient_path, _store_bytes
 from .models import PatientRecord
 
 
@@ -25,6 +28,21 @@ def _customer_from_payload(data):
     email = str(data.get("email") or "").strip().lower()[:254]
     phone = str(data.get("phone") or "").strip()[:40]
     return _find_customer(email, phone)
+
+
+def _customer_for_request(request, data, *, create=False):
+    # Internal server-to-server access remains available for maintenance and
+    # backwards compatibility. Customer traffic uses the same Bearer token
+    # verification already proven by the mobile booking API.
+    if _authorized(request):
+        return _customer_from_payload(data), None
+
+    member, error = mobile_api._member(request)
+    if error:
+        return None, error
+    if create:
+        return mobile_api._customer(member), None
+    return _find_customer(member["email"], member["phone"]), None
 
 
 def _metadata(record):
@@ -74,12 +92,12 @@ def _record_payload(record):
 @csrf_exempt
 @require_POST
 def portal_list(request):
-    if not _authorized(request):
-        return _error("unauthorized", "Nicht autorisiert.", 401)
     data = _payload(request)
     if data is None:
         return _error("invalid_json", "Ungültige Nutzdaten.")
-    customer = _customer_from_payload(data)
+    customer, auth_error = _customer_for_request(request, data)
+    if auth_error:
+        return auth_error
     if not customer:
         return JsonResponse({"ok": True, "patient_found": False, "records": []})
 
@@ -103,13 +121,104 @@ def portal_list(request):
 
 @csrf_exempt
 @require_POST
-def portal_file(request):
-    if not _authorized(request):
-        return _error("unauthorized", "Nicht autorisiert.", 401)
+def portal_upload(request):
     data = _payload(request)
     if data is None:
         return _error("invalid_json", "Ungültige Nutzdaten.")
-    customer = _customer_from_payload(data)
+    customer, auth_error = _customer_for_request(request, data, create=True)
+    if auth_error:
+        return auth_error
+    if not customer:
+        return _error("patient_not_found", "Patient nicht gefunden.", 404)
+
+    if data.get("health_data_consent") is not True:
+        return _error("health_data_consent_required", "Einwilligung für den Dokument-Upload erforderlich.", 409)
+
+    kind = str(data.get("kind") or "document").strip()
+    if kind not in {value for value, _ in PatientRecord.KIND}:
+        return _error("invalid_kind", "Ungültiger Akten-Typ.")
+    title = str(data.get("title") or "").strip()[:180]
+    note = str(data.get("note") or "").strip()[:6000]
+    external_id = str(data.get("external_id") or f"customer-upload:{uuid.uuid4().hex}").strip()[:180]
+    existing = PatientRecord.objects.filter(source="a_esthetic_app_customer", external_id=external_id).first()
+    if existing:
+        if existing.customer_id != customer.pk:
+            return _error("record_conflict", "Dokumentreferenz ist bereits vergeben.", 409)
+        return JsonResponse({"ok": True, "created": False, "record_id": str(existing.public_id), "customer_id": customer.pk})
+
+    stored_name = ""
+    original_name = ""
+    mime_type = ""
+    file_size = 0
+    created_path = None
+    if data.get("file_base64"):
+        try:
+            content = base64.b64decode(str(data.get("file_base64")), validate=True)
+        except (binascii.Error, ValueError):
+            return _error("invalid_file", "Datei konnte nicht dekodiert werden.")
+        try:
+            stored_name, original_name, mime_type, file_size = _store_bytes(
+                customer,
+                str(data.get("original_name") or "dokument.pdf"),
+                content,
+                str(data.get("mime_type") or ""),
+            )
+            created_path = _patient_path(stored_name)
+        except ValueError as exc:
+            code = str(exc)
+            return _error(code, {
+                "file_type": "Dieser Dateityp ist nicht erlaubt.",
+                "file_empty": "Die Datei ist leer.",
+                "file_size": "Die Datei ist zu groß.",
+            }.get(code, "Datei konnte nicht gespeichert werden."), 413 if code == "file_size" else 400)
+
+    if not title:
+        title = (original_name.rsplit(".", 1)[0] if original_name else "Notiz")[:180]
+    if not stored_name and not note:
+        return _error("empty_record", "Akteneintrag enthält weder Dokument noch Inhalt.")
+
+    metadata = {
+        "document_type": "customer_upload",
+        "customer_upload": True,
+        "shared_with_customer": True,
+        "health_data_consent": True,
+    }
+    try:
+        record = PatientRecord.objects.create(
+            customer=customer,
+            kind=kind,
+            title=title,
+            note=note,
+            stored_name=stored_name,
+            original_name=original_name,
+            mime_type=mime_type,
+            file_size=file_size,
+            source="a_esthetic_app_customer",
+            external_id=external_id,
+            captured_at=_parse_captured_at(data.get("captured_at")),
+            metadata=metadata,
+            uploaded_by=None,
+        )
+    except Exception:
+        if created_path and created_path.exists():
+            try:
+                created_path.unlink()
+            except OSError:
+                pass
+        raise
+
+    return JsonResponse({"ok": True, "created": True, "record_id": str(record.public_id), "customer_id": customer.pk}, status=201)
+
+
+@csrf_exempt
+@require_POST
+def portal_file(request):
+    data = _payload(request)
+    if data is None:
+        return _error("invalid_json", "Ungültige Nutzdaten.")
+    customer, auth_error = _customer_for_request(request, data)
+    if auth_error:
+        return auth_error
     if not customer:
         return _error("patient_not_found", "Patient nicht gefunden.", 404)
     try:
@@ -139,12 +248,12 @@ def portal_file(request):
 @csrf_exempt
 @require_POST
 def portal_archive(request):
-    if not _authorized(request):
-        return _error("unauthorized", "Nicht autorisiert.", 401)
     data = _payload(request)
     if data is None:
         return _error("invalid_json", "Ungültige Nutzdaten.")
-    customer = _customer_from_payload(data)
+    customer, auth_error = _customer_for_request(request, data)
+    if auth_error:
+        return auth_error
     if not customer:
         return _error("patient_not_found", "Patient nicht gefunden.", 404)
     try:
