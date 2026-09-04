@@ -1,5 +1,5 @@
 from django.urls import path
-from . import admin_views, api, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, referral_relay, views
+from . import admin_views, api, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, patient_portal, patient_portal_api, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
@@ -19,6 +19,8 @@ urlpatterns = [
     path('verwaltung/logout/', auth_views.admin_logout, name='admin_logout'),
     path('verwaltung/patienten/<int:customer_id>/', views.patient_file, name='patient_file'),
     path('verwaltung/patienten/<int:customer_id>/datei/<uuid:record_id>/', views.patient_record_file, name='patient_record_file'),
+    path('verwaltung/patienten/<int:customer_id>/shared/add/', patient_portal.staff_add_record, name='patient_shared_add'),
+    path('verwaltung/patienten/<int:customer_id>/shared/<uuid:record_id>/toggle/', patient_portal.staff_toggle_share, name='patient_shared_toggle'),
     path('api/health/', api.health, name='health'),
     path('api/services/', api.services, name='services'),
     path('api/staff/', api.staff, name='staff'),
@@ -26,6 +28,9 @@ urlpatterns = [
     path('api/availability/overview/', api.availability_overview, name='availability_overview'),
     path('api/appointments/', api.appointments, name='appointments'),
     path('api/internal/patient-records/ingest/', internal_api.ingest_patient_record, name='patient_record_ingest'),
+    path('api/internal/patient-records/portal/list/', patient_portal_api.portal_list, name='patient_portal_list'),
+    path('api/internal/patient-records/portal/file/', patient_portal_api.portal_file, name='patient_portal_file'),
+    path('api/internal/patient-records/portal/archive/', patient_portal_api.portal_archive, name='patient_portal_archive'),
     path('api/mobile/slots/', mobile_api.mobile_slots, name='mobile_slots'),
     path('api/mobile/booking/', mobile_api.mobile_booking, name='mobile_booking'),
     path('api/mobile/booking/manageable/', mobile_api.mobile_manageable_appointments, name='mobile_manageable_appointments'),
