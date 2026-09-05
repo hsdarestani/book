@@ -33,6 +33,11 @@ class AppAdminSsoTests(TestCase):
         self.assertFalse(user.has_usable_password())
         self.assertEqual(self.client.session.get('aplus_app_admin'), True)
         self.assertEqual(self.client.session.get('_auth_user_id'), str(user.pk))
+        self.assertEqual(
+            self.client.session.get('aplus_admin_authorization'),
+            'Bearer test-token-that-is-long-enough',
+        )
+        self.assertEqual(response.cookies['aplus_admin_ui'].value, '1')
 
     @patch('booking.app_admin_api._verify_admin', return_value=None)
     def test_unverified_actor_is_rejected(self, _verify):
