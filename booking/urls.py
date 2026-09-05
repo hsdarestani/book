@@ -1,5 +1,5 @@
 from django.urls import path
-from . import admin_views, api, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, patient_portal, patient_portal_api, referral_relay, views
+from . import admin_views, api, app_admin_api, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, patient_portal, patient_portal_api, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
@@ -37,4 +37,18 @@ urlpatterns = [
     path('api/mobile/booking/manageable/', mobile_api.mobile_manageable_appointments, name='mobile_manageable_appointments'),
     path('api/mobile/booking/<uuid:appointment_id>/change/', mobile_api.mobile_appointment_change, name='mobile_appointment_change'),
     path('api/mobile/referral-email/', referral_relay.referral_email, name='mobile_referral_email'),
+
+    # Secure Book administration embedded in the A+ Esthetic app. The customer-club
+    # bearer token is re-verified against the A+ admin endpoint on every request.
+    path('api/mobile/app-admin/overview/', app_admin_api.overview, name='app_admin_overview'),
+    path('api/mobile/app-admin/calendar/', app_admin_api.calendar, name='app_admin_calendar'),
+    path('api/mobile/app-admin/bookings/', app_admin_api.bookings, name='app_admin_bookings'),
+    path('api/mobile/app-admin/customers/', app_admin_api.customers, name='app_admin_customers'),
+    path('api/mobile/app-admin/customers/<int:customer_id>/', app_admin_api.customer_detail, name='app_admin_customer_detail'),
+    path('api/mobile/app-admin/services/', app_admin_api.services, name='app_admin_services'),
+    path('api/mobile/app-admin/settings/', app_admin_api.settings, name='app_admin_settings'),
+    path('api/mobile/app-admin/appointments/<int:appointment_id>/', app_admin_api.appointment_action, name='app_admin_appointment_action'),
+    path('api/mobile/app-admin/blocks/', app_admin_api.block_action, name='app_admin_block_action'),
+    path('api/mobile/app-admin/services/<int:service_id>/', app_admin_api.service_action, name='app_admin_service_action'),
+    path('api/mobile/app-admin/day-override/', app_admin_api.day_override_action, name='app_admin_day_override'),
 ]
