@@ -1,0 +1,115 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>{{ section_title }} | A+ Esthetic Verwaltung</title>
+  <link rel="stylesheet" href="{% static 'booking/app.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
+</head>
+<body class="admin-body sb-admin-body app-management-body">
+<header class="sb-mobile-bar">
+  <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
+  <strong class="sb-mobile-title">{{ section_title }}</strong>
+  <span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span>
+</header>
+<div class="sb-drawer-backdrop" data-drawer-backdrop></div>
+<aside class="sb-drawer" data-drawer aria-hidden="true">
+  <div class="sb-drawer-brand">
+    <img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic">
+    <div><strong>A+ Esthetic</strong><span>Verwaltung</span></div>
+  </div>
+  <nav class="sb-drawer-nav">
+    <div class="app-nav-label">BOOK</div>
+    <a href="/verwaltung/dashboard/"><span>▦</span>Dashboard</a>
+    <a href="/verwaltung/kalender/"><span>▣</span>Kalender</a>
+    <a href="/verwaltung/buchungen/"><span>✓</span>Buchungen</a>
+    <a href="/verwaltung/kunden/"><span>♙</span>Kunden</a>
+    <a href="/verwaltung/behandlungen/"><span>✦</span>Behandlungen</a>
+    <a href="/verwaltung/einstellungen/"><span>⚙</span>Einstellungen</a>
+    <div class="app-nav-label">A+ APP</div>
+    {% for key, meta in sections.items %}
+    <a href="/verwaltung/app/{{ key }}/" class="{% if section == key %}is-active{% endif %}"><span>{% if key == 'club' %}♟{% elif key == 'packages' %}▤{% elif key == 'rewards' %}◆{% elif key == 'notifications' %}◉{% elif key == 'referrals' %}↗{% elif key == 'modules' %}⊞{% else %}◫{% endif %}</span>{{ meta.0 }}</a>
+    {% endfor %}
+    <a href="/verwaltung/logout/"><span>↪</span>Logout</a>
+  </nav>
+</aside>
+
+<main class="admin-shell sb-admin-shell app-management-shell">
+  <header class="admin-topbar sb-desktop-topbar">
+    <div class="admin-brand"><a class="brand brand-image" href="/verwaltung/kalender/"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"></a><div class="brand-meta">Verwaltung</div></div>
+    <nav class="admin-nav"><a href="/verwaltung/kalender/">Book</a><a class="is-active" href="/verwaltung/app/club/">A+ App</a></nav>
+    <div class="admin-actions"><a href="/verwaltung/logout/">Abmelden</a></div>
+  </header>
+
+  <section class="admin-hero app-admin-hero">
+    <div><div class="eyebrow">A+ APP · MANAGEMENT</div><h1>{{ section_title }}</h1><p>{{ section_subtitle }}</p></div>
+  </section>
+
+  {% if error %}<div class="admin-notice is-error">{{ error }}{% if needs_reauth %}<br>Bitte die Verwaltung erneut aus der A+ App öffnen.{% endif %}</div>{% endif %}
+  {% if notice %}<div class="admin-notice">Änderung wurde gespeichert.</div>{% endif %}
+
+  {% if overview.stats %}
+  <section class="metric-grid app-metric-grid">
+    <article><strong>{{ overview.stats.customers }}</strong><span>Customer Club</span></article>
+    <article><strong>{{ overview.stats.active_packages }}</strong><span>Aktive Pakete</span></article>
+    <article><strong>{{ overview.stats.pending_rewards }}</strong><span>Offene Rewards</span></article>
+    <article><strong>{{ overview.stats.push_devices }}</strong><span>Aktive Geräte</span></article>
+  </section>
+  {% endif %}
+
+  <nav class="app-section-tabs" aria-label="A+ App Management">
+    {% for key, meta in sections.items %}<a href="/verwaltung/app/{{ key }}/" class="{% if section == key %}is-active{% endif %}">{{ meta.0 }}</a>{% endfor %}
+  </nav>
+
+  {% if not error %}
+  {% if section == 'club' %}
+  <section class="admin-panel">
+    <div class="panel-head"><div><div class="eyebrow">Mitglieder</div><h2>Customer Club</h2><p>Mitgliedsstatus, Coins, Credit und aktive Pakete verwalten.</p></div></div>
+    <form method="get" class="app-search"><input type="search" name="q" value="{{ query }}" placeholder="Name, E-Mail, Mitgliedsnummer …"><button type="submit">Suchen</button></form>
+    <div class="app-card-list">
+      {% for customer in data.customers %}
+      <article class="app-member-card">
+        <div class="app-member-head"><div class="app-avatar">{{ customer.name|slice:":1" }}</div><div><strong>{{ customer.name }}</strong><span>{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</span><small>{{ customer.member_number }} · {{ customer.tier }}</small></div><span class="app-status is-{{ customer.member_status }}">{{ customer.member_status }}</span></div>
+        <div class="app-member-metrics"><span><b>{{ customer.coins }}</b> Coins</span><span><b>{{ customer.credit_cents }}</b> ct Credit</span><span><b>{{ customer.active_packages }}</b> Pakete</span><span><b>{{ customer.devices }}</b> Geräte</span></div>
+        <form method="post" class="app-inline-form">{% csrf_token %}<input type="hidden" name="action" value="customer_adjust"><input type="hidden" name="customer_id" value="{{ customer.id }}"><label>Status<select name="member_status"><option value="active" {% if customer.member_status == 'active' %}selected{% endif %}>Aktiv</option><option value="paused" {% if customer.member_status == 'paused' %}selected{% endif %}>Pausiert</option><option value="expired" {% if customer.member_status == 'expired' %}selected{% endif %}>Abgelaufen</option></select></label><label>Coins ±<input type="number" name="coin_delta" value="0" step="1"></label><label>Credit € ±<input type="number" name="credit_delta_eur" value="0" step="0.01"></label><button type="submit">Speichern</button></form>
+      </article>
+      {% empty %}<div class="empty">Keine Mitglieder gefunden.</div>{% endfor %}
+    </div>
+  </section>
+
+  {% elif section == 'packages' %}
+  <section class="admin-panel"><div class="panel-head"><div><div class="eyebrow">Customer Club</div><h2>Pakete</h2></div><form method="get"><select name="status" onchange="this.form.submit()"><option value="">Alle Status</option><option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Aktiv</option><option value="used" {% if request.GET.status == 'used' %}selected{% endif %}>Aufgebraucht</option><option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>Abgelaufen</option></select></form></div><div class="app-table"><div class="app-table-head"><span>Kunde</span><span>Paket</span><span>Verbleibend</span><span>Gültig bis</span><span>Status</span></div>{% for item in data.packages %}<div class="app-table-row"><span><b>{{ item.customer }}</b><small>{{ item.email }}</small></span><span>{{ item.name }}</span><span>{{ item.remaining_sessions }}</span><span>{{ item.expires_at }}</span><span class="app-status is-{{ item.status }}">{{ item.status }}</span></div>{% empty %}<div class="empty">Keine Pakete vorhanden.</div>{% endfor %}</div></section>
+
+  {% elif section == 'rewards' %}
+  <section class="admin-panel"><div class="panel-head"><div><div class="eyebrow">Rewards</div><h2>Einlösungen</h2><p>Offene Einlösungen bearbeiten, erfüllen oder stornieren.</p></div></div><div class="app-card-list">{% for item in data.redemptions %}<article class="app-reward-card"><div><span class="app-status is-{{ item.status }}">{{ item.status_label }}</span><h3>{{ item.reward }}</h3><p>{{ item.customer.name }} · {{ item.customer.email }}</p><small>{{ item.fulfillment_code }} · {{ item.coin_cost }} Coins</small></div>{% if item.status == 'pending' or item.status == 'processing' %}<form method="post" class="app-reward-actions">{% csrf_token %}<input type="hidden" name="action" value="reward_action"><input type="hidden" name="redemption_id" value="{{ item.id }}"><input name="note" placeholder="Interne Notiz"><button name="reward_action" value="processing">Bearbeiten</button><button name="reward_action" value="fulfill" class="is-primary">Erfüllt</button><button name="reward_action" value="cancel" class="is-danger">Stornieren</button></form>{% endif %}</article>{% empty %}<div class="empty">Noch keine Reward-Einlösungen.</div>{% endfor %}</div></section>
+
+  {% elif section == 'notifications' %}
+  <section class="admin-panel"><div class="panel-head"><div><div class="eyebrow">Kommunikation</div><h2>Push & Mitteilungen</h2><p>Direkt an ein Mitglied oder an alle Customer-Club-Mitglieder.</p></div></div><form method="post" class="app-notification-form">{% csrf_token %}<input type="hidden" name="action" value="send_notification"><label>Empfänger<select name="audience" data-audience><option value="single">Ein Mitglied</option><option value="all">Alle Mitglieder</option></select></label><label data-recipient>Kunde<select name="user_id">{% for customer in data.customers %}<option value="{{ customer.id }}">{{ customer.name }} · {{ customer.email }}</option>{% endfor %}</select></label><label>Titel<input name="title" required maxlength="180"></label><label>Kategorie<select name="category"><option value="general">Allgemein</option><option value="booking">Termin</option><option value="reward">Reward</option><option value="referral">Empfehlung</option><option value="campaign">Kampagne</option><option value="system">System</option></select></label><label class="is-wide">Nachricht<textarea name="body" required rows="4"></textarea></label><label class="is-wide">Deeplink (optional)<input name="deeplink" placeholder="wallet / club / booking"></label><button type="submit" class="admin-primary">Mitteilung senden</button></form><div class="app-history"><h3>Letzte Mitteilungen</h3>{% for item in data.notifications %}<div class="app-history-row"><div><strong>{{ item.title }}</strong><span>{{ item.customer }} · {{ item.category }}</span></div><small>{{ item.created_at }}</small></div>{% empty %}<div class="empty">Noch keine Mitteilungen.</div>{% endfor %}</div></section>
+
+  {% elif section == 'referrals' %}
+  <section class="admin-panel"><div class="panel-head"><div><div class="eyebrow">Empfehlungen</div><h2>Referrals</h2></div></div><div class="app-table"><div class="app-table-head"><span>Mitglied</span><span>Eingeladen</span><span>Code</span><span>Status</span><span>Prämie</span></div>{% for item in data.referrals %}<div class="app-table-row"><span>{{ item.customer }}</span><span>{{ item.email|default:"—" }}</span><span><code>{{ item.code }}</code></span><span class="app-status is-{{ item.status }}">{{ item.status_label }}</span><span>{{ item.reward_coins }} Coins</span></div>{% empty %}<div class="empty">Noch keine Empfehlungen.</div>{% endfor %}</div></section>
+
+  {% elif section == 'modules' %}
+  <section class="admin-panel"><div class="panel-head"><div><div class="eyebrow">Konfiguration</div><h2>App-Module</h2><p>Funktionen zentral aktivieren oder für Kunden ausblenden.</p></div></div><div class="app-module-grid">{% for item in data.modules %}<form method="post" class="app-module-card {% if item.locked %}is-locked{% endif %}">{% csrf_token %}<input type="hidden" name="action" value="module_update"><input type="hidden" name="key" value="{{ item.key }}"><div><strong>{{ item.name }}</strong><p>{{ item.description }}</p><code>{{ item.key }}</code></div><label><input type="checkbox" name="enabled" {% if item.enabled %}checked{% endif %} {% if item.locked %}disabled{% endif %}> Aktiv</label><label><input type="checkbox" name="customer_visible" {% if item.customer_visible %}checked{% endif %} {% if item.locked %}disabled{% endif %}> Für Kunden sichtbar</label><button type="submit" {% if item.locked %}disabled{% endif %}>Speichern</button></form>{% empty %}<div class="empty">Keine Module vorhanden.</div>{% endfor %}</div></section>
+
+  {% elif section == 'devices' %}
+  <section class="admin-panel"><div class="panel-head"><div><div class="eyebrow">App-Konten</div><h2>Geräte</h2><p>Registrierte Android/iOS-Geräte und App-Versionen.</p></div></div><div class="app-card-list">{% for item in data.devices %}<article class="app-device-row"><div class="app-device-icon">{% if item.platform == 'ios' %}iOS{% else %}AND{% endif %}</div><div><strong>{{ item.customer }}</strong><span>{{ item.email }}</span><small>{{ item.platform }} · Version {{ item.app_version|default:"—" }} · zuletzt {{ item.last_seen_at }}</small></div><form method="post">{% csrf_token %}<input type="hidden" name="action" value="device_toggle"><input type="hidden" name="device_id" value="{{ item.id }}"><input type="hidden" name="enabled" value="{% if item.enabled %}0{% else %}1{% endif %}"><button class="{% if item.enabled %}is-danger{% endif %}">{% if item.enabled %}Deaktivieren{% else %}Aktivieren{% endif %}</button></form></article>{% empty %}<div class="empty">Keine registrierten Geräte.</div>{% endfor %}</div></section>
+  {% endif %}
+  {% endif %}
+</main>
+<script>
+(() => {
+ const drawer=document.querySelector('[data-drawer]'),backdrop=document.querySelector('[data-drawer-backdrop]');
+ const close=()=>{drawer?.classList.remove('is-open');backdrop?.classList.remove('is-open');drawer?.setAttribute('aria-hidden','true')};
+ document.querySelectorAll('[data-drawer-open]').forEach(b=>b.addEventListener('click',()=>{drawer?.classList.add('is-open');backdrop?.classList.add('is-open');drawer?.setAttribute('aria-hidden','false')}));
+ backdrop?.addEventListener('click',close);drawer?.querySelectorAll('a').forEach(a=>a.addEventListener('click',close));
+ const audience=document.querySelector('[data-audience]'),recipient=document.querySelector('[data-recipient]');
+ const sync=()=>{if(recipient)recipient.hidden=audience?.value==='all'};audience?.addEventListener('change',sync);sync();
+})();
+</script>
+</body>
+</html>
