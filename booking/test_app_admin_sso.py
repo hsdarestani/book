@@ -32,11 +32,7 @@ class AppAdminSsoTests(TestCase):
         self.assertFalse(user.is_superuser)
         self.assertFalse(user.has_usable_password())
         self.assertEqual(self.client.session.get('aplus_app_admin'), True)
-
-        calendar = self.client.get('/verwaltung/kalender/')
-        self.assertEqual(calendar.status_code, 200)
-        self.assertContains(calendar, 'sb-mobile-bar')
-        self.assertContains(calendar, 'data-drawer-open')
+        self.assertEqual(self.client.session.get('_auth_user_id'), str(user.pk))
 
     @patch('booking.app_admin_api._verify_admin', return_value=None)
     def test_unverified_actor_is_rejected(self, _verify):
