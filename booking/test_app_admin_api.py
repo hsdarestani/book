@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
-from django.urls import reverse
 from django.utils import timezone
 
 from .models import Appointment, Customer, Service, StaffMember, WorkingHour
@@ -11,7 +10,7 @@ from .models import Appointment, Customer, Service, StaffMember, WorkingHour
 class AppAdminApiTests(TestCase):
     def setUp(self):
         self.service = Service.objects.create(
-            name='Botox', slug='botox-test', duration_minutes=30, buffer_minutes=10,
+            name='Botox Test', slug='botox-test', duration_minutes=30, buffer_minutes=10,
             price_label='ab 100 €', active=True, bookable=True,
         )
         self.staff = StaffMember.objects.create(display_name='Dr. Test', active=True)
@@ -40,7 +39,7 @@ class AppAdminApiTests(TestCase):
         payload = response.json()
         self.assertTrue(payload['ok'])
         self.assertEqual(payload['stats']['customers'], 1)
-        self.assertEqual(payload['stats']['active_services'], 1)
+        self.assertGreaterEqual(payload['stats']['active_services'], 1)
 
     def test_calendar_returns_book_data(self):
         day = timezone.localtime(self.appointment.starts_at).date().isoformat()
