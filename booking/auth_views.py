@@ -161,17 +161,21 @@ def app_admin_sso(request):
     request.session['aplus_admin_external_id'] = external_id
     authorization = str(request.headers.get('Authorization') or '').strip()
     if authorization.startswith('Bearer '):
-        # Server-side Django sessions keep this credential out of the browser. It
-        # is used only by Book to call the A+ management API on behalf of this
-        # verified admin session.
         request.session['aplus_admin_authorization'] = authorization
-    return _no_store(JsonResponse({'ok': True, 'redirect': '/verwaltung/kalender/'}))
+    response = JsonResponse({'ok': True, 'redirect': '/verwaltung/kalender/'})
+    # Non-sensitive UI marker only. Authorization still depends on the protected
+    # server-side session; this cookie merely lets the shared Book JS expose the
+    # A+ App entries in the existing drawer.
+    response.set_cookie('aplus_admin_ui', '1', secure=request.is_secure(), samesite='Lax', max_age=60 * 60 * 24 * 30)
+    return _no_store(response)
 
 
 def admin_logout(request):
     logout(request)
     rotate_token(request)
-    return _no_store(redirect('booking:admin_login'))
+    response = redirect('booking:admin_login')
+    response.delete_cookie('aplus_admin_ui')
+    return _no_store(response)
 
 
 def csrf_failure(request, reason=''):
