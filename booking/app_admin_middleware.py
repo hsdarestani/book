@@ -17,6 +17,10 @@ class APlusAdminNavigationMiddleware:
     <a href="/verwaltung/app/devices/"><span>◫</span>Konten & Geräte</a>
     '''
     DESKTOP_MARKER = '<a href="#einstellungen">Einstellungen</a>'
+    STYLE = '''<style id="aplus-app-nav-style">
+    .sb-drawer-nav .app-nav-label{padding:15px 16px 6px;font-size:10px;font-weight:800;letter-spacing:.16em;color:#9b9386}
+    .sb-drawer-nav .app-nav-label+ a{margin-top:1px}
+    </style>'''
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -43,6 +47,8 @@ class APlusAdminNavigationMiddleware:
                 self.DESKTOP_MARKER + '<a href="/verwaltung/app/club/">A+ App</a>',
                 1,
             )
+        if '</head>' in html and 'id="aplus-app-nav-style"' not in html:
+            html = html.replace('</head>', self.STYLE + '</head>', 1)
         response.content = html.encode(response.charset or 'utf-8')
         if response.has_header('Content-Length'):
             response['Content-Length'] = str(len(response.content))
