@@ -1,9 +1,16 @@
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 
+TEST_STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
+
+
+@override_settings(STORAGES=TEST_STORAGES)
 class AppManagementTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='aplus_app_admin_test', password='x', is_staff=True)
