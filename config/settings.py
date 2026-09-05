@@ -27,6 +27,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'booking.app_admin_middleware.APlusAdminNavigationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -94,8 +95,6 @@ PATIENT_FILE_ALLOWED_EXTENSIONS = {
     '.pdf', '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif',
     '.doc', '.docx', '.xls', '.xlsx', '.txt', '.rtf', '.csv',
 }
-# Optional shared-token auth plus a fail-closed DNS/IP allowlist for trusted
-# A+Esthetic server-to-server synchronization. Neither path is exposed to clients.
 PATIENT_SYNC_TOKEN = os.getenv('PATIENT_SYNC_TOKEN', '')
 PATIENT_SYNC_TOKEN_FILE = os.getenv('PATIENT_SYNC_TOKEN_FILE', '/etc/aesthetic-patient-sync.token')
 PATIENT_SYNC_ALLOWED_HOSTS = [
