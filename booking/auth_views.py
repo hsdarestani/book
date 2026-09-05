@@ -43,8 +43,6 @@ def _safe_next(request, raw_value):
 @ensure_csrf_cookie
 @require_http_methods(['GET', 'POST'])
 def admin_login(request):
-    # A restored mobile-browser login page can survive longer than the CSRF token.
-    # Never keep authenticated staff on that page; send them straight to the app.
     if request.user.is_authenticated and request.user.is_staff:
         return _no_store(redirect('booking:dashboard'))
 
@@ -146,7 +144,6 @@ def app_admin_sso(request):
         'last_name': last_name[:150],
         'is_active': True,
         'is_staff': True,
-        # The Book UI needs staff access, never Django superuser privileges.
         'is_superuser': False,
     }
     for field, value in desired.items():
@@ -162,6 +159,12 @@ def app_admin_sso(request):
     login(request, user, backend='django.contrib.auth.backends.ModelBackend')
     request.session['aplus_app_admin'] = True
     request.session['aplus_admin_external_id'] = external_id
+    authorization = str(request.headers.get('Authorization') or '').strip()
+    if authorization.startswith('Bearer '):
+        # Server-side Django sessions keep this credential out of the browser. It
+        # is used only by Book to call the A+ management API on behalf of this
+        # verified admin session.
+        request.session['aplus_admin_authorization'] = authorization
     return _no_store(JsonResponse({'ok': True, 'redirect': '/verwaltung/kalender/'}))
 
 
@@ -177,8 +180,6 @@ def csrf_failure(request, reason=''):
         if getattr(request, 'user', None) is not None and request.user.is_authenticated and request.user.is_staff:
             return _no_store(redirect('booking:dashboard'))
 
-        # The login form may have come back from the browser back/forward cache with
-        # an old hidden token. Rotate once and force a fresh GET with a fresh form.
         rotate_token(request)
         params = {'csrf': 'refresh'}
         next_url = (request.POST.get('next') or request.GET.get('next') or '').strip()
