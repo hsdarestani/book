@@ -1,5 +1,5 @@
 from django.urls import path
-from . import admin_views, api, app_admin_api, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, patient_portal, patient_portal_api, referral_relay, views
+from . import admin_views, api, app_admin_api, app_management_views, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, patient_portal, patient_portal_api, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
@@ -13,6 +13,7 @@ urlpatterns = [
     path('verwaltung/einstellungen/', admin_views.dashboard_proxy, name='admin_settings'),
     path('verwaltung/behandlungen/', admin_views.dashboard_proxy, name='admin_services'),
     path('verwaltung/information/', admin_views.dashboard_proxy, name='admin_information'),
+    path('verwaltung/app/<slug:section>/', app_management_views.app_management, name='app_management'),
     path('verwaltung/api/day-availability/', calendar_admin_api.day_availability, name='admin_day_availability'),
     path('verwaltung/api/calendar-day/', calendar_admin_api.calendar_day, name='admin_calendar_day'),
     path('verwaltung/app/', auth_views.app_admin_entry, name='app_admin_entry'),
@@ -40,8 +41,6 @@ urlpatterns = [
     path('api/mobile/booking/<uuid:appointment_id>/change/', mobile_api.mobile_appointment_change, name='mobile_appointment_change'),
     path('api/mobile/referral-email/', referral_relay.referral_email, name='mobile_referral_email'),
 
-    # Secure Book administration embedded in the A+ Esthetic app. The customer-club
-    # bearer token is re-verified against the A+ admin endpoint on every request.
     path('api/mobile/app-admin/overview/', app_admin_api.overview, name='app_admin_overview'),
     path('api/mobile/app-admin/calendar/', app_admin_api.calendar, name='app_admin_calendar'),
     path('api/mobile/app-admin/bookings/', app_admin_api.bookings, name='app_admin_bookings'),
