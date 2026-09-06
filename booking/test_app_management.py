@@ -50,10 +50,16 @@ class AppManagementTests(TestCase):
         self.assertNotContains(response, 'Pakete')
         self.assertNotContains(response, 'App-Module')
 
-    def test_aplus_admin_calendar_entry_redirects_to_focused_bookings(self):
+    def test_calendar_keeps_original_detailed_book_ui(self):
         response = self.client.get('/verwaltung/kalender/')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'PRIORITÄT 01')
+        self.assertNotContains(response, '/verwaltung/app/bookings/', status_code=200)
+
+    def test_focused_bookings_alias_returns_to_original_calendar(self):
+        response = self.client.get('/verwaltung/app/bookings/')
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response['Location'], '/verwaltung/app/bookings/')
+        self.assertEqual(response['Location'], '/verwaltung/kalender/')
 
     def test_regular_book_staff_cannot_open_app_management(self):
         session = self.client.session
@@ -102,23 +108,6 @@ class AppManagementTests(TestCase):
             source='app',
         )
         return customer, service, staff, appointment
-
-    def test_bookings_are_primary_and_status_is_editable(self):
-        customer, _, _, appointment = self._booking_fixture()
-        response = self.client.get('/verwaltung/app/bookings/')
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'PRIORITÄT 01')
-        self.assertContains(response, customer.full_name)
-        self.assertContains(response, 'Dr. Test')
-
-        response = self.client.post('/verwaltung/app/bookings/', {
-            'action': 'booking_status',
-            'appointment_id': str(appointment.pk),
-            'status': 'confirmed',
-        })
-        self.assertEqual(response.status_code, 302)
-        appointment.refresh_from_db()
-        self.assertEqual(appointment.status, 'confirmed')
 
     def test_patient_record_timeline_shows_patient_and_practice_history(self):
         customer, _, _, appointment = self._booking_fixture()
