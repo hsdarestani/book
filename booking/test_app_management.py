@@ -33,6 +33,8 @@ class AppManagementTests(TestCase):
                 'name': 'Test Patient',
                 'email': 'patient@example.test',
                 'phone': '',
+                'member_number': 'AP-TEST123',
+                'member_status': 'active',
                 'credit_cents': 5000,
             }],
         }
@@ -40,7 +42,11 @@ class AppManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'A+ Wallet')
         self.assertContains(response, 'Test Patient')
+        self.assertContains(response, 'AP-TEST123')
         self.assertContains(response, '50,00 €')
+        self.assertContains(response, 'QR-Code scannen')
+        self.assertContains(response, 'data-wallet-scan-open')
+        self.assertContains(response, 'app-wallet-scanner.js')
         self.assertContains(response, '/verwaltung/app/bookings/')
         self.assertContains(response, '/verwaltung/app/patients/')
         self.assertContains(response, 'Google Bewertungen')
@@ -98,14 +104,40 @@ class AppManagementTests(TestCase):
             'action': 'wallet_adjust',
             'customer_id': '10',
             'credit_delta_eur': '25.00',
+            'q': 'patient@example.test',
         })
         self.assertEqual(response.status_code, 302)
         self.assertIn('/verwaltung/app/wallet/', response['Location'])
+        self.assertIn('patient%40example.test', response['Location'])
         self.assertEqual(api.call_count, 1)
         args, kwargs = api.call_args
         self.assertEqual(args[1], 'customers/10/')
         self.assertEqual(kwargs['method'], 'POST')
         self.assertEqual(kwargs['payload'], {'credit_delta_cents': 2500})
+
+    @patch('booking.app_management_views._api')
+    def test_wallet_scan_resolves_qr_and_redirects_to_customer(self, api):
+        api.return_value = {
+            'ok': True,
+            'resolved_by': 'wallet_qr',
+            'customer': {
+                'id': 10,
+                'email': 'patient@example.test',
+                'member_number': 'AP-TEST123',
+            },
+        }
+        response = self.client.post('/verwaltung/app/wallet/', {
+            'action': 'wallet_scan',
+            'qr_token': 'secure-qr-token',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/verwaltung/app/wallet/', response['Location'])
+        self.assertIn('q=patient%40example.test', response['Location'])
+        self.assertIn('scan=1', response['Location'])
+        args, kwargs = api.call_args
+        self.assertEqual(args[1], 'wallet/lookup/')
+        self.assertEqual(kwargs['method'], 'POST')
+        self.assertEqual(kwargs['payload'], {'qr_token': 'secure-qr-token'})
 
     @patch('booking.app_management_views._api')
     def test_reviews_render(self, api):
