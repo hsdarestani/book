@@ -201,6 +201,11 @@ def mobile_booking(request):
             if previous and previous.status == 'cancelled':
                 idem_key = f'{idem_key[:62]}-{int(timezone.now().timestamp())}'[:80]
 
+        legacy_consent = bool(data.get('consent_acknowledged'))
+        marketing_opt_in = bool(data.get('marketing_opt_in', True))
+        cancellation_terms_accepted = bool(data.get('cancellation_terms_accepted', legacy_consent))
+        privacy_accepted = bool(data.get('privacy_accepted', legacy_consent))
+
         try:
             appointment, created = create_appointment(
                 customer=customer,
@@ -210,6 +215,9 @@ def mobile_booking(request):
                 message=str(data.get('notes') or ''),
                 idempotency_key=idem_key,
                 source='app',
+                marketing_opt_in=marketing_opt_in,
+                cancellation_terms_accepted=cancellation_terms_accepted,
+                privacy_accepted=privacy_accepted,
             )
         except ValueError:
             return _error('time_not_available', 'Diese Zeit ist inzwischen nicht mehr verfügbar.', 409)
