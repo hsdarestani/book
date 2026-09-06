@@ -58,6 +58,15 @@ def _delete_created_file(stored_name):
         pass
 
 
+def _record_redirect(request, customer_id, notice):
+    """Keep focused A+ management inside its patient section after file actions."""
+    return_to = str(request.POST.get("return_to") or "").strip()
+    if return_to.startswith("/verwaltung/app/patients/") and "\n" not in return_to and "\r" not in return_to:
+        separator = "&" if "?" in return_to else "?"
+        return redirect(f"{return_to}{separator}notice={notice}#akte")
+    return redirect(f"/verwaltung/patienten/{customer_id}/?notice={notice}#akte")
+
+
 @staff_member_required(login_url="/verwaltung/login/")
 @require_POST
 def staff_add_record(request, customer_id):
@@ -65,7 +74,7 @@ def staff_add_record(request, customer_id):
     kind = str(request.POST.get("kind") or "document").strip()
     allowed_kinds = {value for value, _ in PatientRecord.KIND}
     if kind not in allowed_kinds:
-        return redirect(f"/verwaltung/patienten/{customer.pk}/?notice=type-error#akte")
+        return _record_redirect(request, customer.pk, "type-error")
 
     appointment = None
     appointment_id = str(request.POST.get("appointment_id") or "").strip()
@@ -86,11 +95,11 @@ def staff_add_record(request, customer_id):
             original_name = Path(uploaded.name or "datei").name[:255]
             extension = Path(original_name).suffix.lower()
             if extension not in settings.PATIENT_FILE_ALLOWED_EXTENSIONS:
-                return redirect(f"/verwaltung/patienten/{customer.pk}/?notice=file-type#akte")
+                return _record_redirect(request, customer.pk, "file-type")
             if uploaded.size <= 0:
-                return redirect(f"/verwaltung/patienten/{customer.pk}/?notice=file-empty#akte")
+                return _record_redirect(request, customer.pk, "file-empty")
             if uploaded.size > settings.PATIENT_FILE_MAX_BYTES:
-                return redirect(f"/verwaltung/patienten/{customer.pk}/?notice=file-size#akte")
+                return _record_redirect(request, customer.pk, "file-size")
             stored_name = f"{customer.pk}/{uuid.uuid4().hex}{extension}"
             destination = _patient_path(stored_name)
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -103,7 +112,7 @@ def staff_add_record(request, customer_id):
                 title = Path(original_name).stem[:180] or "Datei"
 
         if not uploaded and not note:
-            return redirect(f"/verwaltung/patienten/{customer.pk}/?notice=empty#akte")
+            return _record_redirect(request, customer.pk, "empty")
         if not title:
             title = "Notiz"
         if not uploaded and kind == "document":
@@ -134,7 +143,7 @@ def staff_add_record(request, customer_id):
     if shared:
         _notify_customer(record)
     notice = "added-shared" if shared else "added"
-    return redirect(f"/verwaltung/patienten/{customer.pk}/?notice={notice}#akte")
+    return _record_redirect(request, customer.pk, notice)
 
 
 @staff_member_required(login_url="/verwaltung/login/")
@@ -149,7 +158,7 @@ def staff_toggle_share(request, customer_id, record_id):
     # can control sharing for clinic-originated entries, not silently revoke data
     # that the customer submitted or consented to in their own account.
     if record.source in APP_SHARED_SOURCES:
-        return redirect(f"/verwaltung/patienten/{customer.pk}/?notice=customer-owned#akte")
+        return _record_redirect(request, customer.pk, "customer-owned")
 
     target = not current
     metadata["shared_with_customer"] = target
@@ -162,4 +171,4 @@ def staff_toggle_share(request, customer_id, record_id):
     record.save(update_fields=["metadata"])
     if target:
         _notify_customer(record)
-    return redirect(f"/verwaltung/patienten/{customer.pk}/?notice={'shared' if target else 'unshared'}#akte")
+    return _record_redirect(request, customer.pk, "shared" if target else "unshared")
