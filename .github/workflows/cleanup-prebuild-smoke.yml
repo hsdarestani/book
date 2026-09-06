@@ -1,0 +1,74 @@
+name: Clean A+ prebuild smoke data
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/cleanup-prebuild-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove isolated prebuild smoke records
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: root
+          password: ${{ secrets.PASS }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            APP_DIR=/opt/aesthetic-book/app
+            VENV=/opt/aesthetic-book/venv
+            ENV_FILE=/etc/aesthetic-book.env
+            test -x "$VENV/bin/python"
+            test -f "$ENV_FILE"
+            cat > /tmp/aesthetic-clean-prebuild.py <<'PY'
+            from booking.internal_api import _patient_path
+            from booking.models import Customer, PatientRecord
+
+            qs = Customer.objects.filter(email__startswith='prebuild-', email__endswith='@example.invalid')
+            customers = list(qs)
+            records_deleted = 0
+            files_deleted = 0
+            customers_deleted = 0
+            retained_with_appointments = 0
+
+            for customer in customers:
+                for record in list(PatientRecord.objects.filter(customer=customer)):
+                    if record.stored_name:
+                        try:
+                            path = _patient_path(record.stored_name)
+                            if path.is_file():
+                                path.unlink()
+                                files_deleted += 1
+                        except Exception:
+                            pass
+                    record.delete()
+                    records_deleted += 1
+                if customer.appointments.exists():
+                    retained_with_appointments += 1
+                else:
+                    customer.delete()
+                    customers_deleted += 1
+
+            print(f'PREBUILD_RECORDS_DELETED={records_deleted}')
+            print(f'PREBUILD_FILES_DELETED={files_deleted}')
+            print(f'PREBUILD_CUSTOMERS_DELETED={customers_deleted}')
+            print(f'PREBUILD_CUSTOMERS_RETAINED_WITH_APPOINTMENTS={retained_with_appointments}')
+            PY
+            chown aestheticbook:aestheticbook /tmp/aesthetic-clean-prebuild.py
+            chmod 0600 /tmp/aesthetic-clean-prebuild.py
+            set -a
+            . "$ENV_FILE"
+            set +a
+            export DJANGO_SETTINGS_MODULE=config.settings
+            export PYTHONPATH="$APP_DIR"
+            cd "$APP_DIR"
+            runuser -u aestheticbook --preserve-environment -- "$VENV/bin/python" manage.py shell < /tmp/aesthetic-clean-prebuild.py
+            rm -f /tmp/aesthetic-clean-prebuild.py
