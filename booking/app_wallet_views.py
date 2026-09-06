@@ -6,7 +6,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
-from .app_management_views import _api
+from . import app_management_views
 
 
 def _wallet_redirect(**params):
@@ -29,7 +29,7 @@ def app_wallet_management(request):
                 token = str(request.POST.get('qr_token') or '').strip()
                 if not token:
                     raise ValueError('Bitte einen QR-Code scannen oder die Karten-ID eingeben.')
-                result = _api(
+                result = app_management_views._api(
                     request,
                     'wallet/lookup/',
                     method='POST',
@@ -47,7 +47,7 @@ def app_wallet_management(request):
                 credit_cents = int(round(float(credit_text) * 100)) if credit_text else 0
                 if not credit_cents:
                     raise ValueError('Bitte einen Betrag größer oder kleiner als 0 eingeben.')
-                _api(
+                app_management_views._api(
                     request,
                     f'customers/{customer_id}/',
                     method='POST',
@@ -56,7 +56,7 @@ def app_wallet_management(request):
                 return _wallet_redirect(q=request.POST.get('q') or '', notice='wallet')
 
         query = str(request.GET.get('q') or '').strip()
-        data = _api(request, 'customers/', query={'q': query})
+        data = app_management_views._api(request, 'customers/', query={'q': query})
         for customer in data.get('customers', []):
             cents = int(customer.get('credit_cents') or 0)
             customer['credit_eur'] = f'{cents / 100:.2f}'.replace('.', ',')
