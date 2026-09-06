@@ -80,19 +80,6 @@ def _redirect(section, notice='saved', extra=None):
     return redirect(f'/verwaltung/app/{section}/{suffix}')
 
 
-@never_cache
-@staff_member_required(login_url='/verwaltung/login/')
-def focused_calendar_entry(request):
-    """A+ app admins stay inside the five-feature management surface.
-
-    Normal Book staff keep the existing calendar route and experience.
-    """
-    if request.session.get('aplus_app_admin'):
-        return redirect('/verwaltung/app/bookings/')
-    from . import admin_views
-    return admin_views.dashboard_proxy(request)
-
-
 def _booking_context(request):
     query = str(request.GET.get('q') or '').strip()
     status = str(request.GET.get('status') or '').strip()
@@ -175,26 +162,20 @@ def _patient_context(request):
 @staff_member_required(login_url='/verwaltung/login/')
 @require_http_methods(['GET', 'POST'])
 def app_management(request, section='bookings'):
+    # Termine must always use the existing detailed SimplyBook-style Book calendar.
+    # The focused A+ pages only extend the management with patient records,
+    # Google reviews, wallet and referrals; they do not replace the calendar UI.
+    if section == 'bookings':
+        return redirect('/verwaltung/kalender/')
+
     if section not in SECTIONS:
-        section = 'bookings'
+        section = 'patients'
     if not request.session.get('aplus_app_admin'):
         return HttpResponseForbidden('A+ App Management ist nur über eine bestätigte A+ Admin-Sitzung verfügbar.')
 
     try:
         if request.method == 'POST':
             action = str(request.POST.get('action') or '')
-            if action == 'booking_status':
-                appointment_id = int(request.POST.get('appointment_id'))
-                status = str(request.POST.get('status') or '').strip()
-                allowed = {value for value, _ in Appointment.STATUS}
-                if status not in allowed:
-                    raise ValueError('Ungültiger Terminstatus.')
-                appointment = Appointment.objects.filter(pk=appointment_id).first()
-                if not appointment:
-                    raise ValueError('Termin wurde nicht gefunden.')
-                appointment.status = status
-                appointment.save(update_fields=['status', 'updated_at'])
-                return _redirect('bookings', 'booking', {'q': request.POST.get('q') or '', 'status': request.POST.get('status_filter') or ''})
 
             if action == 'patient_upload':
                 customer_id = int(request.POST.get('customer_id'))
@@ -221,9 +202,7 @@ def app_management(request, section='bookings'):
         data = {}
         context = {}
         query = str(request.GET.get('q') or '').strip()
-        if section == 'bookings':
-            context.update(_booking_context(request))
-        elif section == 'patients':
+        if section == 'patients':
             context.update(_patient_context(request))
         elif section == 'wallet':
             data = _api(request, 'customers/', query={'q': query})
