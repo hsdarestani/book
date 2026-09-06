@@ -1,0 +1,149 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>A+ Wallet | A+ Esthetic Verwaltung</title>
+  <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/app-wallet-scanner.css' %}">
+</head>
+<body class="admin-body sb-admin-body app-management-body wallet-management-body">
+<header class="sb-mobile-bar app-mobile-bar">
+  <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
+  <strong class="sb-mobile-title">A+ Wallet</strong>
+  <span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span>
+</header>
+<div class="sb-drawer-backdrop" data-drawer-backdrop></div>
+<aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true">
+  <div class="sb-drawer-brand">
+    <img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic">
+    <div><strong>A+ Esthetic</strong><span>Management</span></div>
+  </div>
+  <nav class="sb-drawer-nav app-focused-nav">
+    <div class="app-nav-label">A+ MANAGEMENT</div>
+    <a href="/verwaltung/app/bookings/"><span>◫</span>Termine</a>
+    <a href="/verwaltung/app/patients/"><span>▤</span>Patientenakten</a>
+    <a href="/verwaltung/app/reviews/"><span>★</span>Google Bewertungen</a>
+    <a href="/verwaltung/app/wallet/" class="is-active"><span>€</span>A+ Wallet</a>
+    <a href="/verwaltung/app/referrals/"><span>↗</span>Empfehlungen</a>
+    <div class="app-nav-spacer"></div>
+    <a href="/verwaltung/logout/"><span>↪</span>Abmelden</a>
+  </nav>
+</aside>
+
+<main class="admin-shell sb-admin-shell app-management-shell wallet-management-shell">
+  <header class="admin-topbar sb-desktop-topbar app-focused-topbar">
+    <div class="admin-brand"><a class="brand brand-image" href="/verwaltung/app/bookings/"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"></a><div class="brand-meta">Management</div></div>
+    <nav class="admin-nav app-desktop-nav">
+      <a href="/verwaltung/app/bookings/">Termine</a>
+      <a href="/verwaltung/app/patients/">Patientenakten</a>
+      <a href="/verwaltung/app/reviews/">Bewertungen</a>
+      <a href="/verwaltung/app/wallet/" class="is-active">Wallet</a>
+      <a href="/verwaltung/app/referrals/">Empfehlungen</a>
+    </nav>
+    <div class="admin-actions"><a href="/verwaltung/logout/">Abmelden</a></div>
+  </header>
+
+  <div class="app-page-heading wallet-page-heading">
+    <div>
+      <div class="eyebrow">A+ WALLET · SAMS FLOW</div>
+      <h1>A+ Wallet</h1>
+      <p>QR-Karte scannen, Patient eindeutig öffnen und Guthaben direkt verwalten.</p>
+    </div>
+    <button type="button" class="wallet-scan-hero-btn" data-wallet-scan-open><span>⌗</span> QR-Code scannen</button>
+  </div>
+
+  {% if error %}<div class="admin-notice is-error">{{ error }}{% if needs_reauth %}<br>Bitte die Verwaltung erneut aus der A+ App öffnen.{% endif %}</div>{% endif %}
+  {% if notice %}<div class="admin-notice">Guthaben wurde aktualisiert.</div>{% endif %}
+  {% if scan_resolved %}<div class="admin-notice wallet-scan-success">A+ Karte erkannt. Patient wurde geöffnet.</div>{% endif %}
+
+  <section class="wallet-scanner-shell" data-wallet-scanner hidden>
+    <div class="wallet-scanner-card">
+      <div class="wallet-scanner-head">
+        <div><span>A+ CARD SCANNER</span><h2>QR-Code scannen</h2><p>Die Kamera bleibt lokal im Browser. Es wird kein Kamerabild hochgeladen.</p></div>
+        <button type="button" class="wallet-scanner-close" data-wallet-scan-close aria-label="Scanner schließen">×</button>
+      </div>
+      <div class="wallet-camera-stage" data-wallet-camera-stage>
+        <video data-wallet-camera autoplay muted playsinline></video>
+        <div class="wallet-camera-overlay" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div class="wallet-camera-idle" data-wallet-camera-idle><strong>⌗</strong><span>Kamera starten, um eine A+ Karte zu scannen.</span></div>
+      </div>
+      <div class="wallet-scanner-status" data-wallet-scan-status>Kamera ist noch nicht aktiv.</div>
+      <div class="wallet-scanner-actions">
+        <button type="button" class="wallet-camera-start" data-wallet-camera-start>Kamera starten</button>
+        <button type="button" class="wallet-camera-stop" data-wallet-camera-stop hidden>Kamera stoppen</button>
+      </div>
+      <div class="wallet-manual-divider"><span>oder Karten-ID manuell</span></div>
+      <form method="post" class="wallet-manual-form" data-wallet-scan-form>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="wallet_scan">
+        <label>QR / Karten-ID<input type="text" name="qr_token" data-wallet-token autocomplete="off" placeholder="Code aus dem QR-Scanner" required></label>
+        <button type="submit">A+ Karte öffnen</button>
+      </form>
+    </div>
+  </section>
+
+  {% if not error %}
+  <section class="wallet-admin-grid">
+    <article class="wallet-admin-overview">
+      <span class="wallet-admin-kicker">SCHNELLZUGRIFF</span>
+      <h2>Scannen → Guthaben → Speichern</h2>
+      <p>Wie bei SAMS: QR des Patienten scannen, das richtige Wallet automatisch laden und direkt einen Betrag auf- oder abbuchen.</p>
+      <div class="wallet-admin-steps"><div><b>1</b><span>QR scannen</span></div><div><b>2</b><span>Patient prüfen</span></div><div><b>3</b><span>Saldo ändern</span></div></div>
+    </article>
+    <article class="wallet-search-card">
+      <span class="wallet-admin-kicker">MANUELLE SUCHE</span>
+      <form method="get" class="wallet-search-form">
+        <label>Patient suchen<input type="search" name="q" value="{{ query }}" placeholder="Name, E-Mail, Telefon oder Mitgliedsnummer …"></label>
+        <button type="submit">Suchen</button>
+      </form>
+    </article>
+  </section>
+
+  <section class="admin-panel app-core-panel wallet-results-panel">
+    <div class="panel-head wallet-results-head"><div><div class="eyebrow">A+ GUTHABEN</div><h2>{% if query %}Gefundene Wallets{% else %}Patienten-Wallets{% endif %}</h2><p>{{ data.customers|length }} Konto{% if data.customers|length != 1 %}en{% endif %}</p></div></div>
+    <div class="wallet-admin-list">
+      {% for customer in data.customers %}
+      <article class="wallet-admin-card {% if scan_resolved and forloop.first %}is-scanned{% endif %}">
+        <div class="wallet-admin-card-top">
+          <div class="wallet-admin-identity">
+            <div class="wallet-admin-avatar">{{ customer.name|slice:":1" }}</div>
+            <div><span class="wallet-member-no">{{ customer.member_number }}</span><strong>{{ customer.name }}</strong><small>{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</small></div>
+          </div>
+          <div class="wallet-admin-balance"><span>A+ GUTHABEN</span><strong>{{ customer.credit_eur }} €</strong><small>{{ customer.member_status|default:"active" }}</small></div>
+        </div>
+        <form method="post" class="wallet-adjust-form">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="wallet_adjust">
+          <input type="hidden" name="customer_id" value="{{ customer.id }}">
+          <input type="hidden" name="q" value="{{ query }}">
+          <div class="wallet-quick-amounts" role="group" aria-label="Schnellbeträge">
+            <button type="button" data-wallet-amount="10">+10 €</button>
+            <button type="button" data-wallet-amount="25">+25 €</button>
+            <button type="button" data-wallet-amount="50">+50 €</button>
+            <button type="button" data-wallet-amount="-10">−10 €</button>
+          </div>
+          <label>Betrag in € (+ Aufladen / − Abbuchen)<input type="number" name="credit_delta_eur" step="0.01" min="-99999" max="99999" placeholder="z. B. 50 oder -20" required></label>
+          <button type="submit" class="wallet-save-balance">Guthaben aktualisieren</button>
+        </form>
+      </article>
+      {% empty %}<div class="empty wallet-empty">{% if query %}Kein Wallet gefunden. Prüfe Suche oder scanne den QR-Code erneut.{% else %}Noch keine Patienten-Wallets vorhanden.{% endif %}</div>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</main>
+<script src="{% static 'booking/app-wallet-scanner.js' %}"></script>
+<script>
+(() => {
+ const drawer=document.querySelector('[data-drawer]'),backdrop=document.querySelector('[data-drawer-backdrop]');
+ const close=()=>{drawer?.classList.remove('is-open');backdrop?.classList.remove('is-open');drawer?.setAttribute('aria-hidden','true')};
+ document.querySelectorAll('[data-drawer-open]').forEach(b=>b.addEventListener('click',()=>{drawer?.classList.add('is-open');backdrop?.classList.add('is-open');drawer?.setAttribute('aria-hidden','false')}));
+ backdrop?.addEventListener('click',close);drawer?.querySelectorAll('a').forEach(a=>a.addEventListener('click',close));
+})();
+</script>
+</body>
+</html>
