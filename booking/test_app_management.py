@@ -60,7 +60,11 @@ class AppManagementTests(TestCase):
         })
         self.assertEqual(response.status_code, 302)
         self.assertIn('/verwaltung/app/wallet/', response['Location'])
-        api.assert_called_once_with(self.client.request().wsgi_request if False else response.wsgi_request, 'customers/10/', method='POST', payload={'credit_delta_cents': 2500})
+        self.assertEqual(api.call_count, 1)
+        args, kwargs = api.call_args
+        self.assertEqual(args[1], 'customers/10/')
+        self.assertEqual(kwargs['method'], 'POST')
+        self.assertEqual(kwargs['payload'], {'credit_delta_cents': 2500})
 
     @patch('booking.app_management_views._api')
     def test_reviews_render(self, api):
