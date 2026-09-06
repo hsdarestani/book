@@ -1,0 +1,17 @@
+/* Focus the management UI on the five workflows that remain in the A+ product. */
+.sb-drawer-nav>a[href="#uebersicht"],
+.sb-drawer-nav>button[data-open-note],
+.sb-drawer-nav>a[href="#einstellungen"],
+.sb-drawer-nav>a[href="#information"],
+.admin-nav>a[href="#uebersicht"],
+.admin-nav>a[href="#einstellungen"],
+.sb-view-menu>a[href="#einstellungen"],
+.sb-view-menu>a[href="#behandlungen"]{display:none!important}
+.sb-drawer-nav>a[href="#kunden"]{font-size:0}
+.sb-drawer-nav>a[href="#kunden"] span{font-size:16px}
+.sb-drawer-nav>a[href="#kunden"]:after{content:"Patientenakten";font-size:13px}
+.admin-nav>a[href="#kunden"]{font-size:0}
+.admin-nav>a[href="#kunden"]:after{content:"Patientenakten";font-size:12px}
+/* The dashboard/metric overview is no longer a primary screen. The calendar is. */
+body.sb-admin-body .admin-hero#uebersicht,body.sb-admin-body .admin-hero#uebersicht+.metric-grid{display:none!important}
+@media(max-width:760px){body.sb-admin-body .sb-admin-shell{padding-top:0!important}}
