@@ -14,6 +14,9 @@ from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 
+AESTHETIC_APP_LOGOUT_URL = 'https://esthetic.smarbiz.sbs/?admin_logout=1'
+
+
 def _no_store(response):
     patch_cache_control(
         response,
@@ -171,9 +174,10 @@ def app_admin_sso(request):
 
 
 def admin_logout(request):
+    was_aplus_admin = bool(request.session.get('aplus_app_admin'))
     logout(request)
     rotate_token(request)
-    response = redirect('booking:admin_login')
+    response = redirect(AESTHETIC_APP_LOGOUT_URL if was_aplus_admin else 'booking:admin_login')
     response.delete_cookie('aplus_admin_ui')
     return _no_store(response)
 
