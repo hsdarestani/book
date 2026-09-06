@@ -80,6 +80,19 @@ def _redirect(section, notice='saved', extra=None):
     return redirect(f'/verwaltung/app/{section}/{suffix}')
 
 
+@never_cache
+@staff_member_required(login_url='/verwaltung/login/')
+def focused_calendar_entry(request):
+    """A+ app admins stay inside the five-feature management surface.
+
+    Normal Book staff keep the existing calendar route and experience.
+    """
+    if request.session.get('aplus_app_admin'):
+        return redirect('/verwaltung/app/bookings/')
+    from . import admin_views
+    return admin_views.dashboard_proxy(request)
+
+
 def _booking_context(request):
     query = str(request.GET.get('q') or '').strip()
     status = str(request.GET.get('status') or '').strip()
@@ -214,6 +227,9 @@ def app_management(request, section='bookings'):
             context.update(_patient_context(request))
         elif section == 'wallet':
             data = _api(request, 'customers/', query={'q': query})
+            for customer in data.get('customers', []):
+                cents = int(customer.get('credit_cents') or 0)
+                customer['credit_eur'] = f'{cents / 100:.2f}'.replace('.', ',')
             context['query'] = query
         elif section == 'reviews':
             data = _api(request, 'reviews/')
