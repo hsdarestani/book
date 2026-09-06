@@ -61,6 +61,28 @@ class AppManagementTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response['Location'], '/verwaltung/kalender/')
 
+    def test_aplus_admin_logout_clears_book_session_and_returns_to_aplus(self):
+        response = self.client.get('/verwaltung/logout/')
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], 'https://esthetic.smarbiz.sbs/?admin_logout=1')
+        self.assertNotIn('_auth_user_id', self.client.session)
+        self.assertNotIn('aplus_app_admin', self.client.session)
+        self.assertNotIn('aplus_admin_authorization', self.client.session)
+
+        protected = self.client.get('/verwaltung/kalender/')
+        self.assertEqual(protected.status_code, 302)
+        self.assertIn('/verwaltung/login/', protected['Location'])
+
+    def test_regular_book_staff_logout_stays_on_book_login(self):
+        session = self.client.session
+        session.pop('aplus_app_admin', None)
+        session.pop('aplus_admin_authorization', None)
+        session.save()
+
+        response = self.client.get('/verwaltung/logout/')
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/verwaltung/login/')
+
     def test_regular_book_staff_cannot_open_app_management(self):
         session = self.client.session
         session.pop('aplus_app_admin', None)
