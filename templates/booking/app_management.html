@@ -4,55 +4,171 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
   <title>{{ section_title }} | A+ Esthetic Verwaltung</title>
   <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
   <link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}">
   <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
 </head>
 <body class="admin-body sb-admin-body app-management-body">
-<header class="sb-mobile-bar">
+<header class="sb-mobile-bar app-mobile-bar">
   <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
   <strong class="sb-mobile-title">{{ section_title }}</strong>
   <span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span>
 </header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div>
-<aside class="sb-drawer" data-drawer aria-hidden="true">
+<aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true">
   <div class="sb-drawer-brand">
     <img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic">
-    <div><strong>A+ Esthetic</strong><span>Verwaltung</span></div>
+    <div><strong>A+ Esthetic</strong><span>Management</span></div>
   </div>
-  <nav class="sb-drawer-nav">
-    <div class="app-nav-label">PRAXIS</div>
-    <a href="/verwaltung/kalender/"><span>▣</span>Kalender</a>
-    <a href="/verwaltung/buchungen/"><span>✓</span>Buchungen</a>
-    <a href="/verwaltung/kunden/"><span>▤</span>Patientenakten</a>
-    <div class="app-nav-label">A+ APP</div>
-    <a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}"><span>€</span>A+ Wallet</a>
+  <nav class="sb-drawer-nav app-focused-nav">
+    <div class="app-nav-label">A+ MANAGEMENT</div>
+    <a href="/verwaltung/app/bookings/" class="{% if section == 'bookings' %}is-active{% endif %}"><span>◫</span>Termine</a>
+    <a href="/verwaltung/app/patients/" class="{% if section == 'patients' %}is-active{% endif %}"><span>▤</span>Patientenakten</a>
     <a href="/verwaltung/app/reviews/" class="{% if section == 'reviews' %}is-active{% endif %}"><span>★</span>Google Bewertungen</a>
+    <a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}"><span>€</span>A+ Wallet</a>
     <a href="/verwaltung/app/referrals/" class="{% if section == 'referrals' %}is-active{% endif %}"><span>↗</span>Empfehlungen</a>
-    <a href="/verwaltung/logout/"><span>↪</span>Logout</a>
+    <div class="app-nav-spacer"></div>
+    <a href="/verwaltung/logout/"><span>↪</span>Abmelden</a>
   </nav>
 </aside>
 
 <main class="admin-shell sb-admin-shell app-management-shell">
-  <header class="admin-topbar sb-desktop-topbar">
-    <div class="admin-brand"><a class="brand brand-image" href="/verwaltung/kalender/"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"></a><div class="brand-meta">Verwaltung</div></div>
-    <nav class="admin-nav"><a href="/verwaltung/kalender/">Kalender</a><a href="/verwaltung/buchungen/">Buchungen</a><a href="/verwaltung/kunden/">Patientenakten</a><a class="is-active" href="/verwaltung/app/{{ section }}/">{{ section_title }}</a></nav>
+  <header class="admin-topbar sb-desktop-topbar app-focused-topbar">
+    <div class="admin-brand"><a class="brand brand-image" href="/verwaltung/app/bookings/"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"></a><div class="brand-meta">Management</div></div>
+    <nav class="admin-nav app-desktop-nav">
+      <a href="/verwaltung/app/bookings/" class="{% if section == 'bookings' %}is-active{% endif %}">Termine</a>
+      <a href="/verwaltung/app/patients/" class="{% if section == 'patients' %}is-active{% endif %}">Patientenakten</a>
+      <a href="/verwaltung/app/reviews/" class="{% if section == 'reviews' %}is-active{% endif %}">Bewertungen</a>
+      <a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}">Wallet</a>
+      <a href="/verwaltung/app/referrals/" class="{% if section == 'referrals' %}is-active{% endif %}">Empfehlungen</a>
+    </nav>
     <div class="admin-actions"><a href="/verwaltung/logout/">Abmelden</a></div>
   </header>
+
+  <div class="app-page-heading">
+    <div class="eyebrow">A+ ESTHETIC</div>
+    <h1>{{ section_title }}</h1>
+    <p>{{ section_subtitle }}</p>
+  </div>
 
   {% if error %}<div class="admin-notice is-error">{{ error }}{% if needs_reauth %}<br>Bitte die Verwaltung erneut aus der A+ App öffnen.{% endif %}</div>{% endif %}
   {% if notice %}<div class="admin-notice">Änderung wurde gespeichert.</div>{% endif %}
 
   {% if not error %}
-  {% if section == 'wallet' %}
+  {% if section == 'bookings' %}
+  <section class="app-priority-grid">
+    <article><span>Heute</span><strong>{{ today_count }}</strong><small>aktive Termine</small></article>
+    <article><span>Neu</span><strong>{{ new_count }}</strong><small>noch offene Buchungen</small></article>
+  </section>
+
+  <section class="admin-panel app-core-panel app-bookings-panel">
+    <div class="panel-head"><div><div class="eyebrow">PRIORITÄT 01</div><h2>Reservierungen</h2><p>Aktuelle Termine zuerst. Statusänderungen werden direkt im zentralen Buchungssystem gespeichert.</p></div></div>
+    <form method="get" class="app-filter-bar">
+      <input type="search" name="q" value="{{ query }}" placeholder="Patient, E-Mail, Telefon, Behandlung …">
+      <select name="status">
+        <option value="">Alle Status</option>
+        {% for value,label in status_choices %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <button type="submit">Filtern</button>
+    </form>
+
+    <div class="section-kicker"><h3>Bevorstehend</h3><span>{{ upcoming|length }}</span></div>
+    <div class="app-booking-list">
+      {% for item in upcoming %}
+      <article class="app-booking-card">
+        <div class="app-booking-date"><b>{{ item.starts_at|date:"d" }}</b><span>{{ item.starts_at|date:"M" }}</span><small>{{ item.starts_at|date:"H:i" }}</small></div>
+        <div class="app-booking-main">
+          <div class="app-booking-head"><div><strong>{{ item.customer.full_name }}</strong><span>{{ item.service.name }} · {{ item.staff.display_name }}</span></div><span class="app-status is-{{ item.status }}">{{ item.get_status_display }}</span></div>
+          <div class="app-contact-line">{{ item.customer.email }}{% if item.customer.phone %} · {{ item.customer.phone }}{% endif %}</div>
+          {% if item.notes_customer %}<p class="app-booking-note">{{ item.notes_customer }}</p>{% endif %}
+          <form method="post" class="app-booking-status">{% csrf_token %}
+            <input type="hidden" name="action" value="booking_status"><input type="hidden" name="appointment_id" value="{{ item.id }}"><input type="hidden" name="q" value="{{ query }}"><input type="hidden" name="status_filter" value="{{ status_filter }}">
+            <select name="status" aria-label="Terminstatus">{% for value,label in status_choices %}<option value="{{ value }}" {% if item.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button type="submit">Speichern</button>
+          </form>
+        </div>
+      </article>
+      {% empty %}<div class="empty">Keine bevorstehenden Termine für diesen Filter.</div>{% endfor %}
+    </div>
+
+    <details class="app-history" {% if not upcoming %}open{% endif %}>
+      <summary><span>Vergangene / abgesagte Termine</span><b>{{ history|length }}</b></summary>
+      <div class="app-booking-list compact">
+        {% for item in history %}
+        <article class="app-booking-card">
+          <div class="app-booking-date"><b>{{ item.starts_at|date:"d" }}</b><span>{{ item.starts_at|date:"M" }}</span><small>{{ item.starts_at|date:"Y" }}</small></div>
+          <div class="app-booking-main">
+            <div class="app-booking-head"><div><strong>{{ item.customer.full_name }}</strong><span>{{ item.service.name }} · {{ item.starts_at|date:"H:i" }}</span></div><span class="app-status is-{{ item.status }}">{{ item.get_status_display }}</span></div>
+            <form method="post" class="app-booking-status">{% csrf_token %}<input type="hidden" name="action" value="booking_status"><input type="hidden" name="appointment_id" value="{{ item.id }}"><input type="hidden" name="q" value="{{ query }}"><input type="hidden" name="status_filter" value="{{ status_filter }}"><select name="status">{% for value,label in status_choices %}<option value="{{ value }}" {% if item.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button type="submit">Speichern</button></form>
+          </div>
+        </article>
+        {% empty %}<div class="empty">Noch keine früheren Termine.</div>{% endfor %}
+      </div>
+    </details>
+  </section>
+
+  {% elif section == 'patients' %}
+  {% if selected_customer %}
+  <div class="app-patient-toolbar"><a class="app-back-link" href="/verwaltung/app/patients/{% if query %}?q={{ query|urlencode }}{% endif %}">‹ Alle Patienten</a></div>
+  <section class="app-patient-identity">
+    <div class="app-avatar large">{{ selected_customer.full_name|slice:":1" }}</div>
+    <div><div class="eyebrow">PATIENTENAKTE</div><h2>{{ selected_customer.full_name }}</h2><p>{{ selected_customer.email }}{% if selected_customer.phone %} · {{ selected_customer.phone }}{% endif %}</p></div>
+  </section>
+
+  <div class="app-patient-layout">
+    <section class="admin-panel app-core-panel app-upload-panel" id="akte">
+      <div class="panel-head"><div><h2>Neuer Akteneintrag</h2><p>Datei, Foto oder Notiz hochladen. Sichtbare Einträge erscheinen direkt in der Patienten-App.</p></div></div>
+      <form method="post" enctype="multipart/form-data" class="app-patient-upload">{% csrf_token %}
+        <input type="hidden" name="action" value="patient_upload"><input type="hidden" name="customer_id" value="{{ selected_customer.id }}"><input type="hidden" name="return_to" value="/verwaltung/app/patients/?customer={{ selected_customer.id }}">
+        <div class="app-form-grid"><label>Typ<select name="kind"><option value="document">Dokument</option><option value="photo">Foto</option><option value="form">Formular</option><option value="note">Notiz</option><option value="other">Sonstiges</option></select></label><label>Titel<input type="text" name="title" maxlength="180" placeholder="z. B. Laborbericht"></label></div>
+        <label>Bezug zu Termin (optional)<select name="appointment_id"><option value="">Kein Termin ausgewählt</option>{% for appt in patient_appointments %}<option value="{{ appt.id }}">{{ appt.starts_at|date:"d.m.Y H:i" }} · {{ appt.service.name }}</option>{% endfor %}</select></label>
+        <label>Datei<input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv"></label>
+        <label>Notiz<textarea name="note" rows="4" placeholder="Zusätzliche Information …"></textarea></label>
+        <label class="app-share-check"><input type="checkbox" name="shared_with_customer" checked><span>In der App für den Patienten sichtbar</span></label>
+        <button type="submit" class="app-primary-btn">In Patientenakte speichern</button>
+      </form>
+    </section>
+
+    <section class="admin-panel app-core-panel app-timeline-panel">
+      <div class="panel-head"><div><h2>Verlauf</h2><p>{{ patient_records|length }} Akteneinträge · chronologisch</p></div></div>
+      <div class="app-record-timeline">
+        {% for record in patient_records %}
+        <article class="app-record-item">
+          <div class="app-record-dot"></div>
+          <div class="app-record-card">
+            <div class="app-record-head"><div><span class="app-record-source">{{ record.source_label }} · {{ record.kind_label }}</span><strong>{{ record.title }}</strong></div><time>{{ record.created_at|date:"d.m.Y H:i" }}</time></div>
+            {% if record.appointment %}<div class="app-record-appointment">Termin: {{ record.appointment.starts_at|date:"d.m.Y H:i" }} · {{ record.appointment.service.name }}</div>{% endif %}
+            {% if record.note %}<p>{{ record.note }}</p>{% endif %}
+            <div class="app-record-footer"><span class="app-status {% if record.shared %}is-verified{% endif %}">{% if record.shared %}Für Patient sichtbar{% else %}Praxisintern{% endif %}</span>{% if record.has_file %}<a href="/verwaltung/patienten/{{ selected_customer.id }}/datei/{{ record.id }}/" target="_blank" rel="noopener">Datei öffnen</a>{% endif %}</div>
+          </div>
+        </article>
+        {% empty %}<div class="empty">Die Patientenakte enthält noch keine Einträge.</div>{% endfor %}
+      </div>
+    </section>
+  </div>
+  {% else %}
   <section class="admin-panel app-core-panel">
-    <div class="panel-head"><div><div class="eyebrow">A+ GUTHABEN</div><h2>A+ Wallet</h2><p>Guthaben pro Patient aufladen oder korrigieren.</p></div></div>
+    <div class="panel-head"><div><div class="eyebrow">PRIORITÄT 02</div><h2>Patientenakten</h2><p>Patient auswählen, vollständigen Verlauf ansehen und neue Dokumente hinzufügen.</p></div></div>
+    <form method="get" class="app-search"><input type="search" name="q" value="{{ query }}" placeholder="Name, E-Mail oder Telefon …"><button type="submit">Suchen</button></form>
+    <div class="app-patient-list">
+      {% for customer in patients %}
+      <a href="/verwaltung/app/patients/?customer={{ customer.id }}{% if query %}&q={{ query|urlencode }}{% endif %}">
+        <div class="app-avatar">{{ customer.full_name|slice:":1" }}</div><div><strong>{{ customer.full_name }}</strong><span>{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</span></div><div class="app-patient-counts"><b>{{ customer.patient_records.count }}</b><span>Akten</span><b>{{ customer.appointments.count }}</b><span>Termine</span></div><i>›</i>
+      </a>
+      {% empty %}<div class="empty">Keine Patienten gefunden.</div>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% elif section == 'wallet' %}
+  <section class="admin-panel app-core-panel">
+    <div class="panel-head"><div><div class="eyebrow">A+ GUTHABEN</div><h2>A+ Wallet</h2><p>Persönliches A+ Guthaben pro Patient aufladen oder korrigieren.</p></div></div>
     <form method="get" class="app-search"><input type="search" name="q" value="{{ query }}" placeholder="Name, E-Mail oder Telefon …"><button type="submit">Suchen</button></form>
     <div class="app-card-list">
       {% for customer in data.customers %}
       <article class="app-wallet-card">
-        <div class="app-wallet-person"><div class="app-avatar">{{ customer.name|slice:":1" }}</div><div><strong>{{ customer.name }}</strong><span>{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</span></div><b>{{ customer.credit_cents|floatformat:0 }} ct</b></div>
+        <div class="app-wallet-person"><div class="app-avatar">{{ customer.name|slice:":1" }}</div><div><strong>{{ customer.name }}</strong><span>{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</span></div><b>{{ customer.credit_eur|default:customer.credit_cents }}{% if customer.credit_eur %} €{% else %} ct{% endif %}</b></div>
         <form method="post" class="app-wallet-form">{% csrf_token %}<input type="hidden" name="action" value="wallet_adjust"><input type="hidden" name="customer_id" value="{{ customer.id }}"><label>Betrag € (+ / −)<input type="number" name="credit_delta_eur" step="0.01" placeholder="z. B. 50 oder -20" required></label><button type="submit">Guthaben ändern</button></form>
       </article>
       {% empty %}<div class="empty">Keine Patienten gefunden.</div>{% endfor %}
@@ -76,7 +192,7 @@
 
   {% elif section == 'referrals' %}
   <section class="admin-panel app-core-panel">
-    <div class="panel-head"><div><div class="eyebrow">EMPFEHLUNGEN</div><h2>Freunde empfohlen</h2><p>Von Patienten versendete Empfehlungen und Status.</p></div></div>
+    <div class="panel-head"><div><div class="eyebrow">EMPFEHLUNGEN</div><h2>Freunde empfohlen</h2><p>Von Patienten versendete Empfehlungen und deren Status.</p></div></div>
     <div class="app-referral-list">
       {% for item in data.referrals %}
       <article><div><strong>{{ item.customer }}</strong><span>{{ item.email|default:"—" }}</span></div><code>{{ item.code }}</code><span class="app-status is-{{ item.status }}">{{ item.status_label }}</span></article>
