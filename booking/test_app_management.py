@@ -1,7 +1,11 @@
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
+from django.utils import timezone
+
+from .models import Appointment, Customer, PatientRecord, Service, StaffMember
 
 
 TEST_STORAGES = {
@@ -21,7 +25,7 @@ class AppManagementTests(TestCase):
         session.save()
 
     @patch('booking.app_management_views._api')
-    def test_wallet_management_renders_inside_book_ui(self, api):
+    def test_wallet_management_renders_inside_focused_aplus_ui(self, api):
         api.return_value = {
             'ok': True,
             'customers': [{
@@ -36,11 +40,20 @@ class AppManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'A+ Wallet')
         self.assertContains(response, 'Test Patient')
-        self.assertContains(response, '/verwaltung/kalender/')
+        self.assertContains(response, '50,00 €')
+        self.assertContains(response, '/verwaltung/app/bookings/')
+        self.assertContains(response, '/verwaltung/app/patients/')
         self.assertContains(response, 'Google Bewertungen')
+        self.assertNotContains(response, '/verwaltung/einstellungen/')
+        self.assertNotContains(response, '/verwaltung/behandlungen/')
         self.assertNotContains(response, 'Rewards')
         self.assertNotContains(response, 'Pakete')
         self.assertNotContains(response, 'App-Module')
+
+    def test_aplus_admin_calendar_entry_redirects_to_focused_bookings(self):
+        response = self.client.get('/verwaltung/kalender/')
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/verwaltung/app/bookings/')
 
     def test_regular_book_staff_cannot_open_app_management(self):
         session = self.client.session
@@ -73,3 +86,65 @@ class AppManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Google Bewertungen')
         self.assertContains(response, 'Patient')
+
+    def _booking_fixture(self):
+        customer = Customer.objects.create(first_name='Anna', last_name='Muster', email='anna@example.test', phone='069123')
+        service = Service.objects.create(name='Beratung', slug='beratung-test', duration_minutes=30, buffer_minutes=0)
+        staff = StaffMember.objects.create(display_name='Dr. Test', role='doctor')
+        staff.services.add(service)
+        appointment = Appointment.objects.create(
+            customer=customer,
+            service=service,
+            staff=staff,
+            starts_at=timezone.now() + timedelta(days=1),
+            ends_at=timezone.now() + timedelta(days=1, minutes=30),
+            status='new',
+            source='app',
+        )
+        return customer, service, staff, appointment
+
+    def test_bookings_are_primary_and_status_is_editable(self):
+        customer, _, _, appointment = self._booking_fixture()
+        response = self.client.get('/verwaltung/app/bookings/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'PRIORITÄT 01')
+        self.assertContains(response, customer.full_name)
+        self.assertContains(response, 'Dr. Test')
+
+        response = self.client.post('/verwaltung/app/bookings/', {
+            'action': 'booking_status',
+            'appointment_id': str(appointment.pk),
+            'status': 'confirmed',
+        })
+        self.assertEqual(response.status_code, 302)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, 'confirmed')
+
+    def test_patient_record_timeline_shows_patient_and_practice_history(self):
+        customer, _, _, appointment = self._booking_fixture()
+        PatientRecord.objects.create(
+            customer=customer,
+            appointment=appointment,
+            kind='note',
+            title='Vom Patienten',
+            note='Patient upload',
+            source='a_esthetic_app_customer',
+            captured_at=timezone.now(),
+        )
+        PatientRecord.objects.create(
+            customer=customer,
+            kind='document',
+            title='Praxisdokument',
+            note='Clinic note',
+            source='book_staff',
+            metadata={'shared_with_customer': True},
+            captured_at=timezone.now(),
+        )
+        response = self.client.get(f'/verwaltung/app/patients/?customer={customer.pk}')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, customer.full_name)
+        self.assertContains(response, 'Vom Patienten')
+        self.assertContains(response, 'Patient · Notiz')
+        self.assertContains(response, 'Praxisdokument')
+        self.assertContains(response, 'Praxis · Dokument')
+        self.assertContains(response, 'Für Patient sichtbar')
