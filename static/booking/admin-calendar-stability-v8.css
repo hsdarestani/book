@@ -1,0 +1,105 @@
+/* A+ Esthetic calendar stability v8
+   Calendar-only recovery layer. Keep the accepted calendar visuals, but make
+   the mobile shell deterministic and cheap to scroll. */
+
+@media (max-width:760px){
+  body.aplus-calendar-page{
+    padding-top:58px!important;
+    margin-top:0!important;
+    overflow-x:clip!important;
+    background:#fff!important;
+  }
+
+  /* Calendar needs a truly fixed app bar. A sticky bar combined with the long
+     08:00–20:00 timeline can be dropped by Android/WebView during anchor jumps. */
+  body.aplus-calendar-page > .sb-mobile-bar{
+    position:fixed!important;
+    top:0!important;
+    left:0!important;
+    right:0!important;
+    width:100%!important;
+    height:58px!important;
+    min-height:58px!important;
+    margin:0!important;
+    transform:none!important;
+    z-index:90!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    box-shadow:0 1px 0 rgba(255,255,255,.05),0 6px 18px rgba(25,21,15,.08)!important;
+  }
+
+  body.aplus-calendar-page > main.sb-admin-shell,
+  body.aplus-calendar-page > main.admin-shell{
+    margin-top:0!important;
+  }
+
+  /* Preserve the existing day scale and event geometry. Only remove expensive
+     visual work that can cause jank on a very tall timeline. */
+  body.aplus-calendar-page .sb-calendar-panel,
+  body.aplus-calendar-page .sb-calendar-shell,
+  body.aplus-calendar-page .sb-calendar-days,
+  body.aplus-calendar-page .sb-calendar-day,
+  body.aplus-calendar-page .sb-day-track{
+    animation:none!important;
+    transition:none!important;
+  }
+  body.aplus-calendar-page .sb-calendar-panel{
+    touch-action:pan-y!important;
+    overscroll-behavior-y:contain!important;
+  }
+  body.aplus-calendar-page .sb-calendar-event{
+    transition:none!important;
+  }
+
+  /* The add button belongs to the viewport, not to the bottom of the 12-hour
+     calendar track. This makes it permanently available while scrolling. */
+  body.aplus-calendar-page .sb-fab-wrap{
+    position:fixed!important;
+    right:0!important;
+    bottom:max(18px,env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    margin:0!important;
+    padding:0 16px 0 0!important;
+    z-index:86!important;
+    display:flex!important;
+    align-items:flex-end!important;
+    pointer-events:none!important;
+  }
+  body.aplus-calendar-page .sb-fab,
+  body.aplus-calendar-page .sb-fab-actions{
+    pointer-events:auto!important;
+  }
+  body.aplus-calendar-page .sb-fab{
+    display:grid!important;
+    place-items:center!important;
+    width:56px!important;
+    height:56px!important;
+    opacity:1!important;
+    visibility:visible!important;
+    transform:translateZ(0)!important;
+    box-shadow:0 10px 24px rgba(116,80,28,.23)!important;
+  }
+  body.aplus-calendar-page .sb-fab.is-open{
+    transform:rotate(45deg)!important;
+  }
+  body.aplus-calendar-page.sb-modal-open .sb-fab-wrap{
+    opacity:0!important;
+    pointer-events:none!important;
+  }
+
+  /* Do not keep a hidden drawer permanently promoted to its own GPU layer on
+     the calendar. Promote it only for the short moment it is actually open. */
+  body.aplus-calendar-page .sb-drawer{
+    will-change:auto!important;
+    contain:none!important;
+  }
+  body.aplus-calendar-page .sb-drawer.is-open,
+  body.aplus-calendar-page .sb-drawer[aria-hidden="false"]{
+    will-change:transform!important;
+  }
+  body.aplus-calendar-page .sb-drawer-backdrop,
+  body.aplus-calendar-page .sb-drawer-backdrop.is-open{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+}
