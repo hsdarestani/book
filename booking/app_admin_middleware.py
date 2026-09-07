@@ -7,11 +7,18 @@ class APlusAdminNavigationMiddleware:
 <link rel="stylesheet" href="/static/booking/admin-wallet-history-v4.css?v=20260907-v4" data-aplus-wallet-history-v4>
 <link rel="stylesheet" href="/static/booking/admin-app-inset-v5.css?v=20260907-v6" data-aplus-app-inset-v6>
 <link rel="stylesheet" href="/static/booking/admin-patient-controls-v6.css?v=20260907-v6" data-aplus-patient-controls-v6>
-<link rel="stylesheet" href="/static/booking/admin-patient-detail-v7.css?v=20260907-v7" data-aplus-patient-detail-v7>
 <script defer src="/static/booking/admin-luxury-v2.js?v=20260907-v2" data-aplus-luxury></script>
 <script defer src="/static/booking/admin-luxury-v3.js?v=20260907-v3" data-aplus-luxury-v3></script>
 <script defer src="/static/booking/admin-patient-controls-v6.js?v=20260907-v6" data-aplus-patient-controls-v6></script>
-<script defer src="/static/booking/admin-fast-drawer-v7.js?v=20260907-v7" data-aplus-fast-drawer-v7></script>
+'''
+
+    NON_CALENDAR_ASSETS = '''
+<link rel="stylesheet" href="/static/booking/admin-patient-detail-v7.css?v=20260907-v8" data-aplus-patient-detail-v7>
+<script defer src="/static/booking/admin-fast-drawer-v7.js?v=20260907-v8" data-aplus-fast-drawer-v7></script>
+'''
+
+    CALENDAR_ASSETS = '''
+<link rel="stylesheet" href="/static/booking/admin-calendar-stability-v8.css?v=20260907-v8" data-aplus-calendar-stability-v8>
 '''
 
     PATIENT_MOBILE_SHELL = '''
@@ -57,11 +64,26 @@ class APlusAdminNavigationMiddleware:
         except (AttributeError, UnicodeDecodeError):
             return response
 
-        # One asset layer owns the drawer and non-calendar visual system across
-        # legacy Book pages, focused A+ pages, wallet and patient detail pages.
-        # The actual calendar grid/timeline is deliberately left untouched.
+        is_calendar = request.path.startswith('/verwaltung/kalender/') or request.path == '/verwaltung/'
+
+        # Shared visual layer for all verified management pages.
         if 'data-aplus-luxury' not in html and '</head>' in html:
             html = html.replace('</head>', self.LUXURY_ASSETS + '</head>', 1)
+
+        # The fast drawer + patient-detail polish is deliberately excluded from
+        # calendar pages. The calendar is a long, absolute-positioned timeline
+        # and must stay on its own lightweight render path.
+        if is_calendar:
+            if 'data-aplus-calendar-stability-v8' not in html and '</head>' in html:
+                html = html.replace('</head>', self.CALENDAR_ASSETS + '</head>', 1)
+            if '<body class="' in html and 'aplus-calendar-page' not in html:
+                html = html.replace('<body class="', '<body class="aplus-calendar-page ', 1)
+            # Date/provider navigation should be a normal page load. Removing
+            # the old #kalender anchor prevents Android from restoring the page
+            # halfway down the long timeline and makes navigation feel instant.
+            html = html.replace('#kalender"', '"')
+        elif 'data-aplus-patient-detail-v7' not in html and '</head>' in html:
+            html = html.replace('</head>', self.NON_CALENDAR_ASSETS + '</head>', 1)
 
         # Legacy patient detail used its own desktop-only header. Give it exactly
         # the same mobile app bar + drawer as the rest of management instead of
@@ -80,7 +102,7 @@ class APlusAdminNavigationMiddleware:
 
         # The calendar view switcher is a calendar-only control. Remove it on the
         # server as well as in JS so it never flashes on Buchungen/Kunden pages.
-        if not request.path.startswith('/verwaltung/kalender/'):
+        if not is_calendar:
             html = html.replace(
                 '<button type="button" class="sb-icon-button" data-view-menu-open aria-label="Ansicht ändern">⋯</button>',
                 '<span class="sb-icon-button" aria-hidden="true"></span>',
