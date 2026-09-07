@@ -2,6 +2,7 @@
 @import url('/static/booking/admin-simply.css');
 @import url('/static/booking/admin-fixes.css');
 @import url('/static/booking/admin-calendar-plus.css');
+@import url('/static/booking/admin-mobile-overhaul.css');
 
 :root{--admin-bg:#f3f1eb;--admin-card:#fff;--admin-ink:#151411;--admin-muted:#777167;--admin-line:#e1ddd3;--admin-gold:#b49255;--admin-soft:#f7f5ef}
 body.admin-body{background:radial-gradient(circle at 10% 0,rgba(180,146,85,.11),transparent 28rem),var(--admin-bg);color:var(--admin-ink)}
