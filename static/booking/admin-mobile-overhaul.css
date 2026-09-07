@@ -1,0 +1,352 @@
+/* A+ Esthetic mobile admin overhaul
+   Loaded last so the embedded admin uses one compact, native-feeling shell.
+   Desktop remains intentionally unchanged. */
+@media (max-width:760px){
+  :root{
+    --a-admin-bg:#f6f3ed;
+    --a-admin-paper:#fff;
+    --a-admin-ink:#24211c;
+    --a-admin-muted:#817a70;
+    --a-admin-line:#e7e0d5;
+    --a-admin-gold:#b78b43;
+    --a-admin-gold-soft:#f7edd9;
+    --a-admin-dark:#29261f;
+    --a-admin-shadow:0 12px 34px rgba(45,37,25,.055);
+  }
+
+  html,body{background:var(--a-admin-bg)!important}
+  body.sb-admin-body{
+    padding-top:58px!important;
+    min-height:100dvh!important;
+    background:var(--a-admin-bg)!important;
+    color:var(--a-admin-ink)!important;
+  }
+
+  /* One compact app bar. Native WebView already protects the system status bar,
+     so do not apply env(safe-area-inset-top) a second time. */
+  .sb-mobile-bar{
+    display:grid!important;
+    grid-template-columns:44px minmax(0,1fr) 44px!important;
+    align-items:center!important;
+    position:fixed!important;
+    inset:0 0 auto 0!important;
+    height:58px!important;
+    min-height:58px!important;
+    padding:0 12px!important;
+    box-sizing:border-box!important;
+    background:rgba(41,38,31,.98)!important;
+    color:#fff!important;
+    border-bottom:1px solid rgba(255,255,255,.07)!important;
+    box-shadow:0 8px 28px rgba(26,22,16,.12)!important;
+    backdrop-filter:blur(18px)!important;
+    z-index:70!important;
+  }
+  .sb-mobile-title{
+    min-width:0!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+    text-align:left!important;
+    padding:0 10px!important;
+    font-size:15px!important;
+    line-height:1.2!important;
+    font-weight:700!important;
+    letter-spacing:-.01em!important;
+  }
+  .sb-icon-button{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    min-height:42px!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:13px!important;
+    background:transparent!important;
+    color:#fff!important;
+    display:grid!important;
+    place-items:center!important;
+    font-size:24px!important;
+    line-height:1!important;
+    box-shadow:none!important;
+  }
+  .sb-icon-button:active{background:rgba(255,255,255,.08)!important;transform:scale(.96)}
+  .app-management-dot{
+    width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;
+    border:1px solid rgba(222,190,129,.55)!important;
+    border-radius:50%!important;
+    color:#d9b873!important;
+    background:rgba(255,255,255,.025)!important;
+    font-size:10px!important;font-weight:850!important;
+  }
+
+  /* Drawer */
+  .sb-drawer-backdrop{
+    display:none;
+    position:fixed!important;
+    inset:0!important;
+    z-index:88!important;
+    background:rgba(20,18,15,.52)!important;
+    backdrop-filter:blur(4px)!important;
+  }
+  .sb-drawer-backdrop.is-open{display:block!important;visibility:visible!important}
+  .sb-drawer{
+    display:block!important;
+    position:fixed!important;
+    left:0!important;top:0!important;bottom:0!important;
+    width:min(86vw,344px)!important;
+    padding:0!important;
+    overflow:auto!important;
+    background:linear-gradient(180deg,#27241f 0%,#1e1c18 100%)!important;
+    color:#fff!important;
+    border-radius:0 24px 24px 0!important;
+    box-shadow:24px 0 70px rgba(0,0,0,.28)!important;
+    z-index:90!important;
+    transform:translateX(-108%)!important;
+    transition:transform .24s cubic-bezier(.22,.75,.2,1)!important;
+  }
+  .sb-drawer.is-open{transform:translateX(0)!important;visibility:visible!important}
+  .sb-drawer-brand{
+    display:grid!important;
+    grid-template-columns:50px minmax(0,1fr)!important;
+    align-items:center!important;
+    gap:13px!important;
+    min-height:104px!important;
+    padding:22px 20px 18px!important;
+    border-bottom:1px solid rgba(255,255,255,.09)!important;
+  }
+  .sb-drawer-brand img{
+    width:48px!important;height:48px!important;object-fit:contain!important;
+    border-radius:15px!important;
+    background:#fff!important;
+    padding:5px!important;
+    box-shadow:0 8px 20px rgba(0,0,0,.18)!important;
+  }
+  .sb-drawer-brand>div{display:grid!important;gap:4px!important;min-width:0!important}
+  .sb-drawer-brand strong{color:#fff!important;font-size:15px!important;letter-spacing:.01em!important}
+  .sb-drawer-brand span{color:#bfb7aa!important;font-size:10px!important;letter-spacing:.07em!important;text-transform:uppercase!important}
+  .app-nav-label{
+    color:#9f9689!important;
+    padding:18px 18px 7px!important;
+    font-size:9px!important;
+    letter-spacing:.16em!important;
+  }
+  .sb-drawer-nav{display:grid!important;gap:4px!important;padding:12px 12px 22px!important}
+  .sb-drawer-nav a,.sb-drawer-nav button{
+    min-height:48px!important;
+    display:grid!important;
+    grid-template-columns:32px minmax(0,1fr)!important;
+    align-items:center!important;
+    gap:9px!important;
+    padding:0 12px!important;
+    border:0!important;
+    border-radius:14px!important;
+    background:transparent!important;
+    color:#e9e4da!important;
+    text-decoration:none!important;
+    text-align:left!important;
+    font-size:13px!important;
+    font-weight:650!important;
+  }
+  .sb-drawer-nav a>span,.sb-drawer-nav button>span{
+    width:30px!important;height:30px!important;
+    display:grid!important;place-items:center!important;
+    border-radius:10px!important;
+    background:rgba(255,255,255,.055)!important;
+    color:#cdb986!important;
+    font-size:15px!important;
+  }
+  .sb-drawer-nav a:hover,.sb-drawer-nav button:hover{background:rgba(255,255,255,.06)!important}
+  .sb-drawer-nav a.is-active,.app-focused-nav a.is-active{
+    background:linear-gradient(135deg,rgba(191,151,83,.24),rgba(255,255,255,.065))!important;
+    color:#fff!important;
+    box-shadow:inset 0 0 0 1px rgba(220,187,127,.16)!important;
+  }
+  .sb-drawer-nav a.is-active>span,.app-focused-nav a.is-active>span{background:#d2ad68!important;color:#211f1b!important}
+  .app-nav-spacer{height:10px!important;border-top:1px solid rgba(255,255,255,.08)!important;margin-top:8px!important}
+
+  .sb-view-menu{
+    top:64px!important;right:12px!important;width:min(260px,calc(100vw - 24px))!important;
+    border:1px solid var(--a-admin-line)!important;border-radius:17px!important;
+    background:#fff!important;overflow:hidden!important;
+    box-shadow:0 22px 60px rgba(31,26,19,.18)!important;z-index:94!important;
+  }
+  .sb-view-menu a{padding:14px 16px!important;font-size:13px!important;border-color:#f0ebe3!important}
+
+  /* Main shell and section cards */
+  .sb-admin-shell,.app-management-shell{
+    width:100%!important;
+    margin:0!important;
+    padding:0 0 30px!important;
+    min-height:calc(100dvh - 58px)!important;
+    background:var(--a-admin-bg)!important;
+  }
+  .admin-panel,.calendar-panel,.app-core-panel{
+    margin:12px!important;
+    padding:17px!important;
+    border:1px solid var(--a-admin-line)!important;
+    border-radius:20px!important;
+    background:rgba(255,255,255,.98)!important;
+    box-shadow:var(--a-admin-shadow)!important;
+    scroll-margin-top:70px!important;
+  }
+  .panel-head{margin-bottom:15px!important}
+  .panel-head h2{
+    margin:4px 0 5px!important;
+    font:600 25px/1.05 Georgia,serif!important;
+    letter-spacing:-.035em!important;
+    color:var(--a-admin-ink)!important;
+  }
+  .panel-head p{font-size:12px!important;line-height:1.5!important;color:var(--a-admin-muted)!important}
+  .eyebrow{font-size:9px!important;letter-spacing:.16em!important;color:#9c742d!important;font-weight:850!important}
+  .panel-count{margin-top:8px!important;padding:6px 9px!important;background:#f8f5ef!important;border-color:var(--a-admin-line)!important}
+
+  /* Calendar: remove the second dark title bar and let the global app bar own it. */
+  .sb-calendar-panel{margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#fff!important}
+  .sb-calendar-head{display:none!important}
+  .sb-provider-switcher{
+    margin:0!important;padding:11px 12px 10px!important;
+    gap:8px!important;flex-wrap:nowrap!important;overflow-x:auto!important;
+    background:#fff!important;border-bottom:1px solid var(--a-admin-line)!important;
+    scrollbar-width:none!important;
+  }
+  .sb-provider-switcher::-webkit-scrollbar{display:none!important}
+  .doctor-pill{
+    flex:none!important;min-height:43px!important;padding:5px 13px 5px 5px!important;
+    gap:8px!important;border-radius:999px!important;border:1px solid #e4ded3!important;
+    background:#fff!important;color:#5f5950!important;box-shadow:none!important;
+  }
+  .doctor-pill>span{width:32px!important;height:32px!important;background:#f7f0e3!important;color:#8a6829!important}
+  .doctor-pill b{font-size:10px!important;font-weight:750!important;white-space:nowrap!important}
+  .doctor-pill.is-active{background:var(--a-admin-dark)!important;color:#fff!important;border-color:var(--a-admin-dark)!important;box-shadow:0 7px 18px rgba(34,30,24,.13)!important}
+  .doctor-pill.is-active>span{background:#fff!important;color:#24211c!important}
+  .sb-date-nav{
+    min-height:68px!important;margin:0!important;padding:8px 12px!important;border:0!important;border-radius:0!important;
+    border-bottom:1px solid var(--a-admin-line)!important;background:#fff!important;
+    grid-template-columns:42px minmax(0,1fr) 42px!important;
+  }
+  .sb-date-arrow{width:38px!important;height:38px!important;background:#f8f6f1!important;border-radius:12px!important;font-size:27px!important;color:#29261f!important}
+  .sb-date-title strong{font-size:13px!important}.sb-date-title span{font-size:9px!important}
+  .sb-calendar-shell{grid-template-columns:58px minmax(0,1fr)!important;border:0!important;border-radius:0!important;min-height:760px!important}
+  .sb-time-axis{background:#faf9f6!important}
+  .sb-day-head{background:#fbfaf7!important}
+  .sb-calendar-day.is-today .sb-day-head{background:#fff6df!important}
+  .sb-working-segment{background:linear-gradient(180deg,#efd690,#e3bc58)!important}
+  .sb-calendar-event{border-radius:10px!important;box-shadow:0 6px 16px rgba(40,34,24,.13)!important}
+  .sb-calendar-block{border-radius:10px!important}
+  .sb-fab-wrap{bottom:18px!important;padding-right:18px!important}
+  .sb-fab{width:56px!important;height:56px!important;background:#b78b43!important;box-shadow:0 12px 28px rgba(118,83,31,.27)!important}
+
+  /* Dashboard customer list */
+  .sb-customers-panel{padding:16px 14px 14px!important}
+  .sb-customers-panel .panel-head{display:flex!important;align-items:center!important;justify-content:space-between!important;margin-bottom:14px!important}
+  .sb-customers-panel .panel-head>div{min-width:0!important}
+  .sb-customers-panel .panel-head h2{font:700 22px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;letter-spacing:-.02em!important}
+  .sb-customers-panel .panel-head p,.sb-customers-panel .panel-head .eyebrow{display:none!important}
+  .sb-customers-panel .admin-primary{
+    flex:none!important;width:46px!important;height:46px!important;padding:0!important;border-radius:15px!important;
+    background:#24211c!important;color:#fff!important;box-shadow:0 8px 20px rgba(35,31,25,.15)!important;
+  }
+  .sb-customers-panel .admin-primary:after{font-size:22px!important}
+  .sb-search-field{
+    height:50px!important;margin:0 0 12px!important;padding:0 14px!important;
+    border:1px solid var(--a-admin-line)!important;border-radius:15px!important;background:#f8f6f1!important;
+  }
+  .sb-search-field span{font-size:18px!important;color:#837c71!important}
+  .sb-search-field input{font-size:16px!important;color:#29261f!important}
+  .sb-customer-list{border:1px solid var(--a-admin-line)!important;border-radius:18px!important;overflow:hidden!important;background:#fff!important}
+  .sb-customer-row{
+    min-height:74px!important;grid-template-columns:46px minmax(0,1fr) 30px!important;gap:12px!important;
+    padding:11px 12px!important;border-bottom:1px solid #eee9e1!important;background:#fff!important;
+  }
+  .sb-customer-row:active{background:#faf7f1!important}
+  .sb-customer-row .customer-avatar{width:44px!important;height:44px!important;border-radius:50%!important;background:#fbfaf7!important}
+  .sb-customer-row strong{font-size:13px!important;font-weight:720!important;color:#29261f!important}
+  .sb-customer-row span{font-size:9px!important;line-height:1.45!important;color:#8a8378!important}
+  .sb-customer-row>b{width:28px!important;height:34px!important;display:grid!important;place-items:center!important;border-radius:10px!important;color:#aaa298!important;font-size:18px!important}
+
+  /* Dashboard booking rows become readable cards instead of a compressed table. */
+  #termine{padding:16px 14px!important}
+  #termine .panel-head{display:flex!important;align-items:flex-end!important;justify-content:space-between!important;gap:10px!important}
+  #termine .panel-head h2{font:700 22px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;letter-spacing:-.02em!important}
+  #termine .panel-head .eyebrow{margin-bottom:4px!important}
+  .sb-booking-list{border:0!important;border-radius:0!important;overflow:visible!important;background:transparent!important}
+  .sb-booking-list .table-head{display:none!important}
+  .sb-booking-list .table-row{
+    display:grid!important;grid-template-columns:84px minmax(0,1fr)!important;gap:8px 12px!important;
+    margin:0 0 10px!important;padding:14px!important;border:1px solid var(--a-admin-line)!important;
+    border-radius:17px!important;background:#fff!important;box-shadow:0 7px 22px rgba(44,37,27,.035)!important;
+  }
+  .sb-booking-list .table-row:last-child{margin-bottom:0!important}
+  .sb-booking-list .table-row time{grid-row:1/4!important;align-self:start!important;padding-top:1px!important}
+  .sb-booking-list .table-row time{font-size:9px!important;color:#8c857b!important}
+  .sb-booking-list .table-row time b{font-size:17px!important;color:#29261f!important;margin-top:3px!important}
+  .sb-booking-list .table-row>div:nth-child(2){grid-column:2!important}
+  .sb-booking-list .table-row>div:nth-child(2) strong{font-size:13px!important}
+  .sb-booking-list .table-row>div:nth-child(2) small{font-size:9px!important;color:#969087!important}
+  .sb-booking-list .table-row>div:nth-child(3){grid-column:2!important}
+  .sb-booking-list .table-row>div:nth-child(3) strong{font-size:12px!important}
+  .sb-booking-list .table-row>div:nth-child(3) small{font-size:9px!important}
+  .sb-booking-list .table-row>div:nth-child(4){display:none!important}
+  .sb-booking-list .status-form{grid-column:2!important;margin-top:3px!important}
+  .sb-booking-list .status-form select{
+    width:100%!important;max-width:none!important;min-height:44px!important;padding:9px 12px!important;
+    border:1px solid #ddd7cc!important;border-radius:13px!important;background:#faf9f6!important;font-size:14px!important;
+  }
+
+  /* App-management pages: remove duplicate top title; the section card is the page hero. */
+  body.app-management-body:not(.wallet-management-body) .app-page-heading{display:none!important}
+  body.app-management-body:not(.wallet-management-body) .app-priority-grid{margin:14px 12px 2px!important;gap:9px!important}
+  body.app-management-body:not(.wallet-management-body) .app-priority-grid article{border-radius:17px!important;padding:14px!important;box-shadow:0 8px 20px rgba(40,34,26,.08)!important}
+  .app-core-panel{padding:18px 16px!important}
+  .app-core-panel .panel-head h2{font-size:26px!important}
+  .app-search,.app-filter-bar{gap:8px!important;margin:12px 0 16px!important}
+  .app-search input,.app-filter-bar input,.app-filter-bar select{
+    min-height:48px!important;border-radius:14px!important;background:#faf9f6!important;border-color:var(--a-admin-line)!important;
+  }
+  .app-search button,.app-filter-bar button{min-height:46px!important;border-radius:14px!important;padding:0 15px!important;background:#29261f!important;color:#fff!important;border-color:#29261f!important}
+  .app-booking-card,.app-wallet-card,.app-review-card,.app-record-card{
+    border-radius:17px!important;border-color:var(--a-admin-line)!important;box-shadow:0 7px 22px rgba(46,39,28,.035)!important;
+  }
+  .app-booking-status select,.app-booking-status button{min-height:44px!important;border-radius:12px!important}
+  .app-referral-list{border-radius:17px!important;border-color:var(--a-admin-line)!important}
+  .app-referral-list article{min-height:78px!important;padding:14px!important}
+  .app-referral-list strong{font-size:14px!important}
+  .app-referral-list div>span{font-size:10px!important}
+  .app-referral-list code{font-size:10px!important;color:#9a8c75!important}
+  .app-status{padding:6px 9px!important;border-radius:999px!important;font-size:9px!important}
+
+  /* Dedicated Wallet management */
+  .wallet-management-body{background:var(--a-admin-bg)!important}
+  .wallet-management-shell{padding-bottom:28px!important}
+  .wallet-page-heading{
+    display:grid!important;gap:14px!important;margin:0!important;padding:18px 16px 14px!important;
+    background:linear-gradient(180deg,#fff 0%,#faf7f1 100%)!important;border-bottom:1px solid var(--a-admin-line)!important;
+  }
+  .wallet-page-heading .eyebrow{font-size:9px!important}.wallet-page-heading h1{font-size:31px!important;margin:5px 0 4px!important}.wallet-page-heading p{font-size:12px!important;line-height:1.45!important}
+  .wallet-scan-hero-btn{min-height:50px!important;border-radius:16px!important;font-size:13px!important;box-shadow:0 9px 24px rgba(31,46,57,.13)!important}
+  .wallet-admin-grid{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin:0 12px!important}
+  .wallet-admin-overview,.wallet-search-card{border-radius:20px!important;padding:18px!important}
+  .wallet-admin-overview h2{font-size:25px!important;line-height:1.08!important}
+  .wallet-admin-overview p{font-size:11px!important;line-height:1.5!important}
+  .wallet-admin-steps{gap:7px!important}.wallet-admin-steps>div{min-height:70px!important;border-radius:14px!important}
+  .wallet-search-card{background:#fff!important;border:1px solid var(--a-admin-line)!important;box-shadow:var(--a-admin-shadow)!important}
+  .wallet-search-form input{min-height:50px!important;border-radius:14px!important;background:#faf9f6!important}
+  .wallet-search-form button{min-height:48px!important;border-radius:14px!important}
+  .wallet-results-panel{margin:12px!important;padding:18px 16px!important}
+  .wallet-admin-card{border-radius:18px!important;overflow:hidden!important}
+  .wallet-admin-card-top{padding:15px!important}
+  .wallet-adjust-form{padding:14px!important}
+
+  /* Sheets/modals: native top inset is already applied by the host. */
+  .sb-modal{padding:0!important}
+  .sb-modal-card{border-radius:0!important;padding-bottom:0!important}
+  .sb-sheet-head{min-height:58px!important;padding-top:0!important}
+  .sb-sheet-save{bottom:10px!important;border-radius:14px!important}
+}
+
+@media (max-width:420px){
+  .sb-booking-list .table-row{grid-template-columns:76px minmax(0,1fr)!important;padding:13px 11px!important}
+  .admin-panel,.calendar-panel,.app-core-panel{margin:10px!important}
+  .wallet-admin-grid,.wallet-results-panel{margin-left:10px!important;margin-right:10px!important}
+  .app-core-panel{padding-left:14px!important;padding-right:14px!important}
+}
