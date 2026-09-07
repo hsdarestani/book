@@ -25,7 +25,7 @@ class AppAdminSsoTests(TestCase):
             HTTP_AUTHORIZATION='Bearer test-token-that-is-long-enough',
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['redirect'], '/verwaltung/kalender/')
+        self.assertEqual(response.json()['redirect'], '/verwaltung/dashboard/')
 
         user = User.objects.get(username='aplus_app_admin_77')
         self.assertTrue(user.is_staff)
