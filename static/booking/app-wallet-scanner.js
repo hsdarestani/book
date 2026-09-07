@@ -5,11 +5,12 @@
   if (!shell) return;
 
   const video = shell.querySelector('[data-wallet-camera]');
-  const stage = shell.querySelector('[data-wallet-camera-stage]');
   const idle = shell.querySelector('[data-wallet-camera-idle]');
   const status = shell.querySelector('[data-wallet-scan-status]');
   const startButton = shell.querySelector('[data-wallet-camera-start]');
   const stopButton = shell.querySelector('[data-wallet-camera-stop]');
+  const photoButton = shell.querySelector('[data-wallet-photo-start]');
+  const photoInput = shell.querySelector('[data-wallet-photo-input]');
   const form = shell.querySelector('[data-wallet-scan-form]');
   const tokenInput = shell.querySelector('[data-wallet-token]');
   let stream = null;
@@ -18,9 +19,26 @@
   let busy = false;
 
   const setStatus = (text, mode = '') => {
+    if (!status) return;
     status.textContent = text;
     status.classList.toggle('is-ok', mode === 'ok');
     status.classList.toggle('is-error', mode === 'error');
+  };
+
+  const ensureDetector = async () => {
+    if (detector) return detector;
+    if (!('BarcodeDetector' in window)) return null;
+    try {
+      const formats = typeof BarcodeDetector.getSupportedFormats === 'function'
+        ? await BarcodeDetector.getSupportedFormats()
+        : ['qr_code'];
+      if (!formats.includes('qr_code')) return null;
+      detector = new BarcodeDetector({ formats: ['qr_code'] });
+      return detector;
+    } catch (_) {
+      detector = null;
+      return null;
+    }
   };
 
   const stopCamera = () => {
@@ -32,9 +50,9 @@
       video.pause();
       video.srcObject = null;
     }
-    idle.hidden = false;
-    startButton.hidden = false;
-    stopButton.hidden = true;
+    if (idle) idle.hidden = false;
+    if (startButton) startButton.hidden = false;
+    if (stopButton) stopButton.hidden = true;
     if (!busy) setStatus('Kamera ist nicht aktiv.');
   };
 
@@ -65,38 +83,15 @@
           return;
         }
       } catch (_) {
-        // Transient detector errors are expected while the camera is warming up.
+        // Camera frames can fail briefly while autofocus/exposure settles.
       }
     }
     raf = requestAnimationFrame(scanFrame);
   };
 
-  const startCamera = async () => {
-    if (stream || busy) return;
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setStatus('Dieser Browser erlaubt keinen Kamerazugriff. Karten-ID bitte manuell eingeben.', 'error');
-      return;
-    }
-
-    let supportsQr = false;
-    if ('BarcodeDetector' in window) {
-      try {
-        const formats = typeof BarcodeDetector.getSupportedFormats === 'function'
-          ? await BarcodeDetector.getSupportedFormats()
-          : ['qr_code'];
-        supportsQr = formats.includes('qr_code');
-        if (supportsQr) detector = new BarcodeDetector({ formats: ['qr_code'] });
-      } catch (_) {
-        detector = null;
-      }
-    }
-    if (!supportsQr || !detector) {
-      setStatus('QR-Erkennung ist in diesem Browser nicht verfügbar. Nutze Chrome oder gib die Karten-ID manuell ein.', 'error');
-      return;
-    }
-
+  const requestCamera = async () => {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
+      return await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           facingMode: { ideal: 'environment' },
@@ -104,9 +99,32 @@
           height: { ideal: 720 },
         },
       });
+    } catch (error) {
+      if (error?.name === 'OverconstrainedError' || error?.name === 'ConstraintNotSatisfiedError') {
+        return navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+      }
+      throw error;
+    }
+  };
+
+  const startCamera = async () => {
+    if (stream || busy) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setStatus('Live-Kamera ist hier nicht verfügbar. Nutze „Foto scannen“ oder gib die Karten-ID ein.', 'error');
+      return;
+    }
+
+    const qrDetector = await ensureDetector();
+    if (!qrDetector) {
+      setStatus('QR-Erkennung ist in diesem Browser nicht verfügbar. Karten-ID bitte manuell eingeben.', 'error');
+      return;
+    }
+
+    try {
+      stream = await requestCamera();
       video.srcObject = stream;
       await video.play();
-      idle.hidden = true;
+      if (idle) idle.hidden = true;
       startButton.hidden = true;
       stopButton.hidden = false;
       setStatus('Kamera aktiv – QR-Code mittig in den Rahmen halten.');
@@ -114,10 +132,36 @@
     } catch (error) {
       stopCamera();
       const denied = error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError';
-      setStatus(
-        denied ? 'Kamerazugriff wurde nicht erlaubt. Bitte Browser-Berechtigung prüfen.' : 'Kamera konnte nicht gestartet werden.',
-        'error',
-      );
+      if (denied) {
+        setStatus('Live-Kamera ist im Browser blockiert. Nutze „Foto scannen“ oder erlaube Kamera in den Website-Einstellungen.', 'error');
+      } else {
+        setStatus('Kamera konnte nicht gestartet werden. Nutze alternativ „Foto scannen“.', 'error');
+      }
+    }
+  };
+
+  const scanPhoto = async file => {
+    if (!file || busy) return;
+    const qrDetector = await ensureDetector();
+    if (!qrDetector) {
+      setStatus('QR-Erkennung ist in diesem Browser nicht verfügbar. Karten-ID bitte manuell eingeben.', 'error');
+      return;
+    }
+    try {
+      setStatus('Foto wird geprüft …');
+      const bitmap = await createImageBitmap(file);
+      const codes = await qrDetector.detect(bitmap);
+      bitmap.close?.();
+      const qr = codes.find(item => item.rawValue);
+      if (!qr) {
+        setStatus('Auf dem Foto wurde kein QR-Code erkannt. Bitte näher und schärfer fotografieren.', 'error');
+        return;
+      }
+      submitToken(qr.rawValue);
+    } catch (_) {
+      setStatus('Das Foto konnte nicht ausgewertet werden. Bitte erneut fotografieren.', 'error');
+    } finally {
+      if (photoInput) photoInput.value = '';
     }
   };
 
@@ -131,8 +175,11 @@
   });
   shell.querySelectorAll('[data-wallet-scan-close]').forEach(button => button.addEventListener('click', closeScanner));
   shell.addEventListener('click', event => { if (event.target === shell) closeScanner(); });
-  startButton.addEventListener('click', startCamera);
-  stopButton.addEventListener('click', stopCamera);
+  startButton?.addEventListener('click', startCamera);
+  stopButton?.addEventListener('click', stopCamera);
+  photoButton?.addEventListener('click', () => photoInput?.click());
+  photoInput?.addEventListener('change', () => scanPhoto(photoInput.files?.[0]));
+
   form.addEventListener('submit', event => {
     if (!tokenInput.value.trim()) {
       event.preventDefault();
