@@ -1,6 +1,6 @@
 import json
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from django.contrib.admin.views.decorators import staff_member_required
@@ -12,22 +12,30 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from . import patient_portal
-from .models import Appointment, Customer
+from .models import Appointment, Customer, WhatsAppTemplate
 
 
 AESTHETIC_ADMIN_API = 'https://esthetic.smarbiz.sbs/api/mobile/admin'
 SECTIONS = {
     'bookings': ('Termine', 'Reservierungen und Terminstatus verwalten'),
-    'patients': ('Patientenakten', 'Dokumente, Fotos und Notizen chronologisch verwalten'),
-    'reviews': ('Google Bewertungen', 'Bewertungsaktivitäten prüfen und dokumentieren'),
-    'wallet': ('A+ Wallet', 'A+ Guthaben der Patienten aufladen oder korrigieren'),
-    'referrals': ('Empfehlungen', 'Empfehlungen an Freunde im Blick behalten'),
+    'patients': ('Patientenakten', 'Dokumente, Termine, Punkte und Kommunikation an einem Ort'),
+    'reviews': ('Google Bewertungen', 'Bewertungen verifizieren und Punkte erst nach Prüfung freigeben'),
+    'wallet': ('A+ Punkte', 'Punktestände suchen, prüfen und manuell korrigieren'),
+    'referrals': ('Empfehlungen', 'Empfehlungen an Freunde und Punkteaktivitäten im Blick behalten'),
 }
 
 
 def _authorization(request):
     value = str(request.session.get('aplus_admin_authorization') or '').strip()
     return value if value.startswith('Bearer ') else ''
+
+
+def _local_view_only(request):
+    try:
+        profile = request.user.aesthetic_access
+    except Exception:
+        profile = None
+    return bool(profile and profile.view_only)
 
 
 def _api(request, endpoint, method='GET', payload=None, query=None):
@@ -40,11 +48,7 @@ def _api(request, endpoint, method='GET', payload=None, query=None):
         if encoded:
             url += f'?{encoded}'
     body = None
-    headers = {
-        'Authorization': authorization,
-        'Accept': 'application/json',
-        'User-Agent': 'A-Esthetic-Book-Focused-Admin/3.0',
-    }
+    headers = {'Authorization': authorization, 'Accept': 'application/json', 'User-Agent': 'A-Esthetic-Book-Focused-Admin/4.0'}
     if payload is not None:
         body = json.dumps(payload).encode('utf-8')
         headers['Content-Type'] = 'application/json'
@@ -80,6 +84,15 @@ def _redirect(section, notice='saved', extra=None):
     return redirect(f'/verwaltung/app/{section}/{suffix}')
 
 
+def _wa_phone(value):
+    digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    if digits.startswith('00'):
+        digits = digits[2:]
+    elif digits.startswith('0'):
+        digits = '49' + digits[1:]
+    return digits
+
+
 def _booking_context(request):
     query = str(request.GET.get('q') or '').strip()
     status = str(request.GET.get('status') or '').strip()
@@ -98,16 +111,13 @@ def _booking_context(request):
         qs = qs.filter(status=status)
     else:
         status = ''
-
     now = timezone.now()
-    upcoming = list(qs.filter(starts_at__gte=now).exclude(status='cancelled').order_by('starts_at')[:120])
-    history = list(qs.filter(Q(starts_at__lt=now) | Q(status='cancelled')).order_by('-starts_at')[:180])
     return {
         'query': query,
         'status_filter': status,
         'status_choices': Appointment.STATUS,
-        'upcoming': upcoming,
-        'history': history,
+        'upcoming': list(qs.filter(starts_at__gte=now).exclude(status='cancelled').order_by('starts_at')[:120]),
+        'history': list(qs.filter(Q(starts_at__lt=now) | Q(status='cancelled')).order_by('-starts_at')[:180]),
         'today_count': Appointment.objects.filter(starts_at__date=timezone.localdate()).exclude(status='cancelled').count(),
         'new_count': Appointment.objects.filter(status='new', starts_at__gte=now).count(),
     }
@@ -128,6 +138,12 @@ def _patient_context(request):
     selected = None
     records = []
     appointments = []
+    points = None
+    remote_customer_id = None
+    points_error = ''
+    whatsapp_templates = []
+    whatsapp_url = ''
+    call_url = ''
     raw_customer = str(request.GET.get('customer') or '').strip()
     if raw_customer.isdigit():
         selected = Customer.objects.filter(pk=int(raw_customer)).first()
@@ -149,12 +165,49 @@ def _patient_context(request):
                 'created_at': record.captured_at or record.created_at,
                 'appointment': record.appointment,
             })
+
+        phone = _wa_phone(selected.phone)
+        call_url = f'tel:{selected.phone}' if selected.phone else ''
+        whatsapp_url = f'https://wa.me/{phone}' if phone else ''
+        if phone:
+            for template in WhatsAppTemplate.objects.filter(active=True):
+                text = template.render_for(selected)
+                whatsapp_templates.append({
+                    'id': template.pk,
+                    'name': template.name,
+                    'text': text,
+                    'url': f'https://wa.me/{phone}?text={quote(text)}',
+                })
+
+        # Points live in the A+ customer account service. A local view-only doctor
+        # can still open the complete Book record without a remote bearer token.
+        if _authorization(request):
+            try:
+                remote = _api(request, 'customers/', query={'q': selected.email})
+                exact = next(
+                    (item for item in remote.get('customers', []) if str(item.get('email') or '').strip().lower() == selected.email.strip().lower()),
+                    None,
+                )
+                if exact:
+                    points = int(exact.get('coins') or 0)
+                    remote_customer_id = int(exact.get('id'))
+            except (PermissionError, RuntimeError, ValueError, TypeError) as exc:
+                points_error = str(exc)
+
     return {
         'query': query,
         'patients': customers,
         'selected_customer': selected,
         'patient_records': records,
         'patient_appointments': appointments,
+        'selected_points': points,
+        'remote_customer_id': remote_customer_id,
+        'points_error': points_error,
+        'call_url': call_url,
+        'whatsapp_url': whatsapp_url,
+        'whatsapp_templates': whatsapp_templates,
+        'salutation_choices': Customer.SALUTATION,
+        'view_only': _local_view_only(request),
     }
 
 
@@ -162,34 +215,47 @@ def _patient_context(request):
 @staff_member_required(login_url='/verwaltung/login/')
 @require_http_methods(['GET', 'POST'])
 def app_management(request, section='bookings'):
-    # Termine must always use the existing detailed SimplyBook-style Book calendar.
-    # The focused A+ pages only extend the management with patient records,
-    # Google reviews, wallet and referrals; they do not replace the calendar UI.
     if section == 'bookings':
         return redirect('/verwaltung/kalender/')
-
     if section not in SECTIONS:
         section = 'patients'
-    if not request.session.get('aplus_app_admin'):
+
+    local_view_only = _local_view_only(request)
+    if not request.session.get('aplus_app_admin') and not local_view_only:
         return HttpResponseForbidden('A+ App Management ist nur über eine bestätigte A+ Admin-Sitzung verfügbar.')
+    if local_view_only and not request.session.get('aplus_app_admin') and section != 'patients':
+        return redirect('/verwaltung/app/patients/')
 
     try:
         if request.method == 'POST':
+            if local_view_only:
+                return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
             action = str(request.POST.get('action') or '')
-
             if action == 'patient_upload':
-                customer_id = int(request.POST.get('customer_id'))
-                return patient_portal.staff_add_record(request, customer_id)
-
+                return patient_portal.staff_add_record(request, int(request.POST.get('customer_id')))
+            if action == 'patient_salutation':
+                customer = Customer.objects.get(pk=int(request.POST.get('customer_id')))
+                value = str(request.POST.get('salutation') or '')
+                if value not in {key for key, _ in Customer.SALUTATION}:
+                    raise ValueError('Ungültige Anrede.')
+                customer.salutation = value
+                customer.save(update_fields=['salutation', 'updated_at'])
+                return redirect(f'/verwaltung/app/patients/?customer={customer.pk}&notice=profile')
+            if action == 'patient_points_adjust':
+                remote_id = int(request.POST.get('remote_customer_id'))
+                delta = int(request.POST.get('point_delta') or 0)
+                if not delta:
+                    raise ValueError('Bitte eine Punktzahl größer oder kleiner als 0 eingeben.')
+                _api(request, f'customers/{remote_id}/', method='POST', payload={'coin_delta': delta})
+                local_id = int(request.POST.get('customer_id'))
+                return redirect(f'/verwaltung/app/patients/?customer={local_id}&notice=points')
             if action == 'wallet_adjust':
                 customer_id = int(request.POST.get('customer_id'))
-                credit_text = str(request.POST.get('credit_delta_eur') or '').replace(',', '.').strip()
-                credit_cents = int(round(float(credit_text) * 100)) if credit_text else 0
-                if not credit_cents:
-                    raise ValueError('Bitte einen Betrag größer oder kleiner als 0 eingeben.')
-                _api(request, f'customers/{customer_id}/', method='POST', payload={'credit_delta_cents': credit_cents})
-                return _redirect('wallet', 'wallet')
-
+                delta = int(request.POST.get('point_delta') or 0)
+                if not delta:
+                    raise ValueError('Bitte eine Punktzahl größer oder kleiner als 0 eingeben.')
+                _api(request, f'customers/{customer_id}/', method='POST', payload={'coin_delta': delta})
+                return _redirect('wallet', 'points')
             if action == 'review_verify':
                 review_id = int(request.POST.get('review_id'))
                 rating_text = str(request.POST.get('rating') or '').strip()
@@ -206,15 +272,11 @@ def app_management(request, section='bookings'):
             context.update(_patient_context(request))
         elif section == 'wallet':
             data = _api(request, 'customers/', query={'q': query})
-            for customer in data.get('customers', []):
-                cents = int(customer.get('credit_cents') or 0)
-                customer['credit_eur'] = f'{cents / 100:.2f}'.replace('.', ',')
             context['query'] = query
         elif section == 'reviews':
             data = _api(request, 'reviews/')
         else:
             data = _api(request, 'referrals/')
-
         title, subtitle = SECTIONS[section]
         context.update({
             'section': section,
@@ -223,6 +285,7 @@ def app_management(request, section='bookings'):
             'sections': SECTIONS,
             'data': data,
             'notice': request.GET.get('notice') or '',
+            'view_only': local_view_only,
         })
         return render(request, 'booking/app_management.html', context)
     except PermissionError as exc:
@@ -234,8 +297,9 @@ def app_management(request, section='bookings'):
             'data': {},
             'error': str(exc),
             'needs_reauth': True,
+            'view_only': local_view_only,
         }, status=403)
-    except (RuntimeError, ValueError, TypeError) as exc:
+    except (RuntimeError, ValueError, TypeError, Customer.DoesNotExist) as exc:
         return render(request, 'booking/app_management.html', {
             'section': section,
             'section_title': SECTIONS[section][0],
@@ -243,4 +307,5 @@ def app_management(request, section='bookings'):
             'sections': SECTIONS,
             'data': {},
             'error': str(exc),
+            'view_only': local_view_only,
         }, status=502)

@@ -1,5 +1,14 @@
 from django.contrib import admin
-from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember, WorkingHour
+from .models import (
+    AdminAccessProfile,
+    Appointment,
+    BlockedPeriod,
+    Customer,
+    Service,
+    StaffMember,
+    WhatsAppTemplate,
+    WorkingHour,
+)
 
 
 class WorkingHourInline(admin.TabularInline):
@@ -40,8 +49,10 @@ class BlockedPeriodAdmin(admin.ModelAdmin):
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ('last_name', 'first_name', 'email', 'phone', 'created_at')
+    list_display = ('last_name', 'first_name', 'salutation', 'email', 'phone', 'created_at')
+    list_filter = ('salutation',)
     search_fields = ('first_name', 'last_name', 'email', 'phone')
+    ordering = ('last_name', 'first_name')
     readonly_fields = ('created_at', 'updated_at')
 
 
@@ -53,3 +64,19 @@ class AppointmentAdmin(admin.ModelAdmin):
     date_hierarchy = 'starts_at'
     readonly_fields = ('public_id', 'idempotency_key', 'created_at', 'updated_at')
     autocomplete_fields = ('customer',)
+
+
+@admin.register(AdminAccessProfile)
+class AdminAccessProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'staff', 'view_only', 'updated_at')
+    list_filter = ('view_only', 'staff')
+    search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name', 'staff__display_name')
+    autocomplete_fields = ('user',)
+
+
+@admin.register(WhatsAppTemplate)
+class WhatsAppTemplateAdmin(admin.ModelAdmin):
+    list_display = ('name', 'active', 'sort_order', 'updated_at')
+    list_filter = ('active',)
+    search_fields = ('name', 'body')
+    ordering = ('sort_order', 'name')

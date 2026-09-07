@@ -1,0 +1,132 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>Dashboard | A+ Esthetic Verwaltung</title>
+  <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/admin-dashboard-v11.css' %}">
+</head>
+<body class="admin-body sb-admin-body app-management-body aplus-command-body">
+<header class="sb-mobile-bar app-mobile-bar">
+  <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
+  <strong class="sb-mobile-title">Dashboard</strong>
+  <span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span>
+</header>
+<div class="sb-drawer-backdrop" data-drawer-backdrop></div>
+<aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true">
+  <div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div>
+  <nav class="sb-drawer-nav app-focused-nav">
+    <div class="app-nav-label">A+ MANAGEMENT</div>
+    <a class="is-active" href="/verwaltung/dashboard/"><span>⌂</span>Dashboard</a>
+    <a href="/verwaltung/kalender/"><span>▣</span>Kalender</a>
+    <a href="/verwaltung/kunden/"><span>♙</span>Kunden</a>
+    <a href="/verwaltung/app/patients/"><span>▤</span>Patientenakten</a>
+    <a href="/verwaltung/app/wallet/"><span>◆</span>A+ Punkte</a>
+    <a href="/verwaltung/app/reviews/"><span>★</span>Google Bewertungen</a>
+    <a href="/verwaltung/app/referrals/"><span>↗</span>Empfehlungen</a>
+    <div class="app-nav-spacer"></div>
+    <a href="/verwaltung/logout/"><span>↪</span>Abmelden</a>
+  </nav>
+</aside>
+
+<main class="admin-shell sb-admin-shell app-management-shell command-shell">
+  <header class="admin-topbar sb-desktop-topbar app-focused-topbar">
+    <div class="admin-brand"><a class="brand brand-image" href="/verwaltung/dashboard/"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"></a><div class="brand-meta">Command Center</div></div>
+    <nav class="admin-nav app-desktop-nav"><a class="is-active" href="/verwaltung/dashboard/">Dashboard</a><a href="/verwaltung/kalender/">Kalender</a><a href="/verwaltung/app/patients/">Patienten</a><a href="/verwaltung/app/wallet/">Punkte</a></nav>
+    <div class="admin-actions">{% if view_only %}<span class="view-only-badge">VIEW ONLY</span>{% endif %}<a href="/verwaltung/logout/">Abmelden</a></div>
+  </header>
+
+  <section class="command-hero">
+    <div class="command-hero-orbit"></div>
+    <div class="command-hero-copy"><span>A+ ESTHETIC · CONTROL</span><h1>Management<br>Dashboard</h1><p>Patienten, nächste Termine, Kampagnen und Kommunikation in einer Oberfläche.</p></div>
+    <div class="command-stats"><article><b>{{ today_count }}</b><span>HEUTE</span></article><article><b>{{ upcoming_count }}</b><span>BEVORSTEHEND</span></article><article><b>{{ patient_count }}</b><span>PATIENTEN</span></article></div>
+  </section>
+
+  {% if view_only %}<div class="command-notice">Dieser Zugang ist <strong>nur zum Ansehen</strong> freigeschaltet. Änderungen und Uploads sind gesperrt.</div>{% endif %}
+  {% if error %}<div class="admin-notice is-error">{{ error }}</div>{% endif %}
+  {% if saved %}<div class="admin-notice">Änderung gespeichert.</div>{% endif %}
+
+  <section class="command-search-panel">
+    <div><span>PATIENT FINDER</span><h2>Patient suchen</h2><p>Name, Nachname, E-Mail oder Telefonnummer.</p></div>
+    <form method="get"><input type="search" name="q" value="{{ query }}" placeholder="z. B. Müller, Sophie, +49 …" autocomplete="off"><button type="submit">Suchen</button></form>
+  </section>
+
+  {% if query %}
+  <section class="command-results">
+    <div class="command-section-head"><div><span>SUCHERGEBNIS</span><h2>{{ customers|length }} Treffer</h2></div></div>
+    <div class="patient-result-grid">
+      {% for customer in customers %}
+      <article class="patient-result-card" data-phone="{{ customer.phone }}">
+        <div class="patient-result-avatar">{{ customer.last_name|slice:":1" }}{{ customer.first_name|slice:":1" }}</div>
+        <div class="patient-result-copy"><span>{{ customer.last_name|upper }}</span><h3>{{ customer.first_name }} {{ customer.last_name }}</h3><p>{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</p></div>
+        <div class="patient-result-actions">
+          <a class="patient-open" href="/verwaltung/app/patients/?customer={{ customer.id }}">Akte öffnen</a>
+          {% if customer.phone %}<a href="tel:{{ customer.phone }}">Anrufen</a><button type="button" data-wa>WhatsApp</button>{% endif %}
+        </div>
+      </article>
+      {% empty %}<div class="empty">Kein Patient gefunden.</div>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="command-grid-two">
+    <article class="command-panel command-next-day">
+      <div class="command-section-head"><div><span>NÄCHSTER BUCHUNGSTAG</span><h2>{% if next_day %}{{ next_day|date:"l, d.m.Y" }}{% else %}Keine kommenden Termine{% endif %}</h2></div>{% if next_day %}<a href="/verwaltung/kalender/?date={{ next_day|date:'Y-m-d' }}">Kalender ›</a>{% endif %}</div>
+      <div class="next-day-list">
+        {% for appointment in next_day_appointments %}
+        <a href="/verwaltung/app/patients/?customer={{ appointment.customer_id }}" class="next-day-row"><time>{{ appointment.starts_at|date:"H:i" }}</time><div><strong>{{ appointment.customer.last_name }}, {{ appointment.customer.first_name }}</strong><span>{{ appointment.service.name }} · {{ appointment.service.duration_minutes }} Min. · {{ appointment.staff.display_name }}</span></div><b>›</b></a>
+        {% empty %}<div class="empty">Noch keine kommenden Reservierungen.</div>{% endfor %}
+      </div>
+    </article>
+
+    <article class="command-panel command-shortcuts">
+      <div class="command-section-head"><div><span>SCHNELLZUGRIFF</span><h2>Heute erledigen</h2></div></div>
+      <div class="shortcut-grid"><a href="/verwaltung/kalender/"><b>▣</b><span>Kalender</span></a><a href="/verwaltung/app/patients/"><b>▤</b><span>Patientenakten</span></a><a href="/verwaltung/app/wallet/"><b>◆</b><span>Punkte</span></a><a href="/verwaltung/app/reviews/"><b>★</b><span>Reviews prüfen</span></a></div>
+    </article>
+  </section>
+
+  <section class="command-panel campaign-admin" id="campaigns">
+    <div class="command-section-head"><div><span>PATIENT APP · SPECIAL OFFERS</span><h2>Kampagnen & Banner</h2><p>Diese Inhalte erscheinen direkt im Dashboard der Patienten-App.</p></div></div>
+    {% if banners_error %}<div class="admin-notice is-error">{{ banners_error }}</div>{% endif %}
+    <div class="campaign-admin-grid">
+      {% for banner in banners %}
+      <form method="post" class="campaign-editor">
+        {% csrf_token %}<input type="hidden" name="action" value="banner_save"><input type="hidden" name="banner_id" value="{{ banner.id }}">
+        <div class="campaign-preview" {% if banner.image_url %}style="--preview-image:url('{{ banner.image_url }}')"{% endif %}><div><span>SPECIAL OFFER</span><strong>{{ banner.title }}</strong><small>{{ banner.text|truncatechars:110 }}</small></div></div>
+        <label>Titel<input name="title" value="{{ banner.title }}" required></label><label>Text<textarea name="text">{{ banner.text }}</textarea></label><label>Banner-Bild URL<input name="image_url" type="url" value="{{ banner.image_url }}" placeholder="https://…"></label>
+        <div class="editor-two"><label>Button-Text<input name="cta_label" value="{{ banner.cta_label }}"></label><label>Button-Link<input name="cta_url" type="url" value="{{ banner.cta_url }}"></label></div>
+        <div class="editor-two"><label>Start<input name="starts_at" type="datetime-local" value="{{ banner.starts_at|slice:':16' }}"></label><label>Ende<input name="ends_at" type="datetime-local" value="{{ banner.ends_at|default:''|slice:':16' }}"></label></div>
+        <div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" {% if banner.active %}checked{% endif %}> Aktiv</label><input name="sort_order" type="number" value="{{ banner.sort_order|default:100 }}"><button {% if view_only %}disabled{% endif %}>Speichern</button><button type="submit" name="action" value="banner_delete" class="delete-btn" {% if view_only %}disabled{% endif %}>Löschen</button></div>
+      </form>
+      {% endfor %}
+      <form method="post" class="campaign-editor campaign-new">
+        {% csrf_token %}<input type="hidden" name="action" value="banner_save"><div class="campaign-preview"><div><span>NEU</span><strong>Neue Kampagne</strong><small>Banner, Text und optionalen Call-to-Action definieren.</small></div></div>
+        <label>Titel<input name="title" required placeholder="z. B. Herbst Special"></label><label>Text<textarea name="text" placeholder="Kurzer Kampagnentext …"></textarea></label><label>Banner-Bild URL<input name="image_url" type="url" placeholder="https://…"></label><div class="editor-two"><label>Button-Text<input name="cta_label" placeholder="Termin sichern"></label><label>Button-Link<input name="cta_url" type="url" placeholder="https://…"></label></div><div class="editor-two"><label>Start<input name="starts_at" type="datetime-local"></label><label>Ende<input name="ends_at" type="datetime-local"></label></div><div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" checked> Aktiv</label><input name="sort_order" type="number" value="100"><button {% if view_only %}disabled{% endif %}>Kampagne anlegen</button></div>
+      </form>
+    </div>
+  </section>
+
+  <section class="command-panel template-admin" id="whatsapp-templates">
+    <div class="command-section-head"><div><span>WHATSAPP</span><h2>Nachrichten-Vorlagen</h2><p>Variablen: <code>{anrede}</code> <code>{vorname}</code> <code>{nachname}</code> <code>{name}</code>. Die Anrede kommt aus dem Patientenprofil – es wird kein Geschlecht aus dem Namen geraten.</p></div></div>
+    <div class="template-grid">
+      {% for template in templates %}
+      <form method="post" class="template-card">{% csrf_token %}<input type="hidden" name="action" value="template_save"><input type="hidden" name="template_id" value="{{ template.id }}"><label>Name<input name="name" value="{{ template.name }}" required></label><label>Text<textarea name="body" required>{{ template.body }}</textarea></label><div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" {% if template.active %}checked{% endif %}> Aktiv</label><input name="sort_order" type="number" value="{{ template.sort_order }}"><button {% if view_only %}disabled{% endif %}>Speichern</button><button type="submit" name="action" value="template_delete" class="delete-btn" {% if view_only %}disabled{% endif %}>Löschen</button></div></form>
+      {% endfor %}
+      <form method="post" class="template-card template-new">{% csrf_token %}<input type="hidden" name="action" value="template_save"><label>Name<input name="name" required placeholder="Neue Vorlage"></label><label>Text<textarea name="body" required placeholder="Hallo {vorname}, …"></textarea></label><div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" checked> Aktiv</label><input name="sort_order" type="number" value="100"><button {% if view_only %}disabled{% endif %}>Vorlage anlegen</button></div></form>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  const drawer=document.querySelector('[data-drawer]'),backdrop=document.querySelector('[data-drawer-backdrop]');
+  const close=()=>{drawer?.classList.remove('is-open');backdrop?.classList.remove('is-open');drawer?.setAttribute('aria-hidden','true')};
+  document.querySelectorAll('[data-drawer-open]').forEach(b=>b.onclick=()=>{drawer?.classList.add('is-open');backdrop?.classList.add('is-open');drawer?.setAttribute('aria-hidden','false')});backdrop?.addEventListener('click',close);
+  document.querySelectorAll('[data-wa]').forEach(button=>button.onclick=()=>{let p=button.closest('[data-phone]')?.dataset.phone||'';p=p.replace(/\D/g,'');if(p.startsWith('0'))p='49'+p.slice(1);if(p)window.open('https://wa.me/'+p,'_blank','noopener');});
+})();
+</script>
+</body></html>

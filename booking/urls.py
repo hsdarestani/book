@@ -1,12 +1,13 @@
 from django.urls import path
-from . import admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, patient_portal, patient_portal_api, referral_relay, views
+from . import admin_dashboard_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, patient_portal, patient_portal_api, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
     path('', views.booking_page, name='home'),
     path('termin/<uuid:appointment_id>/kalender.ics', calendar.appointment_calendar, name='appointment_calendar'),
+    # Preserve the long-standing root/calendar contract for existing deep links and tests.
     path('verwaltung/', admin_views.dashboard_proxy, name='dashboard'),
-    path('verwaltung/dashboard/', admin_views.dashboard_proxy, name='admin_dashboard'),
+    path('verwaltung/dashboard/', admin_dashboard_views.admin_dashboard, name='admin_dashboard'),
     path('verwaltung/kalender/', admin_views.dashboard_proxy, name='admin_calendar'),
     path('verwaltung/buchungen/', admin_views.dashboard_proxy, name='admin_bookings'),
     path('verwaltung/kunden/', admin_views.dashboard_proxy, name='admin_customers'),
@@ -41,7 +42,6 @@ urlpatterns = [
     path('api/mobile/booking/manageable/', mobile_api.mobile_manageable_appointments, name='mobile_manageable_appointments'),
     path('api/mobile/booking/<uuid:appointment_id>/change/', mobile_api.mobile_appointment_change, name='mobile_appointment_change'),
     path('api/mobile/referral-email/', referral_relay.referral_email, name='mobile_referral_email'),
-
     path('api/mobile/app-admin/overview/', app_admin_api.overview, name='app_admin_overview'),
     path('api/mobile/app-admin/calendar/', app_admin_api.calendar, name='app_admin_calendar'),
     path('api/mobile/app-admin/bookings/', app_admin_api.bookings, name='app_admin_bookings'),
