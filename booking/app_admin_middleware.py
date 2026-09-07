@@ -28,7 +28,7 @@ class APlusAdminNavigationMiddleware:
 
     PATIENT_ASSETS = '''
 <link rel="stylesheet" href="/static/booking/admin-patient-detail-v7.css?v=20260907-v11" data-aplus-patient-detail-v7>
-<script defer src="/static/booking/admin-native-camera-v11.js?v=20260907-v11" data-aplus-native-camera-v11></script>
+<script defer src="/static/booking/admin-native-camera-v11.js?v=20260908-v13" data-aplus-native-camera-v11></script>
 '''
 
     CALENDAR_ASSETS = '''
