@@ -1,0 +1,25 @@
+/* A+ Esthetic admin app-shell inset correction v5
+   The legacy SimplyBook mobile shell reserves 64px above the body because its
+   header used to be fixed. Luxury v3 changed that header to sticky, so keeping
+   the legacy body padding creates a visible blank strip above Wallet and the
+   focused A+ management pages. Keep the native/system status-bar inset, but
+   remove this second web-level reservation. Calendar styles are intentionally
+   not targeted here. */
+
+@media (max-width:760px){
+  body.sb-admin-body.app-management-body,
+  body.sb-admin-body.wallet-management-body,
+  body.sb-admin-body.patient-file-body{
+    padding-top:0!important;
+    margin-top:0!important;
+  }
+
+  body.sb-admin-body.app-management-body > .sb-mobile-bar,
+  body.sb-admin-body.wallet-management-body > .sb-mobile-bar,
+  body.sb-admin-body.patient-file-body > .sb-mobile-bar{
+    position:sticky!important;
+    top:0!important;
+    margin-top:0!important;
+    transform:none!important;
+  }
+}
