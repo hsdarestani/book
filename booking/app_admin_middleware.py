@@ -13,10 +13,13 @@ class APlusAdminNavigationMiddleware:
 '''
 
     NON_CALENDAR_ASSETS = '''
-<link rel="stylesheet" href="/static/booking/admin-patient-detail-v7.css?v=20260907-v8" data-aplus-patient-detail-v7>
-<link rel="stylesheet" href="/static/booking/admin-scroll-recovery-v9.css?v=20260907-v9" data-aplus-scroll-recovery-v9>
+<link rel="stylesheet" href="/static/booking/admin-scroll-recovery-v9.css?v=20260907-v10" data-aplus-scroll-recovery-v10>
 <script defer src="/static/booking/admin-fast-drawer-v7.js?v=20260907-v8" data-aplus-fast-drawer-v7></script>
 <script defer src="/static/booking/admin-scroll-recovery-v9.js?v=20260907-v9" data-aplus-scroll-recovery-v9></script>
+'''
+
+    PATIENT_ASSETS = '''
+<link rel="stylesheet" href="/static/booking/admin-patient-detail-v7.css?v=20260907-v9" data-aplus-patient-detail-v7>
 '''
 
     CALENDAR_ASSETS = '''
@@ -67,14 +70,13 @@ class APlusAdminNavigationMiddleware:
             return response
 
         is_calendar = request.path.startswith('/verwaltung/kalender/') or request.path == '/verwaltung/'
+        is_patient = request.path.startswith('/verwaltung/patienten/') or request.path.startswith('/verwaltung/app/patients/')
 
         # Shared visual layer for all verified management pages.
         if 'data-aplus-luxury' not in html and '</head>' in html:
             html = html.replace('</head>', self.LUXURY_ASSETS + '</head>', 1)
 
-        # The fast drawer + patient-detail polish is deliberately excluded from
-        # calendar pages. The calendar is a long, absolute-positioned timeline
-        # and must stay on its own lightweight render path.
+        # Calendar remains isolated from the heavy patient/detail layer.
         if is_calendar:
             if 'data-aplus-calendar-stability-v8' not in html and '</head>' in html:
                 html = html.replace('</head>', self.CALENDAR_ASSETS + '</head>', 1)
@@ -84,8 +86,14 @@ class APlusAdminNavigationMiddleware:
             # the old #kalender anchor prevents Android from restoring the page
             # halfway down the long timeline and makes navigation feel instant.
             html = html.replace('#kalender"', '"')
-        elif 'data-aplus-patient-detail-v7' not in html and '</head>' in html:
-            html = html.replace('</head>', self.NON_CALENDAR_ASSETS + '</head>', 1)
+        else:
+            if 'data-aplus-scroll-recovery-v10' not in html and '</head>' in html:
+                html = html.replace('</head>', self.NON_CALENDAR_ASSETS + '</head>', 1)
+            # Patient-only form/drawer geometry must not leak into Buchungen or
+            # Kunden; it used to leave a full-height layer that could intercept
+            # touch scrolling on Android WebView.
+            if is_patient and 'data-aplus-patient-detail-v7' not in html and '</head>' in html:
+                html = html.replace('</head>', self.PATIENT_ASSETS + '</head>', 1)
 
         # Legacy patient detail used its own desktop-only header. Give it exactly
         # the same mobile app bar + drawer as the rest of management instead of
