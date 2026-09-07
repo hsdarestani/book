@@ -1,26 +1,58 @@
-/* A+ Esthetic admin scroll recovery v9
-   Non-calendar pages must always use native document scrolling. This layer
-   deliberately does not touch the calendar timeline. */
+/* A+ Esthetic admin scroll recovery v10
+   Native document scrolling for non-calendar admin surfaces. Keep Wallet out
+   because its transaction sheet intentionally locks the page while open. */
 @media (max-width:760px){
-  html:not([data-admin-page="calendar"]),
-  html:not([data-admin-page="calendar"]) body.sb-admin-body{
+  html[data-admin-page="bookings"],
+  html[data-admin-page="customers"],
+  html[data-admin-page="patients"],
+  html[data-admin-page="reviews"],
+  html[data-admin-page="referrals"],
+  html[data-admin-page="settings"],
+  html[data-admin-page="services"],
+  html[data-admin-page="information"]{
     height:auto!important;
     min-height:100%!important;
     max-height:none!important;
     overflow-x:hidden!important;
     overflow-y:auto!important;
-    touch-action:pan-y!important;
+    overscroll-behavior-y:auto!important;
+    touch-action:pan-y pinch-zoom!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+
+  html[data-admin-page="bookings"] body.sb-admin-body,
+  html[data-admin-page="customers"] body.sb-admin-body,
+  html[data-admin-page="patients"] body.sb-admin-body,
+  html[data-admin-page="reviews"] body.sb-admin-body,
+  html[data-admin-page="referrals"] body.sb-admin-body,
+  html[data-admin-page="settings"] body.sb-admin-body,
+  html[data-admin-page="services"] body.sb-admin-body,
+  html[data-admin-page="information"] body.sb-admin-body{
+    position:static!important;
+    inset:auto!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:100dvh!important;
+    max-height:none!important;
+    overflow-x:hidden!important;
+    overflow-y:visible!important;
+    touch-action:pan-y pinch-zoom!important;
     overscroll-behavior-y:auto!important;
     -webkit-overflow-scrolling:touch!important;
   }
 
-  html:not([data-admin-page="calendar"]) body.sb-admin-body{
-    position:static!important;
-  }
-
-  html:not([data-admin-page="calendar"]) body.sb-admin-body > main.sb-admin-shell,
-  html:not([data-admin-page="calendar"]) body.sb-admin-body > main.admin-shell,
-  html:not([data-admin-page="calendar"]) .app-management-shell{
+  html[data-admin-page="bookings"] main.sb-admin-shell,
+  html[data-admin-page="customers"] main.sb-admin-shell,
+  html[data-admin-page="patients"] main.sb-admin-shell,
+  html[data-admin-page="reviews"] main.sb-admin-shell,
+  html[data-admin-page="referrals"] main.sb-admin-shell,
+  html[data-admin-page="settings"] main.sb-admin-shell,
+  html[data-admin-page="services"] main.sb-admin-shell,
+  html[data-admin-page="information"] main.sb-admin-shell,
+  html[data-admin-page="patients"] .app-management-shell,
+  html[data-admin-page="reviews"] .app-management-shell,
+  html[data-admin-page="referrals"] .app-management-shell{
+    position:relative!important;
     height:auto!important;
     min-height:calc(100dvh - 58px)!important;
     max-height:none!important;
@@ -28,14 +60,36 @@
     touch-action:pan-y!important;
   }
 
-  /* A closed drawer/backdrop must never sit above the page and swallow touch. */
-  html:not([data-admin-page="calendar"]) .sb-drawer[aria-hidden="true"]{
+  /* A closed drawer/backdrop must never cover the document and swallow swipes. */
+  html:not([data-admin-page="calendar"]):not([data-admin-page="wallet"]) .sb-drawer[aria-hidden="true"],
+  html:not([data-admin-page="calendar"]):not([data-admin-page="wallet"]) .sb-drawer:not(.is-open){
     pointer-events:none!important;
     visibility:hidden!important;
   }
-  html:not([data-admin-page="calendar"]) .sb-drawer-backdrop:not(.is-open){
+  html:not([data-admin-page="calendar"]):not([data-admin-page="wallet"]) .sb-drawer-backdrop:not(.is-open){
+    display:none!important;
     pointer-events:none!important;
     visibility:hidden!important;
     opacity:0!important;
+  }
+
+  /* Fast drawer without keeping a full-height GPU layer promoted all the time. */
+  html:not([data-admin-page="calendar"]) .sb-drawer{
+    transition:transform 115ms cubic-bezier(.2,.8,.2,1)!important;
+    will-change:auto!important;
+    contain:none!important;
+    backface-visibility:visible!important;
+    -webkit-backface-visibility:visible!important;
+  }
+  html:not([data-admin-page="calendar"]) .sb-drawer.is-open,
+  html:not([data-admin-page="calendar"]) .sb-drawer[aria-hidden="false"]{
+    will-change:transform!important;
+    pointer-events:auto!important;
+    visibility:visible!important;
+  }
+  html:not([data-admin-page="calendar"]) .sb-drawer-backdrop{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    transition:opacity 70ms linear!important;
   }
 }
