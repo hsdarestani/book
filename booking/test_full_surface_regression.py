@@ -14,13 +14,7 @@ TEST_STORAGES = {
 
 @override_settings(STORAGES=TEST_STORAGES)
 class FullManagementSurfaceRegressionTests(TestCase):
-    """High-level regression guard for the management surfaces used by the app.
-
-    These tests intentionally exercise the real Django routes/templates instead of
-    implementation helpers. They protect navigation, customer creation, patient
-    detail, focused A+ sections, wallet history, and the calendar isolation rules
-    that have caused mobile regressions in the past.
-    """
+    """High-level regression guard for the management surfaces used by the app."""
 
     def setUp(self):
         user_model = get_user_model()
@@ -89,7 +83,9 @@ class FullManagementSurfaceRegressionTests(TestCase):
                     'direction': 'in',
                     'amount_cents': 6500,
                     'coin_amount': 0,
-                    'label': 'A+ Startguthaben',
+                    'description': 'A+ Startguthaben',
+                    'kind_label': 'Guthaben',
+                    'reference': '',
                     'created_at': '2026-09-07T12:00:00+00:00',
                 }],
             }
@@ -125,7 +121,10 @@ class FullManagementSurfaceRegressionTests(TestCase):
         saved = Customer.objects.get(email='neue.kundin@example.test')
         self.assertEqual(saved.first_name, 'Neue')
         self.assertEqual(saved.last_name, 'Kundin')
-        self.assertIn('/verwaltung/kunden/', response['Location'])
+        # The legacy form deliberately returns to the customer anchor on the
+        # canonical admin document; client-side routing then normalizes the URL.
+        self.assertIn('notice=customer', response['Location'])
+        self.assertTrue(response['Location'].endswith('#kunden'))
 
     @patch('booking.app_management_views._api')
     def test_focused_aplus_sections_have_one_header_contract(self, api):
