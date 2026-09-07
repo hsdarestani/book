@@ -1,0 +1,156 @@
+/* A+ Esthetic management shell v10
+   Two targeted regressions:
+   1) focused A+ management app bars must always be true edge-to-edge bars;
+   2) the "new customer" flow should feel like a native premium sheet, not a raw web form.
+   Calendar timeline/grid geometry is intentionally untouched. */
+
+@media (max-width:760px){
+  /* app-management pages used several nested shell widths over time. Full-bleed
+     from the viewport itself so Patients / Referrals / Wallet / Reviews align
+     identically regardless of body/main padding. */
+  body.app-management-body > .sb-mobile-bar.app-mobile-bar{
+    box-sizing:border-box!important;
+    width:100vw!important;
+    max-width:100vw!important;
+    margin-left:calc(50% - 50vw)!important;
+    margin-right:calc(50% - 50vw)!important;
+    left:auto!important;
+    right:auto!important;
+    padding-left:max(16px,env(safe-area-inset-left))!important;
+    padding-right:max(16px,env(safe-area-inset-right))!important;
+    border-radius:0!important;
+  }
+
+  body.app-management-body > .sb-mobile-bar.app-mobile-bar .sb-icon-button:first-child{
+    margin-left:-6px!important;
+  }
+
+  /* New customer = compact native bottom sheet. */
+  .sb-modal[data-modal="customer"]{
+    align-items:flex-end!important;
+    justify-content:center!important;
+    padding:0!important;
+    background:rgba(18,16,12,.48)!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+
+  .sb-modal[data-modal="customer"] .sb-modal-card.compact-sheet{
+    width:100%!important;
+    max-width:none!important;
+    max-height:calc(100dvh - max(18px,env(safe-area-inset-top)))!important;
+    margin:0!important;
+    overflow:auto!important;
+    border:1px solid rgba(60,49,31,.10)!important;
+    border-bottom:0!important;
+    border-radius:28px 28px 0 0!important;
+    background:#f8f5ee!important;
+    box-shadow:0 -24px 70px rgba(27,22,15,.18)!important;
+  }
+
+  .sb-modal[data-modal="customer"] .sb-sheet-head{
+    position:sticky!important;
+    top:0!important;
+    z-index:4!important;
+    min-height:88px!important;
+    grid-template-columns:46px minmax(0,1fr)!important;
+    gap:8px!important;
+    padding:10px 18px!important;
+    background:radial-gradient(circle at 100% 0,rgba(212,171,88,.16),transparent 36%),linear-gradient(145deg,#2b2822,#181713)!important;
+    border-radius:27px 27px 0 0!important;
+  }
+
+  .sb-modal[data-modal="customer"] .sb-sheet-head span{display:none!important}
+  .sb-modal[data-modal="customer"] .sb-sheet-head button{
+    width:42px!important;
+    height:42px!important;
+    border-radius:14px!important;
+    background:rgba(255,255,255,.07)!important;
+    color:#fff!important;
+    display:grid!important;
+    place-items:center!important;
+    font-size:25px!important;
+  }
+  .sb-modal[data-modal="customer"] .sb-sheet-head strong{
+    position:relative!important;
+    padding-bottom:18px!important;
+    text-align:left!important;
+    color:#fff!important;
+    font-size:19px!important;
+    font-weight:780!important;
+    letter-spacing:-.025em!important;
+  }
+  .sb-modal[data-modal="customer"] .sb-sheet-head strong::after{
+    content:"Kontakt- und Stammdaten anlegen"!important;
+    position:absolute!important;
+    left:0!important;
+    bottom:0!important;
+    color:rgba(255,255,255,.52)!important;
+    font-size:10px!important;
+    font-weight:550!important;
+    letter-spacing:.01em!important;
+  }
+
+  .sb-modal[data-modal="customer"] .sb-customer-form{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:12px 10px!important;
+    padding:20px 18px max(22px,env(safe-area-inset-bottom))!important;
+  }
+  .sb-modal[data-modal="customer"] .sb-customer-form::before{
+    content:"KUNDENPROFIL"!important;
+    grid-column:1/-1!important;
+    color:#a07b38!important;
+    font-size:9px!important;
+    font-weight:850!important;
+    letter-spacing:.18em!important;
+    margin:2px 0 1px!important;
+  }
+  .sb-modal[data-modal="customer"] .sb-customer-form > label{
+    display:grid!important;
+    gap:7px!important;
+    margin:0!important;
+    color:#655e53!important;
+    font-size:10px!important;
+    font-weight:760!important;
+  }
+  .sb-modal[data-modal="customer"] .sb-customer-form > label:nth-of-type(3),
+  .sb-modal[data-modal="customer"] .sb-customer-form > label:nth-of-type(4){
+    grid-column:1/-1!important;
+  }
+  .sb-modal[data-modal="customer"] .sb-customer-form input{
+    width:100%!important;
+    min-height:54px!important;
+    margin:0!important;
+    padding:0 15px!important;
+    border:1px solid rgba(58,48,34,.13)!important;
+    border-radius:16px!important;
+    background:#fff!important;
+    color:#27231d!important;
+    font-size:16px!important;
+    font-weight:560!important;
+    box-shadow:0 5px 18px rgba(38,30,20,.025)!important;
+    outline:none!important;
+  }
+  .sb-modal[data-modal="customer"] .sb-customer-form input:focus{
+    border-color:rgba(194,148,63,.65)!important;
+    box-shadow:0 0 0 4px rgba(198,152,67,.10)!important;
+  }
+  .sb-modal[data-modal="customer"] .sb-customer-form .sb-sheet-save{
+    grid-column:1/-1!important;
+    min-height:54px!important;
+    margin:4px 0 0!important;
+    border-radius:16px!important;
+    background:linear-gradient(145deg,#2a2721,#171612)!important;
+    color:#fff!important;
+    font-size:14px!important;
+    font-weight:800!important;
+    box-shadow:0 12px 26px rgba(31,25,17,.12)!important;
+  }
+}
+
+@media (max-width:350px){
+  .sb-modal[data-modal="customer"] .sb-customer-form{grid-template-columns:1fr!important}
+  .sb-modal[data-modal="customer"] .sb-customer-form > label{grid-column:1!important}
+  .sb-modal[data-modal="customer"] .sb-customer-form .sb-sheet-save{grid-column:1!important}
+}
