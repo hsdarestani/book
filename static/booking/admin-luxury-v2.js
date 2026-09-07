@@ -80,14 +80,43 @@
   };
   if (title && page !== 'calendar') title.textContent = titles[page] || 'Verwaltung';
 
-  // Give raw patient upload controls a proper mobile affordance without changing form behavior.
+  // Replace the raw browser file control in the focused Patientenakte with a
+  // premium drop/tap surface while preserving the original input and form.
   document.querySelectorAll('.app-patient-upload input[type="file"]').forEach(input => {
     if (input.dataset.luxFile) return;
     input.dataset.luxFile = '1';
+    const label = input.closest('label');
+    if (!label) return;
+    label.classList.add('lux-file-field');
+    const face = document.createElement('span');
+    face.className = 'lux-file-face';
+    face.innerHTML = '<b>＋</b><strong>Datei auswählen</strong><small>Foto, PDF oder Dokument · antippen zum Auswählen</small>';
+    input.before(face);
+    const strong = face.querySelector('strong');
+    const small = face.querySelector('small');
     input.addEventListener('change', () => {
-      const label = input.closest('label');
-      if (!label || !input.files?.length) return;
-      label.dataset.filename = input.files[0].name;
+      const file = input.files?.[0];
+      if (!file) {
+        strong.textContent = 'Datei auswählen';
+        small.textContent = 'Foto, PDF oder Dokument · antippen zum Auswählen';
+        return;
+      }
+      strong.textContent = file.name;
+      small.textContent = `${Math.max(1, Math.round(file.size / 1024))} KB · bereit zum Speichern`;
     });
   });
+
+  if (!document.getElementById('aplus-lux-file-style')) {
+    const style = document.createElement('style');
+    style.id = 'aplus-lux-file-style';
+    style.textContent = `
+      .app-patient-upload .lux-file-field{position:relative!important;display:block!important;overflow:hidden!important;border:1px dashed rgba(164,126,57,.35)!important;border-radius:19px!important;background:#faf6eb!important;padding:0!important;min-height:118px!important;color:transparent!important}
+      .app-patient-upload .lux-file-field input[type=file]{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;opacity:0!important;cursor:pointer!important;padding:0!important;z-index:2!important}
+      .app-patient-upload .lux-file-face{position:absolute!important;inset:0!important;display:grid!important;place-items:center!important;align-content:center!important;gap:4px!important;text-align:center!important;padding:16px!important;box-sizing:border-box!important;color:#74684f!important;pointer-events:none!important}
+      .app-patient-upload .lux-file-face b{width:34px!important;height:34px!important;border-radius:12px!important;display:grid!important;place-items:center!important;background:#e7c77f!important;color:#2b2419!important;font-size:20px!important}
+      .app-patient-upload .lux-file-face strong{max-width:90%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:#29261f!important;font-size:14px!important}
+      .app-patient-upload .lux-file-face small{color:#928873!important;font-size:10px!important;font-weight:500!important}
+    `;
+    document.head.appendChild(style);
+  }
 })();
