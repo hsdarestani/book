@@ -6,8 +6,10 @@ class APlusAdminNavigationMiddleware:
 <link rel="stylesheet" href="/static/booking/admin-luxury-v3.css?v=20260907-v3" data-aplus-luxury-v3>
 <link rel="stylesheet" href="/static/booking/admin-wallet-history-v4.css?v=20260907-v4" data-aplus-wallet-history-v4>
 <link rel="stylesheet" href="/static/booking/admin-app-inset-v5.css?v=20260907-v6" data-aplus-app-inset-v6>
+<link rel="stylesheet" href="/static/booking/admin-patient-controls-v6.css?v=20260907-v6" data-aplus-patient-controls-v6>
 <script defer src="/static/booking/admin-luxury-v2.js?v=20260907-v2" data-aplus-luxury></script>
 <script defer src="/static/booking/admin-luxury-v3.js?v=20260907-v3" data-aplus-luxury-v3></script>
+<script defer src="/static/booking/admin-patient-controls-v6.js?v=20260907-v6" data-aplus-patient-controls-v6></script>
 '''
 
     PATIENT_MOBILE_SHELL = '''
