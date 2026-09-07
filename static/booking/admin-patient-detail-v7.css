@@ -1,0 +1,312 @@
+/* A+ Esthetic — patient detail v7
+   A compact premium patient record surface plus a GPU-cheap mobile drawer.
+   Calendar grid/timeline styles are intentionally not touched. */
+
+@media (max-width:760px){
+  /* Fast drawer: transform + opacity only. Avoid backdrop blur and layout-heavy animation. */
+  .sb-drawer{
+    display:block!important;
+    position:fixed!important;
+    top:0!important;
+    left:0!important;
+    bottom:0!important;
+    width:min(82vw,360px)!important;
+    max-width:360px!important;
+    transform:translate3d(-101%,0,0)!important;
+    transition:transform 135ms cubic-bezier(.2,.8,.2,1)!important;
+    will-change:transform!important;
+    backface-visibility:hidden!important;
+    -webkit-backface-visibility:hidden!important;
+    contain:layout paint!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+    z-index:140!important;
+    box-shadow:18px 0 42px rgba(14,12,9,.18)!important;
+  }
+  .sb-drawer.is-open,
+  .sb-drawer[aria-hidden="false"]{
+    transform:translate3d(0,0,0)!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+  }
+  .sb-drawer-backdrop{
+    display:block!important;
+    position:fixed!important;
+    inset:0!important;
+    opacity:0!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+    background:rgba(16,14,11,.38)!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    transition:opacity 90ms linear!important;
+    z-index:130!important;
+  }
+  .sb-drawer-backdrop.is-open{
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+  }
+}
+
+/* Selected patient page */
+html[data-admin-page="patients"] .app-patient-toolbar{
+  margin:14px 18px 0!important;
+}
+html[data-admin-page="patients"] .app-back-link{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  min-height:34px!important;
+  padding:0 4px!important;
+  color:#8b692b!important;
+  font-size:12px!important;
+  font-weight:760!important;
+}
+html[data-admin-page="patients"] .app-patient-identity{
+  position:relative!important;
+  overflow:hidden!important;
+  background:
+    radial-gradient(circle at 88% 4%,rgba(211,169,81,.18),transparent 34%),
+    linear-gradient(145deg,#28251f 0%,#171612 100%)!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.05)!important;
+  box-shadow:0 18px 42px rgba(29,24,17,.13)!important;
+}
+html[data-admin-page="patients"] .app-patient-identity .app-avatar.large{
+  width:58px!important;
+  height:58px!important;
+  min-width:58px!important;
+  border-radius:18px!important;
+  background:rgba(255,255,255,.08)!important;
+  border:1px solid rgba(223,187,116,.18)!important;
+  color:#e3bd70!important;
+  box-shadow:none!important;
+}
+html[data-admin-page="patients"] .app-patient-identity .eyebrow{
+  color:#dcb76f!important;
+  font-size:9px!important;
+  letter-spacing:.17em!important;
+}
+html[data-admin-page="patients"] .app-patient-identity h2{
+  margin:3px 0 4px!important;
+  color:#fff!important;
+  font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:26px!important;
+  font-weight:760!important;
+  letter-spacing:-.035em!important;
+  line-height:1.05!important;
+}
+html[data-admin-page="patients"] .app-patient-identity p{
+  color:rgba(255,255,255,.58)!important;
+  font-size:11px!important;
+}
+
+html[data-admin-page="patients"] .app-patient-layout{
+  gap:14px!important;
+}
+html[data-admin-page="patients"] .app-upload-panel,
+html[data-admin-page="patients"] .app-timeline-panel{
+  overflow:hidden!important;
+  border:1px solid rgba(54,45,31,.10)!important;
+  background:rgba(255,255,255,.97)!important;
+  box-shadow:0 10px 28px rgba(35,29,20,.05)!important;
+}
+html[data-admin-page="patients"] .app-upload-panel>.panel-head{
+  margin:0 0 17px!important;
+  padding:0!important;
+}
+html[data-admin-page="patients"] .app-upload-panel>.panel-head h2{
+  margin:0 0 5px!important;
+  font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  font-size:24px!important;
+  font-weight:760!important;
+  letter-spacing:-.035em!important;
+}
+html[data-admin-page="patients"] .app-upload-panel>.panel-head p{
+  max-width:520px!important;
+  font-size:11px!important;
+  line-height:1.5!important;
+  color:#91897c!important;
+}
+
+html[data-admin-page="patients"] .app-patient-upload{
+  display:grid!important;
+  gap:13px!important;
+}
+html[data-admin-page="patients"] .app-patient-upload label{
+  display:grid!important;
+  gap:6px!important;
+  margin:0!important;
+  color:#5f594f!important;
+  font-size:10px!important;
+  font-weight:720!important;
+}
+html[data-admin-page="patients"] .app-form-grid{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:10px!important;
+}
+html[data-admin-page="patients"] .app-patient-upload input:not([type="checkbox"]):not([type="file"]),
+html[data-admin-page="patients"] .app-patient-upload select,
+html[data-admin-page="patients"] .app-patient-upload textarea{
+  width:100%!important;
+  min-height:50px!important;
+  height:auto!important;
+  margin:0!important;
+  padding:0 14px!important;
+  border:1px solid rgba(56,47,34,.12)!important;
+  border-radius:15px!important;
+  background:#faf8f3!important;
+  color:#29251f!important;
+  font-size:15px!important;
+  font-weight:550!important;
+  box-shadow:none!important;
+  outline:none!important;
+}
+html[data-admin-page="patients"] .app-patient-upload textarea{
+  min-height:104px!important;
+  padding:13px 14px!important;
+  line-height:1.45!important;
+  resize:vertical!important;
+}
+html[data-admin-page="patients"] .app-patient-upload input:focus,
+html[data-admin-page="patients"] .app-patient-upload select:focus,
+html[data-admin-page="patients"] .app-patient-upload textarea:focus{
+  border-color:rgba(190,145,62,.55)!important;
+  box-shadow:0 0 0 3px rgba(196,150,66,.09)!important;
+  background:#fff!important;
+}
+
+/* File picker face inserted by admin-luxury-v2.js */
+html[data-admin-page="patients"] .app-patient-upload .lux-file-field{
+  min-height:112px!important;
+  border:1px dashed rgba(168,127,52,.32)!important;
+  border-radius:18px!important;
+  background:linear-gradient(180deg,#fbf8ee 0%,#f8f3e7 100%)!important;
+}
+html[data-admin-page="patients"] .app-patient-upload .lux-file-face{
+  gap:5px!important;
+}
+html[data-admin-page="patients"] .app-patient-upload .lux-file-face b{
+  width:40px!important;
+  height:40px!important;
+  border-radius:14px!important;
+  background:#e7c574!important;
+  color:#292218!important;
+  font-size:23px!important;
+}
+html[data-admin-page="patients"] .app-patient-upload .lux-file-face strong{
+  font-size:13px!important;
+  font-weight:760!important;
+}
+
+/* Replace native blue checkbox with a compact switch card. */
+html[data-admin-page="patients"] .app-share-check{
+  position:relative!important;
+  display:block!important;
+  min-height:62px!important;
+  padding:11px 13px!important;
+  margin:0!important;
+  border:1px solid rgba(57,48,34,.11)!important;
+  border-radius:17px!important;
+  background:#f8f5ee!important;
+  box-sizing:border-box!important;
+  cursor:pointer!important;
+}
+html[data-admin-page="patients"] .app-share-check>input[type="checkbox"]{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  min-width:1px!important;
+  min-height:1px!important;
+  opacity:0!important;
+  pointer-events:none!important;
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+}
+html[data-admin-page="patients"] .app-share-check>span{
+  position:relative!important;
+  display:grid!important;
+  align-content:center!important;
+  min-height:38px!important;
+  padding-left:58px!important;
+  color:#2e2a23!important;
+  font-size:12px!important;
+  font-weight:730!important;
+  line-height:1.3!important;
+}
+html[data-admin-page="patients"] .app-share-check>span::before{
+  content:""!important;
+  position:absolute!important;
+  left:0!important;
+  top:50%!important;
+  width:46px!important;
+  height:27px!important;
+  transform:translateY(-50%)!important;
+  border-radius:999px!important;
+  background:#ddd7cc!important;
+  border:1px solid rgba(51,43,31,.13)!important;
+  transition:background 120ms ease!important;
+}
+html[data-admin-page="patients"] .app-share-check>span::after{
+  content:""!important;
+  position:absolute!important;
+  left:4px!important;
+  top:50%!important;
+  width:19px!important;
+  height:19px!important;
+  border-radius:50%!important;
+  background:#fff!important;
+  box-shadow:0 2px 6px rgba(31,25,17,.17)!important;
+  transform:translateY(-50%)!important;
+  transition:transform 120ms ease!important;
+}
+html[data-admin-page="patients"] .app-share-check>input:checked+span::before{
+  background:linear-gradient(135deg,#d8ad58,#b9842e)!important;
+}
+html[data-admin-page="patients"] .app-share-check>input:checked+span::after{
+  transform:translate(19px,-50%)!important;
+}
+html[data-admin-page="patients"] .app-primary-btn{
+  min-height:52px!important;
+  border-radius:16px!important;
+  border:0!important;
+  background:linear-gradient(145deg,#2b2822,#171612)!important;
+  color:#fff!important;
+  font-size:13px!important;
+  font-weight:780!important;
+  box-shadow:0 10px 24px rgba(29,24,17,.11)!important;
+}
+
+@media(max-width:760px){
+  html[data-admin-page="patients"] .app-patient-toolbar{margin:12px 18px 0!important}
+  html[data-admin-page="patients"] .app-patient-identity{
+    margin:8px 12px 0!important;
+    padding:14px!important;
+    border-radius:20px!important;
+  }
+  html[data-admin-page="patients"] .app-patient-identity .app-avatar.large{
+    width:52px!important;height:52px!important;min-width:52px!important;border-radius:16px!important;
+  }
+  html[data-admin-page="patients"] .app-patient-identity h2{font-size:24px!important}
+  html[data-admin-page="patients"] .app-patient-layout{margin:0!important}
+  html[data-admin-page="patients"] .app-upload-panel,
+  html[data-admin-page="patients"] .app-timeline-panel{
+    margin:12px 12px 0!important;
+    padding:18px!important;
+    border-radius:22px!important;
+    border-left:1px solid rgba(54,45,31,.10)!important;
+    border-right:1px solid rgba(54,45,31,.10)!important;
+  }
+  html[data-admin-page="patients"] .app-form-grid{grid-template-columns:1fr!important}
+  html[data-admin-page="patients"] .app-upload-panel>.panel-head h2{font-size:22px!important}
+  html[data-admin-page="patients"] .app-patient-upload input:not([type="checkbox"]):not([type="file"]),
+  html[data-admin-page="patients"] .app-patient-upload select{min-height:50px!important;font-size:15px!important}
+  html[data-admin-page="patients"] .app-patient-upload textarea{min-height:96px!important;font-size:15px!important}
+  html[data-admin-page="patients"] .app-share-check{min-height:60px!important}
+  html[data-admin-page="patients"] .app-primary-btn{min-height:52px!important}
+}
