@@ -1,0 +1,222 @@
+/* A+ Esthetic admin luxury v2
+   Calendar grid/timeline intentionally excluded. */
+:root{
+  --lux-ink:#211f1a;
+  --lux-ink-2:#302c24;
+  --lux-gold:#c99b42;
+  --lux-gold-soft:#f1e3bf;
+  --lux-paper:#f7f4ed;
+  --lux-card:#fffefa;
+  --lux-line:rgba(62,50,31,.12);
+  --lux-muted:#837b6e;
+  --lux-shadow:0 18px 55px rgba(48,37,20,.09);
+  --lux-shadow-sm:0 10px 28px rgba(48,37,20,.07);
+}
+
+/* One drawer everywhere, including the calendar shell. Calendar content remains untouched. */
+.sb-drawer{
+  width:min(82vw,390px)!important;
+  background:
+    radial-gradient(circle at 82% 10%,rgba(197,151,65,.14),transparent 28%),
+    linear-gradient(160deg,#27241e 0%,#191815 72%,#141310 100%)!important;
+  color:#fff!important;
+  border-right:1px solid rgba(255,255,255,.06)!important;
+  box-shadow:30px 0 80px rgba(0,0,0,.26)!important;
+}
+.sb-drawer-brand{
+  min-height:128px!important;
+  padding:24px 26px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:16px!important;
+  border-bottom:1px solid rgba(255,255,255,.09)!important;
+}
+.sb-drawer-brand img{
+  width:68px!important;height:68px!important;object-fit:contain!important;
+  border-radius:18px!important;background:#fff!important;padding:7px!important;box-sizing:border-box!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.18)!important;
+}
+.sb-drawer-brand strong{font-size:17px!important;letter-spacing:.01em!important;color:#fff!important}
+.sb-drawer-brand span{display:block!important;margin-top:5px!important;color:rgba(255,255,255,.48)!important;font-size:10px!important;letter-spacing:.18em!important;text-transform:uppercase!important}
+.sb-drawer-nav{padding:18px!important;display:grid!important;gap:5px!important}
+.sb-drawer-nav .lux-nav-label{padding:12px 12px 7px!important;color:rgba(255,255,255,.38)!important;font-size:9px!important;font-weight:800!important;letter-spacing:.21em!important}
+.sb-drawer-nav a,.sb-drawer-nav button{
+  min-height:56px!important;padding:8px 14px!important;border-radius:17px!important;border:1px solid transparent!important;
+  color:rgba(255,255,255,.84)!important;background:transparent!important;font-size:14px!important;font-weight:650!important;
+  display:flex!important;align-items:center!important;gap:13px!important;text-decoration:none!important;box-sizing:border-box!important;
+}
+.sb-drawer-nav a>span,.sb-drawer-nav button>span{
+  width:40px!important;height:40px!important;border-radius:13px!important;display:grid!important;place-items:center!important;
+  background:rgba(255,255,255,.055)!important;color:#dfbd79!important;font-size:16px!important;flex:0 0 40px!important;
+}
+.sb-drawer-nav a.is-active{
+  color:#fff!important;background:linear-gradient(90deg,rgba(203,158,72,.23),rgba(255,255,255,.06))!important;
+  border-color:rgba(220,181,106,.25)!important;box-shadow:inset 0 1px rgba(255,255,255,.04)!important;
+}
+.sb-drawer-nav a.is-active>span{background:linear-gradient(135deg,#d9ad59,#e8c985)!important;color:#292117!important;box-shadow:0 7px 20px rgba(193,143,48,.2)!important}
+.sb-drawer-nav .lux-nav-break{height:1px!important;background:rgba(255,255,255,.08)!important;margin:10px 0!important}
+.sb-drawer-backdrop.is-open{background:rgba(13,12,10,.5)!important;backdrop-filter:blur(7px)!important;-webkit-backdrop-filter:blur(7px)!important}
+
+/* Shared mobile bar — same identity on every surface. */
+.sb-mobile-bar{
+  background:rgba(35,32,26,.97)!important;color:#fff!important;border-bottom:1px solid rgba(218,181,110,.15)!important;
+  box-shadow:0 7px 24px rgba(36,28,16,.09)!important;
+}
+.sb-mobile-bar .sb-icon-button{color:#fff!important}
+.sb-mobile-bar .sb-mobile-title{font-weight:700!important;letter-spacing:-.01em!important}
+
+/* All admin pages except the calendar content get the premium surface. */
+html:not([data-admin-page="calendar"]) body.admin-body,
+.app-management-body,.wallet-management-body,.patient-file-body{
+  background:
+    radial-gradient(circle at 90% -5%,rgba(201,155,66,.11),transparent 30%),
+    linear-gradient(180deg,#faf8f3 0%,#f5f1e9 100%)!important;
+  color:var(--lux-ink)!important;
+}
+html:not([data-admin-page="calendar"]) .sb-admin-shell,
+.app-management-shell,.patient-file-shell{
+  max-width:1180px!important;margin:0 auto!important;padding-left:18px!important;padding-right:18px!important;
+}
+html:not([data-admin-page="calendar"]) .admin-panel,
+.app-management-body .admin-panel,.wallet-management-body .admin-panel,
+.patient-file-body .admin-panel{
+  border:1px solid var(--lux-line)!important;border-radius:28px!important;background:rgba(255,254,250,.94)!important;
+  box-shadow:var(--lux-shadow)!important;overflow:hidden!important;
+}
+html:not([data-admin-page="calendar"]) .panel-head,
+.app-management-body .panel-head,.wallet-management-body .panel-head{
+  padding:24px 24px 18px!important;border:0!important;
+}
+html:not([data-admin-page="calendar"]) .panel-head h2,
+.app-management-body .panel-head h2,.wallet-management-body .panel-head h2{
+  font-size:clamp(25px,6vw,38px)!important;letter-spacing:-.035em!important;color:var(--lux-ink)!important;
+}
+.eyebrow{color:#9a7737!important;font-weight:850!important;letter-spacing:.18em!important;font-size:10px!important}
+
+/* Legacy Bookings page becomes a real mobile booking cockpit. */
+html[data-admin-page="bookings"] #termine{background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}
+html[data-admin-page="bookings"] #termine>.panel-head{padding:18px 2px 22px!important}
+html[data-admin-page="bookings"] #termine .panel-count{
+  border:1px solid var(--lux-line)!important;background:#fff!important;border-radius:999px!important;padding:8px 12px!important;color:var(--lux-muted)!important;
+}
+html[data-admin-page="bookings"] .sb-booking-list{display:grid!important;gap:13px!important;background:transparent!important;border:0!important}
+html[data-admin-page="bookings"] .sb-booking-list .table-head{display:none!important}
+html[data-admin-page="bookings"] .sb-booking-list .table-row{
+  display:grid!important;grid-template-columns:92px 1fr!important;gap:6px 16px!important;padding:20px!important;
+  border:1px solid var(--lux-line)!important;border-radius:23px!important;background:rgba(255,255,255,.95)!important;
+  box-shadow:var(--lux-shadow-sm)!important;align-items:start!important;
+}
+html[data-admin-page="bookings"] .sb-booking-list .table-row>time{grid-row:1/4!important;color:var(--lux-muted)!important;font-size:11px!important}
+html[data-admin-page="bookings"] .sb-booking-list .table-row>time b{display:block!important;margin-top:5px!important;font-size:25px!important;letter-spacing:-.04em!important;color:var(--lux-ink)!important}
+html[data-admin-page="bookings"] .sb-booking-list .table-row strong{font-size:15px!important;color:var(--lux-ink)!important}
+html[data-admin-page="bookings"] .sb-booking-list .table-row small{display:block!important;margin-top:4px!important;color:#999184!important;font-size:10px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+html[data-admin-page="bookings"] .sb-booking-list .table-row>div:nth-of-type(3){display:none!important}
+html[data-admin-page="bookings"] .status-form{grid-column:2!important;margin-top:8px!important;display:grid!important;grid-template-columns:1fr!important}
+html[data-admin-page="bookings"] .status-form select{height:52px!important;border-radius:15px!important;border:1px solid var(--lux-line)!important;background:#faf8f3!important;padding:0 15px!important;font-size:15px!important}
+
+/* Customers: less spreadsheet, more premium CRM. */
+html[data-admin-page="customers"] #kunden{background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}
+html[data-admin-page="customers"] #kunden>.panel-head{padding:18px 2px 20px!important}
+html[data-admin-page="customers"] .admin-primary{
+  width:54px!important;height:54px!important;min-width:54px!important;padding:0!important;border-radius:17px!important;font-size:0!important;
+  background:linear-gradient(145deg,#2c2922,#171612)!important;box-shadow:0 12px 27px rgba(33,28,20,.18)!important;
+}
+html[data-admin-page="customers"] .admin-primary::after{content:'+';font-size:30px!important;color:#fff!important;font-weight:300!important}
+html[data-admin-page="customers"] .sb-search-field{
+  height:62px!important;border:1px solid var(--lux-line)!important;border-radius:20px!important;background:rgba(255,255,255,.92)!important;
+  box-shadow:0 9px 28px rgba(48,37,20,.05)!important;margin-bottom:16px!important;
+}
+html[data-admin-page="customers"] .sb-customer-list{display:grid!important;gap:9px!important;border:0!important;background:transparent!important}
+html[data-admin-page="customers"] .sb-customer-row{
+  min-height:82px!important;padding:13px 16px!important;border:1px solid var(--lux-line)!important;border-radius:21px!important;background:rgba(255,255,255,.96)!important;
+  box-shadow:0 8px 24px rgba(48,37,20,.045)!important;transition:transform .2s ease,box-shadow .2s ease!important;
+}
+html[data-admin-page="customers"] .sb-customer-row:active{transform:scale(.985)!important}
+html[data-admin-page="customers"] .customer-avatar{
+  width:52px!important;height:52px!important;border-radius:17px!important;background:linear-gradient(145deg,#2c2922,#171612)!important;
+  color:#e5c47f!important;border:0!important;font:700 18px Georgia,serif!important;box-shadow:0 8px 18px rgba(37,30,20,.14)!important;
+}
+html[data-admin-page="customers"] .sb-customer-row strong{font-size:15px!important;color:var(--lux-ink)!important}
+html[data-admin-page="customers"] .sb-customer-row span{color:#969083!important;font-size:10px!important;margin-top:4px!important}
+
+/* Focused management pages. */
+.app-page-heading{padding:32px 4px 18px!important}
+.app-page-heading h1{font-size:clamp(34px,8vw,52px)!important;letter-spacing:-.045em!important;color:var(--lux-ink)!important;margin:5px 0!important}
+.app-page-heading p{color:var(--lux-muted)!important;max-width:680px!important}
+.app-core-panel{padding-bottom:18px!important}
+.app-search,.app-filter-bar,.wallet-search-form{
+  margin:0 22px 20px!important;padding:10px!important;border:1px solid var(--lux-line)!important;border-radius:20px!important;background:#f8f5ee!important;
+}
+.app-search input,.app-filter-bar input,.app-filter-bar select,.wallet-search-form input{
+  border:0!important;background:transparent!important;box-shadow:none!important;min-height:46px!important;
+}
+.app-search button,.app-filter-bar button,.wallet-search-form button{
+  min-height:46px!important;border:0!important;border-radius:14px!important;background:var(--lux-ink)!important;color:#fff!important;font-weight:750!important;
+}
+.app-patient-list{padding:0 20px 8px!important;display:grid!important;gap:10px!important}
+.app-patient-list>a{
+  min-height:78px!important;border:1px solid var(--lux-line)!important;border-radius:20px!important;background:#fff!important;padding:12px 14px!important;
+  box-shadow:0 8px 22px rgba(44,34,20,.045)!important;
+}
+.app-avatar{background:linear-gradient(145deg,#292720,#171612)!important;color:#e5c47f!important;border:0!important;border-radius:16px!important}
+.app-patient-identity{
+  border:1px solid rgba(219,183,111,.22)!important;border-radius:27px!important;padding:23px!important;
+  background:linear-gradient(145deg,#27241e,#171612)!important;color:#fff!important;box-shadow:0 20px 50px rgba(36,29,18,.16)!important;
+}
+.app-patient-identity h2{color:#fff!important}.app-patient-identity p{color:rgba(255,255,255,.6)!important}
+.app-patient-upload label{font-weight:700!important;color:#71695c!important}
+.app-patient-upload input,.app-patient-upload select,.app-patient-upload textarea{
+  border:1px solid var(--lux-line)!important;border-radius:16px!important;background:#fbfaf6!important;min-height:54px!important;padding:13px 15px!important;box-sizing:border-box!important;
+}
+.app-patient-upload input[type="file"]{padding:14px!important;background:#f4efe4!important}
+.app-primary-btn{min-height:56px!important;border-radius:17px!important;background:linear-gradient(145deg,#2c2922,#171612)!important;box-shadow:0 12px 28px rgba(35,29,20,.16)!important}
+.app-record-card{border:1px solid var(--lux-line)!important;border-radius:20px!important;background:#fff!important;box-shadow:0 8px 24px rgba(48,37,20,.04)!important}
+
+/* Classic patient detail: luxury identity + actually styled file picker. */
+.patient-file-body .patient-file-topbar{border-radius:0 0 22px 22px!important}
+.patient-file-body .patient-hero{
+  border:1px solid rgba(220,181,106,.19)!important;border-radius:30px!important;padding:26px!important;
+  background:radial-gradient(circle at 86% 0,rgba(214,169,82,.18),transparent 33%),linear-gradient(145deg,#29261f,#171612)!important;
+  color:#fff!important;box-shadow:0 22px 55px rgba(35,28,18,.18)!important;
+}
+.patient-file-body .patient-hero h1,.patient-file-body .patient-hero a,.patient-file-body .patient-hero strong{color:#fff!important}
+.patient-file-body .patient-hero .eyebrow{color:#e4c47f!important}.patient-file-body .patient-contact-line{color:rgba(255,255,255,.55)!important}
+.patient-file-body .patient-big-avatar{background:linear-gradient(145deg,#e4c47f,#bd8934)!important;color:#2b2419!important;border:0!important}
+.patient-file-body .patient-facts article{background:rgba(255,255,255,.065)!important;border-color:rgba(255,255,255,.09)!important}
+.patient-file-body .patient-share-explainer,.patient-file-body .record-upload-card,.patient-file-body .record-stream-card{
+  border:1px solid var(--lux-line)!important;border-radius:27px!important;background:rgba(255,255,255,.94)!important;box-shadow:var(--lux-shadow)!important;
+}
+.patient-file-body .secure-upload-zone{position:relative!important;overflow:hidden!important;border:1px dashed rgba(164,126,57,.35)!important;border-radius:19px!important;background:#faf6eb!important;padding:22px!important;min-height:110px!important;display:grid!important;place-items:center!important;text-align:center!important}
+.patient-file-body .secure-upload-zone input[type="file"]{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;opacity:0!important;cursor:pointer!important}
+.patient-file-body .record-upload-form input:not([type="checkbox"]):not([type="file"]),.patient-file-body .record-upload-form select,.patient-file-body .record-upload-form textarea{
+  border:1px solid var(--lux-line)!important;border-radius:16px!important;background:#fbfaf6!important;min-height:54px!important;padding:13px 15px!important;box-sizing:border-box!important;
+}
+.patient-file-body .record-save{min-height:58px!important;border-radius:18px!important;background:linear-gradient(145deg,#2c2922,#171612)!important;box-shadow:0 13px 29px rgba(35,29,20,.15)!important}
+.patient-file-body .record-item{border-radius:22px!important}.patient-file-body .record-main{border:1px solid var(--lux-line)!important;border-radius:22px!important;background:#fff!important;box-shadow:0 7px 22px rgba(48,37,20,.045)!important}
+
+/* Wallet cards + transaction history. */
+.wallet-admin-card{border-radius:25px!important;border:1px solid var(--lux-line)!important;box-shadow:var(--lux-shadow-sm)!important;background:#fff!important;overflow:hidden!important}
+.wallet-admin-card-top{padding:20px!important}
+.wallet-admin-avatar{background:linear-gradient(145deg,#292720,#151411)!important;color:#e7c680!important;border-radius:17px!important}
+.wallet-open-history{
+  display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin:0 18px 16px!important;padding:13px 15px!important;
+  border:1px solid var(--lux-line)!important;border-radius:15px!important;background:#f8f5ee!important;color:var(--lux-ink)!important;text-decoration:none!important;font-weight:750!important;font-size:13px!important;
+}
+.wallet-history-panel{margin:0 0 22px!important;padding:0!important}
+.wallet-history-hero{padding:24px!important;background:radial-gradient(circle at 90% 0,rgba(214,169,82,.2),transparent 34%),linear-gradient(145deg,#29261f,#171612)!important;color:#fff!important}
+.wallet-history-hero .eyebrow{color:#e4c47f!important}.wallet-history-hero h2{margin:5px 0 4px!important;color:#fff!important;font-size:30px!important}.wallet-history-hero p{margin:0!important;color:rgba(255,255,255,.58)!important}
+.wallet-history-balance{margin-top:18px!important;display:flex!important;align-items:end!important;justify-content:space-between!important;gap:12px!important}.wallet-history-balance strong{font:700 34px Georgia,serif!important;color:#fff!important}.wallet-history-close{color:#e5c47f!important;text-decoration:none!important;font-weight:750!important}
+.wallet-transaction-list{padding:8px 20px 20px!important;display:grid!important;gap:0!important}
+.wallet-transaction{display:grid!important;grid-template-columns:44px 1fr auto!important;gap:12px!important;align-items:center!important;padding:16px 2px!important;border-bottom:1px solid var(--lux-line)!important}
+.wallet-transaction:last-child{border-bottom:0!important}.wallet-tx-icon{width:42px!important;height:42px!important;border-radius:14px!important;display:grid!important;place-items:center!important;background:#f4efe3!important;color:#a77b2f!important;font-weight:900!important}.wallet-transaction.is-out .wallet-tx-icon{background:#f6ece9!important;color:#9f554c!important}.wallet-tx-main strong{display:block!important;font-size:13px!important}.wallet-tx-main span{display:block!important;margin-top:4px!important;font-size:10px!important;color:var(--lux-muted)!important}.wallet-tx-amount{font-weight:850!important;font-size:14px!important;color:#6f8d65!important}.wallet-transaction.is-out .wallet-tx-amount{color:#a45a50!important}
+.wallet-scanner-actions{display:flex!important;flex-wrap:wrap!important;gap:10px!important}.wallet-photo-start{border:1px solid #d7d0c4!important;background:#fff!important;color:#25231e!important;border-radius:14px!important;padding:13px 16px!important;font-weight:750!important}.wallet-photo-input{display:none!important}
+
+@media(max-width:760px){
+  html:not([data-admin-page="calendar"]) .sb-admin-shell,.app-management-shell,.patient-file-shell{padding-left:12px!important;padding-right:12px!important}
+  html[data-admin-page="bookings"] .sb-booking-list .table-row{grid-template-columns:78px 1fr!important;padding:17px!important}
+  .app-page-heading{padding-top:24px!important}.app-page-heading h1{font-size:36px!important}
+  .patient-file-body .patient-hero{padding:20px!important;border-radius:24px!important}.patient-file-body .patient-share-explainer,.patient-file-body .record-upload-card,.patient-file-body .record-stream-card{border-radius:22px!important}
+  .wallet-history-hero{padding:20px!important}.wallet-history-balance strong{font-size:29px!important}
+}
+
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
