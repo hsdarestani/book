@@ -16,6 +16,7 @@ class APlusAdminNavigationMiddleware:
 <link rel="stylesheet" href="/static/booking/admin-shell-v10.css?v=20260907-v10" data-aplus-admin-shell-v10>
 <script defer src="/static/booking/admin-luxury-v2.js?v=20260907-v2" data-aplus-luxury></script>
 <script defer src="/static/booking/admin-luxury-v3.js?v=20260907-v3" data-aplus-luxury-v3></script>
+<script defer src="/static/booking/admin-points-wording-v12.js?v=20260908-v12" data-aplus-points-wording-v12></script>
 <script defer src="/static/booking/admin-patient-controls-v6.js?v=20260907-v6" data-aplus-patient-controls-v6></script>
 '''
 
