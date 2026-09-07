@@ -73,32 +73,21 @@ class APlusAdminNavigationMiddleware:
         is_calendar = request.path.startswith('/verwaltung/kalender/') or request.path == '/verwaltung/'
         is_patient = request.path.startswith('/verwaltung/patienten/') or request.path.startswith('/verwaltung/app/patients/')
 
-        # Shared visual layer for all verified management pages.
         if 'data-aplus-luxury' not in html and '</head>' in html:
             html = html.replace('</head>', self.LUXURY_ASSETS + '</head>', 1)
 
-        # Calendar remains isolated from the heavy patient/detail layer.
         if is_calendar:
             if 'data-aplus-calendar-stability-v8' not in html and '</head>' in html:
                 html = html.replace('</head>', self.CALENDAR_ASSETS + '</head>', 1)
             if '<body class="' in html and 'aplus-calendar-page' not in html:
                 html = html.replace('<body class="', '<body class="aplus-calendar-page ', 1)
-            # Date/provider navigation should be a normal page load. Removing
-            # the old #kalender anchor prevents Android from restoring the page
-            # halfway down the long timeline and makes navigation feel instant.
             html = html.replace('#kalender"', '"')
         else:
             if 'data-aplus-scroll-recovery-v10' not in html and '</head>' in html:
                 html = html.replace('</head>', self.NON_CALENDAR_ASSETS + '</head>', 1)
-            # Patient-only form/drawer geometry must not leak into Buchungen or
-            # Kunden; it used to leave a full-height layer that could intercept
-            # touch scrolling on Android WebView.
             if is_patient and 'data-aplus-patient-detail-v7' not in html and '</head>' in html:
                 html = html.replace('</head>', self.PATIENT_ASSETS + '</head>', 1)
 
-        # Legacy patient detail used its own desktop-only header. Give it exactly
-        # the same mobile app bar + drawer as the rest of management instead of
-        # allowing navigation and spacing to change when a customer is opened.
         if request.path.startswith('/verwaltung/patienten/') and 'data-drawer' not in html:
             html = html.replace(
                 'content="width=device-width,initial-scale=1"',
@@ -111,12 +100,17 @@ class APlusAdminNavigationMiddleware:
                 if body_open_end >= 0:
                     html = html[:body_open_end + 1] + self.PATIENT_MOBILE_SHELL + html[body_open_end + 1:]
 
-        # The calendar view switcher is a calendar-only control. Remove it on the
-        # server as well as in JS so it never flashes on Buchungen/Kunden pages.
+        # View switching is calendar-only. Remove both the top-bar trigger and
+        # the legacy calendar-panel trigger before the page reaches the WebView,
+        # so Buchungen/Kunden never flash or expose a second menu.
         if not is_calendar:
             html = html.replace(
                 '<button type="button" class="sb-icon-button" data-view-menu-open aria-label="Ansicht ändern">⋯</button>',
                 '<span class="sb-icon-button" aria-hidden="true"></span>',
+            )
+            html = html.replace(
+                '<button type="button" class="sb-subtle-button" data-view-menu-open>Ansicht ▾</button>',
+                '',
             )
             start = html.find('<div class="sb-view-menu" data-view-menu')
             if start >= 0:
