@@ -137,4 +137,4 @@ class AdminLoginCsrfRecoveryTests(TestCase):
             HTTP_X_CSRFTOKEN=token,
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/verwaltung/')
+        self.assertEqual(response.url, '/verwaltung/dashboard/')
