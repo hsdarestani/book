@@ -14,7 +14,9 @@ class APlusAdminNavigationMiddleware:
 
     NON_CALENDAR_ASSETS = '''
 <link rel="stylesheet" href="/static/booking/admin-patient-detail-v7.css?v=20260907-v8" data-aplus-patient-detail-v7>
+<link rel="stylesheet" href="/static/booking/admin-scroll-recovery-v9.css?v=20260907-v9" data-aplus-scroll-recovery-v9>
 <script defer src="/static/booking/admin-fast-drawer-v7.js?v=20260907-v8" data-aplus-fast-drawer-v7></script>
+<script defer src="/static/booking/admin-scroll-recovery-v9.js?v=20260907-v9" data-aplus-scroll-recovery-v9></script>
 '''
 
     CALENDAR_ASSETS = '''
