@@ -1,25 +1,39 @@
-/* A+ Esthetic admin app-shell inset correction v5
-   The legacy SimplyBook mobile shell reserves 64px above the body because its
-   header used to be fixed. Luxury v3 changed that header to sticky, so keeping
-   the legacy body padding creates a visible blank strip above Wallet and the
-   focused A+ management pages. Keep the native/system status-bar inset, but
-   remove this second web-level reservation. Calendar styles are intentionally
-   not targeted here. */
+/* A+ Esthetic admin mobile shell geometry v6
+   Keep one identical header position on every verified management surface.
+   Legacy admin-simply.css reserves 64px on body because the old header was
+   fixed. The current premium header is sticky, so that reservation becomes a
+   second blank strip. Apply the correction globally to the management shell.
+   This only changes shell/header geometry; calendar grid/timeline styles are
+   deliberately untouched. */
 
 @media (max-width:760px){
-  body.sb-admin-body.app-management-body,
-  body.sb-admin-body.wallet-management-body,
-  body.sb-admin-body.patient-file-body{
-    padding-top:0!important;
+  html,
+  body.sb-admin-body{
     margin-top:0!important;
   }
 
-  body.sb-admin-body.app-management-body > .sb-mobile-bar,
-  body.sb-admin-body.wallet-management-body > .sb-mobile-bar,
-  body.sb-admin-body.patient-file-body > .sb-mobile-bar{
+  body.sb-admin-body{
+    padding-top:0!important;
+    overflow-x:hidden!important;
+  }
+
+  body.sb-admin-body > .sb-mobile-bar{
     position:sticky!important;
     top:0!important;
-    margin-top:0!important;
+    left:0!important;
+    right:0!important;
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
     transform:none!important;
+    box-sizing:border-box!important;
+    border-radius:0!important;
+    z-index:70!important;
+  }
+
+  /* The shell must start directly after the sticky bar on every page. */
+  body.sb-admin-body > main.sb-admin-shell,
+  body.sb-admin-body > main.admin-shell{
+    margin-top:0!important;
   }
 }
