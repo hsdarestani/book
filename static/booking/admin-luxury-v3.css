@@ -1,0 +1,182 @@
+/* A+ Esthetic admin luxury v3
+   Purpose: tighten and modernize every non-calendar management surface.
+   The calendar grid/timeline is intentionally untouched. */
+:root{
+  --v3-bg:#f4f1ea;
+  --v3-card:#fff;
+  --v3-ink:#1f1d18;
+  --v3-muted:#8d8577;
+  --v3-line:rgba(52,45,34,.11);
+  --v3-gold:#c69843;
+  --v3-shadow:0 10px 34px rgba(38,31,21,.06);
+}
+
+html:not([data-admin-page="calendar"]) body.admin-body,
+.app-management-body,.wallet-management-body,.patient-file-body{
+  background:linear-gradient(180deg,#f8f6f1 0%,var(--v3-bg) 100%)!important;
+  color:var(--v3-ink)!important;
+  font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+}
+
+/* Shared chrome */
+.sb-mobile-bar{
+  min-height:58px!important;height:58px!important;padding:0 18px!important;
+  background:#24211b!important;color:#fff!important;border:0!important;
+  box-shadow:0 1px 0 rgba(255,255,255,.04),0 8px 28px rgba(31,26,18,.09)!important;
+  position:sticky!important;top:0!important;z-index:70!important;
+}
+.sb-mobile-bar .sb-icon-button{width:40px!important;height:40px!important;display:grid!important;place-items:center!important;font-size:24px!important}
+.sb-mobile-bar .sb-mobile-title{font-size:15px!important;font-weight:750!important;letter-spacing:-.01em!important}
+.app-management-dot{width:40px!important;height:40px!important;border-radius:50%!important;border:1px solid rgba(221,183,107,.45)!important;color:#e0bd79!important;font-size:11px!important}
+
+html:not([data-admin-page="calendar"]) .sb-admin-shell,
+.app-management-shell,.wallet-management-shell,.patient-file-shell{
+  width:min(1120px,calc(100% - 28px))!important;max-width:1120px!important;margin:0 auto!important;
+  padding:0 0 56px!important;
+}
+
+html:not([data-admin-page="calendar"]) .admin-panel,
+.app-management-body .admin-panel,.wallet-management-body .admin-panel,.patient-file-body .admin-panel{
+  border:1px solid var(--v3-line)!important;border-radius:20px!important;background:rgba(255,255,255,.96)!important;
+  box-shadow:var(--v3-shadow)!important;
+}
+
+.app-page-heading{padding:24px 2px 14px!important}
+.app-page-heading .eyebrow,.wallet-page-heading .eyebrow{font-size:9px!important;letter-spacing:.17em!important;color:#a17b35!important}
+.app-page-heading h1,.wallet-page-heading h1{font-family:inherit!important;font-size:32px!important;font-weight:760!important;letter-spacing:-.04em!important;margin:5px 0 4px!important;line-height:1.02!important}
+.app-page-heading p,.wallet-page-heading p{font-size:12px!important;color:var(--v3-muted)!important;line-height:1.5!important;margin:0!important}
+
+/* BOOKINGS: compact cockpit instead of oversized cards */
+html[data-admin-page="bookings"] #termine{margin-top:0!important}
+html[data-admin-page="bookings"] #termine>.panel-head{padding:22px 2px 16px!important;margin:0!important}
+html[data-admin-page="bookings"] #termine>.panel-head h2{font-family:inherit!important;font-size:27px!important;font-weight:760!important;letter-spacing:-.035em!important}
+html[data-admin-page="bookings"] .sb-booking-list{gap:9px!important}
+html[data-admin-page="bookings"] .sb-booking-list .table-row{
+  min-height:0!important;padding:15px 16px!important;border-radius:18px!important;border:1px solid var(--v3-line)!important;
+  background:rgba(255,255,255,.97)!important;box-shadow:0 7px 22px rgba(38,31,21,.045)!important;
+  grid-template-columns:72px minmax(0,1fr)!important;gap:7px 14px!important;
+}
+html[data-admin-page="bookings"] .sb-booking-list .table-row>time{grid-row:1/5!important;font-size:10px!important;color:var(--v3-muted)!important}
+html[data-admin-page="bookings"] .sb-booking-list .table-row>time b{font-size:25px!important;font-weight:500!important;margin-top:3px!important;color:var(--v3-ink)!important}
+html[data-admin-page="bookings"] .sb-booking-list .table-row strong{font-size:14px!important;font-weight:700!important}
+html[data-admin-page="bookings"] .sb-booking-list .table-row small{font-size:9px!important;color:#9c9589!important;margin-top:3px!important}
+html[data-admin-page="bookings"] .status-form{
+  grid-column:2!important;margin-top:6px!important;display:flex!important;align-items:center!important;gap:8px!important;width:100%!important;
+}
+html[data-admin-page="bookings"] .status-form select{
+  min-height:44px!important;height:44px!important;flex:1 1 auto!important;max-width:none!important;border-radius:13px!important;
+  background:#faf8f3!important;border:1px solid var(--v3-line)!important;padding:0 13px!important;font-size:14px!important;
+}
+html[data-admin-page="bookings"] .status-form button,
+html[data-admin-page="bookings"] .row-menu-button{
+  width:44px!important;height:44px!important;min-width:44px!important;border-radius:13px!important;border:1px solid var(--v3-line)!important;background:#fff!important;padding:0!important;
+}
+
+/* CUSTOMERS */
+html[data-admin-page="customers"] #kunden>.panel-head{padding:22px 2px 14px!important}
+html[data-admin-page="customers"] #kunden>.panel-head h2{font-family:inherit!important;font-size:27px!important;font-weight:760!important;letter-spacing:-.035em!important}
+html[data-admin-page="customers"] .sb-search-field{height:54px!important;border-radius:17px!important;margin-bottom:12px!important}
+html[data-admin-page="customers"] .sb-customer-list{gap:7px!important}
+html[data-admin-page="customers"] .sb-customer-row{min-height:70px!important;padding:10px 12px!important;border-radius:17px!important;box-shadow:0 5px 18px rgba(38,31,21,.035)!important}
+html[data-admin-page="customers"] .customer-avatar{width:46px!important;height:46px!important;min-width:46px!important;border-radius:15px!important}
+
+/* APP MANAGEMENT PAGES */
+.app-core-panel{padding:0 0 14px!important;overflow:hidden!important}
+.app-core-panel>.panel-head{padding:20px 20px 12px!important;margin:0!important}
+.app-core-panel>.panel-head h2{font-family:inherit!important;font-size:25px!important;font-weight:760!important;letter-spacing:-.035em!important}
+.app-core-panel>.panel-head p{font-size:11px!important}
+.app-search,.app-filter-bar,.wallet-search-form{margin:0 16px 16px!important;padding:7px!important;border-radius:16px!important;background:#f7f4ed!important}
+.app-search input,.app-filter-bar input,.app-filter-bar select,.wallet-search-form input{min-height:42px!important}
+.app-search button,.app-filter-bar button,.wallet-search-form button{min-height:42px!important;border-radius:12px!important}
+.app-patient-list{padding:0 14px 5px!important;gap:7px!important}
+.app-patient-list>a{min-height:68px!important;border-radius:17px!important;padding:10px 12px!important;box-shadow:none!important}
+.app-patient-counts{gap:3px 6px!important}
+
+/* WALLET: remove the showroom-sized empty zones and keep actions close to data */
+.wallet-page-heading{padding:22px 2px 14px!important;align-items:center!important}
+.wallet-scan-hero-btn{min-height:44px!important;border-radius:14px!important;padding:11px 15px!important;box-shadow:none!important}
+.wallet-admin-grid{grid-template-columns:1fr 1fr!important;gap:10px!important;margin-bottom:12px!important}
+.wallet-admin-overview,.wallet-search-card{border-radius:18px!important;padding:16px!important;box-shadow:none!important}
+.wallet-admin-overview h2{font-family:inherit!important;font-size:22px!important;font-weight:760!important;letter-spacing:-.03em!important}
+.wallet-admin-overview p{font-size:11px!important}
+.wallet-admin-steps{margin-top:12px!important}
+.wallet-admin-steps div{padding:7px 8px!important;border-radius:11px!important}
+.wallet-results-panel{padding:0 0 14px!important}
+.wallet-results-head{padding:20px 18px 10px!important;margin:0!important}
+.wallet-results-head h2{font-family:inherit!important;font-size:25px!important;font-weight:760!important;letter-spacing:-.035em!important}
+.wallet-admin-list{padding:0 12px!important;gap:8px!important}
+.wallet-admin-card{border-radius:18px!important;box-shadow:0 5px 18px rgba(38,31,21,.035)!important}
+.wallet-admin-card-top{padding:13px 14px!important;gap:12px!important}
+.wallet-admin-avatar{width:44px!important;height:44px!important;flex-basis:44px!important;border-radius:14px!important;font-size:17px!important}
+.wallet-admin-balance strong{font-family:inherit!important;font-size:21px!important;font-weight:760!important}
+.wallet-open-history{margin:0 12px 10px!important;padding:11px 13px!important;border-radius:13px!important;background:#f7f4ed!important;font-size:12px!important}
+.wallet-adjust-form{padding:10px 12px 13px!important;grid-template-columns:1fr!important;gap:9px!important}
+.wallet-quick-amounts{display:grid!important;grid-template-columns:repeat(4,1fr)!important}
+.wallet-quick-amounts button{min-height:38px!important;border-radius:11px!important;padding:7px 4px!important}
+.wallet-save-balance{min-height:44px!important;border-radius:13px!important}
+
+/* Wallet history modal loaded by v3 JS */
+.v3-wallet-history-overlay{position:fixed;inset:0;z-index:220;display:grid;place-items:end center;background:rgba(16,14,11,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:0}
+.v3-wallet-history-sheet{width:min(680px,100%);max-height:86dvh;overflow:auto;background:#f8f6f1;border-radius:26px 26px 0 0;box-shadow:0 -24px 70px rgba(0,0,0,.22);padding:12px 12px max(22px,env(safe-area-inset-bottom))}
+.v3-wallet-history-sheet>.v3-sheet-handle{width:42px;height:5px;border-radius:99px;background:#d6d0c4;margin:2px auto 10px}
+.v3-wallet-history-sheet>.v3-sheet-close{position:sticky;top:0;float:right;z-index:2;width:38px;height:38px;border:1px solid var(--v3-line);border-radius:50%;background:#fff;font-size:22px;color:#665f55}
+.v3-wallet-history-sheet .wallet-history-panel{margin:0!important;border-radius:20px!important;overflow:hidden!important}
+.v3-wallet-history-sheet .wallet-history-close{display:none!important}
+.v3-wallet-history-loading,.v3-wallet-history-error{padding:48px 24px;text-align:center;color:var(--v3-muted)}
+
+/* PATIENT DETAIL: same app shell, compact hero, no broken legacy header */
+.patient-file-body>.sb-mobile-bar{display:none}
+.patient-file-shell{padding-top:0!important}
+.patient-file-topbar{margin-bottom:14px!important}
+.patient-hero{margin-top:10px!important;border-radius:20px!important;padding:20px!important;background:linear-gradient(145deg,#27241f,#171612)!important;box-shadow:0 12px 32px rgba(35,29,20,.13)!important}
+.patient-identity{gap:14px!important}.patient-big-avatar{width:62px!important;height:62px!important;min-width:62px!important;font-size:20px!important;border-radius:18px!important}
+.patient-hero h1{font-family:inherit!important;font-size:31px!important;font-weight:760!important;letter-spacing:-.04em!important;margin:5px 0!important}
+.patient-contact-line{font-size:11px!important;gap:5px!important;flex-wrap:wrap!important}
+.patient-facts{margin-top:16px!important;gap:7px!important}.patient-facts article{padding:12px!important;border-radius:14px!important}.patient-facts article span{font-size:8px!important}.patient-facts article strong{font-size:13px!important}
+.patient-share-explainer{margin:10px 0!important;padding:14px 16px!important;border-radius:17px!important;background:#fff!important;border:1px solid var(--v3-line)!important;box-shadow:none!important;display:grid!important;gap:10px!important}
+.patient-share-explainer>div:first-child{display:grid!important;gap:4px!important}.patient-share-explainer strong{font-size:13px!important}.patient-share-explainer span{font-size:11px!important;line-height:1.5!important;color:var(--v3-muted)!important}
+.patient-file-layout{gap:10px!important}.record-upload-card,.record-stream-card{border-radius:20px!important;padding:18px!important;box-shadow:var(--v3-shadow)!important}
+.record-upload-card h2,.record-stream-card h2{font-family:inherit!important;font-size:26px!important;font-weight:760!important;letter-spacing:-.035em!important}
+.record-upload-form{gap:12px!important}.record-upload-form input,.record-upload-form select,.record-upload-form textarea{border-radius:14px!important;min-height:50px!important}
+.secure-upload-zone{min-height:102px!important;border-radius:16px!important}
+.patient-history{margin-top:10px!important;padding:18px!important}
+
+/* focused patient page from /app/patients */
+.app-patient-identity{padding:18px!important;border-radius:20px!important;box-shadow:0 12px 32px rgba(35,29,20,.13)!important}
+.app-patient-identity h2{font-family:inherit!important;font-size:29px!important;font-weight:760!important;letter-spacing:-.04em!important}
+.app-upload-panel,.app-timeline-panel{border-radius:20px!important}
+
+/* Review / referral cards */
+html[data-admin-page="reviews"] .lux-review-hero{border-radius:20px!important;padding:20px!important;box-shadow:0 12px 32px rgba(35,29,20,.13)!important}
+html[data-admin-page="reviews"] .lux-review-hero h2{font-family:inherit!important;font-size:30px!important;font-weight:760!important}
+html[data-admin-page="reviews"] .lux-review-metrics{gap:7px!important;margin:10px 0 12px!important}
+html[data-admin-page="reviews"] .lux-review-metrics article{border-radius:16px!important;padding:12px!important;box-shadow:none!important}
+html[data-admin-page="reviews"] .app-review-card.lux-review-card{border-radius:18px!important;padding:15px!important;box-shadow:0 5px 18px rgba(38,31,21,.035)!important}
+.app-referral-list{padding:0 14px 8px!important}.app-referral-list article{border-radius:17px!important;padding:13px!important}
+
+@media(max-width:760px){
+  html:not([data-admin-page="calendar"]) .sb-admin-shell,.app-management-shell,.wallet-management-shell,.patient-file-shell{width:calc(100% - 24px)!important}
+  .patient-file-body>.sb-mobile-bar{display:flex!important}
+  .patient-file-topbar{display:none!important}
+  .patient-file-shell{padding-top:10px!important}
+  .wallet-page-heading{display:grid!important;grid-template-columns:1fr!important;gap:10px!important}
+  .wallet-scan-hero-btn{width:100%!important;justify-content:center!important}
+  .wallet-admin-grid{grid-template-columns:1fr!important}
+  .wallet-admin-overview{display:none!important}
+  .wallet-search-card{padding:12px!important}
+  .wallet-admin-card-top{display:grid!important;grid-template-columns:1fr auto!important;align-items:center!important}
+  .wallet-admin-balance{padding:0!important;text-align:right!important}
+  .wallet-admin-identity small{max-width:190px!important}
+  .patient-file-layout{grid-template-columns:1fr!important}
+  .patient-facts{grid-template-columns:1fr 1fr!important}
+  .patient-share-explainer .share-legend{display:flex!important;gap:6px!important;flex-wrap:wrap!important}
+  html[data-admin-page="reviews"] .lux-review-metrics{grid-template-columns:1fr 1fr!important}
+}
+
+@media(max-width:430px){
+  html[data-admin-page="bookings"] .sb-booking-list .table-row{grid-template-columns:62px minmax(0,1fr)!important;padding:13px!important;gap:6px 11px!important}
+  html[data-admin-page="bookings"] .sb-booking-list .table-row>time b{font-size:22px!important}
+  .wallet-admin-card-top{grid-template-columns:1fr!important}
+  .wallet-admin-balance{text-align:left!important;padding-left:56px!important}
+  .patient-hero{padding:17px!important}.patient-hero h1{font-size:27px!important}
+}
