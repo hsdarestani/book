@@ -3,7 +3,36 @@ class APlusAdminNavigationMiddleware:
 
     LUXURY_ASSETS = '''
 <link rel="stylesheet" href="/static/booking/admin-luxury-v2.css?v=20260907-v2" data-aplus-luxury>
+<link rel="stylesheet" href="/static/booking/admin-luxury-v3.css?v=20260907-v3" data-aplus-luxury-v3>
 <script defer src="/static/booking/admin-luxury-v2.js?v=20260907-v2" data-aplus-luxury></script>
+<script defer src="/static/booking/admin-luxury-v3.js?v=20260907-v3" data-aplus-luxury-v3></script>
+'''
+
+    PATIENT_MOBILE_SHELL = '''
+<header class="sb-mobile-bar app-mobile-bar">
+  <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
+  <strong class="sb-mobile-title">Patientenakten</strong>
+  <span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span>
+</header>
+<div class="sb-drawer-backdrop" data-drawer-backdrop></div>
+<aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true">
+  <div class="sb-drawer-brand">
+    <img src="/static/booking/logo.png" alt="A+ Esthetic">
+    <div><strong>A+ Esthetic</strong><span>Management</span></div>
+  </div>
+  <nav class="sb-drawer-nav app-focused-nav">
+    <div class="lux-nav-label">A+ MANAGEMENT</div>
+    <a href="/verwaltung/kalender/"><span>▣</span>Kalender</a>
+    <a href="/verwaltung/buchungen/"><span>✓</span>Buchungen</a>
+    <a href="/verwaltung/kunden/"><span>♙</span>Kunden</a>
+    <a href="/verwaltung/app/patients/" class="is-active"><span>▤</span>Patientenakten</a>
+    <a href="/verwaltung/app/wallet/"><span>€</span>A+ Wallet</a>
+    <a href="/verwaltung/app/reviews/"><span>★</span>Google Bewertungen</a>
+    <a href="/verwaltung/app/referrals/"><span>↗</span>Empfehlungen</a>
+    <div class="lux-nav-break"></div>
+    <a href="/verwaltung/logout/"><span>↪</span>Abmelden</a>
+  </nav>
+</aside>
 '''
 
     def __init__(self, get_response):
@@ -27,6 +56,21 @@ class APlusAdminNavigationMiddleware:
         # The actual calendar grid/timeline is deliberately left untouched.
         if 'data-aplus-luxury' not in html and '</head>' in html:
             html = html.replace('</head>', self.LUXURY_ASSETS + '</head>', 1)
+
+        # Legacy patient detail used its own desktop-only header. Give it exactly
+        # the same mobile app bar + drawer as the rest of management instead of
+        # allowing navigation and spacing to change when a customer is opened.
+        if request.path.startswith('/verwaltung/patienten/') and 'data-drawer' not in html:
+            html = html.replace(
+                'content="width=device-width,initial-scale=1"',
+                'content="width=device-width,initial-scale=1,viewport-fit=cover"',
+                1,
+            )
+            body_start = html.find('<body')
+            if body_start >= 0:
+                body_open_end = html.find('>', body_start)
+                if body_open_end >= 0:
+                    html = html[:body_open_end + 1] + self.PATIENT_MOBILE_SHELL + html[body_open_end + 1:]
 
         # The calendar view switcher is a calendar-only control. Remove it on the
         # server as well as in JS so it never flashes on Buchungen/Kunden pages.
