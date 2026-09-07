@@ -1,0 +1,41 @@
+/* A+ Esthetic admin scroll recovery v9
+   Non-calendar pages must always use native document scrolling. This layer
+   deliberately does not touch the calendar timeline. */
+@media (max-width:760px){
+  html:not([data-admin-page="calendar"]),
+  html:not([data-admin-page="calendar"]) body.sb-admin-body{
+    height:auto!important;
+    min-height:100%!important;
+    max-height:none!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    touch-action:pan-y!important;
+    overscroll-behavior-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+
+  html:not([data-admin-page="calendar"]) body.sb-admin-body{
+    position:static!important;
+  }
+
+  html:not([data-admin-page="calendar"]) body.sb-admin-body > main.sb-admin-shell,
+  html:not([data-admin-page="calendar"]) body.sb-admin-body > main.admin-shell,
+  html:not([data-admin-page="calendar"]) .app-management-shell{
+    height:auto!important;
+    min-height:calc(100dvh - 58px)!important;
+    max-height:none!important;
+    overflow:visible!important;
+    touch-action:pan-y!important;
+  }
+
+  /* A closed drawer/backdrop must never sit above the page and swallow touch. */
+  html:not([data-admin-page="calendar"]) .sb-drawer[aria-hidden="true"]{
+    pointer-events:none!important;
+    visibility:hidden!important;
+  }
+  html:not([data-admin-page="calendar"]) .sb-drawer-backdrop:not(.is-open){
+    pointer-events:none!important;
+    visibility:hidden!important;
+    opacity:0!important;
+  }
+}
