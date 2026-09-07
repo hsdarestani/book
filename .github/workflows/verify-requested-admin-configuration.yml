@@ -1,0 +1,30 @@
+name: Verify requested A+ admin configuration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-requested-admin-configuration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect production booking configuration
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: root
+          password: ${{ secrets.PASS }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            APP_DIR=/opt/aesthetic-book/app
+            VENV=/opt/aesthetic-book/venv
+            ENV_FILE=/etc/aesthetic-book.env
+            cd "$APP_DIR"
+            runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from booking.models import StaffMember,DailyAvailabilityOverride,AdminAccessProfile,WhatsAppTemplate; s=StaffMember.objects.filter(display_name__iexact='Qamar Hameed').first(); print('QAMAR_STAFF=' + ('1' if s else '0')); q=DailyAvailabilityOverride.objects.filter(staff=s,date__year=2026,date__month=10) if s else DailyAvailabilityOverride.objects.none(); print('OCTOBER_OVERRIDE_COUNT='+str(q.count())); print('OCTOBER_DAYS='+','.join(str(x) for x in q.order_by('date').values_list('date__day',flat=True))); a=AdminAccessProfile.objects.filter(staff=s,view_only=True) if s else AdminAccessProfile.objects.none(); print('VIEW_ONLY_ACCESS_COUNT='+str(a.count())); print('VIEW_ONLY_USERS='+','.join(a.values_list('user__username',flat=True))); print('WHATSAPP_TEMPLATE_COUNT='+str(WhatsAppTemplate.objects.filter(active=True).count()))\""
