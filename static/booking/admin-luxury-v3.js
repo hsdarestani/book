@@ -1,6 +1,36 @@
 (() => {
   'use strict';
 
+  // admin-luxury-v2 rebuilds the focused mobile drawer. Keep Dashboard as a
+  // first-class destination on every management page and mark it active on
+  // /verwaltung/dashboard/. This only touches navigation; calendar layout and
+  // behaviour remain unchanged.
+  const ensureDashboardNav = () => {
+    const nav = document.querySelector('.sb-drawer-nav');
+    if (!nav) return;
+
+    let dashboard = nav.querySelector('a[href="/verwaltung/dashboard/"]');
+    if (!dashboard) {
+      dashboard = document.createElement('a');
+      dashboard.href = '/verwaltung/dashboard/';
+      dashboard.innerHTML = '<span>⌂</span>Dashboard';
+      const label = nav.querySelector('.lux-nav-label, .app-nav-label');
+      if (label) label.insertAdjacentElement('afterend', dashboard);
+      else nav.prepend(dashboard);
+    }
+
+    const isDashboard = /^\/verwaltung\/dashboard\/?$/.test(window.location.pathname);
+    if (isDashboard) {
+      nav.querySelectorAll('a.is-active').forEach(link => link.classList.remove('is-active'));
+      dashboard.classList.add('is-active');
+      document.documentElement.dataset.adminPage = 'dashboard';
+      const title = document.querySelector('.sb-mobile-title');
+      if (title) title.textContent = 'Dashboard';
+    }
+  };
+
+  ensureDashboardNav();
+
   const closeHistory = () => {
     document.querySelector('.v3-wallet-history-overlay')?.remove();
     document.documentElement.style.overflow = '';
