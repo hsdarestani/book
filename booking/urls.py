@@ -1,5 +1,4 @@
 from django.urls import path
-from django.views.generic.base import RedirectView
 from . import admin_dashboard_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, patient_portal, patient_portal_api, referral_relay, views
 
 app_name = 'booking'
@@ -23,13 +22,7 @@ urlpatterns = [
     path('verwaltung/app-sso/', auth_views.app_admin_sso, name='app_admin_sso'),
     path('verwaltung/login/', auth_views.admin_login, name='admin_login'),
     path('verwaltung/logout/', auth_views.admin_logout, name='admin_logout'),
-    # Canonical patient profile: all old patient-file deep links now land on the
-    # same A+ Management patient view instead of rendering a second, divergent UI.
-    path(
-        'verwaltung/patienten/<int:customer_id>/',
-        RedirectView.as_view(url='/verwaltung/app/patients/?customer=%(customer_id)s', permanent=False),
-        name='patient_file',
-    ),
+    path('verwaltung/patienten/<int:customer_id>/', views.patient_file, name='patient_file'),
     path('verwaltung/patienten/<int:customer_id>/datei/<uuid:record_id>/', views.patient_record_file, name='patient_record_file'),
     path('verwaltung/patienten/<int:customer_id>/shared/add/', patient_portal.staff_add_record, name='patient_shared_add'),
     path('verwaltung/patienten/<int:customer_id>/shared/<uuid:record_id>/toggle/', patient_portal.staff_toggle_share, name='patient_shared_toggle'),
