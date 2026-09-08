@@ -1,19 +1,19 @@
 (() => {
   'use strict';
 
-  // Load the single canonical drawer layer after the legacy shell. It owns only
-  // management navigation/branding and deliberately leaves calendar content alone.
-  if (!document.querySelector('link[data-aplus-unified-nav-v13]')) {
+  // Load the single canonical drawer/customer layer after the legacy shell. It owns
+  // management navigation/branding and customer tabs, while leaving calendar content alone.
+  if (!document.querySelector('link[data-aplus-unified-nav-v14]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/static/booking/admin-unified-nav-v13.css?v=20260908-v13';
-    link.dataset.aplusUnifiedNavV13 = '1';
+    link.href = '/static/booking/admin-unified-nav-v14.css?v=20260908-v14';
+    link.dataset.aplusUnifiedNavV14 = '1';
     document.head.appendChild(link);
   }
-  if (!document.querySelector('script[data-aplus-unified-nav-v13]')) {
+  if (!document.querySelector('script[data-aplus-unified-nav-v14]')) {
     const script = document.createElement('script');
-    script.src = '/static/booking/admin-unified-nav-v13.js?v=20260908-v13';
-    script.dataset.aplusUnifiedNavV13 = '1';
+    script.src = '/static/booking/admin-unified-nav-v14.js?v=20260908-v14';
+    script.dataset.aplusUnifiedNavV14 = '1';
     document.head.appendChild(script);
   }
 
