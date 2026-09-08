@@ -1,35 +1,21 @@
 (() => {
   'use strict';
 
-  // admin-luxury-v2 rebuilds the focused mobile drawer. Keep Dashboard as a
-  // first-class destination on every management page and mark it active on
-  // /verwaltung/dashboard/. This only touches navigation; calendar layout and
-  // behaviour remain unchanged.
-  const ensureDashboardNav = () => {
-    const nav = document.querySelector('.sb-drawer-nav');
-    if (!nav) return;
-
-    let dashboard = nav.querySelector('a[href="/verwaltung/dashboard/"]');
-    if (!dashboard) {
-      dashboard = document.createElement('a');
-      dashboard.href = '/verwaltung/dashboard/';
-      dashboard.innerHTML = '<span>⌂</span>Dashboard';
-      const label = nav.querySelector('.lux-nav-label, .app-nav-label');
-      if (label) label.insertAdjacentElement('afterend', dashboard);
-      else nav.prepend(dashboard);
-    }
-
-    const isDashboard = /^\/verwaltung\/dashboard\/?$/.test(window.location.pathname);
-    if (isDashboard) {
-      nav.querySelectorAll('a.is-active').forEach(link => link.classList.remove('is-active'));
-      dashboard.classList.add('is-active');
-      document.documentElement.dataset.adminPage = 'dashboard';
-      const title = document.querySelector('.sb-mobile-title');
-      if (title) title.textContent = 'Dashboard';
-    }
-  };
-
-  ensureDashboardNav();
+  // Load the single canonical drawer layer after the legacy shell. It owns only
+  // management navigation/branding and deliberately leaves calendar content alone.
+  if (!document.querySelector('link[data-aplus-unified-nav-v13]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/static/booking/admin-unified-nav-v13.css?v=20260908-v13';
+    link.dataset.aplusUnifiedNavV13 = '1';
+    document.head.appendChild(link);
+  }
+  if (!document.querySelector('script[data-aplus-unified-nav-v13]')) {
+    const script = document.createElement('script');
+    script.src = '/static/booking/admin-unified-nav-v13.js?v=20260908-v13';
+    script.dataset.aplusUnifiedNavV13 = '1';
+    document.head.appendChild(script);
+  }
 
   const closeHistory = () => {
     document.querySelector('.v3-wallet-history-overlay')?.remove();
