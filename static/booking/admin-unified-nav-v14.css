@@ -1,0 +1,183 @@
+/* A+ Esthetic — canonical management navigation + unified customer CRM tabs.
+   Calendar content/grid is intentionally untouched. */
+.sb-drawer.aplus-unified-drawer{
+  width:min(82vw,390px)!important;
+  max-width:390px!important;
+  min-height:100dvh!important;
+  background:
+    radial-gradient(circle at 82% 10%,rgba(197,151,65,.14),transparent 28%),
+    linear-gradient(160deg,#27241e 0%,#191815 72%,#141310 100%)!important;
+  color:#fff!important;
+  border-right:1px solid rgba(255,255,255,.06)!important;
+  box-shadow:30px 0 80px rgba(0,0,0,.26)!important;
+}
+.sb-drawer.aplus-unified-drawer .sb-drawer-brand{
+  box-sizing:border-box!important;
+  min-height:128px!important;
+  padding:24px 26px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:16px!important;
+  border-bottom:1px solid rgba(255,255,255,.09)!important;
+}
+.sb-drawer.aplus-unified-drawer .sb-drawer-brand img{
+  display:block!important;
+  width:88px!important;
+  height:62px!important;
+  max-width:88px!important;
+  max-height:62px!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  border-radius:16px!important;
+  background:#fff!important;
+  padding:6px!important;
+  box-sizing:border-box!important;
+  box-shadow:0 12px 34px rgba(0,0,0,.18)!important;
+}
+.sb-drawer.aplus-unified-drawer .sb-drawer-brand strong{
+  display:block!important;
+  margin:0!important;
+  color:#fff!important;
+  font-size:17px!important;
+  line-height:1.15!important;
+  font-weight:700!important;
+  letter-spacing:.01em!important;
+}
+.sb-drawer.aplus-unified-drawer .sb-drawer-brand span{
+  display:block!important;
+  margin-top:6px!important;
+  color:rgba(255,255,255,.48)!important;
+  font-size:10px!important;
+  line-height:1.2!important;
+  letter-spacing:.18em!important;
+  text-transform:uppercase!important;
+}
+.sb-drawer.aplus-unified-drawer .aplus-unified-nav{
+  box-sizing:border-box!important;
+  padding:18px!important;
+  display:grid!important;
+  gap:5px!important;
+}
+.sb-drawer.aplus-unified-drawer .aplus-unified-nav .lux-nav-label{
+  padding:12px 12px 7px!important;
+  color:rgba(255,255,255,.38)!important;
+  font-size:9px!important;
+  font-weight:800!important;
+  letter-spacing:.21em!important;
+}
+.sb-drawer.aplus-unified-drawer .aplus-unified-nav a{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-height:56px!important;
+  margin:0!important;
+  padding:8px 14px!important;
+  border:1px solid transparent!important;
+  border-radius:17px!important;
+  background:transparent!important;
+  color:rgba(255,255,255,.84)!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:13px!important;
+  text-decoration:none!important;
+  font-size:14px!important;
+  line-height:1.2!important;
+  font-weight:650!important;
+}
+.sb-drawer.aplus-unified-drawer .aplus-unified-nav a>span{
+  width:40px!important;
+  height:40px!important;
+  flex:0 0 40px!important;
+  border-radius:13px!important;
+  display:grid!important;
+  place-items:center!important;
+  background:rgba(255,255,255,.055)!important;
+  color:#dfbd79!important;
+  font-size:16px!important;
+  line-height:1!important;
+}
+.sb-drawer.aplus-unified-drawer .aplus-unified-nav a.is-active{
+  color:#fff!important;
+  background:linear-gradient(90deg,rgba(203,158,72,.23),rgba(255,255,255,.06))!important;
+  border-color:rgba(220,181,106,.25)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.04)!important;
+}
+.sb-drawer.aplus-unified-drawer .aplus-unified-nav a.is-active>span{
+  background:linear-gradient(135deg,#d9ad59,#e8c985)!important;
+  color:#292117!important;
+  box-shadow:0 7px 20px rgba(193,143,48,.2)!important;
+}
+.sb-drawer.aplus-unified-drawer .aplus-unified-nav .lux-nav-break{
+  height:1px!important;
+  margin:10px 0!important;
+  background:rgba(255,255,255,.08)!important;
+}
+
+.aplus-unified-desktop-nav a.is-active{
+  color:#b38739!important;
+  font-weight:800!important;
+}
+
+.customer-profile-tabs{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:14px 0 18px;
+  padding:7px;
+  border:1px solid rgba(79,61,29,.10);
+  border-radius:18px;
+  background:rgba(255,255,255,.78);
+  box-shadow:0 12px 34px rgba(54,44,29,.06);
+  overflow-x:auto;
+  overscroll-behavior-inline:contain;
+  scrollbar-width:none;
+}
+.customer-profile-tabs::-webkit-scrollbar{display:none}
+.customer-profile-tabs button{
+  appearance:none;
+  flex:0 0 auto;
+  min-height:42px;
+  padding:0 16px;
+  border:0;
+  border-radius:13px;
+  background:transparent;
+  color:#6e675c;
+  font:inherit;
+  font-size:13px;
+  font-weight:750;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.customer-profile-tabs button.is-active{
+  color:#241f16;
+  background:linear-gradient(135deg,#e1bd72,#f0d99c);
+  box-shadow:0 8px 22px rgba(190,145,59,.20);
+}
+.patient-control-grid.is-single-panel{
+  grid-template-columns:minmax(0,1fr)!important;
+}
+.patient-control-grid.is-single-panel>.admin-panel{
+  width:100%!important;
+  max-width:none!important;
+}
+[hidden]{display:none!important}
+
+@media(max-width:700px){
+  .customer-profile-tabs{
+    margin:12px -2px 16px;
+    padding:6px;
+    border-radius:16px;
+  }
+  .customer-profile-tabs button{
+    min-height:40px;
+    padding:0 14px;
+    font-size:12px;
+  }
+}
+
+@media(max-width:420px){
+  .sb-drawer.aplus-unified-drawer{width:min(86vw,390px)!important}
+  .sb-drawer.aplus-unified-drawer .sb-drawer-brand{min-height:122px!important;padding:22px 22px!important;gap:14px!important}
+  .sb-drawer.aplus-unified-drawer .sb-drawer-brand img{width:82px!important;height:58px!important;max-width:82px!important;max-height:58px!important}
+  .sb-drawer.aplus-unified-drawer .aplus-unified-nav{padding:16px!important}
+  .sb-drawer.aplus-unified-drawer .aplus-unified-nav a{min-height:54px!important;padding:7px 12px!important}
+}
