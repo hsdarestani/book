@@ -63,7 +63,7 @@
             <label>Telefon<input name="phone" type="tel" autocomplete="tel" required maxlength="40" placeholder="+49 …"></label>
           </div>
           <div class="field-row">
-            <label>Warst du schon einmal bei uns?
+            <label data-returning-customer-field>Warst du schon einmal bei uns?
               <select name="returning_customer" required>
                 <option value="nein" selected>Nein</option>
                 <option value="ja">Ja</option>
@@ -119,6 +119,34 @@
 
     <footer><span>A+Esthetic</span><a href="https://a-esthetic.de/impressum/">Impressum</a><a href="https://a-esthetic.de/datenschutz/">Datenschutz</a></footer>
   </main>
+  <script>
+    (() => {
+      const returningField = document.querySelector('[data-returning-customer-field]');
+      const returningSelect = returningField?.querySelector('select[name="returning_customer"]');
+      const serviceRoot = document.getElementById('services');
+      const detailsForm = document.getElementById('details-form');
+      const autoReturningSlugs = new Set(['botox-bestandspatient', 'kontrolltermin']);
+      let returningIsAutomatic = false;
+
+      function syncReturningField(slug) {
+        returningIsAutomatic = autoReturningSlugs.has(String(slug || ''));
+        if (returningField) returningField.hidden = returningIsAutomatic;
+        if (returningSelect) {
+          returningSelect.required = !returningIsAutomatic;
+          returningSelect.value = returningIsAutomatic ? 'ja' : 'nein';
+        }
+      }
+
+      serviceRoot?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-slug]');
+        if (button) syncReturningField(button.dataset.slug);
+      });
+
+      detailsForm?.addEventListener('submit', () => {
+        if (returningIsAutomatic && returningSelect) returningSelect.value = 'ja';
+      });
+    })();
+  </script>
   <script src="{% static 'booking/app.js' %}" defer></script>
 </body>
 </html>
