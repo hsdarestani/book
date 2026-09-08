@@ -17,6 +17,20 @@
     document.head.appendChild(script);
   }
 
+  if (!document.querySelector('link[data-aplus-review-verification-v15]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/static/booking/admin-review-verification-v15.css?v=20260908-v15';
+    link.dataset.aplusReviewVerificationV15 = '1';
+    document.head.appendChild(link);
+  }
+  if (!document.querySelector('script[data-aplus-review-verification-v15]')) {
+    const script = document.createElement('script');
+    script.src = '/static/booking/admin-review-verification-v15.js?v=20260908-v15';
+    script.dataset.aplusReviewVerificationV15 = '1';
+    document.head.appendChild(script);
+  }
+
   const closeHistory = () => {
     document.querySelector('.v3-wallet-history-overlay')?.remove();
     document.documentElement.style.overflow = '';
