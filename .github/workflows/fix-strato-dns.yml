@@ -1,0 +1,51 @@
+name: Fix STRATO DNS resolver
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/fix-strato-dns.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore resolver access for service users
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            chmod 0755 / /etc /run
+            [ ! -d /run/systemd ] || chmod 0755 /run/systemd
+            [ ! -d /run/systemd/resolve ] || chmod 0755 /run/systemd/resolve
+            RESOLV="$(readlink -f /etc/resolv.conf || echo /etc/resolv.conf)"
+            [ ! -f "$RESOLV" ] || chmod 0644 "$RESOLV"
+            [ -L /etc/resolv.conf ] || chmod 0644 /etc/resolv.conf
+
+            systemctl enable --now systemd-resolved
+            systemctl restart systemd-resolved
+            sleep 2
+            systemctl is-active --quiet systemd-resolved
+
+            echo '=== resolver paths ==='
+            stat -Lc '%A %a %U:%G %n' /etc /etc/resolv.conf "$RESOLV"
+            namei -l "$RESOLV"
+            echo '=== root DNS ==='
+            getent ahosts user-api.simplybook.me | head -n 3
+            echo '=== aestheticbook DNS ==='
+            runuser -u aestheticbook -- /opt/aesthetic-book/venv/bin/python - <<'PY'
+            import socket
+            rows = socket.getaddrinfo('user-api.simplybook.me', 443, type=socket.SOCK_STREAM)
+            assert rows
+            print('SIMPLYBOOK_DNS_OK=1')
+            PY
+            echo 'DNS_REPAIR=PASS'
