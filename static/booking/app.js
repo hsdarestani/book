@@ -83,11 +83,21 @@
     updateProgress(step);
     window.scrollTo({ top: Math.max(0, $('.booking-card').offsetTop - 18), behavior: 'smooth' });
   }
-  async function getJSON(url, options) {
-    const r = await fetch(url, { headers: { Accept: 'application/json', ...(options?.headers || {}) }, ...options });
+  async function getJSON(url, options = {}) {
+    const requestOptions = {
+      ...options,
+      cache: 'no-store',
+      headers: { Accept: 'application/json', ...(options.headers || {}) },
+    };
+    const r = await fetch(url, requestOptions);
     let data = {};
     try { data = await r.json(); } catch (_) {}
-    if (!r.ok || data.ok === false) throw new Error(data.message || 'Die Anfrage konnte nicht verarbeitet werden.');
+    if (!r.ok || data.ok === false) {
+      const error = new Error(data.message || 'Die Anfrage konnte nicht verarbeitet werden.');
+      error.code = data.error || '';
+      error.status = r.status;
+      throw error;
+    }
     return data;
   }
 
@@ -152,6 +162,19 @@
       }));
     } catch (e) {
       root.innerHTML = '';
+      if (e.code === 'service_not_found' || e.status === 404) {
+        state.service = null;
+        state.staff = null;
+        state.startsAt = null;
+        state.slotLabel = null;
+        state.dateLabel = null;
+        state.availabilityDays = [];
+        state.selectedDayIndex = 0;
+        await loadServices();
+        go(1);
+        showError('Die Buchungsdaten wurden aktualisiert. Bitte wähle deine Behandlung noch einmal.');
+        return;
+      }
       showError(e.message);
     }
   }
