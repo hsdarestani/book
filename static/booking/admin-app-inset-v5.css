@@ -1,5 +1,5 @@
-/* A+ Esthetic admin mobile shell geometry v16
-   One viewport contract for every verified management surface. */
+/* A+ Esthetic admin mobile shell geometry v17
+   One viewport contract with comfortable mobile side margins. */
 
 @media (max-width:900px){
   html,
@@ -37,8 +37,8 @@
     transform:none!important;
     box-sizing:border-box!important;
     border-radius:0!important;
-    padding-left:max(14px,env(safe-area-inset-left))!important;
-    padding-right:max(14px,env(safe-area-inset-right))!important;
+    padding-left:max(16px,env(safe-area-inset-left))!important;
+    padding-right:max(16px,env(safe-area-inset-right))!important;
     z-index:70!important;
   }
 
@@ -50,8 +50,8 @@
     max-width:100%!important;
     min-width:0!important;
     margin:0!important;
-    padding-left:max(12px,env(safe-area-inset-left))!important;
-    padding-right:max(12px,env(safe-area-inset-right))!important;
+    padding-left:max(20px,env(safe-area-inset-left))!important;
+    padding-right:max(20px,env(safe-area-inset-right))!important;
     overflow:visible!important;
   }
 
@@ -184,8 +184,8 @@
   body.sb-admin-body > main.admin-shell,
   body.sb-admin-body .app-management-shell,
   body.sb-admin-body .command-shell{
-    padding-left:max(10px,env(safe-area-inset-left))!important;
-    padding-right:max(10px,env(safe-area-inset-right))!important;
+    padding-left:max(18px,env(safe-area-inset-left))!important;
+    padding-right:max(18px,env(safe-area-inset-right))!important;
   }
 
   body.sb-admin-body .admin-panel,
