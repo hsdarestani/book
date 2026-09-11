@@ -1,0 +1,361 @@
+name: Recover A+ Esthetic production data on STRATO
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/migrate-strato-production-data.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a-esthetic-strato-data-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover-and-audit:
+    runs-on: ubuntu-latest
+    env:
+      OLD_HOST: ${{ secrets.HOST }}
+      OLD_PASS: ${{ secrets.PASS }}
+      NEW_HOST: ${{ secrets.SERVER_HOST }}
+      NEW_USER: ${{ secrets.SERVER_USER }}
+      NEW_PORT: ${{ secrets.SERVER_PORT }}
+      NEW_KEY: ${{ secrets.SERVER_SSH_KEY }}
+      SIMPLYBOOK_COMPANY_LOGIN: ${{ secrets.SIMPLYBOOK_COMPANY_LOGIN }}
+      SIMPLYBOOK_USER_LOGIN: ${{ secrets.SIMPLYBOOK_USER_LOGIN }}
+      SIMPLYBOOK_USER_PASSWORD: ${{ secrets.SIMPLYBOOK_USER_PASSWORD }}
+      SIMPLYBOOK_API_USER_KEY: ${{ secrets.SIMPLYBOOK_API_USER_KEY }}
+    steps:
+      - name: Install migration tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sshpass openssh-client
+
+      - name: Recover legacy data, refresh SimplyBook and audit production
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${NEW_HOST:?SERVER_HOST missing}"
+          : "${NEW_USER:?SERVER_USER missing}"
+          : "${NEW_PORT:?SERVER_PORT missing}"
+          : "${NEW_KEY:?SERVER_SSH_KEY missing}"
+
+          KEY_FILE="$(mktemp)"
+          WORK="$(mktemp -d)"
+          trap 'rm -rf "$KEY_FILE" "$WORK"' EXIT
+          printf '%s\n' "$NEW_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+
+          OLD_AVAILABLE=0
+          if [ -n "${OLD_HOST:-}" ] && [ -n "${OLD_PASS:-}" ]; then
+            if sshpass -p "$OLD_PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=12 root@"$OLD_HOST" 'test -d /opt/aesthetic-book || test -d /opt/a-esthetic-mobile'; then
+              OLD_AVAILABLE=1
+            fi
+          fi
+          echo "LEGACY_SERVER_ACCESS=$OLD_AVAILABLE"
+
+          if [ "$OLD_AVAILABLE" = "1" ]; then
+            sshpass -p "$OLD_PASS" ssh -o StrictHostKeyChecking=no root@"$OLD_HOST" 'bash -se' <<'OLD'
+          set -euo pipefail
+          umask 077
+          STAGE=/tmp/aesthetic-strato-legacy
+          BUNDLE=/tmp/aesthetic-strato-legacy.tar.gz
+          rm -rf "$STAGE" "$BUNDLE"
+          mkdir -p "$STAGE"
+
+          if runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname='aestheticbook'" | grep -q 1; then
+            runuser -u postgres -- pg_dump -Fc --no-owner --no-acl aestheticbook > "$STAGE/aestheticbook.dump"
+          fi
+
+          mkdir -p "$STAGE/book-files"
+          if [ -d /opt/aesthetic-book/private ]; then
+            cp -a --parents /opt/aesthetic-book/private "$STAGE/book-files/"
+          fi
+          if [ -d /opt/aesthetic-book/app/media ]; then
+            cp -a --parents /opt/aesthetic-book/app/media "$STAGE/book-files/"
+          fi
+          tar -C "$STAGE/book-files" -czf "$STAGE/book-files.tar.gz" .
+          rm -rf "$STAGE/book-files"
+
+          if [ -f /opt/a-esthetic-mobile/db.sqlite3 ]; then
+            cp -a /opt/a-esthetic-mobile/db.sqlite3 "$STAGE/mobile-db.sqlite3"
+          fi
+          if [ -f /opt/a-esthetic-mobile/mobile.env ]; then
+            cp -a /opt/a-esthetic-mobile/mobile.env "$STAGE/mobile.env"
+          fi
+          if [ -d /opt/a-esthetic-mobile/private_media ]; then
+            tar -C /opt/a-esthetic-mobile -czf "$STAGE/mobile-private-media.tar.gz" private_media
+          else
+            tar -czf "$STAGE/mobile-private-media.tar.gz" --files-from /dev/null
+          fi
+
+          mkdir -p "$STAGE/path-secrets"
+          if [ -f /opt/a-esthetic-mobile/mobile.env ]; then
+            while IFS='=' read -r key value; do
+              case "$key" in
+                *_PATH)
+                  value="${value%\"}"; value="${value#\"}"; value="${value%\'}"; value="${value#\'}"
+                  if [ -n "$value" ] && [ -f "$value" ]; then
+                    cp -a --parents "$value" "$STAGE/path-secrets/" || true
+                  fi
+                  ;;
+              esac
+            done < /opt/a-esthetic-mobile/mobile.env
+          fi
+          tar -C "$STAGE/path-secrets" -czf "$STAGE/path-secrets.tar.gz" .
+          rm -rf "$STAGE/path-secrets"
+
+          tar -C "$STAGE" -czf "$BUNDLE" .
+          chmod 600 "$BUNDLE"
+          echo "LEGACY_BUNDLE_READY=1"
+          OLD
+
+            sshpass -p "$OLD_PASS" scp -q -o StrictHostKeyChecking=no root@"$OLD_HOST":/tmp/aesthetic-strato-legacy.tar.gz "$WORK/legacy.tar.gz"
+            sshpass -p "$OLD_PASS" ssh -o StrictHostKeyChecking=no root@"$OLD_HOST" 'rm -rf /tmp/aesthetic-strato-legacy /tmp/aesthetic-strato-legacy.tar.gz' || true
+            test -s "$WORK/legacy.tar.gz"
+            scp -q -P "$NEW_PORT" -i "$KEY_FILE" -o StrictHostKeyChecking=no "$WORK/legacy.tar.gz" "$NEW_USER@$NEW_HOST:/tmp/aesthetic-strato-legacy.tar.gz"
+          fi
+
+          : > "$WORK/simplybook.env"
+          printf 'SIMPLYBOOK_COMPANY_LOGIN_B64=%s\n' "$(printf '%s' "${SIMPLYBOOK_COMPANY_LOGIN:-}" | base64 -w0)" >> "$WORK/simplybook.env"
+          printf 'SIMPLYBOOK_USER_LOGIN_B64=%s\n' "$(printf '%s' "${SIMPLYBOOK_USER_LOGIN:-}" | base64 -w0)" >> "$WORK/simplybook.env"
+          printf 'SIMPLYBOOK_USER_PASSWORD_B64=%s\n' "$(printf '%s' "${SIMPLYBOOK_USER_PASSWORD:-}" | base64 -w0)" >> "$WORK/simplybook.env"
+          printf 'SIMPLYBOOK_API_USER_KEY_B64=%s\n' "$(printf '%s' "${SIMPLYBOOK_API_USER_KEY:-}" | base64 -w0)" >> "$WORK/simplybook.env"
+          scp -q -P "$NEW_PORT" -i "$KEY_FILE" -o StrictHostKeyChecking=no "$WORK/simplybook.env" "$NEW_USER@$NEW_HOST:/tmp/aesthetic-simplybook.env"
+
+          ssh -p "$NEW_PORT" -i "$KEY_FILE" -o StrictHostKeyChecking=no "$NEW_USER@$NEW_HOST" "OLD_AVAILABLE=$OLD_AVAILABLE bash -se" <<'NEW'
+          set -euo pipefail
+          umask 077
+          TS="$(date +%Y%m%d-%H%M%S)"
+          BACKUP_ROOT="/opt/migration-backups/$TS"
+          mkdir -p "$BACKUP_ROOT"
+
+          BOOK_ROOT=/opt/aesthetic-book
+          BOOK_APP="$BOOK_ROOT/app"
+          BOOK_VENV="$BOOK_ROOT/venv"
+          BOOK_ENV=/etc/aesthetic-book.env
+          MOBILE_ROOT=/opt/a-esthetic-mobile
+          MOBILE_VENV="$MOBILE_ROOT/venv"
+          MOBILE_ENV="$MOBILE_ROOT/mobile.env"
+          LEGACY=/tmp/aesthetic-strato-legacy.tar.gz
+          SB_ENV=/tmp/aesthetic-simplybook.env
+
+          systemctl stop a-esthetic-patient-record-sync.timer 2>/dev/null || true
+          systemctl stop a-esthetic-mobile.service 2>/dev/null || true
+          systemctl stop aesthetic-book.service 2>/dev/null || true
+
+          if runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname='aestheticbook'" | grep -q 1; then
+            runuser -u postgres -- pg_dump -Fc --no-owner --no-acl aestheticbook > "$BACKUP_ROOT/aestheticbook-before-restore.dump"
+          fi
+          [ ! -f "$MOBILE_ROOT/db.sqlite3" ] || cp -a "$MOBILE_ROOT/db.sqlite3" "$BACKUP_ROOT/mobile-before-restore.sqlite3"
+          [ ! -f "$MOBILE_ENV" ] || cp -a "$MOBILE_ENV" "$BACKUP_ROOT/mobile-before-restore.env"
+
+          if [ "${OLD_AVAILABLE:-0}" = "1" ]; then
+            test -s "$LEGACY"
+            STAGE="/tmp/aesthetic-strato-legacy-extracted"
+            rm -rf "$STAGE"; mkdir -p "$STAGE"
+            tar -xzf "$LEGACY" -C "$STAGE"
+
+            if [ -s "$STAGE/aestheticbook.dump" ]; then
+              runuser -u postgres -- dropdb --if-exists aestheticbook
+              runuser -u postgres -- createdb -O aestheticbook aestheticbook
+              runuser -u postgres -- pg_restore --no-owner --no-acl -d aestheticbook "$STAGE/aestheticbook.dump"
+              echo 'BOOK_DATABASE_RESTORED=1'
+            fi
+
+            if [ -s "$STAGE/book-files.tar.gz" ]; then
+              tar -xzf "$STAGE/book-files.tar.gz" -C /
+              [ ! -d "$BOOK_ROOT/private" ] || chown -R aestheticbook:aestheticbook "$BOOK_ROOT/private"
+              [ ! -d "$BOOK_APP/media" ] || chown -R aestheticbook:aestheticbook "$BOOK_APP/media"
+              echo 'BOOK_PRIVATE_FILES_RESTORED=1'
+            fi
+
+            if [ -s "$STAGE/mobile-db.sqlite3" ]; then
+              cp -a "$STAGE/mobile-db.sqlite3" "$MOBILE_ROOT/db.sqlite3"
+              chmod 600 "$MOBILE_ROOT/db.sqlite3"
+              echo 'MOBILE_DATABASE_RESTORED=1'
+            fi
+            if [ -s "$STAGE/mobile-private-media.tar.gz" ]; then
+              tar -xzf "$STAGE/mobile-private-media.tar.gz" -C "$MOBILE_ROOT"
+              echo 'MOBILE_PRIVATE_MEDIA_RESTORED=1'
+            fi
+            if [ -s "$STAGE/path-secrets.tar.gz" ]; then
+              tar -xzf "$STAGE/path-secrets.tar.gz" -C /
+              echo 'MOBILE_PATH_SECRETS_RESTORED=1'
+            fi
+
+            if [ -s "$STAGE/mobile.env" ] && [ -s "$MOBILE_ENV" ]; then
+              python3 - "$MOBILE_ENV" "$STAGE/mobile.env" <<'PY'
+          import sys
+          from pathlib import Path
+          current_path, old_path = map(Path, sys.argv[1:])
+          blocked = {
+              'DJANGO_ALLOWED_HOSTS', 'CSRF_TRUSTED_ORIGINS', 'DATABASE_URL', 'POSTGRES_SSLMODE',
+              'PATIENT_RECORD_SYNC_URL', 'PATIENT_RECORD_SYNC_TOKEN', 'PATIENT_RECORD_SYNC_TOKEN_FILE',
+              'PATIENT_RECORD_SYNC_TIMEOUT',
+          }
+          def read(path):
+              order, values = [], {}
+              for raw in path.read_text(encoding='utf-8').splitlines():
+                  line = raw.strip()
+                  if not line or line.startswith('#') or '=' not in line:
+                      continue
+                  key, value = line.split('=', 1)
+                  key = key.strip()
+                  if key not in values:
+                      order.append(key)
+                  values[key] = value
+              return order, values
+          order, current = read(current_path)
+          old_order, old = read(old_path)
+          for key in old_order:
+              if key in blocked or not old.get(key, '').strip():
+                  continue
+              if key not in current:
+                  order.append(key)
+              current[key] = old[key]
+          current_path.write_text('\n'.join(f'{key}={current[key]}' for key in order) + '\n', encoding='utf-8')
+          PY
+              chmod 600 "$MOBILE_ENV"
+              echo 'MOBILE_RUNTIME_SECRETS_MERGED=1'
+            fi
+            rm -rf "$STAGE" "$LEGACY"
+          fi
+
+          test -x "$BOOK_VENV/bin/python"
+          test -s "$BOOK_ENV"
+          cd "$BOOK_APP"
+          runuser -u aestheticbook -- bash -c "set -a; source '$BOOK_ENV'; set +a; '$BOOK_VENV/bin/python' manage.py migrate --noinput; '$BOOK_VENV/bin/python' manage.py collectstatic --noinput"
+
+          set -a; . "$SB_ENV"; set +a
+          export SIMPLYBOOK_COMPANY_LOGIN="$(printf '%s' "${SIMPLYBOOK_COMPANY_LOGIN_B64:-}" | base64 -d)"
+          export SIMPLYBOOK_USER_LOGIN="$(printf '%s' "${SIMPLYBOOK_USER_LOGIN_B64:-}" | base64 -d)"
+          export SIMPLYBOOK_USER_PASSWORD="$(printf '%s' "${SIMPLYBOOK_USER_PASSWORD_B64:-}" | base64 -d)"
+          export SIMPLYBOOK_API_USER_KEY="$(printf '%s' "${SIMPLYBOOK_API_USER_KEY_B64:-}" | base64 -d)"
+          rm -f "$SB_ENV"
+
+          if [ -n "$SIMPLYBOOK_COMPANY_LOGIN" ] && [ -n "$SIMPLYBOOK_USER_LOGIN" ] && { [ -n "$SIMPLYBOOK_API_USER_KEY" ] || [ -n "$SIMPLYBOOK_USER_PASSWORD" ]; }; then
+            SB_BACKUP="$BOOK_ROOT/private/simplybook-backup-$TS.json"
+            runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$BOOK_ENV'; set +a; '$BOOK_VENV/bin/python' manage.py simplybook_import --backup '$SB_BACKUP'; '$BOOK_VENV/bin/python' manage.py fix_simplybook_owner; '$BOOK_VENV/bin/python' manage.py sync_simplybook_notes"
+            chown aestheticbook:aestheticbook "$SB_BACKUP"
+            chmod 600 "$SB_BACKUP"
+            echo 'SIMPLYBOOK_REFRESH=success'
+          else
+            echo 'SIMPLYBOOK_REFRESH=missing_credentials'
+            exit 2
+          fi
+
+          test -x "$MOBILE_VENV/bin/python"
+          test -s "$MOBILE_ENV"
+          cd "$MOBILE_ROOT"
+          set -a; . "$MOBILE_ENV"; set +a
+          "$MOBILE_VENV/bin/python" manage.py migrate --noinput
+          "$MOBILE_VENV/bin/python" manage.py seed_platform
+          "$MOBILE_VENV/bin/python" manage.py seed_p1
+          "$MOBILE_VENV/bin/python" manage.py seed_p2
+          "$MOBILE_VENV/bin/python" manage.py seed_p3
+          "$MOBILE_VENV/bin/python" manage.py collectstatic --noinput
+          "$MOBILE_VENV/bin/python" manage.py check
+
+          TOKEN_FILE=/etc/aesthetic-patient-sync.token
+          if [ ! -s "$TOKEN_FILE" ]; then openssl rand -hex 48 > "$TOKEN_FILE"; fi
+          chown root:aestheticbook "$TOKEN_FILE"
+          chmod 0640 "$TOKEN_FILE"
+          sed -i '/^PATIENT_RECORD_SYNC_URL=/d;/^PATIENT_RECORD_SYNC_TOKEN=/d;/^PATIENT_RECORD_SYNC_TOKEN_FILE=/d;/^PATIENT_RECORD_SYNC_TIMEOUT=/d' "$MOBILE_ENV"
+          cat >> "$MOBILE_ENV" <<EOF
+          PATIENT_RECORD_SYNC_URL=https://book.a-esthetic.de/api/internal/patient-records/ingest/
+          PATIENT_RECORD_SYNC_TOKEN_FILE=$TOKEN_FILE
+          PATIENT_RECORD_SYNC_TIMEOUT=8
+          EOF
+          chmod 600 "$MOBILE_ENV"
+
+          systemctl start aesthetic-book.service
+          systemctl start a-esthetic-mobile.service
+          systemctl start a-esthetic-patient-record-sync.timer 2>/dev/null || true
+          sleep 4
+
+          systemctl is-active --quiet aesthetic-book.service
+          systemctl is-active --quiet a-esthetic-mobile.service
+          nginx -t
+
+          echo '=== DATA COUNTS ==='
+          cd "$BOOK_APP"
+          runuser -u aestheticbook -- bash -c "set -a; source '$BOOK_ENV'; set +a; '$BOOK_VENV/bin/python' manage.py shell -c \"from booking.models import Customer,Appointment,Service,StaffMember,PatientRecord; import json; print('BOOK_COUNTS='+json.dumps({'customers':Customer.objects.count(),'appointments':Appointment.objects.count(),'services':Service.objects.count(),'staff':StaffMember.objects.count(),'patient_records':PatientRecord.objects.count()},sort_keys=True))\""
+          cd "$MOBILE_ROOT"
+          set -a; . "$MOBILE_ENV"; set +a
+          "$MOBILE_VENV/bin/python" manage.py shell -c "from django.contrib.auth import get_user_model; from p0_app.ops_models import PushDevice,AppNotification; from platform_app.models import MemberAccount,WalletAccount; import json; U=get_user_model(); print('MOBILE_COUNTS='+json.dumps({'users':U.objects.count(),'push_devices':PushDevice.objects.count(),'notifications':AppNotification.objects.count(),'members':MemberAccount.objects.count(),'wallets':WalletAccount.objects.count()},sort_keys=True))"
+
+          echo '=== RUNTIME CONFIGURATION ==='
+          "$MOBILE_VENV/bin/python" manage.py shell -c "from p0_app.push import push_configuration; from p2_app.passes import wallet_provider_status; import json,os; print('PUSH_CONFIGURATION='+json.dumps(push_configuration(),sort_keys=True)); print('WALLET_CONFIGURATION='+json.dumps(wallet_provider_status(),sort_keys=True)); print('GOOGLE_LOGIN_CONFIGURED='+str(bool(os.environ.get('GOOGLE_CLIENT_ID') and os.environ.get('GOOGLE_CLIENT_SECRET')))); print('APPLE_LOGIN_CONFIGURED='+str(bool(os.environ.get('APPLE_CLIENT_ID') and os.environ.get('APPLE_PRIVATE_KEY') and os.environ.get('APPLE_KEY_ID') and os.environ.get('APPLE_TEAM_ID'))))"
+
+          "$MOBILE_VENV/bin/python" - <<'PY'
+          import base64, json, os, sys
+          from google.auth.transport.requests import Request
+          from google.oauth2 import service_account
+          raw = (os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON') or '').strip()
+          if not raw and (os.environ.get('FIREBASE_SERVICE_ACCOUNT_B64') or '').strip():
+              raw = base64.b64decode(os.environ['FIREBASE_SERVICE_ACCOUNT_B64']).decode()
+          if not raw:
+              raise SystemExit('FCM credential missing')
+          info = json.loads(raw)
+          creds = service_account.Credentials.from_service_account_info(info, scopes=['https://www.googleapis.com/auth/firebase.messaging'])
+          creds.refresh(Request())
+          assert creds.token
+          print('FCM_AUTH=success')
+          PY
+
+          "$MOBILE_VENV/bin/python" - <<'PY'
+          import base64, os, time
+          import httpx, jwt
+          kid=(os.environ.get('APNS_KEY_ID') or '').strip(); team=(os.environ.get('APNS_TEAM_ID') or '').strip()
+          key=(os.environ.get('APNS_PRIVATE_KEY') or '').strip()
+          if not key and (os.environ.get('APNS_PRIVATE_KEY_B64') or '').strip(): key=base64.b64decode(os.environ['APNS_PRIVATE_KEY_B64']).decode()
+          key=key.replace('\\n','\n')
+          if not (kid and team and key): raise SystemExit('APNS credential missing')
+          token=jwt.encode({'iss':team,'iat':int(time.time())},key,algorithm='ES256',headers={'kid':kid,'alg':'ES256'})
+          host='https://api.push.apple.com'; topic=(os.environ.get('APNS_BUNDLE_ID') or 'de.aplusesthetic.app').strip()
+          r=httpx.post(host+'/3/device/'+'0'*64,headers={'authorization':'bearer '+token,'apns-topic':topic,'apns-push-type':'alert'},json={'aps':{'alert':'credential-check'}},timeout=20)
+          if r.status_code == 403: raise SystemExit('APNS auth rejected: '+r.text[:200])
+          print('APNS_AUTH=success status='+str(r.status_code))
+          PY
+
+          "$MOBILE_VENV/bin/python" - <<'PY'
+          import json, os
+          from pathlib import Path
+          required=['APPLE_PASS_TYPE_ID','APPLE_TEAM_ID','APPLE_PASS_CERT_PATH','APPLE_PASS_KEY_PATH','APPLE_WWDR_CERT_PATH']
+          if all(os.environ.get(k) for k in required):
+              missing=[os.environ[k] for k in ('APPLE_PASS_CERT_PATH','APPLE_PASS_KEY_PATH','APPLE_WWDR_CERT_PATH') if not Path(os.environ[k]).is_file()]
+              if missing: raise SystemExit('Apple Wallet path files missing')
+              print('APPLE_WALLET_FILES=present')
+          else:
+              print('APPLE_WALLET_FILES=not_configured')
+          if os.environ.get('GOOGLE_WALLET_SERVICE_ACCOUNT_JSON'):
+              info=json.loads(os.environ['GOOGLE_WALLET_SERVICE_ACCOUNT_JSON']); assert info.get('private_key') and info.get('client_email')
+              print('GOOGLE_WALLET_CREDENTIAL=valid_json')
+          else:
+              print('GOOGLE_WALLET_CREDENTIAL=not_configured')
+          PY
+
+          cd "$BOOK_APP"
+          runuser -u aestheticbook -- bash -c "set -a; source '$BOOK_ENV'; set +a; '$BOOK_VENV/bin/python' manage.py shell -c \"from django.core.mail import get_connection; c=get_connection(); ok=c.open(); print('SMTP_AUTH=success' if ok is not False else 'SMTP_AUTH=already_open'); c.close()\""
+
+          echo '=== PUBLIC SMOKE TESTS ==='
+          curl -fsS --max-time 20 https://book.a-esthetic.de/api/health/ | grep -q '"ok"'
+          curl -fsS --max-time 20 https://book.a-esthetic.de/static/booking/app.css | grep -q '.booking-shell'
+          curl -fsS --max-time 20 https://esthetic.smarbiz.sbs/api/mobile/status/ | grep -qi 'customer club'
+          curl -fsS --max-time 20 https://esthetic.smarbiz.sbs/datenschutz/ | grep -qi 'Kundenclub'
+
+          TOKEN="$(cat "$TOKEN_FILE")"
+          CODE="$(curl -sS -o /tmp/patient-sync-check.json -w '%{http_code}' -X POST -H "X-Aesthetic-Patient-Sync: $TOKEN" https://book.a-esthetic.de/api/internal/patient-records/ingest/)"
+          test "$CODE" = "400"
+          cd "$MOBILE_ROOT"; set -a; . "$MOBILE_ENV"; set +a
+          "$MOBILE_VENV/bin/python" manage.py sync_patient_records --limit 1000
+          echo 'PATIENT_RECORD_BRIDGE=success'
+
+          echo 'STRATO_MIGRATION_AUDIT=PASS'
+          echo "ROLLBACK_BACKUP=$BACKUP_ROOT"
+          NEW
