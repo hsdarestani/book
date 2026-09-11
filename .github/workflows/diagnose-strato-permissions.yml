@@ -14,7 +14,7 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect execution paths and service users
+      - name: Audit booking production runtime
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -23,36 +23,29 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 10m
           script: |
-            set -u
-            echo '=== identity ==='
-            id
-            uname -a
-            echo '=== path permissions ==='
-            for p in / /bin /usr /usr/bin /usr/bin/bash /bin/bash /usr/bin/id /usr/bin/psql /usr/sbin/runuser /opt /opt/aesthetic-book /opt/aesthetic-book/app /opt/aesthetic-book/venv /root /tmp; do
-              if [ -e "$p" ] || [ -L "$p" ]; then stat -Lc '%A %a %U:%G %n' "$p" || true; fi
-            done
-            echo '=== symlinks ==='
-            readlink -f /bin/bash || true
-            readlink -f /usr/bin/psql || true
-            echo '=== mounts ==='
-            findmnt -T /usr/bin/bash -o TARGET,SOURCE,FSTYPE,OPTIONS || true
-            findmnt -T /opt/aesthetic-book -o TARGET,SOURCE,FSTYPE,OPTIONS || true
-            echo '=== user records ==='
-            getent passwd aestheticbook || true
-            getent passwd postgres || true
-            echo '=== direct executable tests ==='
-            /usr/bin/bash -c '/usr/bin/id; echo ROOT_BASH_OK=1' || true
-            runuser -u postgres -- /usr/bin/id || true
-            runuser -u aestheticbook -- /usr/bin/id || true
-            runuser -u postgres -- /bin/sh -c '/usr/bin/id; echo POSTGRES_SH_OK=1' || true
-            runuser -u aestheticbook -- /bin/sh -c '/usr/bin/id; echo AESTHETIC_SH_OK=1' || true
-            echo '=== setpriv tests ==='
-            PG_UID="$(id -u postgres)"; PG_GID="$(id -g postgres)"
-            AB_UID="$(id -u aestheticbook)"; AB_GID="$(id -g aestheticbook)"
-            setpriv --reuid="$PG_UID" --regid="$PG_GID" --init-groups /usr/bin/id || true
-            setpriv --reuid="$AB_UID" --regid="$AB_GID" --init-groups /usr/bin/id || true
-            echo '=== directory traversal ==='
-            namei -l /usr/bin/bash || true
-            namei -l /usr/bin/psql || true
-            namei -l /opt/aesthetic-book/app/manage.py || true
-            echo 'DIAGNOSTIC_COMPLETE=1'
+            set -euo pipefail
+            APP_ROOT=/opt/aesthetic-book
+            APP="$APP_ROOT/app"
+            VENV="$APP_ROOT/venv"
+            ENV_FILE=/etc/aesthetic-book.env
+            test -x "$VENV/bin/python"
+            test -s "$ENV_FILE"
+            systemctl is-active --quiet aesthetic-book.service
+            systemctl is-active --quiet postgresql.service
+            systemctl is-active --quiet nginx.service
+            nginx -t
+            cd "$APP"
+            runuser -u aestheticbook -- /bin/bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py check"
+            echo 'BOOK_DJANGO_CHECK=success'
+
+            runuser -u aestheticbook -- /bin/bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from booking.models import Customer,Appointment,Service,StaffMember,PatientRecord; import json; print('BOOK_COUNTS='+json.dumps({'customers':Customer.objects.count(),'appointments':Appointment.objects.count(),'services':Service.objects.count(),'staff':StaffMember.objects.count(),'patient_records':PatientRecord.objects.count()},sort_keys=True))\""
+
+            runuser -u aestheticbook -- /bin/bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from django.core.mail import get_connection; c=get_connection(); result=c.open(); print('SMTP_CONNECTION=success'); c.close()\""
+
+            test -s /etc/aesthetic-patient-sync.token
+            echo 'PATIENT_SYNC_TOKEN=present'
+            curl -fsS --max-time 20 https://book.a-esthetic.de/api/health/ | grep -q '"ok"'
+            curl -fsS --max-time 20 https://book.a-esthetic.de/static/booking/app.css | grep -q '.booking-shell'
+            curl -fsSI --max-time 20 https://book.a-esthetic.de/ >/dev/null
+            echo 'BOOK_PUBLIC_ENDPOINTS=success'
+            echo 'BOOK_RUNTIME_AUDIT=PASS'
