@@ -1,0 +1,35 @@
+name: Probe booking recovery target server
+
+on:
+  push:
+    branches: [recovery-server-probe]
+    paths:
+      - ".github/workflows/recovery-server-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read-only SSH target check
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: root
+          password: ${{ secrets.PASS }}
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+            EXPECTED=91.107.245.186
+            if hostname -I | tr ' ' '\n' | grep -Fxq "$EXPECTED"; then
+              echo BOOK_SECRET_TARGET_IS_CURRENT_SERVER=yes
+            else
+              echo BOOK_SECRET_TARGET_IS_CURRENT_SERVER=no
+              exit 44
+            fi
+            systemctl is-active --quiet aesthetic-book.service
+            curl -fsS --max-time 10 http://127.0.0.1:8017/api/health/ | grep -q '"ok": true'
+            echo BOOK_SECRET_TARGET_HEALTHY=yes
