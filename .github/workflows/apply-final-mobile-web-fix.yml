@@ -1,0 +1,81 @@
+name: Apply final A+ mobile web fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/apply-final-mobile-web-fix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Load final spacing and scroll recovery
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          style_links = (
+              "<link rel=\"stylesheet\" href=\"{% static 'booking/admin-app-inset-v5.css' %}?v=20260911-final-v17\">"
+              "<link rel=\"stylesheet\" href=\"{% static 'booking/admin-scroll-recovery-v9.css' %}?v=20260911-scroll-v11\">"
+          )
+          script = "<script defer src=\"{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11\"></script>"
+
+          def patch(path, page, marker):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if 'data-admin-page=' not in text.split('<head', 1)[0]:
+                  text = text.replace('<html lang="de">', f'<html lang="de" data-admin-page="{page}">', 1)
+              if 'admin-app-inset-v5.css' not in text:
+                  if marker not in text:
+                      raise SystemExit(f'Marker not found in {path}: {marker}')
+                  text = text.replace(marker, marker + style_links, 1)
+              if 'admin-scroll-recovery-v9.js' not in text:
+                  text = text.replace('</body>', script + '</body>', 1)
+              p.write_text(text, encoding='utf-8')
+
+          patch(
+              'templates/booking/admin_dashboard_lambo.html',
+              'dashboard',
+              "<link rel=\"stylesheet\" href=\"{% static 'booking/admin-dashboard-v11.css' %}\">",
+          )
+          patch(
+              'templates/booking/app_management.html',
+              '{{ section }}',
+              "<link rel=\"stylesheet\" href=\"{% static 'booking/admin-patient-v11.css' %}\">",
+          )
+          patch(
+              'templates/booking/app_wallet_management.html',
+              'wallet',
+              "<link rel=\"stylesheet\" href=\"{% static 'booking/admin-points-v11.css' %}\">",
+          )
+          PY
+
+      - name: Validate templates
+        run: |
+          grep -q 'data-admin-page="dashboard"' templates/booking/admin_dashboard_lambo.html
+          grep -q 'data-admin-page="{{ section }}"' templates/booking/app_management.html
+          grep -q 'data-admin-page="wallet"' templates/booking/app_wallet_management.html
+          grep -q 'admin-app-inset-v5.css' templates/booking/admin_dashboard_lambo.html
+          grep -q 'admin-scroll-recovery-v9.js' templates/booking/app_management.html
+          grep -q 'admin-scroll-recovery-v9.js' templates/booking/app_wallet_management.html
+
+      - name: Commit final web fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add templates/booking/admin_dashboard_lambo.html templates/booking/app_management.html templates/booking/app_wallet_management.html
+          if git diff --cached --quiet; then
+            echo "Templates already patched."
+          else
+            git commit -m "Load final admin spacing and scroll recovery"
+            git push origin HEAD:main
+          fi
