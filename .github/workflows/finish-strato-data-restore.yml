@@ -1,0 +1,114 @@
+name: Finish STRATO production data restore
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/finish-strato-data-restore.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a-esthetic-strato-data-finish
+  cancel-in-progress: false
+
+jobs:
+  finish:
+    runs-on: ubuntu-latest
+    env:
+      SIMPLYBOOK_COMPANY_LOGIN: ${{ secrets.SIMPLYBOOK_COMPANY_LOGIN }}
+      SIMPLYBOOK_USER_LOGIN: ${{ secrets.SIMPLYBOOK_USER_LOGIN }}
+      SIMPLYBOOK_USER_PASSWORD: ${{ secrets.SIMPLYBOOK_USER_PASSWORD }}
+      SIMPLYBOOK_API_USER_KEY: ${{ secrets.SIMPLYBOOK_API_USER_KEY }}
+    steps:
+      - name: Finish migrations, SimplyBook sync and service checks
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 30m
+          envs: SIMPLYBOOK_COMPANY_LOGIN,SIMPLYBOOK_USER_LOGIN,SIMPLYBOOK_USER_PASSWORD,SIMPLYBOOK_API_USER_KEY
+          script: |
+            set -euo pipefail
+            BOOK_ROOT=/opt/aesthetic-book
+            BOOK_APP="$BOOK_ROOT/app"
+            BOOK_VENV="$BOOK_ROOT/venv"
+            BOOK_ENV=/etc/aesthetic-book.env
+            MOBILE_ROOT=/opt/a-esthetic-mobile
+            MOBILE_VENV="$MOBILE_ROOT/venv"
+            MOBILE_ENV="$MOBILE_ROOT/mobile.env"
+            TS="$(date +%Y%m%d-%H%M%S)"
+
+            getent group aestheticbook >/dev/null
+            id aestheticbook >/dev/null
+            chown -R aestheticbook:aestheticbook "$BOOK_ROOT"
+            chmod 0755 "$BOOK_ROOT" "$BOOK_APP" "$BOOK_VENV"
+            chmod 0750 "$BOOK_ROOT/private" "$BOOK_ROOT/private/patient-files" 2>/dev/null || true
+            chmod 0640 "$BOOK_ENV"
+            chown root:aestheticbook "$BOOK_ENV"
+            echo 'BOOK_PERMISSIONS_FIXED=1'
+
+            cd "$BOOK_APP"
+            runuser -u aestheticbook -- bash -c "set -a; source '$BOOK_ENV'; set +a; '$BOOK_VENV/bin/python' manage.py migrate --noinput; '$BOOK_VENV/bin/python' manage.py collectstatic --noinput; '$BOOK_VENV/bin/python' manage.py check"
+            echo 'BOOK_MIGRATIONS=success'
+
+            : "${SIMPLYBOOK_COMPANY_LOGIN:?SimplyBook company login missing}"
+            : "${SIMPLYBOOK_USER_LOGIN:?SimplyBook user login missing}"
+            if [ -z "${SIMPLYBOOK_API_USER_KEY:-}" ] && [ -z "${SIMPLYBOOK_USER_PASSWORD:-}" ]; then
+              echo 'SimplyBook credential missing' >&2
+              exit 12
+            fi
+            export SIMPLYBOOK_COMPANY_LOGIN SIMPLYBOOK_USER_LOGIN SIMPLYBOOK_USER_PASSWORD SIMPLYBOOK_API_USER_KEY
+            SB_BACKUP="$BOOK_ROOT/private/simplybook-backup-$TS.json"
+            runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$BOOK_ENV'; set +a; '$BOOK_VENV/bin/python' manage.py simplybook_import --backup '$SB_BACKUP'; '$BOOK_VENV/bin/python' manage.py fix_simplybook_owner; '$BOOK_VENV/bin/python' manage.py sync_simplybook_notes; '$BOOK_VENV/bin/python' manage.py list_simplybook_note_dates"
+            chown aestheticbook:aestheticbook "$SB_BACKUP"
+            chmod 0600 "$SB_BACKUP"
+            echo 'SIMPLYBOOK_REFRESH=success'
+
+            cd "$MOBILE_ROOT"
+            chmod 0600 "$MOBILE_ENV" "$MOBILE_ROOT/db.sqlite3"
+            set -a; . "$MOBILE_ENV"; set +a
+            "$MOBILE_VENV/bin/python" manage.py migrate --noinput
+            "$MOBILE_VENV/bin/python" manage.py seed_platform
+            "$MOBILE_VENV/bin/python" manage.py seed_p1
+            "$MOBILE_VENV/bin/python" manage.py seed_p2
+            "$MOBILE_VENV/bin/python" manage.py seed_p3
+            "$MOBILE_VENV/bin/python" manage.py collectstatic --noinput
+            "$MOBILE_VENV/bin/python" manage.py check
+            echo 'MOBILE_MIGRATIONS=success'
+
+            TOKEN_FILE=/etc/aesthetic-patient-sync.token
+            [ -s "$TOKEN_FILE" ] || openssl rand -hex 48 > "$TOKEN_FILE"
+            chown root:aestheticbook "$TOKEN_FILE"
+            chmod 0640 "$TOKEN_FILE"
+            sed -i '/^PATIENT_RECORD_SYNC_URL=/d;/^PATIENT_RECORD_SYNC_TOKEN=/d;/^PATIENT_RECORD_SYNC_TOKEN_FILE=/d;/^PATIENT_RECORD_SYNC_TIMEOUT=/d' "$MOBILE_ENV"
+            cat >> "$MOBILE_ENV" <<EOF
+            PATIENT_RECORD_SYNC_URL=https://book.a-esthetic.de/api/internal/patient-records/ingest/
+            PATIENT_RECORD_SYNC_TOKEN_FILE=$TOKEN_FILE
+            PATIENT_RECORD_SYNC_TIMEOUT=8
+            EOF
+            chmod 0600 "$MOBILE_ENV"
+
+            systemctl restart aesthetic-book.service
+            systemctl restart a-esthetic-mobile.service
+            systemctl enable --now a-esthetic-patient-record-sync.timer >/dev/null 2>&1 || true
+            sleep 4
+            systemctl is-active --quiet aesthetic-book.service
+            systemctl is-active --quiet a-esthetic-mobile.service
+            nginx -t
+            echo 'SERVICES_ACTIVE=1'
+
+            cd "$BOOK_APP"
+            runuser -u aestheticbook -- bash -c "set -a; source '$BOOK_ENV'; set +a; '$BOOK_VENV/bin/python' manage.py shell -c \"from booking.models import Customer,Appointment,Service,StaffMember,PatientRecord; import json; print('BOOK_COUNTS='+json.dumps({'customers':Customer.objects.count(),'appointments':Appointment.objects.count(),'services':Service.objects.count(),'staff':StaffMember.objects.count(),'patient_records':PatientRecord.objects.count()},sort_keys=True))\""
+            cd "$MOBILE_ROOT"
+            set -a; . "$MOBILE_ENV"; set +a
+            "$MOBILE_VENV/bin/python" manage.py shell -c "from django.contrib.auth import get_user_model; from p0_app.ops_models import PushDevice,AppNotification; from platform_app.models import MemberAccount,WalletAccount; import json; U=get_user_model(); print('MOBILE_COUNTS='+json.dumps({'users':U.objects.count(),'push_devices':PushDevice.objects.count(),'notifications':AppNotification.objects.count(),'members':MemberAccount.objects.count(),'wallets':WalletAccount.objects.count()},sort_keys=True))"
+
+            curl -fsS --max-time 20 https://book.a-esthetic.de/api/health/ | grep -q '"ok"'
+            curl -fsS --max-time 20 https://esthetic.smarbiz.sbs/api/mobile/status/ | grep -qi 'customer club'
+            echo 'PUBLIC_HEALTH=success'
+            echo 'STRATO_DATA_FINISH=PASS'
