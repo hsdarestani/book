@@ -1,20 +1,29 @@
-/* A+ Esthetic admin mobile shell geometry v6
-   Keep one identical header position on every verified management surface.
-   Legacy admin-simply.css reserves 64px on body because the old header was
-   fixed. The current premium header is sticky, so that reservation becomes a
-   second blank strip. Apply the correction globally to the management shell.
-   This only changes shell/header geometry; calendar grid/timeline styles are
-   deliberately untouched. */
+/* A+ Esthetic admin mobile shell geometry v16
+   One viewport contract for every verified management surface. */
 
-@media (max-width:760px){
+@media (max-width:900px){
   html,
   body.sb-admin-body{
-    margin-top:0!important;
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+    overflow-x:hidden!important;
   }
 
   body.sb-admin-body{
     padding-top:0!important;
-    overflow-x:hidden!important;
+  }
+
+  body.sb-admin-body,
+  body.sb-admin-body *{
+    box-sizing:border-box!important;
+  }
+
+  body.sb-admin-body img,
+  body.sb-admin-body svg,
+  body.sb-admin-body video,
+  body.sb-admin-body canvas{
+    max-width:100%!important;
   }
 
   body.sb-admin-body > .sb-mobile-bar{
@@ -23,17 +32,179 @@
     left:0!important;
     right:0!important;
     width:100%!important;
-    max-width:none!important;
+    max-width:100%!important;
     margin:0!important;
     transform:none!important;
     box-sizing:border-box!important;
     border-radius:0!important;
+    padding-left:max(14px,env(safe-area-inset-left))!important;
+    padding-right:max(14px,env(safe-area-inset-right))!important;
     z-index:70!important;
   }
 
-  /* The shell must start directly after the sticky bar on every page. */
   body.sb-admin-body > main.sb-admin-shell,
-  body.sb-admin-body > main.admin-shell{
-    margin-top:0!important;
+  body.sb-admin-body > main.admin-shell,
+  body.sb-admin-body .app-management-shell,
+  body.sb-admin-body .command-shell{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding-left:max(12px,env(safe-area-inset-left))!important;
+    padding-right:max(12px,env(safe-area-inset-right))!important;
+    overflow:visible!important;
+  }
+
+  body.sb-admin-body .admin-panel,
+  body.sb-admin-body .command-panel,
+  body.sb-admin-body .command-search-panel,
+  body.sb-admin-body .campaign-editor,
+  body.sb-admin-body .template-card,
+  body.sb-admin-body .review-admin-card,
+  body.sb-admin-body .referral-admin-list article,
+  body.sb-admin-body .patient-command-card,
+  body.sb-admin-body .patient-mini-stat,
+  body.sb-admin-body .patient-result-card,
+  body.sb-admin-body .app-core-panel{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+
+  body.sb-admin-body form,
+  body.sb-admin-body label,
+  body.sb-admin-body .panel-head,
+  body.sb-admin-body .command-section-head,
+  body.sb-admin-body .campaign-admin-grid,
+  body.sb-admin-body .template-grid,
+  body.sb-admin-body .editor-two,
+  body.sb-admin-body .editor-footer,
+  body.sb-admin-body .patient-control-grid,
+  body.sb-admin-body .patient-overview-grid,
+  body.sb-admin-body .review-admin-list,
+  body.sb-admin-body .referral-admin-list{
+    min-width:0!important;
+    max-width:100%!important;
+  }
+
+  body.sb-admin-body input:not([type="checkbox"]):not([type="radio"]),
+  body.sb-admin-body select,
+  body.sb-admin-body textarea,
+  body.sb-admin-body button{
+    max-width:100%!important;
+    min-width:0!important;
+  }
+
+  body.sb-admin-body input,
+  body.sb-admin-body select,
+  body.sb-admin-body textarea{
+    width:100%!important;
+  }
+
+  body.sb-admin-body .campaign-admin-grid,
+  body.sb-admin-body .template-grid,
+  body.sb-admin-body .command-grid-two,
+  body.sb-admin-body .patient-control-grid{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+
+  body.sb-admin-body .campaign-editor .editor-two,
+  body.sb-admin-body .template-card .editor-two{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+
+  body.sb-admin-body .campaign-editor label,
+  body.sb-admin-body .template-card label,
+  body.sb-admin-body .campaign-editor input,
+  body.sb-admin-body .campaign-editor textarea,
+  body.sb-admin-body .template-card input,
+  body.sb-admin-body .template-card textarea{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+
+  body.sb-admin-body .editor-footer{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto auto!important;
+    width:100%!important;
+    gap:8px!important;
+  }
+
+  body.sb-admin-body .editor-footer .toggle-line{
+    min-width:0!important;
+    margin:0!important;
+  }
+
+  body.sb-admin-body .editor-footer>input[type="number"]{
+    width:72px!important;
+    max-width:72px!important;
+  }
+
+  body.sb-admin-body .review-admin-card,
+  body.sb-admin-body .referral-admin-list article{
+    overflow:hidden!important;
+  }
+
+  body.sb-admin-body .review-admin-card form{
+    width:100%!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+
+  body.sb-admin-body .review-admin-card form input,
+  body.sb-admin-body .review-admin-card form select,
+  body.sb-admin-body .review-admin-card form button{
+    width:100%!important;
+    max-width:100%!important;
+  }
+
+  body.sb-admin-body .referral-admin-list article>div{
+    min-width:0!important;
+  }
+
+  body.sb-admin-body .referral-admin-list article span,
+  body.sb-admin-body .patient-command-copy p,
+  body.sb-admin-body .patient-result-copy p,
+  body.sb-admin-body .next-day-row span,
+  body.sb-admin-body .command-section-head p{
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+    word-break:break-word!important;
+  }
+
+  body.sb-admin-body .admin-table,
+  body.sb-admin-body .sb-calendar-shell{
+    max-width:100%!important;
+  }
+}
+
+@media (max-width:520px){
+  body.sb-admin-body > main.sb-admin-shell,
+  body.sb-admin-body > main.admin-shell,
+  body.sb-admin-body .app-management-shell,
+  body.sb-admin-body .command-shell{
+    padding-left:max(10px,env(safe-area-inset-left))!important;
+    padding-right:max(10px,env(safe-area-inset-right))!important;
+  }
+
+  body.sb-admin-body .admin-panel,
+  body.sb-admin-body .command-panel,
+  body.sb-admin-body .command-search-panel{
+    border-radius:18px!important;
+  }
+
+  body.sb-admin-body .editor-footer{
+    grid-template-columns:minmax(0,1fr) auto!important;
+  }
+
+  body.sb-admin-body .editor-footer .toggle-line{
+    grid-column:1/-1!important;
+  }
+
+  body.sb-admin-body .referral-admin-list article{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    gap:10px!important;
   }
 }
