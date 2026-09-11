@@ -43,8 +43,8 @@ class Command(BaseCommand):
         ).update(active=False, bookable=False)
 
         # The provider records are seeded by migrations. If a fresh/manual database
-        # is missing them, create safe defaults once. Existing provider settings, service
-        # assignments and working hours are deliberately not reset on future deploys.
+        # is missing them, create safe defaults once. Existing provider settings,
+        # working hours and assignments are deliberately preserved on future deploys.
         if not StaffMember.objects.filter(role='doctor').exists():
             for sort_order, name in [(10, 'Frau Ariane Regaei'), (20, 'Qamar Hameed')]:
                 provider = StaffMember.objects.create(
@@ -62,6 +62,17 @@ class Command(BaseCommand):
                         end_time=time(18, 0),
                         active=True,
                     )
+
+        # Recovery-safe invariant: all currently active/bookable treatments must be
+        # available under Dr. Ariane. Migrations can create doctors before later
+        # catalogue migrations add/replace services; in that case the original M2M
+        # assignment is incomplete on a fresh recovered database. add() is
+        # idempotent and does not remove any manually configured assignments.
+        ariane = StaffMember.objects.filter(display_name='Frau Ariane Regaei', active=True).first()
+        if ariane:
+            active_services = list(Service.objects.filter(active=True, bookable=True))
+            if active_services:
+                ariane.services.add(*active_services)
 
         if StaffMember.objects.filter(role='doctor', active=True).exists():
             StaffMember.objects.filter(display_name='A+esthetic Team').update(active=False)
