@@ -1,0 +1,34 @@
+name: Fix STRATO root directory permissions
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/fix-strato-root-permissions.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore root traversal and verify service users
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            chmod 0755 /
+            chown root:root /
+            stat -Lc '%A %a %U:%G %n' /
+            runuser -u postgres -- /usr/bin/id
+            runuser -u aestheticbook -- /usr/bin/id
+            runuser -u postgres -- /usr/bin/psql --version
+            runuser -u aestheticbook -- /bin/bash -c 'echo AESTHETICBOOK_EXEC_OK=1'
+            echo 'ROOT_TRAVERSAL_REPAIRED=1'
