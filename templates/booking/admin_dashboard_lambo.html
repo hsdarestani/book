@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="de">
+<html lang="de" data-admin-page="dashboard">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
   <link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}">
   <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
-  <link rel="stylesheet" href="{% static 'booking/admin-dashboard-v11.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/admin-dashboard-v11.css' %}"><link rel="stylesheet" href="{% static 'booking/admin-app-inset-v5.css' %}?v=20260911-final-v17"><link rel="stylesheet" href="{% static 'booking/admin-scroll-recovery-v9.css' %}?v=20260911-scroll-v11">
 </head>
 <body class="admin-body sb-admin-body app-management-body aplus-command-body">
 <header class="sb-mobile-bar app-mobile-bar">
@@ -129,4 +129,4 @@
   document.querySelectorAll('[data-wa]').forEach(button=>button.onclick=()=>{let p=button.closest('[data-phone]')?.dataset.phone||'';p=p.replace(/\D/g,'');if(p.startsWith('0'))p='49'+p.slice(1);if(p)window.open('https://wa.me/'+p,'_blank','noopener');});
 })();
 </script>
-</body></html>
+<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script></body></html>
