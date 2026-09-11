@@ -1,0 +1,65 @@
+name: Repair STRATO restored DB and DNS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/repair-strato-db-dns.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repair database ownership and resolver permissions
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+
+            # Legacy tar metadata had tightened filesystem traversal. Restore only
+            # standard public traversal/read permissions needed by service users.
+            chmod 0755 / /etc /run
+            [ ! -d /run/systemd ] || chmod 0755 /run/systemd
+            [ ! -d /run/systemd/resolve ] || chmod 0755 /run/systemd/resolve
+            RESOLV="$(readlink -f /etc/resolv.conf || echo /etc/resolv.conf)"
+            [ ! -f "$RESOLV" ] || chmod 0644 "$RESOLV"
+            [ -L /etc/resolv.conf ] || chmod 0644 /etc/resolv.conf
+
+            # pg_restore was executed by postgres with --no-owner, therefore the
+            # restored application objects inherited postgres ownership. Transfer
+            # them back to the dedicated application role.
+            runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d aestheticbook <<'SQL'
+            ALTER DATABASE aestheticbook OWNER TO aestheticbook;
+            ALTER SCHEMA public OWNER TO aestheticbook;
+            REASSIGN OWNED BY postgres TO aestheticbook;
+            GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aestheticbook;
+            GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aestheticbook;
+            GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO aestheticbook;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO aestheticbook;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO aestheticbook;
+            SQL
+
+            echo '=== application DB access ==='
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- /bin/bash -c "set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py showmigrations --plan >/dev/null; /opt/aesthetic-book/venv/bin/python manage.py shell -c \"from booking.models import Customer,Appointment; print('DB_ACCESS_OK customers=%d appointments=%d' % (Customer.objects.count(), Appointment.objects.count()))\""
+
+            echo '=== service-user DNS ==='
+            runuser -u aestheticbook -- /opt/aesthetic-book/venv/bin/python - <<'PY'
+            import socket
+            rows = socket.getaddrinfo('user-api.simplybook.me', 443, type=socket.SOCK_STREAM)
+            if not rows:
+                raise SystemExit('SimplyBook DNS returned no addresses')
+            print('SIMPLYBOOK_DNS_OK=1')
+            PY
+
+            systemctl restart systemd-resolved 2>/dev/null || true
+            echo 'RESTORED_DB_DNS_REPAIR=PASS'
