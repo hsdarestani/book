@@ -25,8 +25,6 @@ jobs:
           script: |
             set -euo pipefail
 
-            # Legacy tar metadata had tightened filesystem traversal. Restore only
-            # standard public traversal/read permissions needed by service users.
             chmod 0755 / /etc /run
             [ ! -d /run/systemd ] || chmod 0755 /run/systemd
             [ ! -d /run/systemd/resolve ] || chmod 0755 /run/systemd/resolve
@@ -34,13 +32,32 @@ jobs:
             [ ! -f "$RESOLV" ] || chmod 0644 "$RESOLV"
             [ -L /etc/resolv.conf ] || chmod 0644 /etc/resolv.conf
 
-            # pg_restore was executed by postgres with --no-owner, therefore the
-            # restored application objects inherited postgres ownership. Transfer
-            # them back to the dedicated application role.
+            # Restore ownership only for application relations in public schema.
+            # Avoid REASSIGN OWNED because postgres also owns required system objects.
             runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d aestheticbook <<'SQL'
             ALTER DATABASE aestheticbook OWNER TO aestheticbook;
             ALTER SCHEMA public OWNER TO aestheticbook;
-            REASSIGN OWNED BY postgres TO aestheticbook;
+
+            SELECT format('ALTER TABLE %I.%I OWNER TO aestheticbook;', n.nspname, c.relname)
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND c.relkind IN ('r','p') AND pg_get_userbyid(c.relowner) <> 'aestheticbook'
+            \gexec
+
+            SELECT format('ALTER SEQUENCE %I.%I OWNER TO aestheticbook;', n.nspname, c.relname)
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND c.relkind='S' AND pg_get_userbyid(c.relowner) <> 'aestheticbook'
+            \gexec
+
+            SELECT format('ALTER VIEW %I.%I OWNER TO aestheticbook;', n.nspname, c.relname)
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND c.relkind='v' AND pg_get_userbyid(c.relowner) <> 'aestheticbook'
+            \gexec
+
+            SELECT format('ALTER MATERIALIZED VIEW %I.%I OWNER TO aestheticbook;', n.nspname, c.relname)
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND c.relkind='m' AND pg_get_userbyid(c.relowner) <> 'aestheticbook'
+            \gexec
+
             GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aestheticbook;
             GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aestheticbook;
             GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO aestheticbook;
