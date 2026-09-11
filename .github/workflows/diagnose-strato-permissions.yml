@@ -1,0 +1,58 @@
+name: Diagnose STRATO execution permissions
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/diagnose-strato-permissions.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect execution paths and service users
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -u
+            echo '=== identity ==='
+            id
+            uname -a
+            echo '=== path permissions ==='
+            for p in / /bin /usr /usr/bin /usr/bin/bash /bin/bash /usr/bin/id /usr/bin/psql /usr/sbin/runuser /opt /opt/aesthetic-book /opt/aesthetic-book/app /opt/aesthetic-book/venv /root /tmp; do
+              if [ -e "$p" ] || [ -L "$p" ]; then stat -Lc '%A %a %U:%G %n' "$p" || true; fi
+            done
+            echo '=== symlinks ==='
+            readlink -f /bin/bash || true
+            readlink -f /usr/bin/psql || true
+            echo '=== mounts ==='
+            findmnt -T /usr/bin/bash -o TARGET,SOURCE,FSTYPE,OPTIONS || true
+            findmnt -T /opt/aesthetic-book -o TARGET,SOURCE,FSTYPE,OPTIONS || true
+            echo '=== user records ==='
+            getent passwd aestheticbook || true
+            getent passwd postgres || true
+            echo '=== direct executable tests ==='
+            /usr/bin/bash -c '/usr/bin/id; echo ROOT_BASH_OK=1' || true
+            runuser -u postgres -- /usr/bin/id || true
+            runuser -u aestheticbook -- /usr/bin/id || true
+            runuser -u postgres -- /bin/sh -c '/usr/bin/id; echo POSTGRES_SH_OK=1' || true
+            runuser -u aestheticbook -- /bin/sh -c '/usr/bin/id; echo AESTHETIC_SH_OK=1' || true
+            echo '=== setpriv tests ==='
+            PG_UID="$(id -u postgres)"; PG_GID="$(id -g postgres)"
+            AB_UID="$(id -u aestheticbook)"; AB_GID="$(id -g aestheticbook)"
+            setpriv --reuid="$PG_UID" --regid="$PG_GID" --init-groups /usr/bin/id || true
+            setpriv --reuid="$AB_UID" --regid="$AB_GID" --init-groups /usr/bin/id || true
+            echo '=== directory traversal ==='
+            namei -l /usr/bin/bash || true
+            namei -l /usr/bin/psql || true
+            namei -l /opt/aesthetic-book/app/manage.py || true
+            echo 'DIAGNOSTIC_COMPLETE=1'
