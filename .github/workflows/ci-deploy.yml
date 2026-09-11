@@ -45,9 +45,10 @@ jobs:
       - name: Deploy to production server
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.HOST }}
-          username: root
-          password: ${{ secrets.PASS }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 25m
           envs: STRATO_SMTP_USER,STRATO_SMTP_PASSWORD,BOOKING_NOTIFICATION_EMAIL,BOOKING_ADMIN_PASSWORD
           script: |
@@ -238,6 +239,8 @@ jobs:
             sleep 3
             curl -fsS --max-time 15 http://127.0.0.1:8017/api/health/ -o /tmp/aesthetic-health.json
             grep -q '"ok": true' /tmp/aesthetic-health.json
+            curl -fsS --max-time 15 http://127.0.0.1 -H "Host: $DOMAIN" -o /tmp/aesthetic-book-local.html
+            test -s /tmp/aesthetic-book-local.html
             curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.css" -o /tmp/aesthetic-app.css
             grep -q '.booking-shell' /tmp/aesthetic-app.css
             curl -fsS --max-time 20 "https://$DOMAIN/static/booking/app.js" -o /tmp/aesthetic-app.js
