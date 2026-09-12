@@ -11,10 +11,10 @@ class APlusAdminNavigationMiddleware:
 <link rel="stylesheet" href="/static/booking/admin-luxury-v2.css?v=20260907-v2" data-aplus-luxury>
 <link rel="stylesheet" href="/static/booking/admin-luxury-v3.css?v=20260907-v3" data-aplus-luxury-v3>
 <link rel="stylesheet" href="/static/booking/admin-wallet-history-v4.css?v=20260907-v4" data-aplus-wallet-history-v4>
-<link rel="stylesheet" href="/static/booking/admin-app-inset-v5.css?v=20260912-v19" data-aplus-app-inset-v19>
+<link rel="stylesheet" href="/static/booking/admin-app-inset-v5.css?v=20260912-v20" data-aplus-app-inset-v20>
 <link rel="stylesheet" href="/static/booking/admin-patient-controls-v6.css?v=20260907-v6" data-aplus-patient-controls-v6>
 <link rel="stylesheet" href="/static/booking/admin-shell-v10.css?v=20260907-v10" data-aplus-admin-shell-v10>
-<style data-aplus-inline-inset-v19>
+<style data-aplus-inline-inset-v20>
 @media (max-width:900px){
   body.sb-admin-body > main.sb-admin-shell,
   body.sb-admin-body > main.admin-shell,

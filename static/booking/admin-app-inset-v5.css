@@ -1,5 +1,5 @@
-/* A+ Esthetic admin mobile shell geometry v19
-   One viewport contract with enforced mobile gutters. */
+/* A+ Esthetic admin mobile shell geometry v20
+   One viewport contract with enforced mobile gutters and top breathing room. */
 
 @media (max-width:900px){
   html,
@@ -225,6 +225,7 @@
     margin-right:auto!important;
     padding-left:max(20px,env(safe-area-inset-left))!important;
     padding-right:max(20px,env(safe-area-inset-right))!important;
+    padding-top:16px!important;
     box-sizing:border-box!important;
   }
 
