@@ -97,6 +97,7 @@ class FullManagementSurfaceRegressionTests(TestCase):
         self.assertContains(response, 'Nachrichten-Vorlagen')
         self.assertContains(response, 'Autumn Glow')
         self.assertContains(response, 'Regression')
+        self.assertContains(response, 'admin-app-inset-v5.css?v=20260912-v19')
 
     @patch('booking.app_management_views._api')
     def test_focused_aplus_sections_have_one_header_contract(self, api):
@@ -109,6 +110,7 @@ class FullManagementSurfaceRegressionTests(TestCase):
                 self.assertContains(response, 'class="sb-mobile-bar app-mobile-bar"')
                 self.assertContains(response, 'data-drawer-open')
                 self.assertContains(response, 'data-drawer')
+                self.assertContains(response, 'admin-app-inset-v5.css?v=20260912-v19')
 
     @patch('booking.app_management_views._api')
     def test_points_history_renders_only_points_not_money(self, api):

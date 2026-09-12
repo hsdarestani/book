@@ -1,5 +1,5 @@
-/* A+ Esthetic admin mobile shell geometry v18
-   One viewport contract with visibly calmer mobile side margins. */
+/* A+ Esthetic admin mobile shell geometry v19
+   One viewport contract with enforced mobile gutters. */
 
 @media (max-width:900px){
   html,
@@ -207,5 +207,41 @@
     display:grid!important;
     grid-template-columns:minmax(0,1fr) auto!important;
     gap:10px!important;
+  }
+}
+
+/* Legacy page bundles use more-specific selectors that used to zero the
+   shell padding after this shared inset contract. Keep the gutter on the
+   shell itself so every card remains clear of the viewport edge both in a
+   browser and in the native WebView. */
+@media (max-width:900px){
+  html body.sb-admin-body > main.sb-admin-shell.command-shell,
+  html body.sb-admin-body.app-management-body > main.sb-admin-shell.app-management-shell,
+  html body.sb-admin-body > main.admin-shell,
+  html body.sb-admin-body > main.command-shell{
+    width:100%!important;
+    max-width:100%!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+    padding-left:max(20px,env(safe-area-inset-left))!important;
+    padding-right:max(20px,env(safe-area-inset-right))!important;
+    box-sizing:border-box!important;
+  }
+
+  html body.sb-admin-body > main.sb-admin-shell.command-shell > *,
+  html body.sb-admin-body.app-management-body > main.sb-admin-shell.app-management-shell > *{
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+  }
+}
+
+@media (max-width:520px){
+  html body.sb-admin-body > main.sb-admin-shell.command-shell,
+  html body.sb-admin-body.app-management-body > main.sb-admin-shell.app-management-shell,
+  html body.sb-admin-body > main.admin-shell,
+  html body.sb-admin-body > main.command-shell{
+    padding-left:max(16px,env(safe-area-inset-left))!important;
+    padding-right:max(16px,env(safe-area-inset-right))!important;
   }
 }
