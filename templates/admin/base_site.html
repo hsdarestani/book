@@ -1,6 +1,7 @@
 {% extends "admin/base.html" %}
 {% load static %}
 {% block title %}{{ title }} | A+Esthetic Buchung{% endblock %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'booking/admin.css' %}">{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'booking/admin.css' %}"><link rel="stylesheet" href="{% static 'booking/admin-wait-ux-v16.css' %}?v=20260914">{% endblock %}
+{% block extrahead %}{{ block.super }}<script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20260914"></script>{% endblock %}
 {% block branding %}<div id="site-name"><a href="/verwaltung/">A+Esthetic · Buchungsverwaltung</a></div>{% endblock %}
 {% block nav-global %}<a class="admin-home-link" href="/verwaltung/">Übersicht</a>{% endblock %}
