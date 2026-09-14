@@ -77,6 +77,12 @@ class AdminAccessProfileAdmin(admin.ModelAdmin):
 @admin.register(WhatsAppTemplate)
 class WhatsAppTemplateAdmin(admin.ModelAdmin):
     list_display = ('name', 'active', 'sort_order', 'updated_at')
+    list_editable = ('active', 'sort_order')
     list_filter = ('active',)
     search_fields = ('name', 'body')
     ordering = ('sort_order', 'name')
+    fieldsets = (
+        ('Vorlage', {'fields': ('name', 'body')}),
+        ('Anzeige', {'fields': ('active', 'sort_order')}),
+    )
+    save_on_top = True
