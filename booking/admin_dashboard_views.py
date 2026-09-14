@@ -1,3 +1,4 @@
+import base64
 from urllib.parse import quote
 
 from django.contrib.admin.views.decorators import staff_member_required
