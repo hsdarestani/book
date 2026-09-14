@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}">
   <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
   <link rel="stylesheet" href="{% static 'booking/admin-dashboard-v11.css' %}"><link rel="stylesheet" href="{% static 'booking/admin-app-inset-v5.css' %}?v=20260912-v20"><link rel="stylesheet" href="{% static 'booking/admin-scroll-recovery-v9.css' %}?v=20260911-scroll-v11">
-</head>
+  <link rel="stylesheet" href="{% static 'booking/admin-wait-ux-v16.css' %}?v=20260914"></head>
 <body class="admin-body sb-admin-body app-management-body aplus-command-body">
 <header class="sb-mobile-bar app-mobile-bar">
   <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
@@ -95,18 +95,18 @@
     {% if banners_error %}<div class="admin-notice is-error">{{ banners_error }}</div>{% endif %}
     <div class="campaign-admin-grid">
       {% for banner in banners %}
-      <form method="post" class="campaign-editor">
+      <form method="post" enctype="multipart/form-data" class="campaign-editor">
         {% csrf_token %}<input type="hidden" name="action" value="banner_save"><input type="hidden" name="banner_id" value="{{ banner.id }}">
         <div class="campaign-preview" {% if banner.image_url %}style="--preview-image:url('{{ banner.image_url }}')"{% endif %}><div><span>SPECIAL OFFER</span><strong>{{ banner.title }}</strong><small>{{ banner.text|truncatechars:110 }}</small></div></div>
-        <label>Titel<input name="title" value="{{ banner.title }}" required></label><label>Text<textarea name="text">{{ banner.text }}</textarea></label><label>Banner-Bild URL<input name="image_url" type="url" value="{{ banner.image_url }}" placeholder="https://…"></label>
+        <label>Titel<input name="title" value="{{ banner.title }}" required></label><label>Text<textarea name="text">{{ banner.text }}</textarea></label><label>Banner-Titelbild (JPG, PNG oder WebP)<input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp"></label><label>Oder Bild-URL<input name="image_url" type="url" value="{{ banner.image_url }}" placeholder="https://…"></label>
         <div class="editor-two"><label>Button-Text<input name="cta_label" value="{{ banner.cta_label }}"></label><label>Button-Link<input name="cta_url" type="url" value="{{ banner.cta_url }}"></label></div>
         <div class="editor-two"><label>Start<input name="starts_at" type="datetime-local" value="{{ banner.starts_at|slice:':16' }}"></label><label>Ende<input name="ends_at" type="datetime-local" value="{{ banner.ends_at|default:''|slice:':16' }}"></label></div>
         <div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" {% if banner.active %}checked{% endif %}> Aktiv</label><input name="sort_order" type="number" value="{{ banner.sort_order|default:100 }}"><button {% if view_only %}disabled{% endif %}>Speichern</button><button type="submit" name="action" value="banner_delete" class="delete-btn" {% if view_only %}disabled{% endif %}>Löschen</button></div>
       </form>
       {% endfor %}
-      <form method="post" class="campaign-editor campaign-new">
+      <form method="post" enctype="multipart/form-data" class="campaign-editor campaign-new">
         {% csrf_token %}<input type="hidden" name="action" value="banner_save"><div class="campaign-preview"><div><span>NEU</span><strong>Neue Kampagne</strong><small>Banner, Text und optionalen Call-to-Action definieren.</small></div></div>
-        <label>Titel<input name="title" required placeholder="z. B. Herbst Special"></label><label>Text<textarea name="text" placeholder="Kurzer Kampagnentext …"></textarea></label><label>Banner-Bild URL<input name="image_url" type="url" placeholder="https://…"></label><div class="editor-two"><label>Button-Text<input name="cta_label" placeholder="Termin sichern"></label><label>Button-Link<input name="cta_url" type="url" placeholder="https://…"></label></div><div class="editor-two"><label>Start<input name="starts_at" type="datetime-local"></label><label>Ende<input name="ends_at" type="datetime-local"></label></div><div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" checked> Aktiv</label><input name="sort_order" type="number" value="100"><button {% if view_only %}disabled{% endif %}>Kampagne anlegen</button></div>
+        <label>Titel<input name="title" required placeholder="z. B. Herbst Special"></label><label>Text<textarea name="text" placeholder="Kurzer Kampagnentext …"></textarea></label><label>کاور بنر (JPG, PNG یا WebP)<input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp"></label><label>یا آدرس تصویر<input name="image_url" type="url" placeholder="https://…"></label><div class="editor-two"><label>Button-Text<input name="cta_label" placeholder="Termin sichern"></label><label>Button-Link<input name="cta_url" type="url" placeholder="https://…"></label></div><div class="editor-two"><label>Start<input name="starts_at" type="datetime-local"></label><label>Ende<input name="ends_at" type="datetime-local"></label></div><div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" checked> Aktiv</label><input name="sort_order" type="number" value="100"><button {% if view_only %}disabled{% endif %}>Kampagne anlegen</button></div>
       </form>
     </div>
   </section>
@@ -129,4 +129,4 @@
   document.querySelectorAll('[data-wa]').forEach(button=>button.onclick=()=>{let p=button.closest('[data-phone]')?.dataset.phone||'';p=p.replace(/\D/g,'');if(p.startsWith('0'))p='49'+p.slice(1);if(p)window.open('https://wa.me/'+p,'_blank','noopener');});
 })();
 </script>
-<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script></body></html>
+<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20260914"></script></body></html>

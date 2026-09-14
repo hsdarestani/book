@@ -1,3 +1,4 @@
+import base64
 from urllib.parse import quote
 
 from django.contrib.admin.views.decorators import staff_member_required
@@ -83,6 +84,7 @@ def admin_dashboard(request):
                 if banner_id.isdigit():
                     payload['id'] = int(banner_id)
                 if action == 'banner_save':
+                    uploaded_cover = request.FILES.get('cover_image')
                     payload.update({
                         'title': request.POST.get('title') or '',
                         'text': request.POST.get('text') or '',
@@ -94,6 +96,16 @@ def admin_dashboard(request):
                         'ends_at': request.POST.get('ends_at') or '',
                         'sort_order': int(request.POST.get('sort_order') or 100),
                     })
+                    if uploaded_cover:
+                        if uploaded_cover.content_type not in {'image/jpeg', 'image/png', 'image/webp'}:
+                            raise ValueError('Bitte ein JPG-, PNG- oder WebP-Bild auswählen.')
+                        if uploaded_cover.size > 6 * 1024 * 1024:
+                            raise ValueError('Das Banner-Bild darf maximal 6 MB groß sein.')
+                        payload.update({
+                            'cover_name': uploaded_cover.name,
+                            'cover_type': uploaded_cover.content_type,
+                            'cover_data': base64.b64encode(uploaded_cover.read()).decode('ascii'),
+                        })
                 app_management_views._api(request, 'dashboard-banners/', method='POST', payload=payload)
                 return redirect('/verwaltung/dashboard/?saved=banner#campaigns')
         except (PermissionError, RuntimeError, ValueError, TypeError) as exc:
