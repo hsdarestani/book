@@ -1,7 +1,7 @@
 (() => {
   const AVAILABILITY_API = '/verwaltung/api/day-availability/';
   const CALENDAR_DAY_API = '/verwaltung/api/calendar-day/';
-  const CAL_START = 8 * 60;
+  const CAL_START = 10 * 60;
   const CAL_END = 20 * 60;
   const CAL_TOTAL = CAL_END - CAL_START;
   const dayCache = new Map();

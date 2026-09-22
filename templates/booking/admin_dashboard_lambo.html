@@ -44,7 +44,7 @@
   <section class="command-hero">
     <div class="command-hero-orbit"></div>
     <div class="command-hero-copy"><span>A+ ESTHETIC · CONTROL</span><h1>Management<br>Dashboard</h1><p>Patienten, nächste Termine und tägliche Abläufe in einer Oberfläche.</p></div>
-    <div class="command-stats"><article><b>{{ today_count }}</b><span>HEUTE</span></article><article><b>{{ upcoming_count }}</b><span>BEVORSTEHEND</span></article><article><b>{{ patient_count }}</b><span>PATIENTEN</span></article></div>
+    <div class="command-stats"><article><b>{{ today_count }}</b><span>HEUTE</span></article><article class="stat-explain" title="Alle zukünftigen, nicht stornierten Termine ab jetzt"><b>{{ upcoming_count }}</b><span>BEVORSTEHEND</span><small>ab jetzt · ohne Stornos</small></article><article><b>{{ patient_count }}</b><span>PATIENTEN</span></article></div>
   </section>
 
   {% if view_only %}<div class="command-notice">Dieser Zugang ist <strong>nur zum Ansehen</strong> freigeschaltet. Änderungen und Uploads sind gesperrt.</div>{% endif %}
@@ -99,4 +99,4 @@
   document.querySelectorAll('[data-wa]').forEach(button=>button.onclick=()=>{let p=button.closest('[data-phone]')?.dataset.phone||'';p=p.replace(/\D/g,'');if(p.startsWith('0'))p='49'+p.slice(1);if(p)window.open('https://wa.me/'+p,'_blank','noopener');});
 })();
 </script>
-<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20260914"></script></body></html>
+<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20260914"></script><script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260922-v17"></script></body></html>

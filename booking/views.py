@@ -22,7 +22,7 @@ from .notifications import appointment_snapshot, notify_admin_changed, notify_ad
 
 logger = logging.getLogger(__name__)
 
-CALENDAR_START_HOUR = 8
+CALENDAR_START_HOUR = 10
 CALENDAR_END_HOUR = 20
 
 

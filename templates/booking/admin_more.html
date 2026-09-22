@@ -7,53 +7,73 @@
   <meta name="color-scheme" content="light">
   <title>Mehr | A+ Esthetic Verwaltung</title>
   <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
-  <link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}">
   <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
-  <link rel="stylesheet" href="{% static 'booking/admin-dashboard-v11.css' %}">
-  <link rel="stylesheet" href="{% static 'booking/admin-app-inset-v5.css' %}?v=20260912-v20">
-  <link rel="stylesheet" href="{% static 'booking/admin-scroll-recovery-v9.css' %}?v=20260911-scroll-v11">
 </head>
-<body class="admin-body sb-admin-body app-management-body aplus-command-body">
+<body class="admin-body sb-admin-body app-management-body aplus-command-body ferrari-more">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">Mehr</strong><span class="sb-icon-button app-management-dot">A+</span></header>
-<div class="sb-drawer-backdrop" data-drawer-backdrop></div><aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav"></nav></aside>
+<div class="sb-drawer-backdrop" data-drawer-backdrop></div>
+<aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav"></nav></aside>
 <main class="admin-shell sb-admin-shell app-management-shell command-shell">
 <header class="admin-topbar sb-desktop-topbar app-focused-topbar"><div class="admin-brand"><a class="brand brand-image" href="/verwaltung/dashboard/"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"></a><div class="brand-meta">Mehr</div></div><nav class="admin-nav"></nav><div class="admin-actions"><a href="/verwaltung/logout/">Abmelden</a></div></header>
-<section class="command-hero"><div class="command-hero-copy"><span>A+ ESTHETIC · MANAGEMENT</span><h1>Mehr</h1><p>Kampagnen, Kommunikation und Systemeinstellungen an einem Ort.</p></div></section>
-{% if error %}<div class="admin-notice is-error">{{ error }}</div>{% endif %}{% if saved %}<div class="admin-notice">Änderung gespeichert.</div>{% endif %}
-<section class="command-panel"><div class="command-section-head"><div><span>VERWALTUNG</span><h2>Einstellungen & Inhalte</h2></div></div><div class="shortcut-grid"><a href="/verwaltung/einstellungen/"><b>⚙</b><span>Einstellungen</span></a><a href="/verwaltung/behandlungen/"><b>＋</b><span>Behandlungen</span></a><a href="/verwaltung/information/"><b>ⓘ</b><span>Information</span></a><a href="#campaigns"><b>◇</b><span>Kampagnen</span></a></div></section>
-  <section class="command-panel campaign-admin" id="campaigns">
-    <div class="command-section-head"><div><span>PATIENT APP · SPECIAL OFFERS</span><h2>Kampagnen & Banner</h2><p>Diese Inhalte erscheinen direkt im Dashboard der Patienten-App.</p></div></div>
-    {% if banners_error %}<div class="admin-notice is-error">{{ banners_error }}</div>{% endif %}
-    <div class="campaign-admin-grid">
-      {% for banner in banners %}
-      <form method="post" enctype="multipart/form-data" class="campaign-editor">
-        {% csrf_token %}<input type="hidden" name="action" value="banner_save"><input type="hidden" name="banner_id" value="{{ banner.id }}">
-        <div class="campaign-preview" {% if banner.image_url %}style="--preview-image:url('{{ banner.image_url }}')"{% endif %}><div><span>SPECIAL OFFER</span><strong>{{ banner.title }}</strong><small>{{ banner.text|truncatechars:110 }}</small></div></div>
-        <label>Titel<input name="title" value="{{ banner.title }}" required></label><label>Text<textarea name="text">{{ banner.text }}</textarea></label><label>Banner-Titelbild (JPG, PNG oder WebP)<input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp"></label><label>Oder Bild-URL<input name="image_url" type="url" value="{{ banner.image_url }}" placeholder="https://…"></label>
-        <div class="editor-two"><label>Button-Text<input name="cta_label" value="{{ banner.cta_label }}"></label><label>Button-Link<input name="cta_url" type="url" value="{{ banner.cta_url }}"></label></div>
-        <div class="editor-two"><label>Start<input name="starts_at" type="datetime-local" value="{{ banner.starts_at|slice:':16' }}"></label><label>Ende<input name="ends_at" type="datetime-local" value="{{ banner.ends_at|default:''|slice:':16' }}"></label></div>
-        <div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" {% if banner.active %}checked{% endif %}> Aktiv</label><input name="sort_order" type="number" value="{{ banner.sort_order|default:100 }}"><button {% if view_only %}disabled{% endif %}>Speichern</button><button type="submit" name="action" value="banner_delete" class="delete-btn" {% if view_only %}disabled{% endif %}>Löschen</button></div>
-      </form>
-      {% endfor %}
-      <form method="post" enctype="multipart/form-data" class="campaign-editor campaign-new">
-        {% csrf_token %}<input type="hidden" name="action" value="banner_save"><div class="campaign-preview"><div><span>NEU</span><strong>Neue Kampagne</strong><small>Banner, Text und optionalen Call-to-Action definieren.</small></div></div>
-        <label>Titel<input name="title" required placeholder="z. B. Herbst Special"></label><label>Text<textarea name="text" placeholder="Kurzer Kampagnentext …"></textarea></label><label>کاور بنر (JPG, PNG یا WebP)<input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp"></label><label>یا آدرس تصویر<input name="image_url" type="url" placeholder="https://…"></label><div class="editor-two"><label>Button-Text<input name="cta_label" placeholder="Termin sichern"></label><label>Button-Link<input name="cta_url" type="url" placeholder="https://…"></label></div><div class="editor-two"><label>Start<input name="starts_at" type="datetime-local"></label><label>Ende<input name="ends_at" type="datetime-local"></label></div><div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" checked> Aktiv</label><input name="sort_order" type="number" value="100"><button {% if view_only %}disabled{% endif %}>Kampagne anlegen</button></div>
-      </form>
-    </div>
-  </section>
 
-  <section class="command-panel template-admin" id="whatsapp-templates">
-    <div class="command-section-head"><div><span>WHATSAPP</span><h2>Nachrichten-Vorlagen</h2><p>Variablen: <code>{anrede}</code> <code>{vorname}</code> <code>{nachname}</code> <code>{name}</code>. Die Anrede kommt aus dem Patientenprofil – es wird kein Geschlecht aus dem Namen geraten.</p></div></div>
-    <div class="template-grid">
-      {% for template in templates %}
-      <form method="post" class="template-card">{% csrf_token %}<input type="hidden" name="action" value="template_save"><input type="hidden" name="template_id" value="{{ template.id }}"><label>Name<input name="name" value="{{ template.name }}" required></label><label>Text<textarea name="body" required>{{ template.body }}</textarea></label><div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" {% if template.active %}checked{% endif %}> Aktiv</label><input name="sort_order" type="number" value="{{ template.sort_order }}"><button {% if view_only %}disabled{% endif %}>Speichern</button><button type="submit" name="action" value="template_delete" class="delete-btn" {% if view_only %}disabled{% endif %}>Löschen</button></div></form>
-      {% endfor %}
-      <form method="post" class="template-card template-new">{% csrf_token %}<input type="hidden" name="action" value="template_save"><label>Name<input name="name" required placeholder="Neue Vorlage"></label><label>Text<textarea name="body" required placeholder="Hallo {vorname}, …"></textarea></label><div class="editor-footer"><label class="toggle-line"><input type="checkbox" name="active" checked> Aktiv</label><input name="sort_order" type="number" value="100"><button {% if view_only %}disabled{% endif %}>Vorlage anlegen</button></div></form>
-    </div>
-  </section>
+<section class="ferrari-page-hero"><div><span>A+ ESTHETIC · CONTROL</span><h1>Mehr</h1><p>Kampagnen, Kommunikation und Systemeinstellungen – reduziert auf das Wesentliche.</p></div></section>
+{% if error %}<div class="admin-notice is-error">{{ error }}</div>{% endif %}
+{% if saved %}<div class="admin-notice">Änderung gespeichert.</div>{% endif %}
 
+<section class="ferrari-setting-links">
+  <a href="/verwaltung/einstellungen/"><span>Einstellungen</span><b>Praxis & Buchung</b><i>›</i></a>
+  <a href="/verwaltung/behandlungen/"><span>Behandlungen</span><b>Services verwalten</b><i>›</i></a>
+  <a href="/verwaltung/information/"><span>Information</span><b>Inhalte & Hinweise</b><i>›</i></a>
+</section>
+
+<section class="ferrari-section" id="campaigns">
+  <div class="ferrari-section-head">
+    <div><span>PATIENT APP</span><h2>Kampagnen</h2><p>Beliebig viele Kampagnen anlegen. Bearbeitung öffnet sich erst, wenn du sie brauchst.</p></div>
+    <button type="button" class="ferrari-primary" data-ferrari-open="campaign-new" {% if view_only %}disabled{% endif %}>+ Neue Kampagne</button>
+  </div>
+  {% if banners_error %}<div class="admin-notice is-error">{{ banners_error }}</div>{% endif %}
+  <div class="ferrari-list">
+    {% for banner in banners %}
+    <article class="ferrari-row">
+      <div class="ferrari-row-media" {% if banner.image_url %}style="background-image:url('{{ banner.image_url }}')"{% endif %}><span>A+</span></div>
+      <div class="ferrari-row-copy"><div><strong>{{ banner.title|default:"Ohne Titel" }}</strong><span class="ferrari-status {% if banner.active %}is-on{% endif %}">{% if banner.active %}Aktiv{% else %}Inaktiv{% endif %}</span></div><p>{{ banner.text|default:"Kein Kampagnentext"|truncatechars:110 }}</p><small>{% if banner.starts_at %}ab {{ banner.starts_at|slice:":16" }}{% else %}ohne Startdatum{% endif %}{% if banner.ends_at %} · bis {{ banner.ends_at|slice:":16" }}{% endif %}</small></div>
+      <button type="button" class="ferrari-edit" data-ferrari-open="campaign-{{ banner.id }}">Bearbeiten</button>
+    </article>
+    {% empty %}<div class="ferrari-empty">Noch keine Kampagne. Mit „Neue Kampagne“ startest du die erste.</div>{% endfor %}
+  </div>
+</section>
+
+<section class="ferrari-section" id="whatsapp-templates">
+  <div class="ferrari-section-head">
+    <div><span>KOMMUNIKATION</span><h2>WhatsApp-Vorlagen</h2><p>Die Vorlagen erscheinen unter <strong>Kunden → Kundenprofil → Kommunikation</strong>. Dort antippen und WhatsApp öffnet sich mit dem fertigen Text.</p></div>
+    <button type="button" class="ferrari-primary" data-ferrari-open="template-new" {% if view_only %}disabled{% endif %}>+ Neue Vorlage</button>
+  </div>
+  <div class="ferrari-usage"><div><b>Wo benutze ich das?</b><span>Kunden öffnen → Profil auswählen → Kommunikation → gewünschte WhatsApp-Vorlage antippen.</span></div><a href="/verwaltung/app/patients/">Kunden öffnen ›</a></div>
+  <div class="ferrari-list">
+    {% for template in templates %}
+    <article class="ferrari-row ferrari-row-message">
+      <div class="ferrari-message-mark">WA</div>
+      <div class="ferrari-row-copy"><div><strong>{{ template.name }}</strong><span class="ferrari-status {% if template.active %}is-on{% endif %}">{% if template.active %}Aktiv{% else %}Inaktiv{% endif %}</span></div><p>{{ template.body|truncatechars:140 }}</p><small>Variablen: {anrede}, {vorname}, {nachname}, {name}</small></div>
+      <button type="button" class="ferrari-edit" data-ferrari-open="template-{{ template.id }}">Bearbeiten</button>
+    </article>
+    {% empty %}<div class="ferrari-empty">Noch keine WhatsApp-Vorlage.</div>{% endfor %}
+  </div>
+</section>
 </main>
-<script>(()=>{const d=document.querySelector('[data-drawer]'),b=document.querySelector('[data-drawer-backdrop]');const c=()=>{d?.classList.remove('is-open');b?.classList.remove('is-open');d?.setAttribute('aria-hidden','true')};document.querySelectorAll('[data-drawer-open]').forEach(x=>x.onclick=()=>{d?.classList.add('is-open');b?.classList.add('is-open');d?.setAttribute('aria-hidden','false')});b?.addEventListener('click',c)})();</script>
-<script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20260922-more-v1"></script>
+
+<div class="ferrari-modal" data-ferrari-modal="campaign-new" aria-hidden="true"><div class="ferrari-modal-card"><div class="ferrari-modal-head"><button type="button" data-ferrari-close>‹ Zurück</button><strong>Neue Kampagne</strong><span></span></div><form method="post" enctype="multipart/form-data" class="ferrari-form">{% csrf_token %}<input type="hidden" name="action" value="banner_save"><label>Titel<input name="title" required placeholder="z. B. Herbst Special"></label><label>Text<textarea name="text" rows="4" placeholder="Kurzer Kampagnentext …"></textarea></label><div class="ferrari-grid-2"><label>Banner-Bild<input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp"></label><label>oder Bild-URL<input name="image_url" type="url" placeholder="https://…"></label></div><div class="ferrari-grid-2"><label>Button-Text<input name="cta_label" placeholder="Termin sichern"></label><label>Button-Link<input name="cta_url" type="url" placeholder="https://…"></label></div><div class="ferrari-grid-2"><label>Start<input name="starts_at" type="datetime-local"></label><label>Ende<input name="ends_at" type="datetime-local"></label></div><div class="ferrari-form-footer"><label class="ferrari-switch"><input type="checkbox" name="active" checked><span></span><b>Aktiv</b></label><label class="ferrari-order">Priorität <small>kleiner = weiter oben</small><input name="sort_order" type="number" value="100"></label><button class="ferrari-primary">Kampagne anlegen</button></div></form></div></div>
+
+{% for banner in banners %}
+<div class="ferrari-modal" data-ferrari-modal="campaign-{{ banner.id }}" aria-hidden="true"><div class="ferrari-modal-card"><div class="ferrari-modal-head"><button type="button" data-ferrari-close>‹ Zurück</button><strong>Kampagne bearbeiten</strong><span></span></div><form method="post" enctype="multipart/form-data" class="ferrari-form">{% csrf_token %}<input type="hidden" name="action" value="banner_save"><input type="hidden" name="banner_id" value="{{ banner.id }}"><label>Titel<input name="title" value="{{ banner.title }}" required></label><label>Text<textarea name="text" rows="4">{{ banner.text }}</textarea></label><div class="ferrari-grid-2"><label>Neues Banner-Bild<input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp"></label><label>Bild-URL<input name="image_url" type="url" value="{{ banner.image_url }}"></label></div><div class="ferrari-grid-2"><label>Button-Text<input name="cta_label" value="{{ banner.cta_label }}"></label><label>Button-Link<input name="cta_url" type="url" value="{{ banner.cta_url }}"></label></div><div class="ferrari-grid-2"><label>Start<input name="starts_at" type="datetime-local" value="{{ banner.starts_at|slice:':16' }}"></label><label>Ende<input name="ends_at" type="datetime-local" value="{{ banner.ends_at|default:''|slice:':16' }}"></label></div><div class="ferrari-form-footer"><label class="ferrari-switch"><input type="checkbox" name="active" {% if banner.active %}checked{% endif %}><span></span><b>Aktiv</b></label><label class="ferrari-order">Priorität <small>kleiner = weiter oben</small><input name="sort_order" type="number" value="{{ banner.sort_order|default:100 }}"></label><button class="ferrari-primary">Speichern</button><button type="submit" name="action" value="banner_delete" class="ferrari-danger">Löschen</button></div></form></div></div>
+{% endfor %}
+
+<div class="ferrari-modal" data-ferrari-modal="template-new" aria-hidden="true"><div class="ferrari-modal-card"><div class="ferrari-modal-head"><button type="button" data-ferrari-close>‹ Zurück</button><strong>Neue WhatsApp-Vorlage</strong><span></span></div><form method="post" class="ferrari-form">{% csrf_token %}<input type="hidden" name="action" value="template_save"><label>Name<input name="name" required placeholder="z. B. Termin-Rückfrage"></label><label>Nachricht<textarea name="body" rows="7" required placeholder="Hallo {vorname}, …"></textarea></label><div class="ferrari-form-footer"><label class="ferrari-switch"><input type="checkbox" name="active" checked><span></span><b>Aktiv</b></label><label class="ferrari-order">Priorität <small>kleiner = weiter oben</small><input name="sort_order" type="number" value="100"></label><button class="ferrari-primary">Vorlage anlegen</button></div></form></div></div>
+
+{% for template in templates %}
+<div class="ferrari-modal" data-ferrari-modal="template-{{ template.id }}" aria-hidden="true"><div class="ferrari-modal-card"><div class="ferrari-modal-head"><button type="button" data-ferrari-close>‹ Zurück</button><strong>WhatsApp-Vorlage</strong><span></span></div><form method="post" class="ferrari-form">{% csrf_token %}<input type="hidden" name="action" value="template_save"><input type="hidden" name="template_id" value="{{ template.id }}"><label>Name<input name="name" value="{{ template.name }}" required></label><label>Nachricht<textarea name="body" rows="7" required>{{ template.body }}</textarea></label><div class="ferrari-form-footer"><label class="ferrari-switch"><input type="checkbox" name="active" {% if template.active %}checked{% endif %}><span></span><b>Aktiv</b></label><label class="ferrari-order">Priorität <small>kleiner = weiter oben</small><input name="sort_order" type="number" value="{{ template.sort_order }}"></label><button class="ferrari-primary">Speichern</button><button type="submit" name="action" value="template_delete" class="ferrari-danger">Löschen</button></div></form></div></div>
+{% endfor %}
+
+<script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20260922-more-v2"></script>
 <script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script>
+<script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260922-v17"></script>
 </body></html>

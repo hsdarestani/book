@@ -143,20 +143,16 @@ html{scroll-behavior:auto!important}
   .sb-calendar-head-actions{display:none!important}
 
   .sb-calendar-pro .sb-calendar-shell{
-    min-height:1485px!important;
+    min-height:1245px!important;
   }
   .sb-calendar-pro .sb-day-track{
-    height:1440px!important;
-    background-image:repeating-linear-gradient(
-      to bottom,
-      transparent 0,
-      transparent 119px,
-      #e3e4e5 119px,
-      #e3e4e5 120px
-    )!important;
+    height:1200px!important;
+    background-image:
+      repeating-linear-gradient(to bottom,transparent 0,transparent 29px,rgba(76,67,55,.075) 29px,rgba(76,67,55,.075) 30px),
+      repeating-linear-gradient(to bottom,transparent 0,transparent 119px,rgba(76,67,55,.16) 119px,rgba(76,67,55,.16) 120px)!important;
   }
   .sb-calendar-pro .sb-time-axis{
-    height:1485px!important;
+    height:1245px!important;
     padding:0!important;
     display:block!important;
     position:relative!important;
