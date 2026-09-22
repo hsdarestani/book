@@ -102,10 +102,10 @@ class FullManagementSurfaceRegressionTests(TestCase):
 
         more = self.client.get('/verwaltung/mehr/')
         self.assertEqual(more.status_code, 200)
-        self.assertContains(more, 'Kampagnen & Banner')
-        self.assertContains(more, 'Nachrichten-Vorlagen')
+        self.assertContains(more, 'Kampagnen')
+        self.assertContains(more, 'WhatsApp-Vorlagen')
         self.assertContains(more, 'Autumn Glow')
-        self.assertContains(more, 'Einstellungen & Inhalte')
+        self.assertContains(more, 'Praxis & Buchung')
 
     @patch('booking.app_management_views._api')
     def test_focused_aplus_sections_have_one_header_contract(self, api):
