@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: aesthetic-simplybook-production
+  cancel-in-progress: false
+
 env:
   SIMPLYBOOK_COMPANY_LOGIN: ${{ secrets.SIMPLYBOOK_COMPANY_LOGIN }}
   SIMPLYBOOK_USER_LOGIN: ${{ secrets.SIMPLYBOOK_USER_LOGIN }}
@@ -101,13 +105,13 @@ jobs:
             BACKUP="$APP_ROOT/private/simplybook-backup-$(date +%Y%m%d-%H%M%S).json"
             export SIMPLYBOOK_COMPANY_LOGIN SIMPLYBOOK_USER_LOGIN SIMPLYBOOK_USER_PASSWORD SIMPLYBOOK_API_USER_KEY
             cd "$APP_DIR"
-            runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py migrate --noinput; '$VENV/bin/python' manage.py simplybook_import --backup '$BACKUP'; '$VENV/bin/python' manage.py fix_simplybook_owner; '$VENV/bin/python' manage.py sync_simplybook_notes; '$VENV/bin/python' manage.py list_simplybook_note_dates"
+            flock -w 1200 /var/lock/aesthetic-simplybook-sync.lock runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py migrate --noinput; '$VENV/bin/python' manage.py simplybook_import --backup '$BACKUP'; '$VENV/bin/python' manage.py fix_simplybook_owner; '$VENV/bin/python' manage.py sync_simplybook_notes; '$VENV/bin/python' manage.py list_simplybook_note_dates"
             chown aestheticbook:aestheticbook "$BACKUP"
             chmod 0600 "$BACKUP"
             echo "SimplyBook production import + calendar-note sync completed for Frau Ariane Regaei. Raw backup: $BACKUP"
 
   continuous-sync:
-    if: github.event_name == 'schedule' || github.event_name == 'push'
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[simplybook-import]'))
     runs-on: ubuntu-latest
     steps:
       - name: Continuously mirror SimplyBook into production
@@ -132,4 +136,4 @@ jobs:
             fi
             export SIMPLYBOOK_COMPANY_LOGIN SIMPLYBOOK_USER_LOGIN SIMPLYBOOK_USER_PASSWORD SIMPLYBOOK_API_USER_KEY
             cd "$APP_DIR"
-            runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py sync_simplybook_continuous"
+            flock -w 1200 /var/lock/aesthetic-simplybook-sync.lock runuser -u aestheticbook --preserve-environment -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py sync_simplybook_continuous"
