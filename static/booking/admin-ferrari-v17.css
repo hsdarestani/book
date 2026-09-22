@@ -28,3 +28,45 @@ body.ferrari-modal-open{overflow:hidden!important}
 .sb-calendar-pro .sb-time-axis{grid-template-rows:repeat(11,1fr)!important}
 
 .is-return-target{outline:2px solid rgba(184,137,52,.34)!important;outline-offset:2px;transition:outline-color 1.2s ease!important}
+
+/* Patient CRM v18: hard spacing contract + stateful tabs */
+html[data-admin-page="customers"] [data-customer-panel].is-tab-hidden,
+html[data-admin-page="customers"] [data-customer-control-grid].is-tab-hidden{display:none!important}
+html[data-admin-page="customers"] .patient-appointments-panel{
+  overflow:hidden!important;
+  border-radius:22px!important;
+}
+html[data-admin-page="customers"] .patient-appointments-panel>.panel-head{
+  padding:18px 18px 12px!important;margin:0!important
+}
+html[data-admin-page="customers"] .patient-appointment-list{
+  padding:0 16px 16px!important;gap:9px!important
+}
+html[data-admin-page="customers"] .patient-appointment-list article{
+  padding:12px!important;border-radius:15px!important;background:#fff!important;
+  border:1px solid rgba(58,49,36,.10)!important
+}
+html[data-admin-page="customers"] .patient-control-grid.is-single-panel{
+  grid-template-columns:minmax(0,1fr)!important
+}
+@media(max-width:760px){
+  html[data-admin-page="customers"] .patient-command-card{margin:8px 12px 0!important}
+  html[data-admin-page="customers"] .patient-overview-grid{margin:0 12px 12px!important}
+  html[data-admin-page="customers"] .patient-control-grid{margin:0 12px 12px!important}
+  html[data-admin-page="customers"] .patient-profile-panel,
+  html[data-admin-page="customers"] .patient-points-panel,
+  html[data-admin-page="customers"] .patient-appointments-panel{
+    margin:0 12px 12px!important;border-radius:22px!important;
+    border:1px solid rgba(54,45,31,.10)!important;box-shadow:0 10px 28px rgba(35,29,20,.05)!important
+  }
+  html[data-admin-page="customers"] .patient-profile-panel,
+  html[data-admin-page="customers"] .patient-points-panel{padding:18px!important}
+  html[data-admin-page="customers"] .patient-appointments-panel{padding:0!important}
+  html[data-admin-page="customers"] .patient-appointment-list{padding:0 14px 14px!important}
+  html[data-admin-page="customers"] .patient-appointment-list article{padding:12px 10px!important}
+  html[data-admin-page="customers"] .app-patient-layout{margin:0 12px 12px!important}
+  html[data-admin-page="customers"] .app-patient-layout .app-upload-panel,
+  html[data-admin-page="customers"] .app-patient-layout .app-timeline-panel{
+    margin:0 0 12px!important;padding:18px!important;border-radius:22px!important
+  }
+}

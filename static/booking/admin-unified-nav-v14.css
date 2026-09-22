@@ -181,3 +181,24 @@
   .sb-drawer.aplus-unified-drawer .aplus-unified-nav{padding:16px!important}
   .sb-drawer.aplus-unified-drawer .aplus-unified-nav a{min-height:54px!important;padding:7px 12px!important}
 }
+
+.is-tab-hidden,[data-customer-panel].is-tab-hidden{display:none!important;visibility:hidden!important}
+html[data-admin-page="customers"] .customer-profile-tabs{
+  position:sticky;top:64px;z-index:35;
+  margin:12px 0 16px!important;
+  background:rgba(250,248,244,.96)!important;
+  border:1px solid rgba(55,47,35,.09)!important;
+  box-shadow:0 10px 28px rgba(38,31,22,.055)!important;
+  backdrop-filter:blur(18px);
+}
+html[data-admin-page="customers"] .customer-profile-tabs button{
+  flex:1 1 0;min-width:0!important;padding:0 10px!important
+}
+@media(max-width:760px){
+  html[data-admin-page="customers"] .customer-profile-tabs{
+    top:58px;margin:10px 12px 14px!important;padding:5px!important
+  }
+  html[data-admin-page="customers"] .customer-profile-tabs button{
+    min-height:42px!important;font-size:10.5px!important;padding:0 7px!important
+  }
+}

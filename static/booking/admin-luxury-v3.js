@@ -6,13 +6,13 @@
   if (!document.querySelector('link[data-aplus-unified-nav-v14]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/static/booking/admin-unified-nav-v14.css?v=20260908-v14';
+    link.href = '/static/booking/admin-unified-nav-v14.css?v=20260922-v15';
     link.dataset.aplusUnifiedNavV14 = '1';
     document.head.appendChild(link);
   }
   if (!document.querySelector('script[data-aplus-unified-nav-v14]')) {
     const script = document.createElement('script');
-    script.src = '/static/booking/admin-unified-nav-v14.js?v=20260908-v14';
+    script.src = '/static/booking/admin-unified-nav-v14.js?v=20260922-v15';
     script.dataset.aplusUnifiedNavV14 = '1';
     document.head.appendChild(script);
   }

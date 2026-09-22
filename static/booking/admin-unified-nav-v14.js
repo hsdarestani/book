@@ -123,44 +123,45 @@
   const profileLabel = selected.querySelector('.patient-command-copy > span');
   if (profileLabel) profileLabel.textContent = 'KUNDENPROFIL';
 
+  const tabs = document.querySelector('.customer-profile-tabs');
   const stats = document.querySelector('.patient-overview-grid');
-  const controls = document.querySelector('.patient-control-grid');
+  const controls = document.querySelector('[data-customer-control-grid]');
   const communication = document.querySelector('.patient-profile-panel');
   const points = document.querySelector('.patient-points-panel');
   const appointments = document.querySelector('.patient-appointments-panel');
   const records = document.querySelector('.app-patient-layout');
 
-  if (!stats || !controls || !communication || !points || !appointments || !records) return;
+  if (!tabs || !stats || !controls || !communication || !points || !appointments || !records) return;
 
-  const tabs = document.createElement('nav');
-  tabs.className = 'customer-profile-tabs';
-  tabs.setAttribute('aria-label', 'Kundenprofil Bereiche');
-  tabs.innerHTML = `
-    <button type="button" data-customer-tab="overview">Übersicht</button>
-    <button type="button" data-customer-tab="appointments">Termine</button>
-    <button type="button" data-customer-tab="records">Patientenakte</button>
-    <button type="button" data-customer-tab="points">Punkte</button>
-    <button type="button" data-customer-tab="communication">Kommunikation</button>`;
-  selected.insertAdjacentElement('afterend', tabs);
+  const show = rawKey => {
+    const valid = ['overview', 'appointments', 'records', 'points'];
+    const key = valid.includes(rawKey) ? rawKey : 'overview';
 
-  const show = key => {
-    const valid = ['overview', 'appointments', 'records', 'points', 'communication'];
-    if (!valid.includes(key)) key = 'overview';
+    document.querySelectorAll('[data-customer-panel]').forEach(panel => {
+      const panelKey = panel.dataset.customerPanel;
+      const visible =
+        panelKey === key ||
+        (key === 'overview' && panelKey === 'overview');
+      panel.classList.toggle('is-tab-hidden', !visible);
+      panel.hidden = !visible;
+      panel.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    });
 
-    stats.hidden = key !== 'overview';
-    appointments.hidden = key !== 'appointments';
-    records.hidden = key !== 'records';
-
-    const controlVisible = key === 'points' || key === 'communication';
+    const controlVisible = key === 'overview' || key === 'points';
+    controls.classList.toggle('is-tab-hidden', !controlVisible);
     controls.hidden = !controlVisible;
-    controls.classList.toggle('is-single-panel', controlVisible);
+    controls.classList.add('is-single-panel');
+
+    communication.classList.toggle('is-tab-hidden', key !== 'overview');
+    communication.hidden = key !== 'overview';
+    points.classList.toggle('is-tab-hidden', key !== 'points');
     points.hidden = key !== 'points';
-    communication.hidden = key !== 'communication';
 
     tabs.querySelectorAll('[data-customer-tab]').forEach(button => {
       const active = button.dataset.customerTab === key;
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.tabIndex = active ? 0 : -1;
     });
 
     const hash = key === 'overview' ? '' : `#${key}`;
@@ -171,8 +172,15 @@
     const button = event.target.closest('[data-customer-tab]');
     if (!button) return;
     show(button.dataset.customerTab);
+    requestAnimationFrame(() => {
+      const top = tabs.getBoundingClientRect().top + window.scrollY - 72;
+      window.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
+    });
   });
 
-  const initial = (location.hash || '').replace('#', '');
-  show(initial || 'overview');
+  window.addEventListener('hashchange', () => {
+    show((location.hash || '').replace('#', '') || 'overview');
+  });
+
+  show((location.hash || '').replace('#', '') || 'overview');
 })();
