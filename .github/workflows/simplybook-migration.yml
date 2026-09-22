@@ -107,7 +107,7 @@ jobs:
             echo "SimplyBook production import + calendar-note sync completed for Frau Ariane Regaei. Raw backup: $BACKUP"
 
   continuous-sync:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Continuously mirror SimplyBook into production
