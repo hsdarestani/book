@@ -55,6 +55,10 @@ class APlusAdminNavigationMiddleware:
 <link rel="stylesheet" href="/static/booking/admin-calendar-stability-v8.css?v=20260907-v8" data-aplus-calendar-stability-v8>
 '''
 
+    FINAL_FERRARI_ASSETS = '''
+<link rel="stylesheet" href="/static/booking/admin-ferrari-v17.css?v=20260922-v17" data-aplus-ferrari-v17>
+'''
+
     PATIENT_MOBILE_SHELL = '''
 <header class="sb-mobile-bar app-mobile-bar">
   <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
@@ -154,6 +158,9 @@ class APlusAdminNavigationMiddleware:
             label = f'{name} · {service.duration_minutes} Min.'
             html = html.replace(f'<option value="{service.pk}">{name}</option>', f'<option value="{service.pk}">{label}</option>')
             html = html.replace(f'<option value="{service.pk}" selected>{name}</option>', f'<option value="{service.pk}" selected>{label}</option>')
+
+        if is_aplus and 'data-aplus-ferrari-v17' not in html and '</head>' in html:
+            html = html.replace('</head>', self.FINAL_FERRARI_ASSETS + '</head>', 1)
 
         if self._view_only(request) and '<body' in html:
             body_start = html.find('<body')
