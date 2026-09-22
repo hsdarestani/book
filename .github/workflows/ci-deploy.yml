@@ -196,11 +196,11 @@ jobs:
 
             cat > /etc/systemd/system/aesthetic-book-reminders.timer <<EOF
             [Unit]
-            Description=Check A+Esthetic booking reminders every 15 minutes
+            Description=Check A+Esthetic one-hour booking reminders every 5 minutes
 
             [Timer]
             OnBootSec=2min
-            OnUnitActiveSec=15min
+            OnUnitActiveSec=5min
             Persistent=true
 
             [Install]
@@ -292,6 +292,7 @@ jobs:
             grep -q '.pretty-time-picker' /tmp/aesthetic-admin-time.css
             systemctl is-active --quiet "$SERVICE"
             systemctl is-active --quiet aesthetic-book-reminders.timer
+            runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' '$APP_DIR/manage.py' dedupe_customers"
             runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' '$APP_DIR/manage.py' send_booking_reminders"
 
             SMTP_TEST_MARKER="$APP_ROOT/.smtp-test-v1-ok"
@@ -299,6 +300,16 @@ jobs:
               runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' manage.py shell -c \"from django.conf import settings; from django.core.mail import send_mail; send_mail('A+ Esthetic Buchung – E-Mail-Test', 'Die STRATO E-Mail-Verbindung für die A+ Esthetic Terminbuchung wurde erfolgreich eingerichtet.', settings.DEFAULT_FROM_EMAIL, [settings.BOOKING_NOTIFICATION_EMAIL], fail_silently=False)\""
               touch "$SMTP_TEST_MARKER"
               chown aestheticbook:aestheticbook "$SMTP_TEST_MARKER"
+            fi
+
+            if [ -x /opt/a-esthetic-mobile/venv/bin/python ] && [ -f /opt/a-esthetic-mobile/manage.py ]; then
+              set +e
+              (cd /opt/a-esthetic-mobile && /opt/a-esthetic-mobile/venv/bin/python manage.py ensure_info_admin --email info@a-esthetic.de)
+              ADMIN_BOOTSTRAP_RC=$?
+              set -e
+              if [ "$ADMIN_BOOTSTRAP_RC" -ne 0 ]; then
+                echo "Info admin bootstrap will be retried on the next deploy."
+              fi
             fi
 
             echo "Deployment erfolgreich: https://$DOMAIN"
