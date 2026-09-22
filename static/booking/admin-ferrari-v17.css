@@ -26,3 +26,5 @@ body.ferrari-modal-open{overflow:hidden!important}
 @media(max-width:430px){.ferrari-calendar-sticky-inner{grid-template-columns:52px minmax(0,1fr)}}
 
 .sb-calendar-pro .sb-time-axis{grid-template-rows:repeat(11,1fr)!important}
+
+.is-return-target{outline:2px solid rgba(184,137,52,.34)!important;outline-offset:2px;transition:outline-color 1.2s ease!important}
