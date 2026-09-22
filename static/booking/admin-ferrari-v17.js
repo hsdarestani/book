@@ -102,6 +102,42 @@
     sync();
   }
 
+  function initGenericListScrollMemory() {
+    const key = 'aplus-admin-list-scroll-v1';
+    const selectors = [
+      '.app-patient-list a',
+      '.patient-result-grid a.patient-open',
+      '.next-day-list a',
+      '.admin-table a',
+      '.ferrari-list a'
+    ].join(',');
+
+    document.querySelectorAll(selectors).forEach(link => {
+      link.addEventListener('click', () => {
+        try {
+          const destination = new URL(link.href, location.href);
+          if (destination.origin !== location.origin) return;
+          sessionStorage.setItem(key, JSON.stringify({
+            source: location.pathname + location.search,
+            y: window.scrollY,
+            ts: Date.now()
+          }));
+        } catch (_) {}
+      });
+    });
+
+    const restore = () => {
+      try {
+        const state = JSON.parse(sessionStorage.getItem(key) || 'null');
+        if (!state || state.source !== location.pathname + location.search) return;
+        if (Date.now() - Number(state.ts || 0) > 30 * 60 * 1000) return;
+        requestAnimationFrame(() => window.scrollTo({top:Number(state.y || 0),behavior:'auto'}));
+      } catch (_) {}
+    };
+    window.addEventListener('pageshow', restore);
+    restore();
+  }
+
   function initReturnHighlight() {
     document.querySelectorAll('.is-return-target').forEach(row => setTimeout(() => row.classList.remove('is-return-target'), 1400));
   }
@@ -110,6 +146,7 @@
     normalizeSheets();
     initEditorModals();
     initCustomerScrollMemory();
+    initGenericListScrollMemory();
     initStickyCalendarDates();
     initReturnHighlight();
     new MutationObserver(normalizeSheets).observe(document.body,{childList:true,subtree:true});
