@@ -1,0 +1,37 @@
+name: Diagnose calendar 2026-09-26
+
+on:
+  push:
+    paths:
+      - ".github/workflows/diagnose-calendar-26.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect production calendar source
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c "set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from datetime import date
+            from django.utils import timezone
+            from booking.models import StaffMember, WorkingHour, DailyAvailabilityOverride, BlockedPeriod, Appointment
+            d=date(2026,9,26)
+            print('DATE', d, 'weekday', d.weekday())
+            for s in StaffMember.objects.filter(active=True).order_by('id'):
+                print('STAFF', s.id, s.display_name)
+                print('WORKING', list(WorkingHour.objects.filter(staff=s,weekday=d.weekday(),active=True).values('start_time','end_time')))
+                print('OVERRIDE', list(DailyAvailabilityOverride.objects.filter(staff=s,date=d).values('closed','start_time_1','end_time_1','start_time_2','end_time_2')))
+                print('BLOCKS', [(timezone.localtime(x.starts_at).strftime('%H:%M'),timezone.localtime(x.ends_at).strftime('%H:%M'),x.reason) for x in BlockedPeriod.objects.filter(staff=s,starts_at__date=d)])
+                print('APPTS', [(timezone.localtime(x.starts_at).strftime('%H:%M'),timezone.localtime(x.ends_at).strftime('%H:%M'),x.status,x.service.name) for x in Appointment.objects.filter(staff=s,starts_at__date=d).select_related('service')])
+            PY"
