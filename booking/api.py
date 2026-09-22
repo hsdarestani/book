@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .emails import send_booking_emails
 from .models import Customer, Service, StaffMember
+from .notifications import notify_booking_created
 from .services import BOOKING_HORIZON_DAYS, available_slots, create_appointment
 
 
@@ -198,7 +199,8 @@ def appointments(request):
         except ValueError:
             return _error('time_not_available', 'Dieser Termin ist inzwischen nicht mehr verfügbar.', 409)
         if created:
-            transaction.on_commit(lambda: send_booking_emails(appointment))
+            transaction.on_commit(lambda appointment=appointment: send_booking_emails(appointment))
+            transaction.on_commit(lambda appointment=appointment: notify_booking_created(appointment))
 
     return JsonResponse({
         'ok': True,

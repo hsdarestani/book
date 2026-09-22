@@ -13,6 +13,7 @@ from django.utils.html import escape
 from django.views.decorators.http import require_http_methods
 
 from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember
+from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_deleted
 from . import views
 
 
@@ -646,6 +647,7 @@ def dashboard_proxy(request):
         appointment = Appointment.objects.filter(pk=request.POST.get('appointment_id')).select_related('staff', 'service', 'customer').first()
         if not appointment:
             return redirect('/verwaltung/kalender/?notice=appointment-edit-error')
+        previous = appointment_snapshot(appointment)
         service = Service.objects.filter(pk=request.POST.get('service_id'), active=True).first()
         staff = staff_qs.filter(pk=request.POST.get('appointment_staff_id')).first()
         customer = Customer.objects.filter(pk=request.POST.get('customer_id')).first()
@@ -682,19 +684,23 @@ def dashboard_proxy(request):
         appointment.starts_at = starts_at
         appointment.ends_at = ends_at
         appointment.status = status
+        if starts_at.isoformat() != previous.get('starts_at'):
+            appointment.reminder_24h_sent_at = None
         try:
             appointment.full_clean()
-            appointment.save(update_fields=['service', 'staff', 'customer', 'starts_at', 'ends_at', 'status', 'updated_at'])
+            appointment.save(update_fields=['service', 'staff', 'customer', 'starts_at', 'ends_at', 'status', 'reminder_24h_sent_at', 'updated_at'])
         except ValidationError:
             return redirect(_calendar_url(day=old_day, view=request.POST.get('return_view') or 'day', staff_id=old_staff_id, notice='appointment-edit-error', focus_appointment=appointment.pk))
+        notify_admin_changed(appointment, previous)
         return redirect(_calendar_url(day=timezone.localtime(appointment.starts_at).date(), view=request.POST.get('return_view') or 'day', staff_id=appointment.staff_id, notice='appointment-updated', focus_appointment=appointment.pk))
 
     if request.method == 'POST' and action == 'delete_appointment':
-        appointment = Appointment.objects.filter(pk=request.POST.get('appointment_id')).first()
+        appointment = Appointment.objects.filter(pk=request.POST.get('appointment_id')).select_related('customer', 'service', 'staff').first()
         if not appointment:
             return redirect('/verwaltung/buchungen/?notice=appointment-deleted')
         day = timezone.localtime(appointment.starts_at).date()
         staff_id = appointment.staff_id
+        notify_admin_deleted(appointment)
         appointment.delete()
         return redirect(_calendar_url(day=day, view=request.POST.get('return_view') or 'day', staff_id=staff_id, notice='appointment-deleted'))
 

@@ -174,6 +174,7 @@ class Appointment(models.Model):
     cancellation_terms_accepted=models.BooleanField('Stornierungsbedingungen akzeptiert',default=False)
     privacy_accepted=models.BooleanField('Datenschutz bestätigt',default=False)
     idempotency_key=models.CharField(max_length=80,unique=True,null=True,blank=True,editable=False)
+    reminder_24h_sent_at=models.DateTimeField('24h-Erinnerung gesendet',null=True,blank=True,editable=False)
     created_at=models.DateTimeField('Erstellt am',auto_now_add=True)
     updated_at=models.DateTimeField('Aktualisiert am',auto_now=True)
     class Meta:

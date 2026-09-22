@@ -14,6 +14,7 @@ from django.views.decorators.http import require_http_methods
 
 from .emails import send_booking_emails
 from .models import Appointment, Customer, Service, StaffMember
+from .notifications import notify_booking_created, notify_customer_cancelled, notify_customer_rescheduled
 from .package_bridge import sync_package
 from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, create_appointment
 
@@ -223,7 +224,8 @@ def mobile_booking(request):
             return _error('time_not_available', 'Diese Zeit ist inzwischen nicht mehr verfügbar.', 409)
 
         if created:
-            transaction.on_commit(lambda: send_booking_emails(appointment))
+            transaction.on_commit(lambda appointment=appointment: send_booking_emails(appointment))
+            transaction.on_commit(lambda appointment=appointment: notify_booking_created(appointment))
         package = sync_package(authorization, 'reserve', appointment)
         return JsonResponse({
             'ok': True,
@@ -371,11 +373,13 @@ def mobile_appointment_change(request, appointment_id):
             item.starts_at = starts_at
             item.ends_at = starts_at + duration
             item.status = 'new' if item.service.requires_confirmation else 'confirmed'
+            item.reminder_24h_sent_at = None
             item.full_clean()
-            item.save(update_fields=['staff', 'starts_at', 'ends_at', 'status', 'updated_at'])
-            transaction.on_commit(lambda: send_booking_emails(item))
+            item.save(update_fields=['staff', 'starts_at', 'ends_at', 'status', 'reminder_24h_sent_at', 'updated_at'])
+            transaction.on_commit(lambda item=item: send_booking_emails(item))
 
     if action == 'cancel':
+        notify_customer_cancelled(item)
         package = sync_package(authorization, 'release', item)
         return JsonResponse({
             'ok': True,
@@ -384,6 +388,7 @@ def mobile_appointment_change(request, appointment_id):
             'package': package,
         })
 
+    notify_customer_rescheduled(item)
     return JsonResponse({
         'ok': True,
         'action': 'reschedule',

@@ -23,6 +23,7 @@ from .models import (
     StaffMember,
     WorkingHour,
 )
+from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_deleted
 from .services import effective_working_ranges
 
 AESTHETIC_ADMIN_VERIFY_URL = "https://esthetic.smarbiz.sbs/api/mobile/admin/"
@@ -366,9 +367,11 @@ def appointment_action(request, appointment_id):
         return _private({"ok": False, "error": "appointment_not_found"}, 404)
     action = str(data.get("action") or "update")
     if action == "delete":
+        notify_admin_deleted(item)
         item.delete()
         return _private({"ok": True, "deleted": True})
 
+    previous = appointment_snapshot(item)
     status = str(data.get("status") or item.status)
     allowed_statuses = {value for value, _ in Appointment.STATUS}
     if status not in allowed_statuses:
@@ -388,11 +391,14 @@ def appointment_action(request, appointment_id):
     item.starts_at = starts_at
     item.ends_at = ends_at
     item.status = status
+    if starts_at.isoformat() != previous.get("starts_at"):
+        item.reminder_24h_sent_at = None
     try:
         item.full_clean()
         item.save()
     except ValidationError as exc:
         return _private({"ok": False, "error": "appointment_conflict", "message": "; ".join(exc.messages)}, 409)
+    notify_admin_changed(item, previous)
     return _private({"ok": True, "appointment": _appointment_payload(item)})
 
 

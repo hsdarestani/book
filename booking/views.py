@@ -18,6 +18,7 @@ from django.views.decorators.http import require_http_methods
 
 from .emails import send_customer_booking_email
 from .models import Appointment, BlockedPeriod, Customer, PatientRecord, Service, StaffMember, WorkingHour
+from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
 
 logger = logging.getLogger(__name__)
 
@@ -399,16 +400,22 @@ def dashboard(request):
                 send_customer_booking_email(appointment)
             except Exception:
                 logger.exception('Admin-Termin gespeichert, Bestätigungs-E-Mail konnte nicht versendet werden')
+            notify_admin_created(appointment)
             return redirect(f'{calendar_return}&notice=booking')
 
         if action == 'appointment_status':
-            appointment = get_object_or_404(Appointment, pk=request.POST.get('appointment_id'))
+            appointment = get_object_or_404(
+                Appointment.objects.select_related('customer', 'service', 'staff'),
+                pk=request.POST.get('appointment_id'),
+            )
+            previous = appointment_snapshot(appointment)
             status = request.POST.get('status')
             allowed = {item[0] for item in Appointment.STATUS}
             if status not in allowed:
                 return HttpResponseBadRequest('Ungültiger Status')
             appointment.status = status
             appointment.save(update_fields=['status', 'updated_at'])
+            notify_admin_changed(appointment, previous)
             suffix = f'&staff={selected_staff.pk}' if selected_staff else ''
             return redirect(f'/verwaltung/?notice=appointment{suffix}#termine')
 

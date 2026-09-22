@@ -66,6 +66,7 @@ jobs:
             ENV_FILE="/etc/aesthetic-book.env"
             SERVICE="aesthetic-book"
             PATIENT_FILES="$APP_ROOT/private/patient-files"
+            PUSH_SYNC_TOKEN_FILE="/etc/aesthetic-patient-sync.token"
 
             apt-get update -y
             apt-get install -y git python3 python3-venv python3-pip postgresql postgresql-contrib curl openssl
@@ -76,6 +77,13 @@ jobs:
             if ! id aestheticbook >/dev/null 2>&1; then
               useradd --system --gid aestheticbook --create-home --home-dir "$APP_ROOT" --shell /usr/sbin/nologin aestheticbook
             fi
+
+            if [ ! -s "$PUSH_SYNC_TOKEN_FILE" ]; then
+              umask 0077
+              openssl rand -hex 48 > "$PUSH_SYNC_TOKEN_FILE"
+            fi
+            chown root:aestheticbook "$PUSH_SYNC_TOKEN_FILE"
+            chmod 0640 "$PUSH_SYNC_TOKEN_FILE"
 
             mkdir -p "$APP_ROOT" "$PATIENT_FILES"
             if [ ! -d "$APP_DIR/.git" ]; then
@@ -122,6 +130,7 @@ jobs:
             DB_PORT=
             PATIENT_FILES_ROOT=$PATIENT_FILES
             PATIENT_FILE_MAX_BYTES=26214400
+            PATIENT_SYNC_TOKEN_FILE=$PUSH_SYNC_TOKEN_FILE
             BOOKING_NOTIFICATION_EMAIL=$BOOKING_NOTIFICATION_EMAIL
             DEFAULT_FROM_EMAIL='A+ Esthetic <$STRATO_SMTP_USER>'
             EMAIL_HOST=smtp.strato.de
@@ -169,9 +178,39 @@ jobs:
             WantedBy=multi-user.target
             EOF
 
+            cat > /etc/systemd/system/aesthetic-book-reminders.service <<EOF
+            [Unit]
+            Description=A+Esthetic booking push reminders
+            After=network.target $SERVICE.service
+
+            [Service]
+            Type=oneshot
+            User=aestheticbook
+            Group=aestheticbook
+            WorkingDirectory=$APP_DIR
+            EnvironmentFile=$ENV_FILE
+            ExecStart=$VENV/bin/python $APP_DIR/manage.py send_booking_reminders
+            PrivateTmp=true
+            NoNewPrivileges=true
+            EOF
+
+            cat > /etc/systemd/system/aesthetic-book-reminders.timer <<EOF
+            [Unit]
+            Description=Check A+Esthetic booking reminders every 15 minutes
+
+            [Timer]
+            OnBootSec=2min
+            OnUnitActiveSec=15min
+            Persistent=true
+
+            [Install]
+            WantedBy=timers.target
+            EOF
+
             systemctl daemon-reload
             systemctl enable "$SERVICE"
             systemctl restart "$SERVICE"
+            systemctl enable --now aesthetic-book-reminders.timer
 
             if command -v caddy >/dev/null 2>&1 && systemctl is-active --quiet caddy; then
               CADDYFILE="/etc/caddy/Caddyfile"
@@ -252,6 +291,8 @@ jobs:
             curl -fsS --max-time 20 "https://$DOMAIN/static/booking/admin-time.css" -o /tmp/aesthetic-admin-time.css
             grep -q '.pretty-time-picker' /tmp/aesthetic-admin-time.css
             systemctl is-active --quiet "$SERVICE"
+            systemctl is-active --quiet aesthetic-book-reminders.timer
+            runuser -u aestheticbook -- bash -c "set -a; source '$ENV_FILE'; set +a; '$VENV/bin/python' '$APP_DIR/manage.py' send_booking_reminders"
 
             SMTP_TEST_MARKER="$APP_ROOT/.smtp-test-v1-ok"
             if [ ! -f "$SMTP_TEST_MARKER" ]; then
