@@ -25,10 +25,11 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
   }
 
-  function normalizeSheets() {
-    document.querySelectorAll('.sb-sheet-head button[data-close-modal], .sb-sheet-head button[data-day-close]').forEach(button => {
-      button.textContent = '‹ Zurück';
-      button.setAttribute('aria-label','Zurück');
+  function normalizeSheets(root=document) {
+    const scope = root instanceof Element || root instanceof Document ? root : document;
+    scope.querySelectorAll?.('.sb-sheet-head button[data-close-modal], .sb-sheet-head button[data-day-close]').forEach(button => {
+      if (button.textContent.trim() !== '‹ Zurück') button.textContent = '‹ Zurück';
+      if (button.getAttribute('aria-label') !== 'Zurück') button.setAttribute('aria-label','Zurück');
     });
   }
 
@@ -149,7 +150,19 @@
     initGenericListScrollMemory();
     initStickyCalendarDates();
     initReturnHighlight();
-    new MutationObserver(normalizeSheets).observe(document.body,{childList:true,subtree:true});
+    const sheetObserver = new MutationObserver(records => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (!(node instanceof Element)) continue;
+          if (node.matches?.('.sb-sheet-head button[data-close-modal], .sb-sheet-head button[data-day-close]')) {
+            normalizeSheets(node.parentElement || node);
+          } else if (node.querySelector?.('.sb-sheet-head button[data-close-modal], .sb-sheet-head button[data-day-close]')) {
+            normalizeSheets(node);
+          }
+        }
+      }
+    });
+    sheetObserver.observe(document.body,{childList:true,subtree:true});
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true}); else init();
 })();
