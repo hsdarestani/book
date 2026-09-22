@@ -197,6 +197,20 @@ class AdminAccessProfile(models.Model):
     def __str__(self): return f'{self.user} – {"View only" if self.view_only else "Bearbeiten"}'
 
 
+class ExternalSyncState(models.Model):
+    source = models.CharField(max_length=40, unique=True)
+    baseline_completed_at = models.DateTimeField(null=True, blank=True)
+    last_success_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = 'Externer Sync-Status'
+        verbose_name_plural = 'Externe Sync-Status'
+
+    def __str__(self):
+        return self.source
+
+
 class WhatsAppTemplate(models.Model):
     name = models.CharField('Name', max_length=100)
     body = models.TextField('Text', help_text='Variablen: {anrede}, {vorname}, {nachname}, {name}')
