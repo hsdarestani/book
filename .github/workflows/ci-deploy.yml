@@ -23,6 +23,9 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Check forbidden brand possessives
+        run: python scripts/check_no_unser_copy.py
+
       - name: Validate Django project
         env:
           DJANGO_DEBUG: '1'
