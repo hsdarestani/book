@@ -685,10 +685,10 @@ def dashboard_proxy(request):
         appointment.ends_at = ends_at
         appointment.status = status
         if starts_at.isoformat() != previous.get('starts_at'):
-            appointment.reminder_24h_sent_at = None
+            appointment.reminder_1h_sent_at = None
         try:
             appointment.full_clean()
-            appointment.save(update_fields=['service', 'staff', 'customer', 'starts_at', 'ends_at', 'status', 'reminder_24h_sent_at', 'updated_at'])
+            appointment.save(update_fields=['service', 'staff', 'customer', 'starts_at', 'ends_at', 'status', 'reminder_1h_sent_at', 'updated_at'])
         except ValidationError:
             return redirect(_calendar_url(day=old_day, view=request.POST.get('return_view') or 'day', staff_id=old_staff_id, notice='appointment-edit-error', focus_appointment=appointment.pk))
         notify_admin_changed(appointment, previous)

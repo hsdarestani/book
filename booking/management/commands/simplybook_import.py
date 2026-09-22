@@ -10,6 +10,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
+from booking.customer_identity import find_customer
 from booking.models import Appointment, Customer, DailyAvailabilityOverride, Service, StaffMember
 
 LOGIN_URL = 'https://user-api.simplybook.me/login'
@@ -194,7 +195,7 @@ class Command(BaseCommand):
                 source_email=str(row.get('email') or '').strip().lower(); valid_email='@' in source_email and len(source_email)<=254
                 email=source_email if valid_email else f'simplybook-client-{external_id}@invalid.local'
                 first_name,last_name=split_name(row.get('name')); phone=str(row.get('phone') or '').strip()[:40]
-                customer=Customer.objects.filter(email__iexact=email).order_by('pk').first()
+                customer=find_customer(email=email,phone=phone,first_name=first_name,last_name=last_name)
                 if customer:
                     summary['customers_matched']+=1; changed=[]
                     if not customer.first_name and first_name: customer.first_name=first_name; changed.append('first_name')
@@ -219,9 +220,10 @@ class Command(BaseCommand):
                 if not customer:
                     source_email=str(row.get('client_email') or '').strip().lower(); valid_email='@' in source_email and len(source_email)<=254
                     email=source_email if valid_email else f'simplybook-booking-{booking_id}@invalid.local'
-                    customer=Customer.objects.filter(email__iexact=email).order_by('pk').first()
+                    first_name,last_name=split_name(row.get('client')); phone=str(row.get('client_phone') or '')[:40]
+                    customer=find_customer(email=email,phone=phone,first_name=first_name,last_name=last_name)
                     if not customer:
-                        first_name,last_name=split_name(row.get('client')); customer=Customer.objects.create(first_name=first_name,last_name=last_name,phone=str(row.get('client_phone') or '')[:40],email=email); summary['customers_created']+=1
+                        customer=Customer.objects.create(first_name=first_name,last_name=last_name,phone=phone,email=email); summary['customers_created']+=1
                     customer_map[client_id or f'booking:{booking_id}']=customer
                 text_parts=[]
                 for value in (row.get('text'),row.get('comment')):

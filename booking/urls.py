@@ -1,5 +1,5 @@
 from django.urls import path
-from . import admin_dashboard_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, mobile_api, patient_portal, patient_portal_api, patient_routes, referral_relay, views
+from . import admin_dashboard_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, mobile_api, patient_portal, patient_portal_api, patient_routes, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
@@ -33,6 +33,8 @@ urlpatterns = [
     path('api/availability/overview/', api.availability_overview, name='availability_overview'),
     path('api/appointments/', api.appointments, name='appointments'),
     path('api/internal/patient-records/ingest/', internal_api.ingest_patient_record, name='patient_record_ingest'),
+    path('api/internal/app-mail/', internal_app_api.app_mail, name='internal_app_mail'),
+    path('api/internal/admin-bootstrap/', internal_app_api.admin_bootstrap, name='internal_admin_bootstrap'),
     path('api/internal/patient-records/portal/list/', patient_portal_api.portal_list, name='patient_portal_list'),
     path('api/internal/patient-records/portal/upload/', patient_portal_api.portal_upload, name='patient_portal_upload'),
     path('api/internal/patient-records/portal/file/', patient_portal_api.portal_file, name='patient_portal_file'),

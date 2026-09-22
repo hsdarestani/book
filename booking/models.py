@@ -108,7 +108,7 @@ class BlockedPeriod(models.Model):
 
 
 class Customer(models.Model):
-    SALUTATION = [('', 'Neutral / nicht angegeben'), ('frau', 'Frau'), ('herr', 'Herr')]
+    SALUTATION = [('', 'Neutral / nicht angegeben'), ('frau', 'Frau'), ('herr', 'Herr'), ('divers', 'Divers')]
     first_name = models.CharField('Vorname', max_length=80)
     last_name = models.CharField('Nachname', max_length=80)
     salutation = models.CharField('Anrede', max_length=10, choices=SALUTATION, blank=True, default='')
@@ -175,6 +175,7 @@ class Appointment(models.Model):
     privacy_accepted=models.BooleanField('Datenschutz bestätigt',default=False)
     idempotency_key=models.CharField(max_length=80,unique=True,null=True,blank=True,editable=False)
     reminder_24h_sent_at=models.DateTimeField('24h-Erinnerung gesendet',null=True,blank=True,editable=False)
+    reminder_1h_sent_at=models.DateTimeField('1h-Erinnerung gesendet',null=True,blank=True,editable=False)
     created_at=models.DateTimeField('Erstellt am',auto_now_add=True)
     updated_at=models.DateTimeField('Aktualisiert am',auto_now=True)
     class Meta:
@@ -208,7 +209,7 @@ class WhatsAppTemplate(models.Model):
     def __str__(self): return self.name
 
     def render_for(self, customer):
-        salutation = {'frau': 'Frau', 'herr': 'Herr'}.get(customer.salutation, '')
+        salutation = {'frau': 'Frau', 'herr': 'Herr', 'divers': 'Divers'}.get(customer.salutation, '')
         values = {'anrede': salutation, 'vorname': customer.first_name, 'nachname': customer.last_name, 'name': customer.full_name}
         text = self.body
         for key, value in values.items(): text = text.replace('{' + key + '}', value)

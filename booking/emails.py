@@ -138,3 +138,103 @@ def send_booking_emails(appointment):
             )
     except Exception:
         logger.exception('Termin-E-Mail konnte nicht versendet werden')
+
+
+
+APPOINTMENT_EVENT_COPY = {
+    "changed": {
+        "subject": "Dein Termin bei A+ Esthetic wurde geändert",
+        "eyebrow": "TERMIN AKTUALISIERT",
+        "title": "Ihr Termin wurde geändert",
+        "message": "Die aktuellen Termindaten finden Sie hier auf einen Blick.",
+    },
+    "cancelled": {
+        "subject": "Dein Termin bei A+ Esthetic wurde storniert",
+        "eyebrow": "TERMIN STORNIERT",
+        "title": "Ihr Termin wurde storniert",
+        "message": "Der unten aufgeführte Termin ist nicht mehr aktiv.",
+    },
+    "reminder_1h": {
+        "subject": "Erinnerung: Dein Termin bei A+ Esthetic ist in einer Stunde",
+        "eyebrow": "IN EINER STUNDE",
+        "title": "Wir freuen uns auf Sie",
+        "message": "Ihr Termin beginnt in ungefähr einer Stunde.",
+    },
+}
+
+
+def send_customer_appointment_event_email(appointment, event):
+    copy = APPOINTMENT_EVENT_COPY[event]
+    context = {
+        **_booking_email_context(appointment),
+        **copy,
+        "event": event,
+        "is_admin": False,
+    }
+    local_start = context["local_start"]
+    text = (
+        f'{copy["title"]}\n\n'
+        f'{copy["message"]}\n\n'
+        f'Behandlung: {appointment.service.name}\n'
+        f'Datum: {local_start:%d.%m.%Y}\n'
+        f'Uhrzeit: {local_start:%H:%M}\n'
+        f'Behandler/in: {context["staff_email_name"]}\n\n'
+        f'A+ Esthetic Frankfurt · {CLINIC_ADDRESS}\n'
+        f'Telefon: {CLINIC_PHONE}\n'
+        f'WhatsApp: {WHATSAPP_URL}\n'
+    )
+    html = render_to_string("booking/email_appointment_event.html", context)
+    _send_html_mail(
+        copy["subject"],
+        text,
+        html,
+        [appointment.customer.email],
+        reply_to=[CLINIC_REPLY_EMAIL],
+    )
+
+
+def send_admin_appointment_event_email(appointment, event):
+    if not settings.BOOKING_NOTIFICATION_EMAIL:
+        return
+    copy = APPOINTMENT_EVENT_COPY[event]
+    context = {
+        **_booking_email_context(appointment),
+        **copy,
+        "title": f'{copy["title"]}: {appointment.customer.full_name}',
+        "message": (
+            f'{appointment.customer.full_name} · {appointment.customer.email} · '
+            f'{appointment.customer.phone or "keine Telefonnummer"}'
+        ),
+        "event": event,
+        "is_admin": True,
+    }
+    local_start = context["local_start"]
+    text = (
+        f'{context["title"]}\n\n'
+        f'{appointment.customer.full_name}\n'
+        f'{appointment.customer.email}\n'
+        f'{appointment.customer.phone}\n\n'
+        f'{appointment.service.name}\n'
+        f'{local_start:%d.%m.%Y %H:%M}\n'
+        f'{appointment.staff.display_name}\n'
+        f'Status: {appointment.get_status_display()}\n'
+    )
+    html = render_to_string("booking/email_appointment_event.html", context)
+    _send_html_mail(
+        f'A+ Esthetic · {copy["eyebrow"]}: {appointment.customer.full_name}',
+        text,
+        html,
+        [settings.BOOKING_NOTIFICATION_EMAIL],
+    )
+
+
+def send_appointment_event_emails(appointment, event, include_admin=True):
+    try:
+        send_customer_appointment_event_email(appointment, event)
+    except Exception:
+        logger.exception("Kunden-Termin-E-Mail konnte nicht versendet werden: %s", event)
+    if include_admin:
+        try:
+            send_admin_appointment_event_email(appointment, event)
+        except Exception:
+            logger.exception("Admin-Termin-E-Mail konnte nicht versendet werden: %s", event)
