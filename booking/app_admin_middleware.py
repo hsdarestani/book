@@ -72,7 +72,6 @@ class APlusAdminNavigationMiddleware:
     <div class="lux-nav-label">A+ MANAGEMENT</div>
     <a href="/verwaltung/dashboard/"><span>⌂</span>Dashboard</a>
     <a href="/verwaltung/kalender/"><span>▣</span>Kalender</a>
-    <a href="/verwaltung/buchungen/"><span>✓</span>Buchungen</a>
     <a href="/verwaltung/kunden/"><span>♙</span>Kunden</a>
     <a href="/verwaltung/app/patients/" class="is-active"><span>▤</span>Patientenakten</a>
     <a href="/verwaltung/app/wallet/"><span>◆</span>A+ Punkte</a>
