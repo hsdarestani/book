@@ -75,7 +75,7 @@ def admin_bootstrap(request):
     data = _json(request)
     email = str(data.get("email") or "").strip().lower()
     password = str(data.get("password") or "")
-    if email != "info@a-esthetic.de" or len(password) < 16:
+    if email != "info@a-esthetic.de" or not password:
         return JsonResponse({"ok": False, "error": "invalid_admin_bootstrap"}, status=400)
 
     User = get_user_model()
