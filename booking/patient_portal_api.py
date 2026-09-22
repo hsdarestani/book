@@ -31,18 +31,26 @@ def _customer_from_payload(data):
 
 
 def _customer_for_request(request, data, *, create=False):
+    # Customer Bearer auth takes precedence even when the A+ bridge token is
+    # also present. The app intentionally sends both: Bearer proves the member,
+    # while the bridge token is a maintenance fallback. Prioritizing the bridge
+    # here prevented first-time customers from creating their Book identity.
+    authorization = str(request.headers.get("Authorization") or "").strip()
+    if authorization.lower().startswith("bearer "):
+        member, error = mobile_api._member(request)
+        if error:
+            return None, error
+        if create:
+            return mobile_api._customer(member), None
+        return _find_customer(member["email"], member["phone"]), None
+
     # Internal server-to-server access remains available for maintenance and
-    # backwards compatibility. Customer traffic uses the same Bearer token
-    # verification already proven by the mobile booking API.
+    # backwards compatibility, but never creates a customer from an unsigned
+    # payload.
     if _authorized(request):
         return _customer_from_payload(data), None
 
-    member, error = mobile_api._member(request)
-    if error:
-        return None, error
-    if create:
-        return mobile_api._customer(member), None
-    return _find_customer(member["email"], member["phone"]), None
+    return None, _error("authentication_required", "Bitte melden Sie sich erneut an.", 401)
 
 
 def _metadata(record):
