@@ -85,19 +85,27 @@ class FullManagementSurfaceRegressionTests(TestCase):
         self.assertEqual((saved.first_name, saved.last_name), ('Neue', 'Kundin'))
         self.assertIn('notice=customer', response['Location'])
 
-    @patch('booking.admin_dashboard_views.app_management_views._api')
-    def test_new_admin_dashboard_has_search_next_day_campaigns_and_templates(self, api):
+    @patch('booking.admin_more_views.app_management_views._api')
+    def test_dashboard_is_focused_and_more_contains_campaigns_and_templates(self, api):
         api.side_effect = self._fake_aplus_api
         WhatsAppTemplate.objects.create(name='Recall', body='Hallo {vorname}', sort_order=1)
-        response = self.client.get('/verwaltung/dashboard/?q=Regression')
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Management')
-        self.assertContains(response, 'Patient suchen')
-        self.assertContains(response, 'Kampagnen & Banner')
-        self.assertContains(response, 'Nachrichten-Vorlagen')
-        self.assertContains(response, 'Autumn Glow')
-        self.assertContains(response, 'Regression')
-        self.assertContains(response, 'admin-app-inset-v5.css?v=20260912-v20')
+
+        dashboard = self.client.get('/verwaltung/dashboard/?q=Regression')
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertContains(dashboard, 'Management')
+        self.assertContains(dashboard, 'Patient suchen')
+        self.assertNotContains(dashboard, 'Kampagnen & Banner')
+        self.assertNotContains(dashboard, 'Nachrichten-Vorlagen')
+        self.assertContains(dashboard, 'Regression')
+        self.assertContains(dashboard, 'Mehr')
+        self.assertContains(dashboard, 'admin-app-inset-v5.css?v=20260912-v20')
+
+        more = self.client.get('/verwaltung/mehr/')
+        self.assertEqual(more.status_code, 200)
+        self.assertContains(more, 'Kampagnen & Banner')
+        self.assertContains(more, 'Nachrichten-Vorlagen')
+        self.assertContains(more, 'Autumn Glow')
+        self.assertContains(more, 'Einstellungen & Inhalte')
 
     @patch('booking.app_management_views._api')
     def test_focused_aplus_sections_have_one_header_contract(self, api):
