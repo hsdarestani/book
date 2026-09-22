@@ -1,5 +1,5 @@
 from django.urls import path
-from . import admin_dashboard_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, mobile_api, patient_portal, patient_portal_api, patient_routes, referral_relay, views
+from . import admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, mobile_api, patient_portal, patient_portal_api, patient_routes, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
@@ -8,6 +8,7 @@ urlpatterns = [
     # Preserve the long-standing root/calendar contract for existing deep links and tests.
     path('verwaltung/', admin_views.dashboard_proxy, name='dashboard'),
     path('verwaltung/dashboard/', admin_dashboard_views.admin_dashboard, name='admin_dashboard'),
+    path('verwaltung/mehr/', admin_more_views.admin_more, name='admin_more'),
     path('verwaltung/kalender/', admin_views.dashboard_proxy, name='admin_calendar'),
     path('verwaltung/buchungen/', admin_views.dashboard_proxy, name='admin_bookings'),
     path('verwaltung/kunden/', admin_views.dashboard_proxy, name='admin_customers'),

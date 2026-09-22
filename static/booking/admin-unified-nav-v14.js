@@ -15,11 +15,11 @@
   const page = (() => {
     if (/^\/verwaltung\/dashboard\/?$/.test(path)) return 'dashboard';
     if (path === '/verwaltung/' || path.includes('/kalender/')) return 'calendar';
-    if (path.includes('/buchungen/')) return 'bookings';
     if (path.includes('/app/patients/') || /\/verwaltung\/patienten\//.test(path)) return 'customers';
     if (path.includes('/app/wallet/')) return 'points';
     if (path.includes('/app/reviews/')) return 'reviews';
     if (path.includes('/app/referrals/')) return 'referrals';
+    if (path.includes('/mehr/')) return 'more';
     return 'other';
   })();
 
@@ -28,11 +28,11 @@
   const items = [
     ['dashboard', '⌂', 'Dashboard', '/verwaltung/dashboard/'],
     ['calendar', '▣', 'Kalender', '/verwaltung/kalender/'],
-    ['bookings', '✓', 'Buchungen', '/verwaltung/buchungen/'],
     ['customers', '♙', 'Kunden', '/verwaltung/app/patients/'],
     ['points', '◆', 'A+ Punkte', '/verwaltung/app/wallet/'],
     ['reviews', '★', 'Google Bewertungen', '/verwaltung/app/reviews/'],
     ['referrals', '↗', 'Empfehlungen', '/verwaltung/app/referrals/'],
+    ['more', '⋯', 'Mehr', '/verwaltung/mehr/'],
   ];
 
   const navMarkup = items
@@ -86,11 +86,11 @@
     const title = document.querySelector('.sb-mobile-title');
     const titles = {
       dashboard: 'Dashboard',
-      bookings: 'Buchungen',
       customers: 'Kunden',
       points: 'A+ Punkte',
       reviews: 'Google Bewertungen',
       referrals: 'Empfehlungen',
+      more: 'Mehr',
     };
     if (title && titles[page]) title.textContent = titles[page];
   }

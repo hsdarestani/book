@@ -3,7 +3,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <title>Verwaltung | A+ Esthetic Buchung</title>
   <link rel="stylesheet" href="{% static 'booking/app.css' %}">
   <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
@@ -27,11 +27,9 @@
   <nav class="sb-drawer-nav">
     <a href="#uebersicht"><span>▦</span>Dashboard</a>
     <a href="#kalender"><span>▣</span>Kalender</a>
-    <a href="#termine"><span>✓</span>Buchungen</a>
-    <button type="button" data-open-note><span>✎</span>Notizen</button>
+        <button type="button" data-open-note><span>✎</span>Notizen</button>
     <a href="#kunden"><span>♙</span>Kunden</a>
-    <a href="#einstellungen"><span>⚙</span>Einstellungen</a>
-    <a href="#information"><span>ⓘ</span>Information</a>
+    <a href="/verwaltung/mehr/"><span>⋯</span>Mehr</a>
     <a href="/verwaltung/logout/"><span>↪</span>Logout</a>
   </nav>
 </aside>
@@ -50,7 +48,7 @@
       <div class="brand-meta">Buchungsverwaltung</div>
     </div>
     <nav class="admin-nav" aria-label="Verwaltung">
-      <a href="#uebersicht">Übersicht</a><a href="#kalender">Kalender</a><a href="#termine">Buchungen</a><a href="#kunden">Kunden</a><a href="#einstellungen">Einstellungen</a>
+      <a href="/verwaltung/dashboard/">Dashboard</a><a href="#kalender">Kalender</a><a href="/verwaltung/app/patients/">Kunden</a><a href="/verwaltung/mehr/">Mehr</a>
     </nav>
     <div class="admin-actions"><a href="/" target="_blank">Buchungsseite ↗</a><a href="/verwaltung/logout/">Abmelden</a></div>
   </header>

@@ -5,6 +5,7 @@ from datetime import timedelta
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.http import JsonResponse
@@ -18,6 +19,8 @@ from .referral_models import ReferralEmailDelivery
 
 ME_URL = "https://esthetic.smarbiz.sbs/api/mobile/me/"
 REFERRAL_CODE_RE = re.compile(r"^APLUS-[A-F0-9]{10}$")
+DEFAULT_IOS_STORE_URL = "https://apps.apple.com/de/search?term=A%2B%20Esthetic"
+DEFAULT_ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=de.aplusesthetic.app"
 
 
 def _json(request):
@@ -58,7 +61,11 @@ def _verify_customer_club_token(request):
 
 
 def _client_ip(request):
-    forwarded = str(request.META.get("HTTP_CF_CONNECTING_IP") or request.META.get("HTTP_X_FORWARDED_FOR") or "")
+    forwarded = str(
+        request.META.get("HTTP_CF_CONNECTING_IP")
+        or request.META.get("HTTP_X_FORWARDED_FOR")
+        or ""
+    )
     if forwarded:
         return forwarded.split(",", 1)[0].strip()[:45]
     return str(request.META.get("REMOTE_ADDR") or "")[:45] or None
@@ -69,7 +76,10 @@ def _client_ip(request):
 def referral_email(request):
     identity = _verify_customer_club_token(request)
     if not identity:
-        return JsonResponse({"ok": False, "error": "customer_club_auth_required"}, status=401)
+        return JsonResponse(
+            {"ok": False, "error": "customer_club_auth_required"},
+            status=401,
+        )
 
     data = _json(request)
     invited_email = str(data.get("invited_email") or "").strip().lower()
@@ -102,22 +112,42 @@ def referral_email(request):
 
     referrer_name = identity["name"] or "A+ Mitglied"
     safe_name = html.escape(referrer_name)
-    invite_url = f"https://esthetic.smarbiz.sbs/?ref={referral_code}"
+    safe_code = html.escape(referral_code)
+    ios_url = html.escape(
+        str(getattr(settings, "AESTHETIC_IOS_STORE_URL", DEFAULT_IOS_STORE_URL))
+    )
+    android_url = html.escape(
+        str(getattr(settings, "AESTHETIC_ANDROID_STORE_URL", DEFAULT_ANDROID_STORE_URL))
+    )
+
     subject = f"{referrer_name} lädt Sie zu A+ Esthetic ein"
     text = (
-        f"Hallo,\n\n{referrer_name} hat Sie zum A+ Esthetic Customer Club eingeladen.\n\n"
-        f"Einladung öffnen: {invite_url}\n\n"
-        "Mit freundlichen Grüßen\nA+ Esthetic"
+        f"Hallo,\n\n{referrer_name} lädt Sie in die A+ Esthetic App ein.\n"
+        "1. Laden Sie die App im App Store oder bei Google Play herunter.\n"
+        f"2. Registrieren Sie sich und geben Sie den Empfehlungscode {referral_code} ein.\n"
+        "3. Nach erfolgreicher Registrierung erhalten Sie 300 A+ Punkte.\n\n"
+        "A+ Esthetic"
     )
-    html_body = f"""
-    <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172027">
-      <div style="font-size:28px;font-weight:800;letter-spacing:.04em;margin-bottom:20px">A+ ESTHETIC</div>
-      <h1 style="font-size:25px;margin:0 0 14px">Eine persönliche Einladung</h1>
-      <p style="font-size:16px;line-height:1.6"><strong>{safe_name}</strong> hat Sie zum A+ Esthetic Customer Club eingeladen.</p>
-      <p style="margin:26px 0"><a href="{invite_url}" style="display:inline-block;background:#172027;color:#fff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700">Einladung öffnen</a></p>
-      <p style="font-size:13px;line-height:1.5;color:#66717a">Diese Einladung wurde von einem verifizierten A+ Esthetic Mitglied an diese E-Mail-Adresse gesendet. Falls Sie keine Einladung erwartet haben, können Sie diese Nachricht ignorieren.</p>
+    html_body = f"""<!doctype html>
+    <html><body style="margin:0;background:#f5f1e9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#24211c">
+    <table width="100%" cellspacing="0" cellpadding="0" style="background:#f5f1e9;padding:32px 12px"><tr><td align="center">
+    <table width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border:1px solid #e4dccd;border-radius:24px;overflow:hidden">
+    <tr><td style="padding:32px 38px 18px;text-align:center"><img src="https://a-esthetic.de/wp-content/uploads/prev.png" alt="A+ Esthetic" style="width:150px;max-width:45%;height:auto"></td></tr>
+    <tr><td style="padding:2px 38px 38px;text-align:center">
+    <div style="font-size:10px;letter-spacing:.2em;color:#a47a22;font-weight:800">PERSÖNLICHE EINLADUNG</div>
+    <h1 style="font-family:Georgia,serif;font-size:34px;font-weight:500;line-height:1.12;margin:11px 0 12px">Willkommen bei A+ Esthetic</h1>
+    <p style="color:#716a61;line-height:1.65;margin:0 0 24px"><strong>{safe_name}</strong> hat Sie persönlich eingeladen. Laden Sie zuerst die A+ Esthetic App herunter und registrieren Sie sich anschließend mit dem Empfehlungscode.</p>
+    <div style="display:inline-block;background:#fbf7ee;border:1px solid #e6dac0;border-radius:16px;padding:16px 24px;margin:0 0 24px">
+      <div style="font-size:10px;color:#8b806e;letter-spacing:.13em">IHR EMPFEHLUNGSCODE</div>
+      <div style="font-size:23px;font-weight:850;letter-spacing:.08em;margin-top:6px">{safe_code}</div>
+      <div style="font-size:11px;color:#8b806e;margin-top:6px">300 A+ Punkte nach erfolgreicher Registrierung</div>
     </div>
-    """
+    <div style="margin:0 auto 10px"><a href="{ios_url}" style="display:inline-block;min-width:210px;background:#25221d;color:#fff;text-decoration:none;padding:14px 20px;border-radius:12px;font-weight:750">Im App Store laden</a></div>
+    <div><a href="{android_url}" style="display:inline-block;min-width:210px;border:1px solid #d9d0c2;color:#25221d;text-decoration:none;padding:13px 20px;border-radius:12px;font-weight:750">Bei Google Play laden</a></div>
+    <p style="font-size:12px;color:#8b847b;line-height:1.6;margin:26px 0 0">Nach der Installation: Konto erstellen → E-Mail und Telefonnummer bestätigen → Empfehlungscode eingeben.</p>
+    </td></tr>
+    <tr><td style="background:#29251f;color:#d8d1c5;padding:23px;text-align:center;font-size:12px;line-height:1.6">A+ Esthetic Frankfurt · Stiftstraße 14, 60313 Frankfurt am Main</td></tr>
+    </table></td></tr></table></body></html>"""
 
     delivery = ReferralEmailDelivery(
         referrer_email=identity["email"],
