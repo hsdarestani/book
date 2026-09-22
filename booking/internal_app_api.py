@@ -93,15 +93,17 @@ def admin_bootstrap(request):
     user.set_password(password)
     user.save()
 
-    safe_email = html.escape(email)
-    subject = "A+ Esthetic · Admin-Zugang"
-    text = f"Admin-Zugang\n\nE-Mail: {email}\nPasswort: {password}\n\nBitte sicher aufbewahren."
-    credentials = (
-        '<div style="text-align:left;background:#fbf8f2;border:1px solid #e4dccd;border-radius:16px;padding:18px">'
-        '<div style="font-size:11px;color:#8e826f">E-MAIL</div><strong>' + safe_email + '</strong>'
-        '<div style="font-size:11px;color:#8e826f;margin-top:14px">TEMPORÄRES PASSWORT</div>'
-        '<strong style="font-family:monospace;font-size:17px">' + html.escape(password) + '</strong></div>'
-    )
-    body = _brand_mail("Ihr Admin-Zugang", "A+ VERWALTUNG", "Der neue Admin-Zugang wurde eingerichtet. Bitte bewahren Sie die Zugangsdaten sicher auf.", credentials)
-    _send_html_mail(subject, text, body, [email], reply_to=[CLINIC_REPLY_EMAIL])
-    return JsonResponse({"ok": True, "created": created, "credentials_sent": True})
+    send_credentials = data.get("send_credentials", True) is not False
+    if send_credentials:
+        safe_email = html.escape(email)
+        subject = "A+ Esthetic · Admin-Zugang"
+        text = f"Admin-Zugang\n\nE-Mail: {email}\nPasswort: {password}\n\nBitte sicher aufbewahren."
+        credentials = (
+            '<div style="text-align:left;background:#fbf8f2;border:1px solid #e4dccd;border-radius:16px;padding:18px">'
+            '<div style="font-size:11px;color:#8e826f">E-MAIL</div><strong>' + safe_email + '</strong>'
+            '<div style="font-size:11px;color:#8e826f;margin-top:14px">PASSWORT</div>'
+            '<strong style="font-family:monospace;font-size:17px">' + html.escape(password) + '</strong></div>'
+        )
+        body = _brand_mail("Ihr Admin-Zugang", "A+ VERWALTUNG", "Der Admin-Zugang wurde eingerichtet. Bitte bewahren Sie die Zugangsdaten sicher auf.", credentials)
+        _send_html_mail(subject, text, body, [email], reply_to=[CLINIC_REPLY_EMAIL])
+    return JsonResponse({"ok": True, "created": created, "credentials_sent": send_credentials})
