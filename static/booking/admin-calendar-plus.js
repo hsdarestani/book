@@ -501,6 +501,64 @@
     });
   }
 
+  function staffIdFromPill(pill) {
+    if (!pill) return '';
+    try {
+      return new URL(pill.href, window.location.origin).searchParams.get('staff') || '';
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  function setActiveStaffPill(staffId) {
+    document.querySelectorAll('.sb-provider-switcher .doctor-pill').forEach((pill) => {
+      const active = staffIdFromPill(pill) === String(staffId);
+      pill.classList.toggle('is-active', active);
+      pill.setAttribute('aria-current', active ? 'page' : 'false');
+    });
+  }
+
+  function prefetchStaffAlternatives(currentStaffId, dateValue) {
+    if (currentCalendarView() !== 'day' || !dateValue) return;
+    document.querySelectorAll('.sb-provider-switcher .doctor-pill').forEach((pill) => {
+      const staffId = staffIdFromPill(pill);
+      if (staffId && staffId !== String(currentStaffId)) {
+        loadCalendarDay(staffId, dateValue).catch(() => {});
+      }
+    });
+  }
+
+  async function navigateToStaff(staffId) {
+    if (currentCalendarView() !== 'day' || !staffId) return false;
+    const dateValue = currentCalendarDate();
+    const panel = document.querySelector('.sb-calendar-panel');
+    panel?.setAttribute('aria-busy', 'true');
+    try {
+      const data = await loadCalendarDay(staffId, dateValue);
+      setActiveStaffPill(staffId);
+      renderCalendarDay(data, { updateHistory: true });
+      prefetchStaffAlternatives(staffId, dateValue);
+      return true;
+    } catch (error) {
+      console.warn('Fast staff switch failed:', error);
+      panel?.setAttribute('aria-busy', 'false');
+      return false;
+    }
+  }
+
+  function installFastStaffSwitching() {
+    if (currentCalendarView() !== 'day') return;
+    document.addEventListener('click', async (event) => {
+      const pill = event.target.closest('.sb-provider-switcher .doctor-pill');
+      if (!pill) return;
+      const staffId = staffIdFromPill(pill);
+      if (!staffId || staffId === selectedStaff()) return;
+      event.preventDefault();
+      const success = await navigateToStaff(staffId);
+      if (!success) window.location.assign(pill.href);
+    });
+  }
+
   function positionTimeAxis() {
     if (window.innerWidth > 760) return;
     const axis = document.querySelector('.sb-time-axis');
@@ -579,10 +637,13 @@
     positionTimeAxis();
     layoutAppointments();
     installFastDayNavigation();
+    installFastStaffSwitching();
 
     const staffId = selectedStaff();
     if (currentCalendarView() === 'day' && staffId) {
-      prefetchNeighbors(staffId, currentCalendarDate());
+      const dateValue = currentCalendarDate();
+      prefetchNeighbors(staffId, dateValue);
+      prefetchStaffAlternatives(staffId, dateValue);
     }
 
     await initEditableAvailability();
