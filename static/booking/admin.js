@@ -37,13 +37,13 @@
     addStylesheet('/static/booking/admin-time.css', 'data-admin-time-picker');
     addStylesheet('/static/booking/admin-simply.css', 'data-admin-simply');
     addStylesheet('/static/booking/admin-fixes.css', 'data-admin-fixes');
-    addStylesheet('/static/booking/admin-calendar-plus.css', 'data-admin-calendar-plus');
+    addStylesheet('/static/booking/admin-calendar-plus.css?v=20260923-v19', 'data-admin-calendar-plus');
   }
 
   function loadCalendarPlus() {
     if (document.querySelector('script[data-admin-calendar-plus]')) return;
     const script = document.createElement('script');
-    script.src = '/static/booking/admin-calendar-plus.js';
+    script.src = '/static/booking/admin-calendar-plus.js?v=20260923-v19';
     script.defer = true;
     script.setAttribute('data-admin-calendar-plus', '1');
     document.head.appendChild(script);
