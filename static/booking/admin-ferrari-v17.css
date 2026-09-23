@@ -19,7 +19,7 @@ body.ferrari-modal-open{overflow:hidden!important}
 .wa-usage-note{display:grid;gap:3px;padding:11px 12px;margin:0 0 11px;border:1px solid #e9dcc1;background:#fbf7ed;border-radius:13px}.wa-usage-note strong{font-size:10px}.wa-usage-note span{font-size:9px;color:#7d725e;line-height:1.45}
 .patient-profile-panel,.patient-points-panel,.app-upload-panel,.app-timeline-panel{padding-inline:22px!important}.patient-inline-form,.point-adjust-form,.wa-template-list{max-width:100%;min-width:0}.patient-inline-form label,.point-adjust-form label{margin-inline:0!important}.customer-profile-tabs{margin-inline:0!important}
 .sb-modal{z-index:280!important}.sb-modal-card{overscroll-behavior:contain}.sb-sheet-head{grid-template-columns:96px 1fr 96px!important;padding-left:max(12px,env(safe-area-inset-left))!important;padding-right:max(12px,env(safe-area-inset-right))!important}.sb-sheet-head button{width:auto!important;min-width:76px!important;font-size:11px!important;font-weight:800!important;text-align:left!important;color:#efd18b!important}.sb-sheet-head button[data-close-modal],.sb-sheet-head button[data-day-close]{white-space:nowrap}.sb-form-sheet{padding-bottom:max(18px,env(safe-area-inset-bottom))!important}
-.sb-calendar-pro .sb-day-track{background-color:#f1f2f3!important;background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(2.5% - 1px),rgba(58,52,44,.07) calc(2.5% - 1px),rgba(58,52,44,.07) 2.5%),repeating-linear-gradient(to bottom,transparent 0,transparent calc(10% - 1px),rgba(58,52,44,.16) calc(10% - 1px),rgba(58,52,44,.16) 10%)!important}.sb-calendar-pro .sb-working-segment,.sb-calendar-pro .sb-working-segment-editable{background:linear-gradient(180deg,#fff,#fdfcf8)!important;box-shadow:inset 3px 0 0 #dcc793!important}.sb-calendar-pro .sb-working-segment span{background:#fff8e8!important;color:#84642c!important;border:1px solid #eadbbb!important;border-radius:999px!important;padding:3px 6px!important}
+.sb-calendar-pro .sb-day-track{background-color:#f1f2f3!important;background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(2.5% - 1px),rgba(58,52,44,.07) calc(2.5% - 1px),rgba(58,52,44,.07) 2.5%),repeating-linear-gradient(to bottom,transparent 0,transparent calc(10% - 1px),rgba(58,52,44,.16) calc(10% - 1px),rgba(58,52,44,.16) 10%)!important}.sb-calendar-pro .sb-working-segment,.sb-calendar-pro .sb-working-segment-editable{background:transparent!important;box-shadow:inset 3px 0 0 #dcc793!important}.sb-calendar-pro .sb-working-segment span{background:#fff8e8!important;color:#84642c!important;border:1px solid #eadbbb!important;border-radius:999px!important;padding:3px 6px!important}
 .ferrari-calendar-sticky{position:fixed;z-index:190;left:0;right:0;top:0;display:none;pointer-events:none}.ferrari-calendar-sticky.is-visible{display:block}.ferrari-calendar-sticky-inner{margin:0 auto;background:rgba(255,255,255,.96);border-bottom:1px solid #ded8cd;box-shadow:0 8px 24px rgba(31,26,18,.08);backdrop-filter:blur(14px);overflow:hidden;display:grid;grid-template-columns:64px minmax(0,1fr)}.ferrari-sticky-axis{border-right:1px solid #e5dfd4}.ferrari-sticky-days{display:grid;grid-template-columns:repeat(var(--day-count),minmax(0,1fr));will-change:transform}.ferrari-sticky-day{height:48px;display:grid;place-items:center;background:#fff;border-right:1px solid #e9e4db;color:#81786d;font-size:9px}.ferrari-sticky-day b{display:block;color:#29251f;font-size:11px}.ferrari-sticky-day span{display:block;text-align:center}
 @media(min-width:761px){.ferrari-calendar-sticky{top:88px}.ferrari-calendar-sticky-inner{width:min(1320px,calc(100% - 36px))}}
 @media(max-width:760px){.ferrari-page-hero{padding:28px 2px 18px}.ferrari-page-hero h1{font-size:40px}.ferrari-setting-links{grid-template-columns:1fr}.ferrari-section{padding:16px;border-radius:20px}.ferrari-section-head{align-items:flex-start;flex-direction:column}.ferrari-section-head .ferrari-primary{width:100%}.ferrari-row,.ferrari-row-message{grid-template-columns:46px minmax(0,1fr)}.ferrari-row-media{width:46px;height:46px}.ferrari-row .ferrari-edit{grid-column:1/3;width:100%}.ferrari-usage{align-items:flex-start;flex-direction:column}.ferrari-modal{padding:0;align-items:stretch}.ferrari-modal-card{max-height:none;height:100dvh;border-radius:0}.ferrari-modal-head{border-radius:0;min-height:calc(62px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top)}.ferrari-form{padding:18px 16px max(22px,env(safe-area-inset-bottom))}.ferrari-grid-2{grid-template-columns:1fr}.ferrari-form-footer{display:grid;grid-template-columns:1fr 1fr}.ferrari-form-footer>.ferrari-primary{margin-left:0;grid-column:1/3}.ferrari-danger{grid-column:1/3}.patient-profile-panel,.patient-points-panel,.app-upload-panel,.app-timeline-panel{padding-left:18px!important;padding-right:18px!important;margin-left:12px!important;margin-right:12px!important}.sb-sheet-head{min-height:calc(64px + env(safe-area-inset-top))!important;padding-top:env(safe-area-inset-top)!important}.sb-calendar-pro .sb-calendar-shell{min-height:1245px!important}.sb-calendar-pro .sb-day-track{height:1200px!important}.sb-calendar-pro .sb-time-axis{height:1245px!important;grid-template-rows:repeat(11,1fr)!important}.ferrari-calendar-sticky{top:calc(52px + env(safe-area-inset-top))}.ferrari-calendar-sticky-inner{grid-template-columns:58px minmax(0,1fr);width:100%}.ferrari-sticky-day{height:45px}}
@@ -68,5 +68,101 @@ html[data-admin-page="customers"] .patient-control-grid.is-single-panel{
   html[data-admin-page="customers"] .app-patient-layout .app-upload-panel,
   html[data-admin-page="customers"] .app-patient-layout .app-timeline-panel{
     margin:0 0 12px!important;padding:18px!important;border-radius:22px!important
+  }
+}
+
+
+/* Admin polish v19: customer profile + referrals */
+html[data-admin-page="customers"] .patient-command-copy p{
+  overflow-wrap:anywhere!important;
+}
+html[data-admin-page="customers"] .patient-profile-panel>.panel-head{
+  margin-bottom:16px!important;
+}
+html[data-admin-page="customers"] .patient-profile-panel .patient-inline-form{
+  margin:0!important;
+}
+html[data-admin-page="customers"] .patient-profile-panel .wa-usage-note{
+  margin:16px 0 12px!important;
+  padding:12px 14px!important;
+}
+html[data-admin-page="customers"] .patient-profile-panel .wa-template-list{
+  margin-top:0!important;
+  gap:8px!important;
+}
+html[data-admin-page="customers"] .patient-profile-panel .wa-template-list>a{
+  padding:12px 13px!important;
+  border-radius:14px!important;
+  min-width:0!important;
+}
+html[data-admin-page="customers"] .patient-profile-panel .wa-template-list>a small{
+  white-space:normal!important;
+  line-height:1.35!important;
+}
+html[data-admin-page="referrals"] .app-core-panel{
+  box-sizing:border-box!important;
+}
+html[data-admin-page="referrals"] .referral-admin-list{
+  display:grid!important;
+  gap:10px!important;
+  margin-top:14px!important;
+  padding:0 2px 2px!important;
+}
+html[data-admin-page="referrals"] .referral-admin-list article{
+  box-sizing:border-box!important;
+  width:100%!important;
+  margin:0!important;
+  padding:14px 16px!important;
+  border-radius:16px!important;
+  gap:12px!important;
+}
+html[data-admin-page="referrals"] .referral-admin-list article>div:first-child{
+  min-width:0!important;
+}
+html[data-admin-page="referrals"] .referral-admin-list article strong{
+  font-size:13px!important;
+}
+html[data-admin-page="referrals"] .referral-admin-list article span{
+  margin-top:4px!important;
+  overflow-wrap:anywhere!important;
+  line-height:1.35!important;
+}
+@media(max-width:760px){
+  html[data-admin-page="customers"] .customer-profile-tabs{
+    margin:10px 12px 12px!important;
+    padding:6px!important;
+    border-radius:18px!important;
+  }
+  html[data-admin-page="customers"] .patient-profile-panel{
+    padding:18px 16px!important;
+  }
+  html[data-admin-page="customers"] .patient-profile-panel .patient-inline-form{
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+  }
+  html[data-admin-page="customers"] .patient-profile-panel .patient-inline-form button{
+    width:100%!important;
+    min-height:46px!important;
+    border-radius:12px!important;
+  }
+  html[data-admin-page="customers"] .patient-profile-panel .patient-inline-form select{
+    min-height:50px!important;
+    font-size:16px!important;
+  }
+  html[data-admin-page="customers"] .patient-profile-panel .wa-template-list>a{
+    padding:13px 12px!important;
+  }
+  html[data-admin-page="referrals"] .app-core-panel{
+    margin:14px 12px 0!important;
+    padding:18px 14px 20px!important;
+    border:1px solid rgba(54,45,31,.10)!important;
+    border-radius:22px!important;
+    box-shadow:0 10px 28px rgba(35,29,20,.05)!important;
+  }
+  html[data-admin-page="referrals"] .referral-admin-list{
+    padding:0!important;
+  }
+  html[data-admin-page="referrals"] .referral-admin-list article{
+    padding:14px!important;
   }
 }
