@@ -89,10 +89,12 @@ html{scroll-behavior:auto!important}
 .sb-calendar-pro .sb-working-segment,
 .sb-calendar-pro .sb-working-segment-editable,
 .sb-calendar-pro .sb-working-segment-editable.is-day-override{
-  background:#fff!important;
-  border-top:1px solid #dedede!important;
-  border-bottom:1px solid #dedede!important;
-  box-shadow:none!important;
+  /* Keep the parent grid visible. A solid white working-hours layer made one
+     provider look like the calendar lines were missing. */
+  background:transparent!important;
+  border-top:1px solid rgba(141,101,46,.18)!important;
+  border-bottom:1px solid rgba(141,101,46,.18)!important;
+  box-shadow:inset 3px 0 0 rgba(220,199,147,.9)!important;
 }
 .sb-calendar-pro .sb-working-segment span{
   color:#777!important;
