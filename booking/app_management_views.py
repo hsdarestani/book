@@ -22,6 +22,7 @@ SECTIONS = {
     'reviews': ('Google Bewertungen', 'Bewertungen verifizieren und Punkte erst nach Prüfung freigeben'),
     'wallet': ('A+ Punkte', 'Punktestände suchen, prüfen und manuell korrigieren'),
     'referrals': ('Empfehlungen', 'Empfehlungen an Freunde und Punkteaktivitäten im Blick behalten'),
+    'invoices': ('Rechnungen', 'Rechnungen, Preise, MwSt und Abrechnungsdaten direkt in der App verwalten'),
 }
 
 
@@ -264,6 +265,55 @@ def app_management(request, section='bookings'):
                     payload['rating'] = int(rating_text)
                 _api(request, f'reviews/{review_id}/', method='POST', payload=payload)
                 return _redirect('reviews', 'review')
+            if action == 'billing_settings':
+                payload = {
+                    'company_name': request.POST.get('company_name') or 'A+ Esthetic GmbH',
+                    'street': request.POST.get('street') or '',
+                    'postal_code': request.POST.get('postal_code') or '',
+                    'city': request.POST.get('city') or '',
+                    'email': request.POST.get('email') or '',
+                    'phone': request.POST.get('phone') or '',
+                    'tax_number': request.POST.get('tax_number') or '',
+                    'vat_id': request.POST.get('vat_id') or '',
+                    'bank_name': request.POST.get('bank_name') or '',
+                    'iban': request.POST.get('iban') or '',
+                    'bic': request.POST.get('bic') or '',
+                    'invoice_prefix': request.POST.get('invoice_prefix') or 'RE',
+                    'next_sequence': int(request.POST.get('next_sequence') or 1),
+                }
+                _api(request, 'billing/settings/', method='POST', payload=payload)
+                return _redirect('invoices', 'settings')
+
+            if action == 'billing_service':
+                service_id = int(request.POST.get('service_id'))
+                _api(
+                    request,
+                    f'billing/services/{service_id}/',
+                    method='POST',
+                    payload={
+                        'price': request.POST.get('price') or '',
+                        'vat_rate': request.POST.get('vat_rate') or '',
+                    },
+                )
+                return _redirect('invoices', 'service')
+
+            if action == 'billing_create':
+                _api(
+                    request,
+                    'billing/invoices/',
+                    method='POST',
+                    payload={
+                        'customer_id': int(request.POST.get('customer_id')),
+                        'service_id': int(request.POST.get('service_id')),
+                        'service_date': request.POST.get('service_date') or '',
+                    },
+                )
+                return _redirect('invoices', 'invoice')
+
+            if action == 'billing_finalize':
+                invoice_id = int(request.POST.get('invoice_id'))
+                _api(request, f'billing/invoices/{invoice_id}/finalize/', method='POST', payload={})
+                return _redirect('invoices', 'finalized')
 
         data = {}
         context = {}
@@ -275,6 +325,8 @@ def app_management(request, section='bookings'):
             context['query'] = query
         elif section == 'reviews':
             data = _api(request, 'reviews/')
+        elif section == 'invoices':
+            data = _api(request, 'billing/')
         else:
             data = _api(request, 'referrals/')
         title, subtitle = SECTIONS[section]
