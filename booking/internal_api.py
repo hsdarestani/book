@@ -218,6 +218,8 @@ def billing_catalog(request):
                 'buffer_minutes': item.buffer_minutes,
                 'price_label': item.price_label,
                 'active': item.active,
+                'bookable': item.bookable,
+                'requires_confirmation': item.requires_confirmation,
             }
             for item in services
         ],
