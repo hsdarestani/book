@@ -44,7 +44,7 @@
   <section class="command-hero">
     <div class="command-hero-orbit"></div>
     <div class="command-hero-copy"><span>A+ ESTHETIC · CONTROL</span><h1>Management<br>Dashboard</h1><p>Patienten, nächste Termine und tägliche Abläufe in einer Oberfläche.</p></div>
-    <div class="command-stats"><article><b>{{ today_count }}</b><span>HEUTE</span></article><article class="stat-explain" title="Alle zukünftigen, nicht stornierten Termine ab jetzt"><b>{{ upcoming_count }}</b><span>BEVORSTEHEND</span><small>ab jetzt · ohne Stornos</small></article><article><b>{{ patient_count }}</b><span>PATIENTEN</span></article></div>
+    <div class="command-stats"><article><b>{{ today_count }}</b><span>HEUTE</span></article><article class="stat-explain" title="Alle zukünftigen, nicht stornierten Termine ab jetzt"><b>{{ upcoming_count }}</b><span>BEVORSTEHEND</span><small>ab jetzt · ohne Stornos</small></article><article title="Exakte Dubletten werden nur in der Statistik zusammengefasst. Kein Kundendatensatz wird gelöscht."><b>{{ patient_count }}</b><span>PATIENTEN</span>{% if duplicate_patient_count %}<small>{{ duplicate_patient_count }} Dublette{% if duplicate_patient_count != 1 %}n{% endif %} nicht doppelt gezählt</small>{% endif %}</article></div>
   </section>
 
   {% if view_only %}<div class="command-notice">Dieser Zugang ist <strong>nur zum Ansehen</strong> freigeschaltet. Änderungen und Uploads sind gesperrt.</div>{% endif %}
