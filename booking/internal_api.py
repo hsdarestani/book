@@ -14,9 +14,9 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
-from .models import Appointment, Customer, PatientRecord
+from .models import Appointment, Customer, PatientRecord, Service
 
 
 def _error(code, message, status=400):
@@ -140,6 +140,88 @@ def _find_customer(email, phone):
             if _normalize_phone(customer.phone) == normalized:
                 return customer
     return None
+
+
+@csrf_exempt
+@require_POST
+def sync_customer(request):
+    if not _authorized(request):
+        return _error('unauthorized', 'Nicht autorisiert.', 401)
+
+    data = _payload(request)
+    if data is None:
+        return _error('invalid_json', 'Ungültige Nutzdaten.')
+
+    email = str(data.get('email') or '').strip().lower()[:254]
+    phone = str(data.get('phone') or '').strip()[:40]
+    first_name = str(data.get('first_name') or '').strip()[:80]
+    last_name = str(data.get('last_name') or '').strip()[:80]
+    if not email or '@' not in email:
+        return _error('email_required', 'Eine gültige E Mail Adresse ist erforderlich.')
+
+    customer = _find_customer(email, phone)
+    created = False
+    if not customer:
+        customer = Customer.objects.create(
+            first_name=first_name or 'Patient',
+            last_name=last_name,
+            email=email,
+            phone=phone,
+        )
+        created = True
+    else:
+        changed = []
+        if first_name and customer.first_name != first_name:
+            customer.first_name = first_name
+            changed.append('first_name')
+        if last_name and customer.last_name != last_name:
+            customer.last_name = last_name
+            changed.append('last_name')
+        if phone and customer.phone != phone:
+            customer.phone = phone
+            changed.append('phone')
+        if email and customer.email.lower() != email:
+            customer.email = email
+            changed.append('email')
+        if changed:
+            customer.save(update_fields=[*changed, 'updated_at'])
+
+    return JsonResponse({
+        'ok': True,
+        'created': created,
+        'customer': {
+            'id': customer.pk,
+            'first_name': customer.first_name,
+            'last_name': customer.last_name,
+            'email': customer.email,
+            'phone': customer.phone,
+        },
+    })
+
+
+@csrf_exempt
+@require_GET
+def billing_catalog(request):
+    if not _authorized(request):
+        return _error('unauthorized', 'Nicht autorisiert.', 401)
+
+    services = Service.objects.order_by('name')
+    return JsonResponse({
+        'ok': True,
+        'services': [
+            {
+                'id': item.pk,
+                'name': item.name,
+                'slug': item.slug,
+                'description': item.description,
+                'duration_minutes': item.duration_minutes,
+                'buffer_minutes': item.buffer_minutes,
+                'price_label': item.price_label,
+                'active': item.active,
+            }
+            for item in services
+        ],
+    })
 
 
 def _patient_path(stored_name):
