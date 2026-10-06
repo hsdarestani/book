@@ -94,6 +94,8 @@ def _record_payload(record):
         "created_at": record.created_at.isoformat(),
         "shared_with_customer": _visible_to_customer(record),
         "document_type": str(metadata.get("document_type") or ""),
+        "open_count": int(metadata.get("customer_open_count") or 0),
+        "download_count": int(metadata.get("customer_download_count") or 0),
     }
 
 
@@ -241,6 +243,15 @@ def portal_file(request):
     path = _patient_path(record.stored_name)
     if not path.exists() or not path.is_file():
         return _error("file_not_found", "Datei nicht gefunden.", 404)
+    metadata = _metadata(record).copy()
+    action = "download" if bool(data.get("download")) else "open"
+    count_key = f"customer_{action}_count"
+    last_key = f"customer_last_{action}_at"
+    metadata[count_key] = int(metadata.get(count_key) or 0) + 1
+    metadata[last_key] = timezone.now().isoformat()
+    record.metadata = metadata
+    record.save(update_fields=["metadata"])
+
     response = FileResponse(
         path.open("rb"),
         content_type=record.mime_type or "application/octet-stream",
