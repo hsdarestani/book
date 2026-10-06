@@ -45,6 +45,55 @@ def find_customer(*, email="", phone="", first_name="", last_name=""):
     return None
 
 
+def duplicate_customer_groups(customers=None):
+    """Group exact duplicate identities without changing or deleting records."""
+    items = list(customers if customers is not None else Customer.objects.order_by("pk"))
+    parent = {item.pk: item.pk for item in items}
+
+    def find(pk):
+        while parent[pk] != pk:
+            parent[pk] = parent[parent[pk]]
+            pk = parent[pk]
+        return pk
+
+    def union(left, right):
+        a, b = find(left), find(right)
+        if a != b:
+            parent[b] = a
+
+    by_email = {}
+    by_phone_name = {}
+    for item in items:
+        email = normalize_email(item.email)
+        if email:
+            if email in by_email:
+                union(item.pk, by_email[email])
+            else:
+                by_email[email] = item.pk
+        phone = normalize_phone(item.phone)
+        first = normalize_name(item.first_name)
+        last = normalize_name(item.last_name)
+        if phone and first and last:
+            key = (phone, first, last)
+            if key in by_phone_name:
+                union(item.pk, by_phone_name[key])
+            else:
+                by_phone_name[key] = item.pk
+
+    groups = {}
+    for item in items:
+        groups.setdefault(find(item.pk), []).append(item)
+    return list(groups.values())
+
+
+def unique_customer_count(customers=None):
+    return len(duplicate_customer_groups(customers))
+
+
+def duplicate_customer_count(customers=None):
+    return sum(max(0, len(group) - 1) for group in duplicate_customer_groups(customers))
+
+
 def merge_customer(keeper, duplicate):
     if keeper.pk == duplicate.pk:
         return keeper
