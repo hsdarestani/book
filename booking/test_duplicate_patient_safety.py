@@ -4,7 +4,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from .customer_identity import duplicate_customer_count, unique_customer_count
+from .customer_identity import duplicate_customer_count, find_customer, unique_customer_count
 from .models import Appointment, Customer, Service, StaffMember
 
 
@@ -39,6 +39,15 @@ class DuplicatePatientSafetyTests(TestCase):
         self.assertEqual(Customer.objects.count(), 2)
         self.assertEqual(unique_customer_count(Customer.objects.all()), 1)
         self.assertEqual(duplicate_customer_count(Customer.objects.all()), 1)
+        # SimplyBook style matching with a changed e-mail still resolves the
+        # existing person by exact phone + first/last name instead of creating a third row.
+        matched = find_customer(
+            email="anna-new@example.com",
+            phone="0170 1234567",
+            first_name="Anna",
+            last_name="Muster",
+        )
+        self.assertIn(matched.pk, {first.pk, duplicate.pk})
 
         call_command("dedupe_customers")
 
