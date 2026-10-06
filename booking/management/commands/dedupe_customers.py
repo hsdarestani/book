@@ -1,47 +1,44 @@
-from collections import defaultdict
-
 from django.core.management.base import BaseCommand
 
-from booking.customer_identity import merge_customer, normalize_email, normalize_name, normalize_phone
+from booking.customer_identity import duplicate_customer_groups, merge_customer
 from booking.models import Customer
 
 
 class Command(BaseCommand):
-    help = "Safely merge duplicate customers while preserving appointments and patient records."
+    help = "Report duplicate customers. Merging is opt-in with --apply and is never run by SimplyBook sync."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--apply",
+            action="store_true",
+            help="Actually merge exact duplicate groups. Without this flag no data is changed.",
+        )
 
     def handle(self, *args, **options):
+        groups = [
+            group
+            for group in duplicate_customer_groups(Customer.objects.order_by("pk"))
+            if len(group) > 1
+        ]
+        duplicate_rows = sum(len(group) - 1 for group in groups)
+
+        if not options.get("apply"):
+            self.stdout.write(self.style.WARNING(
+                f"Duplicate report only: groups={len(groups)}, duplicate_rows={duplicate_rows}, changed=0"
+            ))
+            return
+
         merged = 0
-        by_email = defaultdict(list)
-        for customer in Customer.objects.order_by("pk"):
-            key = normalize_email(customer.email)
-            if key:
-                by_email[key].append(customer)
-
-        for group in by_email.values():
-            if len(group) < 2:
+        for group in groups:
+            existing = [item for item in group if Customer.objects.filter(pk=item.pk).exists()]
+            if len(existing) < 2:
                 continue
-            keeper = group[0]
-            for duplicate in group[1:]:
+            keeper = sorted(existing, key=lambda item: item.pk)[0]
+            for duplicate in sorted(existing, key=lambda item: item.pk)[1:]:
                 if Customer.objects.filter(pk=duplicate.pk).exists():
                     keeper = merge_customer(keeper, duplicate)
                     merged += 1
 
-        by_identity = defaultdict(list)
-        for customer in Customer.objects.order_by("pk"):
-            phone = normalize_phone(customer.phone)
-            first = normalize_name(customer.first_name)
-            last = normalize_name(customer.last_name)
-            if phone and first and last:
-                by_identity[(phone, first, last)].append(customer)
-
-        for group in by_identity.values():
-            if len(group) < 2:
-                continue
-            group = sorted(group, key=lambda item: (0 if normalize_email(item.email) else 1, item.pk))
-            keeper = group[0]
-            for duplicate in group[1:]:
-                if Customer.objects.filter(pk=duplicate.pk).exists():
-                    keeper = merge_customer(keeper, duplicate)
-                    merged += 1
-
-        self.stdout.write(self.style.SUCCESS(f"Customer de-duplication completed: merged={merged}"))
+        self.stdout.write(self.style.SUCCESS(
+            f"Explicit customer merge completed: groups={len(groups)}, merged={merged}"
+        ))

@@ -165,6 +165,10 @@ def _patient_context(request):
                 'shared': patient_source or metadata.get('shared_with_customer') is True,
                 'created_at': record.captured_at or record.created_at,
                 'appointment': record.appointment,
+                'open_count': int(metadata.get('customer_open_count') or 0),
+                'download_count': int(metadata.get('customer_download_count') or 0),
+                'last_opened_at': metadata.get('customer_last_open_at') or '',
+                'last_downloaded_at': metadata.get('customer_last_download_at') or '',
             })
 
         phone = _wa_phone(selected.phone)

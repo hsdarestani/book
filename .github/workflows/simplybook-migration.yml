@@ -113,6 +113,8 @@ jobs:
   continuous-sync:
     if: github.event_name == 'schedule' || (github.event_name == 'push' && !contains(github.event.head_commit.message, '[simplybook-import]'))
     runs-on: ubuntu-latest
+    env:
+      TARGET_SHA: ${{ github.sha }}
     steps:
       - name: Continuously mirror SimplyBook into production
         uses: appleboy/ssh-action@v1.2.0
@@ -122,12 +124,29 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 25m
-          envs: SIMPLYBOOK_COMPANY_LOGIN,SIMPLYBOOK_USER_LOGIN,SIMPLYBOOK_USER_PASSWORD,SIMPLYBOOK_API_USER_KEY
+          envs: SIMPLYBOOK_COMPANY_LOGIN,SIMPLYBOOK_USER_LOGIN,SIMPLYBOOK_USER_PASSWORD,SIMPLYBOOK_API_USER_KEY,TARGET_SHA
           script: |
             set -euo pipefail
             APP_DIR="/opt/aesthetic-book/app"
             VENV="/opt/aesthetic-book/venv"
             ENV_FILE="/etc/aesthetic-book.env"
+
+            # Never run a newly-triggered sync against older production code.
+            # This is especially important for duplicate handling: the deployed
+            # target must contain the non-destructive sync rules first.
+            matched=0
+            for _ in $(seq 1 120); do
+              current="$(git -C "$APP_DIR" rev-parse HEAD 2>/dev/null || true)"
+              if [ "$current" = "$TARGET_SHA" ]; then
+                matched=1
+                break
+              fi
+              sleep 5
+            done
+            if [ "$matched" != "1" ]; then
+              echo "Production did not reach $TARGET_SHA; skipping sync rather than running older code." >&2
+              exit 1
+            fi
             : "${SIMPLYBOOK_COMPANY_LOGIN:?missing company login}"
             : "${SIMPLYBOOK_USER_LOGIN:?missing user login}"
             if [ -z "${SIMPLYBOOK_API_USER_KEY:-}" ] && [ -z "${SIMPLYBOOK_USER_PASSWORD:-}" ]; then

@@ -10,6 +10,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from . import app_management_views
+from .customer_identity import duplicate_customer_count, unique_customer_count
 from .models import Appointment, Customer, WhatsAppTemplate
 
 
@@ -156,7 +157,8 @@ def admin_dashboard(request):
         'next_day_appointments': next_day_appointments,
         'today_count': Appointment.objects.filter(starts_at__date=timezone.localdate()).exclude(status='cancelled').count(),
         'upcoming_count': Appointment.objects.filter(starts_at__gte=now).exclude(status='cancelled').count(),
-        'patient_count': Customer.objects.count(),
+        'patient_count': unique_customer_count(Customer.objects.all()),
+        'duplicate_patient_count': duplicate_customer_count(Customer.objects.all()),
         'banners': banners,
         'banners_error': banners_error,
         'templates': WhatsAppTemplate.objects.all(),

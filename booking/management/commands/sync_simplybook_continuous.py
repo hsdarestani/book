@@ -47,7 +47,8 @@ class Command(BaseCommand):
         call_command("simplybook_import")
         call_command("fix_simplybook_owner")
         call_command("sync_simplybook_notes")
-        call_command("dedupe_customers")
+        # Keep duplicate rows intact. SimplyBook import already resolves exact identities via find_customer.
+        # Automatic merge/delete here can move historical bookings across source identities.
 
         after = snapshots()
 
