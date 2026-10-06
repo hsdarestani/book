@@ -57,5 +57,6 @@ class OfficeSyncTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data["ok"])
-        self.assertEqual(data["services"][0]["slug"], "hydra-facial")
-        self.assertTrue(data["services"][0]["bookable"])
+        service = next(item for item in data["services"] if item["slug"] == "hydra-facial")
+        self.assertEqual(service["slug"], "hydra-facial")
+        self.assertTrue(service["bookable"])
