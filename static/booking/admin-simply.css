@@ -117,3 +117,17 @@
   .sb-scope-tabs span{font-size:9px;padding:5px 2px}
   .sb-form-row{grid-template-columns:34px 1fr auto}
 }
+
+/* Week view: keep the time scale visible while days scroll horizontally. */
+@media(max-width:760px){
+  .sb-calendar-shell.is-week{position:relative;overflow-x:auto;overscroll-behavior-x:contain}
+  .sb-calendar-shell.is-week>.sb-time-axis,
+  .sb-calendar-shell.is-week .sb-time-axis{
+    position:sticky!important;
+    left:0!important;
+    z-index:18!important;
+    background:#faf8f3!important;
+    border-right:1px solid var(--sb-line)!important;
+    box-shadow:7px 0 14px rgba(45,38,28,.06)!important
+  }
+}
