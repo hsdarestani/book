@@ -19,7 +19,7 @@ from .referral_models import ReferralEmailDelivery
 
 ME_URL = "https://esthetic.smarbiz.sbs/api/mobile/me/"
 REFERRAL_CODE_RE = re.compile(r"^(?:[A-HJ-NP-Z2-9]{6}|APLUS-[A-Z0-9-]{3,26})$")
-DEFAULT_IOS_STORE_URL = "https://apps.apple.com/de/search?term=A%2B%20Esthetic"
+DEFAULT_IOS_STORE_URL = "https://apps.apple.com/app/a-esthetic/id6799468115"
 DEFAULT_ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=de.aplusesthetic.app"
 
 
