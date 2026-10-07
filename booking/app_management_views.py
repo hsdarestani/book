@@ -272,6 +272,15 @@ def app_management(request, section='bookings'):
         section = 'patients'
 
     local_view_only = _local_view_only(request)
+
+    # Rechnungen has a dedicated web Office surface. When the focused A+ app
+    # bearer token is not available (for example a direct desktop browser
+    # visit), send staff to the browser-native Office instead of showing the
+    # misleading "Admin-Sitzung fehlt" error. Inside the A+ app, the bearer
+    # token is present and the integrated Rechnungen view continues to work.
+    if section == 'invoices' and not _authorization(request):
+        return redirect('https://office.a-esthetic.de/office/admin/')
+
     if not request.session.get('aplus_app_admin') and not local_view_only:
         return HttpResponseForbidden('A+ App Management ist nur über eine bestätigte A+ Admin-Sitzung verfügbar.')
     if local_view_only and not request.session.get('aplus_app_admin') and section != 'patients':
@@ -391,6 +400,8 @@ def app_management(request, section='bookings'):
         })
         return render(request, 'booking/app_management.html', context)
     except PermissionError as exc:
+        if section == 'invoices':
+            return redirect('https://office.a-esthetic.de/office/admin/')
         return render(request, 'booking/app_management.html', {
             'section': section,
             'section_title': SECTIONS[section][0],
