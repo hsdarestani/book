@@ -4,11 +4,36 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from .customer_identity import duplicate_customer_count, find_customer, unique_customer_count
+from .customer_identity import duplicate_customer_count, find_customer, grouped_customers_for_display, unique_customer_count
 from .models import Appointment, Customer, Service, StaffMember
 
 
 class DuplicatePatientSafetyTests(TestCase):
+    def test_patient_list_groups_duplicates_without_deleting_rows(self):
+        first = Customer.objects.create(
+            first_name="Sophie",
+            last_name="Muster",
+            phone="+49 160 1112233",
+            email="sophie@example.com",
+        )
+        duplicate = Customer.objects.create(
+            first_name="Sofi",
+            last_name="Muster Alt",
+            phone="0160 1112233",
+            email="sophie.legacy@example.com",
+        )
+
+        rows = grouped_customers_for_display(Customer.objects.all())
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].display_profile_count, 2)
+        self.assertEqual(set(rows[0].display_group_ids), {first.pk, duplicate.pk})
+        self.assertEqual(Customer.objects.count(), 2)
+
+        by_legacy_email = grouped_customers_for_display(Customer.objects.all(), query="sophie.legacy@example.com")
+        self.assertEqual(len(by_legacy_email), 1)
+        self.assertEqual(set(by_legacy_email[0].display_group_ids), {first.pk, duplicate.pk})
+        self.assertEqual(Customer.objects.count(), 2)
+
     def test_patient_count_groups_same_phone_even_if_name_or_email_differs(self):
         first = Customer.objects.create(
             first_name="Anna",

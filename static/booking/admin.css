@@ -38,3 +38,25 @@ body.admin-body{touch-action:pan-x pan-y;overscroll-behavior-y:none}
     font-size:16px!important;
   }
 }
+
+/* Duplicate-safe patient list presentation */
+.patient-duplicate-badge,
+.patient-linked-badge{
+  display:inline-flex;
+  align-items:center;
+  width:max-content;
+  margin-top:6px;
+  padding:5px 8px;
+  border-radius:999px;
+  background:#f5eddd;
+  color:#7a5d2c;
+  font-size:8.5px;
+  font-weight:850;
+  letter-spacing:.02em;
+  line-height:1;
+}
+.patient-linked-badge{
+  background:#efe7d7;
+  color:#745828;
+  margin-top:8px;
+}

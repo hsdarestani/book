@@ -63,7 +63,7 @@
       {% for customer in customers %}
       <article class="patient-result-card" data-phone="{{ customer.phone }}">
         <div class="patient-result-avatar">{{ customer.last_name|slice:":1" }}{{ customer.first_name|slice:":1" }}</div>
-        <div class="patient-result-copy"><span>{{ customer.last_name|upper }}</span><h3>{{ customer.first_name }} {{ customer.last_name }}</h3><p>{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</p></div>
+        <div class="patient-result-copy"><span>{{ customer.last_name|upper }}</span><h3>{{ customer.first_name }} {{ customer.last_name }}</h3><p>{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</p>{% if customer.display_profile_count > 1 %}<small class="patient-duplicate-badge">{{ customer.display_profile_count }} Profile · zusammengefasst</small>{% endif %}</div>
         <div class="patient-result-actions">
           <a class="patient-open" href="/verwaltung/app/patients/?customer={{ customer.id }}">Akte öffnen</a>
           {% if customer.phone %}<a href="tel:{{ customer.phone }}">Anrufen</a><button type="button" data-wa>WhatsApp</button>{% endif %}
