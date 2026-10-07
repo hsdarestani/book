@@ -4,7 +4,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -12,7 +12,8 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from . import patient_portal
-from .models import Appointment, Customer, WhatsAppTemplate
+from .customer_identity import duplicate_customer_groups, grouped_customers_for_display
+from .models import Appointment, Customer, PatientRecord, WhatsAppTemplate
 
 
 AESTHETIC_ADMIN_API = 'https://esthetic.smarbiz.sbs/api/mobile/admin'
@@ -126,17 +127,34 @@ def _booking_context(request):
 
 def _patient_context(request):
     query = str(request.GET.get('q') or '').strip()
-    customer_qs = Customer.objects.order_by('last_name', 'first_name')
-    if query:
-        customer_qs = customer_qs.filter(
-            Q(first_name__icontains=query)
-            | Q(last_name__icontains=query)
-            | Q(email__icontains=query)
-            | Q(phone__icontains=query)
-        )
-    customers = list(customer_qs[:250])
+    all_customers = list(Customer.objects.order_by('last_name', 'first_name', 'pk'))
+    groups = duplicate_customer_groups(all_customers)
+    group_by_customer_id = {}
+    for group in groups:
+        ids = [item.pk for item in group]
+        for item in group:
+            group_by_customer_id[item.pk] = ids
+
+    customers = grouped_customers_for_display(all_customers, query=query)[:250]
+
+    all_ids = [item.pk for item in all_customers]
+    appointment_counts = {
+        row['customer_id']: row['total']
+        for row in Appointment.objects.filter(customer_id__in=all_ids)
+        .values('customer_id').annotate(total=Count('id'))
+    }
+    record_counts = {
+        row['customer_id']: row['total']
+        for row in PatientRecord.objects.filter(customer_id__in=all_ids)
+        .values('customer_id').annotate(total=Count('id'))
+    }
+    for customer in customers:
+        group_ids = list(getattr(customer, 'display_group_ids', [customer.pk]))
+        customer.display_appointment_count = sum(appointment_counts.get(pk, 0) for pk in group_ids)
+        customer.display_record_count = sum(record_counts.get(pk, 0) for pk in group_ids)
 
     selected = None
+    selected_group = []
     records = []
     appointments = []
     points = None
@@ -149,12 +167,26 @@ def _patient_context(request):
     if raw_customer.isdigit():
         selected = Customer.objects.filter(pk=int(raw_customer)).first()
     if selected:
-        appointments = list(selected.appointments.select_related('service', 'staff').order_by('-starts_at')[:80])
-        for record in selected.patient_records.select_related('appointment', 'uploaded_by').order_by('-created_at')[:180]:
+        group_ids = group_by_customer_id.get(selected.pk, [selected.pk])
+        selected_group = [item for item in all_customers if item.pk in set(group_ids)]
+        selected.display_profile_count = len(selected_group)
+
+        appointments = list(
+            Appointment.objects.select_related('customer', 'service', 'staff')
+            .filter(customer_id__in=group_ids)
+            .order_by('-starts_at')[:180]
+        )
+        record_qs = (
+            PatientRecord.objects.select_related('customer', 'appointment', 'uploaded_by')
+            .filter(customer_id__in=group_ids)
+            .order_by('-created_at')[:300]
+        )
+        for record in record_qs:
             metadata = record.metadata if isinstance(record.metadata, dict) else {}
             patient_source = record.source in patient_portal.APP_SHARED_SOURCES
             records.append({
                 'id': str(record.public_id),
+                'customer_id': record.customer_id,
                 'kind': record.kind,
                 'kind_label': record.get_kind_display(),
                 'title': record.title,
@@ -171,12 +203,16 @@ def _patient_context(request):
                 'last_downloaded_at': metadata.get('customer_last_download_at') or '',
             })
 
-        phone = _wa_phone(selected.phone)
-        call_url = f'tel:{selected.phone}' if selected.phone else ''
+        # Prefer the selected profile contact data, then fall back to another linked profile.
+        contact_customer = selected
+        if not selected.phone:
+            contact_customer = next((item for item in selected_group if item.phone), selected)
+        phone = _wa_phone(contact_customer.phone)
+        call_url = f'tel:{contact_customer.phone}' if contact_customer.phone else ''
         whatsapp_url = f'https://wa.me/{phone}' if phone else ''
         if phone:
             for template in WhatsAppTemplate.objects.filter(active=True):
-                text = template.render_for(selected)
+                text = template.render_for(contact_customer)
                 whatsapp_templates.append({
                     'id': template.pk,
                     'name': template.name,
@@ -184,18 +220,26 @@ def _patient_context(request):
                     'url': f'https://wa.me/{phone}?text={quote(text)}',
                 })
 
-        # Points live in the A+ customer account service. A local view-only doctor
-        # can still open the complete Book record without a remote bearer token.
+        # Points live in the A+ customer account service. Try every linked e-mail
+        # so a legacy Book duplicate still resolves to the existing app account.
         if _authorization(request):
             try:
-                remote = _api(request, 'customers/', query={'q': selected.email})
-                exact = next(
-                    (item for item in remote.get('customers', []) if str(item.get('email') or '').strip().lower() == selected.email.strip().lower()),
-                    None,
-                )
-                if exact:
-                    points = int(exact.get('coins') or 0)
-                    remote_customer_id = int(exact.get('id'))
+                for candidate in [selected, *[item for item in selected_group if item.pk != selected.pk]]:
+                    email = str(candidate.email or '').strip()
+                    if not email:
+                        continue
+                    remote = _api(request, 'customers/', query={'q': email})
+                    exact = next(
+                        (
+                            item for item in remote.get('customers', [])
+                            if str(item.get('email') or '').strip().lower() == email.lower()
+                        ),
+                        None,
+                    )
+                    if exact:
+                        points = int(exact.get('coins') or 0)
+                        remote_customer_id = int(exact.get('id'))
+                        break
             except (PermissionError, RuntimeError, ValueError, TypeError) as exc:
                 points_error = str(exc)
 
@@ -203,6 +247,8 @@ def _patient_context(request):
         'query': query,
         'patients': customers,
         'selected_customer': selected,
+        'selected_customer_profiles': selected_group,
+        'selected_profile_count': len(selected_group),
         'patient_records': records,
         'patient_appointments': appointments,
         'selected_points': points,
