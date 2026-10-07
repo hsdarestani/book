@@ -10,7 +10,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from . import app_management_views
-from .customer_identity import duplicate_customer_count, unique_customer_count
+from .customer_identity import duplicate_customer_count, grouped_customers_for_display, unique_customer_count
 from .models import Appointment, Customer, WhatsAppTemplate
 
 
@@ -117,15 +117,9 @@ def admin_dashboard(request):
         error = ''
 
     query = str(request.GET.get('q') or '').strip()
-    customers = Customer.objects.all().order_by('last_name', 'first_name')
-    if query:
-        customers = customers.filter(
-            Q(first_name__icontains=query)
-            | Q(last_name__icontains=query)
-            | Q(email__icontains=query)
-            | Q(phone__icontains=query)
-        )
-    customers = list(customers[:80 if query else 12])
+    all_customers = list(Customer.objects.order_by('last_name', 'first_name', 'pk'))
+    customers = grouped_customers_for_display(all_customers, query=query)
+    customers = customers[:80 if query else 12]
 
     now = timezone.now()
     next_appointment = Appointment.objects.select_related('customer', 'service', 'staff').filter(
