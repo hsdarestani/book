@@ -92,6 +92,52 @@ def unique_customer_count(customers=None):
     return len(duplicate_customer_groups(customers))
 
 
+def grouped_customers_for_display(customers=None, query=""):
+    """Return one stable representative per duplicate identity group.
+
+    This is presentation-only. It never mutates, merges or deletes Customer rows.
+    A query matches any profile inside the group, so legacy aliases remain findable.
+    """
+    groups = duplicate_customer_groups(customers)
+    needle = str(query or "").strip().casefold()
+    rows = []
+    for group in groups:
+        if needle:
+            searchable = " ".join(
+                " ".join([
+                    str(item.first_name or ""),
+                    str(item.last_name or ""),
+                    str(item.email or ""),
+                    str(item.phone or ""),
+                ])
+                for item in group
+            ).casefold()
+            if needle not in searchable:
+                continue
+
+        # Stable representative: prefer the oldest row with the most useful contact data.
+        representative = sorted(
+            group,
+            key=lambda item: (
+                -(1 if normalize_phone(item.phone) else 0),
+                -(1 if normalize_email(item.email) else 0),
+                item.pk,
+            ),
+        )[0]
+        representative.display_profile_count = len(group)
+        representative.display_group_ids = [item.pk for item in group]
+        representative.display_group_emails = [item.email for item in group if normalize_email(item.email)]
+        representative.display_group_phones = [item.phone for item in group if normalize_phone(item.phone)]
+        rows.append(representative)
+
+    rows.sort(key=lambda item: (
+        normalize_name(item.last_name),
+        normalize_name(item.first_name),
+        item.pk,
+    ))
+    return rows
+
+
 def duplicate_customer_count(customers=None):
     return sum(max(0, len(group) - 1) for group in duplicate_customer_groups(customers))
 
