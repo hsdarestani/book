@@ -62,7 +62,7 @@ def duplicate_customer_groups(customers=None):
             parent[b] = a
 
     by_email = {}
-    by_phone_name = {}
+    by_phone = {}
     for item in items:
         email = normalize_email(item.email)
         if email:
@@ -70,15 +70,17 @@ def duplicate_customer_groups(customers=None):
                 union(item.pk, by_email[email])
             else:
                 by_email[email] = item.pk
+
+        # Patient COUNT is intentionally more permissive than destructive
+        # customer merging. A normalized phone number is treated as one real
+        # patient for dashboard statistics even if names/e-mails differ
+        # slightly between app, SimplyBook or legacy imports.
         phone = normalize_phone(item.phone)
-        first = normalize_name(item.first_name)
-        last = normalize_name(item.last_name)
-        if phone and first and last:
-            key = (phone, first, last)
-            if key in by_phone_name:
-                union(item.pk, by_phone_name[key])
+        if phone:
+            if phone in by_phone:
+                union(item.pk, by_phone[phone])
             else:
-                by_phone_name[key] = item.pk
+                by_phone[phone] = item.pk
 
     groups = {}
     for item in items:
