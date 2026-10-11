@@ -3,3 +3,27 @@
 @media(max-width:900px){.command-hero{grid-template-columns:1fr}.command-stats{grid-template-columns:repeat(3,1fr)}.command-grid-two{grid-template-columns:1fr}.campaign-admin-grid,.template-grid{grid-template-columns:1fr}.patient-result-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.command-shell{padding-left:12px!important;padding-right:12px!important}.command-hero{border-radius:25px;padding:23px 18px;min-height:260px}.command-hero h1{font-size:45px}.command-stats{gap:6px}.command-stats article{min-height:78px;padding:10px}.command-stats b{font-size:25px}.command-search-panel{grid-template-columns:1fr;gap:13px;padding:17px}.command-search-panel form{grid-template-columns:1fr auto}.patient-result-card{grid-template-columns:46px minmax(0,1fr)}.patient-result-avatar{width:46px;height:46px}.patient-result-actions{grid-column:1/-1;justify-content:flex-start}.patient-result-actions a,.patient-result-actions button{flex:1;text-align:center}.command-panel{padding:16px;border-radius:21px}}
 @media(max-width:420px){.command-search-panel form{grid-template-columns:1fr}.command-search-panel button{min-height:45px}.editor-two{grid-template-columns:1fr}.next-day-row{grid-template-columns:54px minmax(0,1fr) 10px}.shortcut-grid a{min-height:80px}}
+
+/* Dashboard does not include app.css, which normally constrains .brand-logo.
+   Keep the header logo at its intended dimensions on desktop and mobile. */
+.aplus-command-body .admin-topbar .brand-image{
+  display:flex;
+  align-items:center;
+  flex:0 0 auto;
+  line-height:0;
+}
+.aplus-command-body .admin-topbar .brand-logo{
+  display:block;
+  width:auto;
+  height:50px;
+  max-width:min(230px,62vw);
+  max-height:50px;
+  object-fit:contain;
+  object-position:left center;
+}
+@media(max-width:760px){
+  .aplus-command-body .admin-topbar .brand-logo{height:42px;max-height:42px;max-width:min(190px,62vw)}
+}
+@media(max-width:420px){
+  .aplus-command-body .admin-topbar .brand-logo{height:38px;max-height:38px}
+}
