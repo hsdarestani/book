@@ -35,6 +35,7 @@
     ['reviews', '★', 'Google Bewertungen', '/verwaltung/app/reviews/'],
     ['referrals', '↗', 'Empfehlungen', '/verwaltung/app/referrals/'],
     ['invoices', '▧', 'Rechnungen', '/verwaltung/app/invoices/'],
+    ['campaigns', '▤', 'Kampagnen', '/verwaltung/mehr/#campaigns'],
     ['hero', '▧', 'Startseitenbilder', '/verwaltung/app/hero/'],
     ['more', '⋯', 'Mehr', '/verwaltung/mehr/'],
   ];

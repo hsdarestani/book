@@ -13,6 +13,12 @@
 .hero-admin-card .hero-admin-reset{min-height:42px;border:1px solid #cfc1a7;background:#fff;border-radius:12px;color:#6a532d;font-weight:700}
 .hero-admin-empty{font-size:13px}
 .hero-admin-tip{font-size:12px;color:#847861;line-height:1.65}
+.hero-admin-nearby{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:10px 0 24px}
+.hero-admin-nearby a{color:#55432a;border:1px solid #d9c9a9;background:#fff;
+  border-radius:12px;text-decoration:none;padding:11px 16px;min-height:44px;
+  display:inline-flex;align-items:center;font-size:13px;font-weight:700}
+.hero-admin-nearby a[aria-current="page"]{background:#29241f;color:#fff;border-color:#29241f}
+
 
 /* Startseitenbilder uses native document scrolling rather than a nested
    scrollport. The previous 100dvh/height:0/overflow:hidden contract trapped
@@ -30,6 +36,7 @@
     -webkit-overflow-scrolling:touch!important;
   }
   html[data-admin-page="hero"] body.sb-admin-body.app-management-body {
+    padding-top:64px!important;
     position:static!important;
     inset:auto!important;
     display:block!important;
@@ -42,7 +49,9 @@
     padding-bottom:max(48px,env(safe-area-inset-bottom))!important;
   }
   html[data-admin-page="hero"] body.sb-admin-body > .sb-mobile-bar {
-    position:sticky!important;
+    position:fixed!important;
+    left:0!important;
+    right:0!important;
     top:0!important;
     height:64px!important;
     min-height:64px!important;
@@ -65,7 +74,7 @@
   }
 }
 
-</style></head>
+</style>{% if section == 'hero' %}<link rel="stylesheet" href="{% static 'booking/admin-unified-nav-v14.css' %}?v=20261017-nav-v3">{% endif %}</head>
 <body class="admin-body sb-admin-body app-management-body">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">{{ section_title }}</strong><span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div><aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav app-focused-nav"><div class="app-nav-label">A+ MANAGEMENT</div><a href="/verwaltung/dashboard/"><span>⌂</span>Dashboard</a><a href="/verwaltung/kalender/"><span>▣</span>Kalender</a><a href="/verwaltung/app/patients/" class="{% if section == 'patients' %}is-active{% endif %}"><span>▤</span>Patientenakten</a><a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}"><span>◆</span>A+ Punkte</a><a href="/verwaltung/app/reviews/" class="{% if section == 'reviews' %}is-active{% endif %}"><span>★</span>Google Bewertungen</a><a href="/verwaltung/app/referrals/" class="{% if section == 'referrals' %}is-active{% endif %}"><span>↗</span>Empfehlungen</a><a href="/verwaltung/app/hero/" class="{% if section == 'hero' %}is-active{% endif %}"><span>▧</span>Startseitenbilder</a><a href="/verwaltung/app/invoices/" class="{% if section == 'invoices' %}is-active{% endif %}"><span>▧</span>Rechnungen</a><a href="/verwaltung/mehr/"><span>⋯</span>Mehr</a><div class="app-nav-spacer"></div><a href="/verwaltung/logout/"><span>↪</span>Abmelden</a></nav></aside>
@@ -262,6 +271,7 @@
   </section>
 </div>
 {% elif section == 'hero' %}
+<nav class="hero-admin-nearby" aria-label="Patient App Inhalte"><a href="/verwaltung/mehr/#campaigns">Kampagnen</a><a href="/verwaltung/app/hero/" aria-current="page">Startseitenbilder</a></nav>
 <p class="hero-admin-intro">Hier kannst du die große Begrüßungsgrafik oben auf der Startseite verwalten. Die Auswahl erfolgt über die im Kundenprofil gespeicherte Anrede. Wenn kein passendes Bild eingestellt ist, wird automatisch das Standardbild verwendet.</p>
 <div class="hero-admin-grid">
 {% for slot in hero_images %}
@@ -302,4 +312,4 @@
 <section class="admin-panel app-core-panel"><div class="panel-head"><div><div class="eyebrow">EMPFEHLUNGEN</div><h2>Freunde eingeladen</h2><p>Erfolgreiche Einladungen und automatisch vergebene Punkte.</p></div></div><div class="referral-admin-list">{% for item in data.referrals %}<article><div><strong>{{ item.customer }}</strong><span>{{ item.email }} · {{ item.code }}</span></div><div><b>{{ item.status_label }}</b>{% if item.reward_coins %}<small>+{{ item.reward_coins }} Punkte</small>{% endif %}</div></article>{% empty %}<div class="empty">Noch keine Empfehlungen.</div>{% endfor %}</div></section>
 {% endif %}
 {% endif %}
-</main><script>(()=>{const d=document.querySelector('[data-drawer]'),b=document.querySelector('[data-drawer-backdrop]');const c=()=>{d?.classList.remove('is-open');b?.classList.remove('is-open');d?.setAttribute('aria-hidden','true')};document.querySelectorAll('[data-drawer-open]').forEach(x=>x.onclick=()=>{d?.classList.add('is-open');b?.classList.add('is-open');d?.setAttribute('aria-hidden','false')});b?.addEventListener('click',c);document.querySelectorAll('[data-point]').forEach(x=>x.onclick=()=>{const i=x.closest('form')?.querySelector('[name=point_delta]');if(i){i.value=x.dataset.point;i.focus()}})})();</script><script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20260914"></script><script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260923-v19"></script><script defer src="{% static 'booking/admin-native-camera-v11.js' %}?v=20261006-v12"></script><script defer src="{% static 'booking/admin-patient-upload-preview-v12.js' %}?v=20261006-v12"></script><script defer src="{% static 'booking/app-billing-v2.js' %}?v=20261006-v2"></script></body></html>
+</main><script>(()=>{const d=document.querySelector('[data-drawer]'),b=document.querySelector('[data-drawer-backdrop]');const c=()=>{d?.classList.remove('is-open');b?.classList.remove('is-open');d?.setAttribute('aria-hidden','true')};document.querySelectorAll('[data-drawer-open]').forEach(x=>x.onclick=()=>{d?.classList.add('is-open');b?.classList.add('is-open');d?.setAttribute('aria-hidden','false')});b?.addEventListener('click',c);document.querySelectorAll('[data-point]').forEach(x=>x.onclick=()=>{const i=x.closest('form')?.querySelector('[name=point_delta]');if(i){i.value=x.dataset.point;i.focus()}})})();</script>{% if section == 'hero' %}<script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20261017-nav-v3"></script>{% endif %}<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20260914"></script><script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260923-v19"></script><script defer src="{% static 'booking/admin-native-camera-v11.js' %}?v=20261006-v12"></script><script defer src="{% static 'booking/admin-patient-upload-preview-v12.js' %}?v=20261006-v12"></script><script defer src="{% static 'booking/app-billing-v2.js' %}?v=20261006-v2"></script></body></html>
