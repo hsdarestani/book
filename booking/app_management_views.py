@@ -436,6 +436,13 @@ def app_management(request, section='bookings'):
             'view_only': local_view_only,
         }, status=403)
     except (RuntimeError, ValueError, TypeError, Customer.DoesNotExist) as exc:
+        hero_slots = []
+        if section == 'hero' and isinstance(exc, ValueError):
+            # Input errors stay on the editable form, instead of a generic 502.
+            try:
+                hero_slots = _api(request, 'dashboard-hero/').get('hero_images') or []
+            except (PermissionError, RuntimeError):
+                pass
         return render(request, 'booking/app_management.html', {
             'section': section,
             'section_title': SECTIONS[section][0],
@@ -444,4 +451,5 @@ def app_management(request, section='bookings'):
             'data': {},
             'error': str(exc),
             'view_only': local_view_only,
-        }, status=502)
+            'hero_images': hero_slots,
+        }, status=400 if section == 'hero' and isinstance(exc, ValueError) else 502)
