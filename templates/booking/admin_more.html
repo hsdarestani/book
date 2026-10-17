@@ -8,7 +8,14 @@
   <title>Mehr | A+ Esthetic Verwaltung</title>
   <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
   <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
-</head>
+<style>
+.campaign-content-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.hero-content-link{display:inline-flex;justify-content:center;align-items:center;min-height:44px;
+padding:11px 16px;border:1px solid #cdb890;border-radius:12px;background:#fffaf1;
+text-decoration:none;color:#71532b;font-size:13px;font-weight:750;white-space:normal}
+.hero-content-link:focus-visible{outline:3px solid #b99553;outline-offset:2px}
+@media(max-width:620px){.campaign-content-actions{width:100%}.hero-content-link{flex:1}}
+</style></head>
 <body class="admin-body sb-admin-body app-management-body aplus-command-body ferrari-more">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">Mehr</strong><span class="sb-icon-button app-management-dot">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div>
@@ -29,7 +36,7 @@
 <section class="ferrari-section" id="campaigns">
   <div class="ferrari-section-head">
     <div><span>PATIENT APP</span><h2>Kampagnen</h2><p>Beliebig viele Kampagnen anlegen. Bearbeitung öffnet sich erst, wenn du sie brauchst.</p></div>
-    <button type="button" class="ferrari-primary" data-ferrari-open="campaign-new" {% if view_only %}disabled{% endif %}>+ Neue Kampagne</button>
+    <div class="campaign-content-actions"><a href="/verwaltung/app/hero/" class="hero-content-link">Startseitenbilder ↗</a><button type="button" class="ferrari-primary" data-ferrari-open="campaign-new" {% if view_only %}disabled{% endif %}>+ Neue Kampagne</button></div>
   </div>
   {% if banners_error %}<div class="admin-notice is-error">{{ banners_error }}</div>{% endif %}
   <div class="ferrari-list">
