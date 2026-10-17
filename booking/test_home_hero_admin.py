@@ -27,21 +27,32 @@ class HomeHeroAdminTests(TestCase):
         session.save()
 
     @patch("booking.app_management_views._api")
-    def test_hero_page_has_independent_mobile_scroll_region(self, mock_api):
+    def test_hero_page_uses_native_document_scroll_with_all_three_slots(self, mock_api):
         mock_api.return_value = {"ok": True, "hero_images": SLOTS}
         response = self.client.get("/verwaltung/app/hero/")
         self.assertEqual(response.status_code, 200)
         html = response.content.decode("utf-8")
         self.assertIn('data-admin-page="hero"', html)
         self.assertIn('overflow-y:auto!important;', html)
-        self.assertIn('flex:1 1 auto!important;', html)
-        self.assertIn('height:0!important;', html)
-        self.assertIn('touch-action:pan-y!important;', html)
-        self.assertIn('overscroll-behavior-y:contain!important;', html)
-        # Scope the special scrollport to the hero editor; calendar and wallet
-        # must continue using their existing interaction/scroll contracts.
-        self.assertIn('html[data-admin-page="hero"]:not([data-admin-page="calendar"]):not([data-admin-page="wallet"])', html)
+        self.assertIn('height:auto!important;', html)
+        self.assertIn('min-height:100dvh!important;', html)
+        self.assertIn('overflow:visible!important;', html)
+        self.assertIn('touch-action:pan-y pinch-zoom!important;', html)
+        self.assertNotIn('height:0!important;', html)
+        self.assertNotIn('overscroll-behavior-y:contain!important;', html)
         self.assertEqual(html.count('class="hero-admin-card"'), 3)
+
+    def test_campaigns_link_and_unified_menu_lead_to_hero_manager(self):
+        response = self.client.get("/verwaltung/mehr/")
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertIn('href="/verwaltung/app/hero/"', html)
+        self.assertIn('id="campaigns"', html)
+        from pathlib import Path
+        from django.conf import settings
+        path = Path(settings.BASE_DIR) / "static/booking/admin-unified-nav-v14.js"
+        script = path.read_text()
+        self.assertIn("['hero', '▧', 'Startseitenbilder', '/verwaltung/app/hero/']", script)
 
     @patch("booking.app_management_views._api")
     def test_editor_sees_three_slots_in_existing_admin(self, mock_api):
