@@ -6,6 +6,7 @@ from django.utils.cache import patch_vary_headers
 
 _DEFAULT_ORIGINS = {
     'https://esthetic.smarbiz.sbs',
+    'https://app.a-esthetic.de',
     'https://a-esthetic.de',
     'https://www.a-esthetic.de',
     'capacitor://localhost',

@@ -1,0 +1,30 @@
+name: Verify official booking app CORS
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "booking/cors.py"
+      - "booking/test_cors_app_origin.py"
+      - ".github/workflows/verify-booking-cors.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Verify official app cancellation CORS
+        env:
+          DJANGO_DEBUG: '1'
+        run: |
+          python manage.py check
+          python manage.py test booking.test_cors_app_origin --verbosity 2
