@@ -68,6 +68,9 @@ class HomeHeroAdminTests(TestCase):
             "variant": "frau",
             "hero_image": SimpleUploadedFile("bad.svg", b"<svg/>", content_type="image/svg+xml"),
         })
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "JPG, PNG oder WebP")
-        mock_api.assert_not_called()
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "JPG, PNG oder WebP", status_code=400)
+        # The GET only refreshes the form; an invalid image is never posted.
+        self.assertEqual(mock_api.call_count, 1)
+        self.assertEqual(mock_api.call_args.args[1], "dashboard-hero/")
+        self.assertNotIn("method", mock_api.call_args.kwargs)
