@@ -26,6 +26,10 @@
   <a href="/verwaltung/information/"><span>Information</span><b>Inhalte & Hinweise</b><i>›</i></a>
 </section>
 
+<section class="ferrari-setting-links" aria-label="Startseite verwalten">
+  <a href="/verwaltung/app/hero/"><span>Startseitenbilder</span><b>Fotos für Damen, Herren und Standard verwalten</b><i>›</i></a>
+</section>
+
 <section class="ferrari-section" id="campaigns">
   <div class="ferrari-section-head">
     <div><span>PATIENT APP</span><h2>Kampagnen</h2><p>Beliebig viele Kampagnen anlegen. Bearbeitung öffnet sich erst, wenn du sie brauchst.</p></div>
@@ -73,7 +77,7 @@
 <div class="ferrari-modal" data-ferrari-modal="template-{{ template.id }}" aria-hidden="true"><div class="ferrari-modal-card"><div class="ferrari-modal-head"><button type="button" data-ferrari-close>‹ Zurück</button><strong>WhatsApp-Vorlage</strong><span></span></div><form method="post" class="ferrari-form">{% csrf_token %}<input type="hidden" name="action" value="template_save"><input type="hidden" name="template_id" value="{{ template.id }}"><label>Name<input name="name" value="{{ template.name }}" required></label><label>Nachricht<textarea name="body" rows="7" required>{{ template.body }}</textarea></label><div class="ferrari-form-footer"><label class="ferrari-switch"><input type="checkbox" name="active" {% if template.active %}checked{% endif %}><span></span><b>Aktiv</b></label><label class="ferrari-order">Priorität <small>kleiner = weiter oben</small><input name="sort_order" type="number" value="{{ template.sort_order }}"></label><button class="ferrari-primary">Speichern</button><button type="submit" name="action" value="template_delete" class="ferrari-danger">Löschen</button></div></form></div></div>
 {% endfor %}
 
-<script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20260922-more-v2"></script>
+<script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20261017-hero-menu-v1"></script>
 <script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script>
 <script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260922-v17"></script>
 </body></html>

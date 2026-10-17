@@ -19,6 +19,7 @@
     if (path.includes('/app/wallet/')) return 'points';
     if (path.includes('/app/reviews/')) return 'reviews';
     if (path.includes('/app/referrals/')) return 'referrals';
+    if (path.includes('/app/hero/')) return 'hero';
     if (path.includes('/app/invoices/')) return 'invoices';
     if (path.includes('/mehr/')) return 'more';
     return 'other';
@@ -34,6 +35,7 @@
     ['reviews', '★', 'Google Bewertungen', '/verwaltung/app/reviews/'],
     ['referrals', '↗', 'Empfehlungen', '/verwaltung/app/referrals/'],
     ['invoices', '▧', 'Rechnungen', '/verwaltung/app/invoices/'],
+    ['hero', '▧', 'Startseitenbilder', '/verwaltung/app/hero/'],
     ['more', '⋯', 'Mehr', '/verwaltung/mehr/'],
   ];
 
@@ -93,6 +95,7 @@
       reviews: 'Google Bewertungen',
       referrals: 'Empfehlungen',
       invoices: 'Rechnungen',
+      hero: 'Startseitenbilder',
       more: 'Mehr',
     };
     if (title && titles[page]) title.textContent = titles[page];
