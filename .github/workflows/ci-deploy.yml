@@ -275,7 +275,23 @@ jobs:
               nginx -t
               systemctl enable --now nginx
               systemctl reload nginx
-              certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || true
+              # Do not silently skip HTTPS after another scheduled Certbot instance
+              # takes the lock. The subsequent public TLS smoke checks must remain strict.
+              CERTBOT_READY=0
+              for attempt in $(seq 1 12); do
+                if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect; then
+                  CERTBOT_READY=1
+                  break
+                fi
+                echo "Waiting for certificate management to become available ($attempt/12)"
+                sleep 10
+              done
+              if [ "$CERTBOT_READY" -ne 1 ]; then
+                echo "Unable to configure valid HTTPS for $DOMAIN; stopping deployment."
+                exit 1
+              fi
+              nginx -t
+              systemctl reload nginx
             fi
 
             sleep 3
