@@ -60,6 +60,8 @@ def _booking_email_context(appointment):
         'website_url': 'https://a-esthetic.de',
         'admin_url': f'{base_url}/verwaltung/#termine',
         'calendar_url': f'{base_url}/termin/{appointment.public_id}/kalender.ics',
+        'manage_booking_url': 'https://app.a-esthetic.de/?bereich=termine',
+        'cancellation_deadline_hours': max(1, int(getattr(settings, 'BOOKING_CHANGE_DEADLINE_HOURS', 24))),
         'directions_url': DIRECTIONS_URL,
         'instagram_url': INSTAGRAM_URL,
         'google_reviews_url': GOOGLE_REVIEWS_URL,
@@ -88,6 +90,8 @@ def send_customer_booking_email(appointment):
         f'A+ Esthetic Frankfurt · {CLINIC_ADDRESS}\n'
         f'Telefon: {CLINIC_PHONE}\n\n'
         f'Zum Kalender hinzufügen: {calendar_url}\n'
+        f'Termin verwalten oder stornieren (Anmeldung erforderlich): {context["manage_booking_url"]}\n'
+        f'Online-Stornierung bis {context["cancellation_deadline_hours"]} Stunden vor Terminbeginn möglich.\n'
         f'Wegbeschreibung: {DIRECTIONS_URL}\n'
         f'Instagram: {INSTAGRAM_URL}\n'
         f'Google Bewertungen: {GOOGLE_REVIEWS_URL}\n'

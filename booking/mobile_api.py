@@ -18,7 +18,7 @@ from .notifications import notify_booking_created, notify_customer_cancelled, no
 from .package_bridge import sync_package
 from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, create_appointment
 
-CHANGE_DEADLINE_HOURS = 24
+CHANGE_DEADLINE_HOURS = max(1, int(getattr(settings, 'BOOKING_CHANGE_DEADLINE_HOURS', 24)))
 
 
 def _json(request):
