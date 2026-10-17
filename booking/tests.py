@@ -171,6 +171,51 @@ class BookingApiTests(TestCase):
         self.assertIn(slot, available_slots(self.service, self.staff, slot.date()))
 
 
+    @patch('booking.mobile_api._member')
+    def test_mobile_cancel_deadline_is_enforced_and_visible(self, member_mock):
+        member_mock.return_value = ({
+            'email': 'mitglied@example.com',
+            'phone': '', 'first_name': 'Anna', 'last_name': 'Muster',
+        }, None)
+        customer = Customer.objects.create(first_name='Anna', last_name='Muster', email='mitglied@example.com')
+        start = timezone.now() + timedelta(hours=12)
+        item = Appointment.objects.create(
+            customer=customer, service=self.service, staff=self.staff,
+            starts_at=start, ends_at=start + timedelta(minutes=30),
+            status='confirmed', source='app',
+        )
+        manageable = self.client.get('/api/mobile/booking/manageable/')
+        self.assertEqual(manageable.status_code, 200)
+        self.assertEqual(manageable.json()['change_deadline_hours'], 24)
+        self.assertEqual(manageable.json()['appointments'][0]['change_allowed'], False)
+        response = self.client.post(
+            f'/api/mobile/booking/{item.public_id}/change/',
+            data=json.dumps({'action': 'cancel'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['error'], 'change_deadline_passed')
+        item.refresh_from_db()
+        self.assertEqual(item.status, 'confirmed')
+
+    def test_booking_confirmation_email_has_secure_account_management_link(self):
+        from django.core import mail
+        from .emails import send_customer_booking_email
+        customer = Customer.objects.create(first_name='Anna', last_name='Muster', email='mitglied@example.com')
+        start = self.future_slot(days=3)
+        item = Appointment.objects.create(
+            customer=customer, service=self.service, staff=self.staff,
+            starts_at=start, ends_at=start + timedelta(minutes=30),
+            status='confirmed', source='app',
+        )
+        send_customer_booking_email(item)
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertIn('https://app.a-esthetic.de/?bereich=termine', message.body)
+        self.assertIn('24 Stunden vor Terminbeginn', message.body)
+        self.assertIn('Termin verwalten oder stornieren', message.alternatives[0][0])
+
+
 class PatientFileTests(TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
