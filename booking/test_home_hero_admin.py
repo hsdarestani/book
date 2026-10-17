@@ -41,6 +41,9 @@ class HomeHeroAdminTests(TestCase):
         self.assertNotIn('height:0!important;', html)
         self.assertNotIn('overscroll-behavior-y:contain!important;', html)
         self.assertEqual(html.count('class="hero-admin-card"'), 3)
+        self.assertIn('href="/verwaltung/mehr/#campaigns"', html)
+        self.assertIn('admin-unified-nav-v14.js', html)
+        self.assertIn('position:fixed!important;', html)
 
     def test_campaigns_link_and_unified_menu_lead_to_hero_manager(self):
         response = self.client.get("/verwaltung/mehr/")
@@ -53,6 +56,7 @@ class HomeHeroAdminTests(TestCase):
         path = Path(settings.BASE_DIR) / "static/booking/admin-unified-nav-v14.js"
         script = path.read_text()
         self.assertIn("['hero', '▧', 'Startseitenbilder', '/verwaltung/app/hero/']", script)
+        self.assertIn("['campaigns', '▤', 'Kampagnen', '/verwaltung/mehr/#campaigns']", script)
 
     @patch("booking.app_management_views._api")
     def test_editor_sees_three_slots_in_existing_admin(self, mock_api):
