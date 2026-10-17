@@ -1,0 +1,36 @@
+name: Mobile hero admin scroll browser regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "templates/booking/app_management.html"
+      - "templates/booking/admin_more.html"
+      - "static/booking/admin-unified-nav-v14.js"
+      - "booking/test_home_hero_admin.py"
+      - "booking/test_hero_scroll_browser.py"
+      - ".github/workflows/verify-hero-scroll-browser.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-mobile-scroll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install app and browser test dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install "playwright>=1.50,<2"
+          python -m playwright install --with-deps chromium
+      - name: Verify native Android-size scroll and menu
+        env:
+          DJANGO_DEBUG: '1'
+        run: |
+          python manage.py check
+          python manage.py test booking.test_home_hero_admin booking.test_hero_scroll_browser --verbosity 2
+          node --check static/booking/admin-unified-nav-v14.js
