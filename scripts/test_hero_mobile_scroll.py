@@ -3,11 +3,14 @@ Run after `python -m playwright install --with-deps chromium`.
 """
 import http.server
 import os
+import sys
 from pathlib import Path
 import socketserver
 import threading
 import time
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 import django
 django.setup()
@@ -15,7 +18,6 @@ django.setup()
 from django.template.loader import get_template
 from playwright.sync_api import sync_playwright
 
-ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / ".hero_mobile_scroll_fixture"
 OUT.mkdir(exist_ok=True)
 (OUT / "static").mkdir(exist_ok=True)
