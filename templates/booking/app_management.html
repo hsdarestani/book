@@ -17,14 +17,14 @@
 /* Mobile-only independent scroll region: legacy admin CSS and WebView body
    locks must not strand the lower Herren and Standard upload cards. */
 @media (max-width:900px){
-  html[data-admin-page="hero"],
-  html[data-admin-page="hero"] body.sb-admin-body.app-management-body{
+  html[data-admin-page="hero"]:not([data-admin-page="calendar"]):not([data-admin-page="wallet"]),
+  html[data-admin-page="hero"]:not([data-admin-page="calendar"]):not([data-admin-page="wallet"]) body.sb-admin-body.app-management-body{
     height:100%!important;
     max-height:100%!important;
     overflow:hidden!important;
     overscroll-behavior:none!important;
   }
-  html[data-admin-page="hero"] body.sb-admin-body.app-management-body{
+  html[data-admin-page="hero"]:not([data-admin-page="calendar"]):not([data-admin-page="wallet"]) body.sb-admin-body.app-management-body{
     height:100dvh!important;
     max-height:100dvh!important;
     min-height:0!important;
@@ -32,7 +32,7 @@
     display:flex!important;
     flex-direction:column!important;
   }
-  html[data-admin-page="hero"] body.sb-admin-body.app-management-body > .sb-mobile-bar{
+  html[data-admin-page="hero"]:not([data-admin-page="calendar"]):not([data-admin-page="wallet"]) body.sb-admin-body.app-management-body > .sb-mobile-bar{
     position:relative!important;
     top:auto!important;
     flex:0 0 64px!important;
@@ -40,7 +40,7 @@
     height:64px!important;
     z-index:70!important;
   }
-  html[data-admin-page="hero"] body.sb-admin-body.app-management-body > main.sb-admin-shell.app-management-shell{
+  html[data-admin-page="hero"]:not([data-admin-page="calendar"]):not([data-admin-page="wallet"]) body.sb-admin-body.app-management-body > main.sb-admin-shell.app-management-shell{
     position:relative!important;
     flex:1 1 auto!important;
     width:100%!important;
@@ -55,8 +55,8 @@
     padding-bottom:max(48px,env(safe-area-inset-bottom))!important;
     scrollbar-width:thin;
   }
-  html[data-admin-page="hero"] .hero-admin-grid,
-  html[data-admin-page="hero"] .hero-admin-card{
+  html[data-admin-page="hero"]:not([data-admin-page="calendar"]):not([data-admin-page="wallet"]) .hero-admin-grid,
+  html[data-admin-page="hero"]:not([data-admin-page="calendar"]):not([data-admin-page="wallet"]) .hero-admin-card{
     touch-action:pan-y!important;
   }
 }
