@@ -1,0 +1,35 @@
+name: Verify customer cancellation and booking email
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'booking/mobile_api.py'
+      - 'booking/emails.py'
+      - 'booking/tests.py'
+      - 'templates/booking/email_booking_confirmation.html'
+      - '.github/workflows/verify-cancellation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Verify cancellation and email
+        env:
+          DJANGO_DEBUG: '1'
+        run: |
+          set -euo pipefail
+          python -m compileall -q booking
+          python manage.py check
+          python manage.py test booking.tests.BookingApiTests --verbosity 2
+          python scripts/check_no_unser_copy.py
