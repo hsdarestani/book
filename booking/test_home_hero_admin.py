@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 
 SLOTS = [
@@ -13,6 +13,10 @@ SLOTS = [
 ]
 
 
+@override_settings(STORAGES={
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+})
 class HomeHeroAdminTests(TestCase):
     def setUp(self):
         user = User.objects.create_user("hero_editor", "admin@example.de", "password", is_staff=True)
