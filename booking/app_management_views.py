@@ -1,3 +1,4 @@
+import base64
 import json
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -23,6 +24,7 @@ SECTIONS = {
     'reviews': ('Google Bewertungen', 'Bewertungen verifizieren und Punkte erst nach Prüfung freigeben'),
     'wallet': ('A+ Punkte', 'Punktestände suchen, prüfen und manuell korrigieren'),
     'referrals': ('Empfehlungen', 'Empfehlungen an Freunde und Punkteaktivitäten im Blick behalten'),
+    'hero': ('Startseitenbilder', 'Bilder für Damen, Herren und als Standard festlegen'),
     'invoices': ('Rechnungen', 'Rechnungen, Preise, MwSt und Abrechnungsdaten direkt in der App verwalten'),
 }
 
@@ -291,6 +293,24 @@ def app_management(request, section='bookings'):
             if local_view_only:
                 return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
             action = str(request.POST.get('action') or '')
+            if section == 'hero' and action in {'hero_upload', 'hero_clear'}:
+                variant = str(request.POST.get('variant') or '')
+                if variant not in {'frau', 'herr', 'default'}:
+                    raise ValueError('Bitte eine gültige Bildkategorie auswählen.')
+                payload = {'variant': variant, 'action': 'clear' if action == 'hero_clear' else 'save'}
+                if action == 'hero_upload':
+                    upload = request.FILES.get('hero_image')
+                    if upload is None:
+                        raise ValueError('Bitte zuerst ein Bild auswählen.')
+                    if upload.size > 6 * 1024 * 1024 or upload.size <= 0:
+                        raise ValueError('Das Bild darf maximal 6 MB groß sein.')
+                    mime = (upload.content_type or '').lower()
+                    if mime not in {'image/jpeg', 'image/png', 'image/webp'}:
+                        raise ValueError('Bitte ein JPG, PNG oder WebP Bild verwenden.')
+                    payload['image_type'] = mime
+                    payload['image_data'] = base64.b64encode(upload.read()).decode('ascii')
+                _api(request, 'dashboard-hero/', method='POST', payload=payload)
+                return _redirect('hero', 'image')
             if action == 'patient_upload':
                 return patient_portal.staff_add_record(request, int(request.POST.get('customer_id')))
             if action == 'patient_salutation':
@@ -382,6 +402,9 @@ def app_management(request, section='bookings'):
         elif section == 'wallet':
             data = _api(request, 'customers/', query={'q': query})
             context['query'] = query
+        elif section == 'hero':
+            data = _api(request, 'dashboard-hero/')
+            context['hero_images'] = data.get('hero_images') or []
         elif section == 'reviews':
             data = _api(request, 'reviews/')
         elif section == 'invoices':
