@@ -7,6 +7,8 @@ on:
       - 'booking/mobile_api.py'
       - 'booking/emails.py'
       - 'booking/tests.py'
+      - 'booking/test_demo_booking_guard.py'
+      - 'booking/demo_booking_guard.py'
       - 'templates/booking/email_booking_confirmation.html'
       - '.github/workflows/verify-cancellation.yml'
 
