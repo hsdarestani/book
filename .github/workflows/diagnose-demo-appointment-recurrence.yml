@@ -1,0 +1,40 @@
+name: Diagnose demo appointment recurrence
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/diagnose-demo-appointment-recurrence.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Inspect booking source and recurring triggers read only
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c "set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from datetime import date
+            from django.utils import timezone
+            from booking.models import Appointment, ExternalSyncState
+            matches=Appointment.objects.filter(starts_at__date=date(2026,10,20),customer__email__istartswith='demo@').select_related('service','staff').order_by('created_at')
+            print('MATCHING_DEMO_BOOKINGS',matches.count())
+            for obj in matches:
+                key=obj.idempotency_key or ''
+                prefix='simplybook' if key.startswith('simplybook-') else ('app' if key.startswith('app-') else ('other' if key else 'empty'))
+                print('BOOKING', 'hour',timezone.localtime(obj.starts_at).strftime('%H:%M'), 'created',obj.created_at.isoformat(), 'updated',obj.updated_at.isoformat(), 'source',obj.source, 'status',obj.status, 'idempotency_prefix',prefix, 'service_slug',obj.service.slug)
+            for state in ExternalSyncState.objects.all():
+                print('SYNC_STATE',state.source, state.last_success_at.isoformat() if state.last_success_at else 'never',str(state.metadata)[:180])
+            PY"
+            echo "SYSTEM_SCHEDULES"
+            systemctl list-timers --all --no-pager | grep -Ei 'simplybook|booking|aesthetic' || true
+            grep -RnlE 'sync_simplybook_continuous|simplybook_import' /etc/cron.d /etc/systemd/system 2>/dev/null | head -20 || true
