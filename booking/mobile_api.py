@@ -15,6 +15,7 @@ from django.views.decorators.http import require_http_methods
 from .emails import send_booking_emails
 from .models import Appointment, Customer, Service, StaffMember
 from .notifications import notify_booking_created, notify_customer_cancelled, notify_customer_rescheduled
+from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
 from .package_bridge import sync_package
 from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, create_appointment
 
@@ -172,6 +173,9 @@ def mobile_booking(request):
     authorization = request.headers.get('Authorization', '').strip()
 
     if request.method == 'POST':
+        if is_blocked_demo_customer(member['email']):
+            log_blocked_demo_booking("mobile_app")
+            return blocked_demo_response()
         data = _json(request)
         service = Service.objects.filter(pk=data.get('service_id'), active=True, bookable=True).first()
         if not service:
