@@ -31,5 +31,5 @@ jobs:
           set -euo pipefail
           python -m compileall -q booking
           python manage.py check
-          python manage.py test booking.tests.BookingApiTests --verbosity 2
+          python manage.py test booking.tests.BookingApiTests booking.test_demo_booking_guard --verbosity 2
           python scripts/check_no_unser_copy.py
