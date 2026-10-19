@@ -10,6 +10,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .emails import send_booking_emails
 from .models import Customer, Service, StaffMember
 from .notifications import notify_booking_created
+from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
 from .services import BOOKING_HORIZON_DAYS, available_slots, create_appointment
 
 
@@ -152,6 +153,9 @@ def appointments(request):
     email = str(data.get('email') or '').strip().lower()
     if '@' not in email:
         return _error('invalid_email', 'Bitte gib eine gültige E-Mail-Adresse ein.')
+    if is_blocked_demo_customer(email):
+        log_blocked_demo_booking("web_booking")
+        return blocked_demo_response()
 
     idempotency_key = (request.headers.get('Idempotency-Key') or str(data.get('idempotency_key') or '')).strip()[:80] or None
     if idempotency_key:
