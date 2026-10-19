@@ -28,9 +28,8 @@ class DemoReservationSafetyTests(TestCase):
             "service_id": self.service.pk,
             "starts_at": (timezone.now() + timedelta(days=2)).isoformat()
         }
-        with patch("booking.mobile_api._member", return_value=(demo_member, None)), (
-            patch("booking.mobile_api.notify_booking_created") as notify
-        ):
+        with patch("booking.mobile_api._member", return_value=(demo_member, None)), \
+             patch("booking.mobile_api.notify_booking_created") as notify:
             response = self.client.post("/api/mobile/booking/", data=json.dumps(payload),
                                         content_type="application/json")
         self.assertEqual(response.status_code, 403, response.content)
