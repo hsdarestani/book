@@ -11,7 +11,7 @@ from .models import Appointment, Customer, Service, StaffMember
 class DemoReservationSafetyTests(TestCase):
     def setUp(self):
         self.service = Service.objects.create(
-            name="Infusionstherapie", slug="infusionstherapie",
+            name="Infusionstherapie", slug="infusionstherapie-guard-test",
             duration_minutes=60, buffer_minutes=10, bookable=True, active=True
         )
         self.staff = StaffMember.objects.create(display_name="Test Provider", role="doctor", active=True)
