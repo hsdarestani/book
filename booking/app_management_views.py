@@ -334,6 +334,26 @@ def app_management(request, section='bookings'):
                 customer.salutation = value
                 customer.save(update_fields=['salutation', 'updated_at'])
                 return redirect(f'/verwaltung/app/patients/?customer={customer.pk}&notice=profile')
+            if action == 'patient_goae_draft':
+                customer = Customer.objects.get(pk=int(request.POST.get('customer_id')))
+                response = _api(request, 'customers/', query={'q': customer.email})
+                customer_row = next((item for item in response.get('customers', [])
+                                     if str(item.get('email') or '').lower() == customer.email.lower()), None)
+                if not customer_row:
+                    raise ValueError('Patient ist noch keinem App-Konto zugeordnet.')
+                payload = {
+                    'billing_method': 'goae',
+                    'customer_id': customer_row['id'],
+                    'service_date': request.POST.get('service_date') or '',
+                    'goae_number': request.POST.get('goae_number') or '',
+                    'goae_description': request.POST.get('goae_description') or '',
+                    'goae_base_eur': request.POST.get('goae_base_eur') or '',
+                    'goae_factor': request.POST.get('goae_factor') or '',
+                    'goae_vat_rate': request.POST.get('goae_vat_rate'),
+                    'goae_justification': request.POST.get('goae_justification') or '',
+                }
+                _api(request, 'billing/invoices/', method='POST', payload=payload)
+                return redirect(f'/verwaltung/app/patients/?customer={customer.pk}&notice=goae_draft#akte')
             if action == 'patient_points_adjust':
                 remote_id = int(request.POST.get('remote_customer_id'))
                 delta = int(request.POST.get('point_delta') or 0)
