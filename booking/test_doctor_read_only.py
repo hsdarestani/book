@@ -116,6 +116,15 @@ class DoctorPrivateCalendarTests(TestCase):
         self.assertEqual(WorkingHour.objects.filter(staff=self.other).count(), 1)
         self.assertEqual(WorkingHour.objects.get(staff=self.doctor).start_time, time(8))
 
+    def test_admin_weekly_form_allows_saving_unchanged_existing_hours(self):
+        form = {'date': self.day.isoformat(), 'action': 'save_hours',
+                'day_%s_enabled' % self.day.weekday(): 'on',
+                'day_%s_start_1' % self.day.weekday(): '09:00',
+                'day_%s_end_1' % self.day.weekday(): '17:00'}
+        response = self.client.post('/verwaltung/arzt/', form)
+        self.assertIn('notice=saved', response.url)
+        self.assertEqual(WorkingHour.objects.get(staff=self.doctor).start_time, time(9))
+
     def test_delete_calendar_block_cannot_affect_another_doctor(self):
         from .models import BlockedPeriod
         start = self.mine.starts_at + timedelta(hours=3)

@@ -136,7 +136,7 @@ def _save_full_week(staff, post):
                  'end_2': post.get(f'day_{weekday}_end_2')}
         for start, end in _working_ranges(first):
             item = WorkingHour(staff=staff, weekday=weekday, start_time=start, end_time=end)
-            item.full_clean(validate_unique=False)
+            item.clean()
             proposed.append(item)
     WorkingHour.objects.filter(staff_id=staff.pk).delete()
     for item in proposed:
