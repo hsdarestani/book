@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="de" {% if doctor_mode %}data-doctor-role="1"{% endif %}>
+<html lang="de" {% if doctor_mode %}data-doctor-role="1"{% else %}data-admin-page="calendar"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -10,7 +10,11 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
   <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261020-role-admin"></script>
   <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20260923-v19"></script>
-  {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% endif %}
+  {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% else %}
+  <link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header4">
+  <link rel="stylesheet" href="/static/booking/clinic-calendar-topbar-v1.css?v=20261020-header4">
+  <script defer src="/static/booking/clinic-header-v3.js?v=20261020-header4"></script>
+  <script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-header4"></script>{% endif %}
 </head>
 <body class="admin-body sb-admin-body" {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
 
@@ -53,6 +57,7 @@
 </div>
 
 <main class="admin-shell sb-admin-shell">
+  {% if doctor_mode %}
   <header class="admin-topbar sb-desktop-topbar">
     <div class="admin-brand">
       <a class="brand brand-image" href="{% if doctor_mode %}/verwaltung/arzt/{% else %}/verwaltung/{% endif %}" aria-label="A+ Esthetic Buchungsverwaltung"><img class="brand-logo" src="{% if doctor_mode %}/static/booking/logo.png{% else %}{% static 'booking/logo.png' %}{% endif %}" alt="A+ Esthetic"></a>
@@ -63,6 +68,9 @@
     </nav>
     <div class="admin-actions"><a href="/" target="_blank">Buchungsseite ↗</a><a href="/verwaltung/logout/">Abmelden</a></div>
   </header>
+  {% else %}
+  {% include "booking/_clinic_web_header_v3.html" %}
+  {% endif %}
 
   {% if notice %}
   <div class="admin-notice {% if 'error' in notice or 'conflict' in notice %}is-error{% endif %}">
