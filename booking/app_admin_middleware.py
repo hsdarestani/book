@@ -120,7 +120,7 @@ class APlusAdminNavigationMiddleware:
                 request.path.startswith('/verwaltung/') and request.path not in allowed
             ):
                 return HttpResponseForbidden('Dieser Zugang ist auf eigene Termine beschränkt.')
-        if view_only and request.path.startswith('/verwaltung/') and request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.path != '/verwaltung/app-sso/':
+        if view_only and request.path.startswith('/verwaltung/') and request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.path not in {'/verwaltung/app-sso/', '/verwaltung/arzt/'}:
             return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
 
         response = self.get_response(request)
