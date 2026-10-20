@@ -7,7 +7,7 @@ from pathlib import Path
 
 from django.template import Context, Template
 from django.template.loader import get_template
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -48,6 +48,7 @@ class ClinicWebHeaderTests(SimpleTestCase):
         self.assertIn('data-admin-page="calendar"', css)
         self.assertIn("clinic-header-more", css)
 
+    @override_settings(STORAGES={'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}})
     def test_header_renders_without_active_section(self):
         html = get_template("booking/_clinic_web_header_v3.html").render({})
         self.assertIn("A+ Esthetic", html)
