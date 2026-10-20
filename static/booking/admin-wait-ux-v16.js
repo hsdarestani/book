@@ -60,10 +60,19 @@
   document.addEventListener('submit', event => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
-    const button = form.querySelector('button[type="submit"], input[type="submit"]');
+    // GET is navigation/filtering, not a write operation. In particular,
+    // disabling a named submitter during the submit event makes its name/value
+    // disappear from the browser's form data; that made every patient tab
+    // silently fall back to Übersicht. Never show a save overlay for GET.
+    if ((form.getAttribute('method') || 'get').toLowerCase() === 'get') return;
+    const button = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
     if (button) {
-      button.disabled = true;
-      button.setAttribute('aria-busy', 'true');
+      // Delay disabling until AFTER the browser has serialized the form.
+      // This also protects POST submitters whose name/value matter.
+      setTimeout(() => {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+      }, 0);
     }
     const isUpload = form.matches('.app-patient-upload');
     showWait(isUpload ? 'Datei wird hochgeladen …' : 'Änderung wird gespeichert …', isUpload ? 'Bitte diese Seite geöffnet lassen.' : 'Einen kurzen Moment bitte.');
