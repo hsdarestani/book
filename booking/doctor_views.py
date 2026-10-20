@@ -288,6 +288,10 @@ def _create_own_customer(staff, post):
         raise ValidationError('Patient kann hier nicht übernommen werden.')
     from .models import DoctorPatientAccess
     if existing:
+        # A shared patient may have visits with other providers. Clinic-wide
+        # identity fields cannot be edited using a clinician-only account.
+        if Appointment.objects.filter(customer=existing).exclude(staff_id=staff.pk).exists():
+            raise ValidationError('Gemeinsame Patienten können nur durch die Verwaltung geändert werden.')
         existing.first_name = first
         existing.last_name = last or existing.last_name
         existing.save(update_fields=['first_name', 'last_name', 'updated_at'])
