@@ -384,7 +384,7 @@ def app_management(request, section='bookings'):
                     'goae_justification': request.POST.get('goae_justification') or '',
                 }
                 _api(request, 'billing/invoices/', method='POST', payload=payload)
-                return redirect(f'/verwaltung/app/patients/?customer={customer.pk}&notice=goae_draft#akte')
+                return redirect(f'/verwaltung/app/patients/?customer={customer.pk}&notice=goae_draft#records')
             if action == 'patient_points_adjust':
                 remote_id = int(request.POST.get('remote_customer_id'))
                 delta = int(request.POST.get('point_delta') or 0)
@@ -392,7 +392,7 @@ def app_management(request, section='bookings'):
                     raise ValueError('Bitte eine Punktzahl größer oder kleiner als 0 eingeben.')
                 _api(request, f'customers/{remote_id}/', method='POST', payload={'coin_delta': delta})
                 local_id = int(request.POST.get('customer_id'))
-                return redirect(f'/verwaltung/app/patients/?customer={local_id}&notice=points')
+                return redirect(f'/verwaltung/app/patients/?customer={local_id}&notice=points#points')
             if action == 'wallet_adjust':
                 customer_id = int(request.POST.get('customer_id'))
                 delta = int(request.POST.get('point_delta') or 0)
