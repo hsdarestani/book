@@ -145,7 +145,7 @@ def _save_full_week(staff, post):
 
 def _calendar_block(staff, post):
     action = post.get('action')
-    if action == 'delete_calendar_item':
+    if action in {'delete_calendar_item', 'delete_block'}:
         ident = str(post.get('block_id') or '')
         if not ident.isdigit():
             raise ValidationError('Sperrzeit nicht gefunden.')
@@ -201,13 +201,12 @@ def doctor_appointments(request):
                     # Mirror the original admin status control without giving
                     # the clinician access to unscoped admin POST handlers.
                     if action == 'appointment_status':
-                        from django.http import QueryDict
                         data = request.POST.copy()
                         data['action'] = 'status'
                         changed = _change_appointment(staff, data)
                     else:
                         changed = _change_appointment(staff, request.POST)
-                elif action in {'add_block', 'add_calendar_block', 'add_calendar_note', 'delete_calendar_item'}:
+                elif action in {'add_block', 'add_calendar_block', 'add_calendar_note', 'delete_calendar_item', 'delete_block'}:
                     _calendar_block(staff, request.POST)
                 else:
                     raise ValidationError('Aktion nicht erlaubt.')
