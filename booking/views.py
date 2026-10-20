@@ -8,7 +8,7 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate, login, logout
 from django.core.exceptions import ValidationError
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -443,7 +443,11 @@ def dashboard(request):
     customer_scope = Customer.objects.all()
     if doctor_staff is not None:
         appointment_scope = appointment_scope.filter(staff_id=doctor_staff.pk)
-        customer_scope = customer_scope.filter(pk__in=appointment_scope.values('customer_id'))
+        from .models import DoctorPatientAccess
+        customer_scope = customer_scope.filter(
+            Q(pk__in=appointment_scope.values('customer_id')) |
+            Q(pk__in=DoctorPatientAccess.objects.filter(staff_id=doctor_staff.pk).values('customer_id'))
+        )
     upcoming = (
         appointment_scope.select_related('customer', 'service', 'staff')
         .filter(starts_at__gte=now)
