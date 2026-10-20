@@ -1,0 +1,198 @@
+/* Clinic web refresh: desktop, tablet and phone, with NO calendar view/grid rules.
+   All selectors are scoped to non-calendar pages. */
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]){
+  --clinic-ink:#24221e;--clinic-muted:#746f66;--clinic-gold:#a78345;--clinic-line:#e6e0d6;
+  --clinic-paper:#fff;--clinic-ground:#f8f7f4;
+  background:var(--clinic-ground);
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.sb-admin-body{
+  color:var(--clinic-ink)!important;
+  background:linear-gradient(155deg,#f7f5f0 0%,#f9f8f6 44%,#f2efe9 100%)!important;
+  overflow-x:clip;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .sb-admin-shell{
+  max-width:1270px!important;min-width:0!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar{
+  isolation:isolate;box-sizing:border-box;display:flex!important;align-items:center!important;
+  justify-content:space-between;gap:18px!important;min-height:80px!important;
+  max-width:100%;padding:14px 22px!important;
+  border:1px solid rgba(109,91,61,.11)!important;border-radius:19px!important;
+  background:rgba(255,255,255,.89)!important;
+  box-shadow:0 8px 32px rgba(29,25,18,.035)!important;
+  backdrop-filter:blur(20px);
+  margin-bottom:22px;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar .admin-brand{
+  box-sizing:border-box;display:flex!important;align-items:center;justify-content:flex-start!important;
+  gap:12px!important;flex:0 0 auto!important;width:auto!important;min-width:0;max-width:240px;
+}
+/* The actual root cause: internal pages never loaded dashboard-only brand-logo sizing. */
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar a.brand.brand-image,
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-brand .brand{
+  display:inline-flex!important;flex:0 0 66px!important;
+  width:66px!important;height:48px!important;max-width:66px!important;max-height:48px!important;
+  margin:0!important;padding:0!important;line-height:0!important;overflow:hidden!important;
+  align-items:center!important;justify-content:center!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar img.brand-logo,
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar .admin-brand img{
+  display:block!important;flex:none!important;
+  width:66px!important;height:48px!important;min-width:0!important;min-height:0!important;
+  max-width:66px!important;max-height:48px!important;
+  aspect-ratio:66/48!important;object-fit:contain!important;object-position:center!important;
+  margin:0!important;border:0!important;box-shadow:none!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar .brand-meta{
+  display:block;flex:0 1 auto;min-width:0!important;white-space:nowrap!important;
+  color:#484139;font-size:12px!important;font-weight:650;letter-spacing:.005em;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-nav{
+  flex:1 1 auto;min-width:0;align-items:center;justify-content:center;gap:4px!important;
+  padding:0!important;display:flex;flex-wrap:wrap;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-nav a{
+  font-size:12px!important;line-height:1.25!important;white-space:nowrap;
+  padding:11px 12px!important;border-radius:11px!important;
+  font-weight:570!important;letter-spacing:0!important;transition:background .18s ease,color .18s ease;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-nav a:hover{
+  background:#f3efe7!important;color:#4a3820!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-nav a.is-active{
+  color:#fff!important;background:#292620!important;box-shadow:0 3px 10px rgba(24,22,19,.13);
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar .admin-actions{
+  flex:0 0 auto;display:flex;align-items:center;flex-wrap:wrap;gap:9px!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar .admin-actions>a{
+  min-height:38px;display:inline-flex;align-items:center;justify-content:center;
+  padding:8px 13px!important;border-radius:11px;background:#25231f!important;
+  color:white!important;font-size:11px!important;text-decoration:none!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .sb-drawer-brand img{
+  display:block!important;flex:none!important;width:76px!important;height:56px!important;
+  min-width:0!important;min-height:0!important;max-width:76px!important;max-height:56px!important;
+  object-fit:contain!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-panel,
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .app-core-panel,
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .command-panel{
+  border:1px solid var(--clinic-line)!important;
+  background:#fff!important;border-radius:21px!important;
+  box-shadow:0 9px 36px rgba(42,32,18,.04)!important;
+  min-width:0;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) :is(button,a,input,select,textarea):focus-visible{
+  outline:3px solid rgba(190,146,62,.46)!important;outline-offset:3px!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) :is(input,select,textarea){
+  max-width:100%;box-sizing:border-box;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-notification-button{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  cursor:pointer;background:#f7f4ee!important;border:1px solid #e7decf!important;
+  border-radius:11px!important;color:#635138!important;
+  font:600 11px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  min-height:38px!important;padding:8px 12px!important;white-space:nowrap;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-notification-button[data-permission="granted"]{
+  background:#eef3ee!important;color:#315542!important;border-color:#d5e4d7!important;
+}
+html[data-admin-page="dashboard"] .command-shell{max-width:1270px!important}
+html[data-admin-page="dashboard"] .command-hero{
+  border-radius:25px!important;padding:38px 42px!important;margin-bottom:18px!important;
+  min-height:280px!important;gap:26px!important;
+  background:radial-gradient(ellipse at 86% 0%,rgba(178,136,67,.26),transparent 40%),
+             linear-gradient(128deg,#1a1b1a,#25241f 70%,#332c21 100%)!important;
+  box-shadow:0 22px 55px rgba(23,22,19,.15)!important;
+}
+html[data-admin-page="dashboard"] .command-hero:before{
+  width:320px;height:320px;top:-120px;right:-70px;opacity:.6;box-shadow:0 0 0 50px rgba(222,188,98,.018);
+}
+html[data-admin-page="dashboard"] .command-hero-copy>span{font-size:10px!important;letter-spacing:.18em!important}
+html[data-admin-page="dashboard"] .command-hero h1{
+  font:500 clamp(46px,5.4vw,67px)/.99 Georgia,serif!important;
+  letter-spacing:-.04em!important;margin:17px 0 17px!important;
+}
+html[data-admin-page="dashboard"] .command-hero p{
+  max-width:410px;font-size:13px!important;line-height:1.65!important;color:#d1cdc3!important;
+}
+html[data-admin-page="dashboard"] .command-stats{grid-template-columns:repeat(3,minmax(96px,1fr));gap:9px!important}
+html[data-admin-page="dashboard"] .command-stats article{
+  min-height:110px!important;padding:16px!important;
+  border-radius:16px!important;background:rgba(255,255,255,.065)!important;
+  border:1px solid rgba(223,194,119,.22)!important;box-sizing:border-box;
+}
+html[data-admin-page="dashboard"] .command-stats b{font-size:32px!important}
+html[data-admin-page="dashboard"] .command-stats span{font-size:9px!important;letter-spacing:.11em!important}
+html[data-admin-page="dashboard"] .command-stats small{font-size:10px!important;line-height:1.4!important}
+html[data-admin-page="dashboard"] .command-search-panel{
+  border-radius:20px!important;box-shadow:0 9px 30px rgba(42,32,18,.035)!important;
+  padding:24px 25px!important;margin-bottom:18px!important;
+}
+html[data-admin-page="dashboard"] .command-search-panel h2,
+html[data-admin-page="dashboard"] .command-section-head h2{
+  font:500 clamp(23px,2.4vw,30px)/1.2 Georgia,serif!important;
+  letter-spacing:-.02em!important;
+}
+html[data-admin-page="dashboard"] .command-search-panel p,
+html[data-admin-page="dashboard"] .command-section-head p{
+  font-size:12px!important;line-height:1.5!important;
+}
+html[data-admin-page="dashboard"] .command-search-panel input{min-height:51px!important;font-size:14px!important}
+html[data-admin-page="dashboard"] .command-search-panel button{
+  font-size:13px!important;padding:0 23px!important;min-height:50px!important;
+  background:linear-gradient(120deg,#ba934b,#9b752f)!important;
+}
+html[data-admin-page="dashboard"] .command-panel{padding:24px!important}
+html[data-admin-page="dashboard"] .next-day-row{
+  min-height:67px!important;border:1px solid #efe9de!important;
+  background:#fbfaf8!important;border-radius:13px!important;padding:12px 14px!important;
+}
+html[data-admin-page="dashboard"] .next-day-row:hover{border-color:#d4b982!important;background:#fffdf6!important}
+html[data-admin-page="dashboard"] .next-day-row strong{font-size:13px!important}
+html[data-admin-page="dashboard"] .next-day-row span{font-size:11px!important;line-height:1.45!important;margin-top:5px!important}
+html[data-admin-page="dashboard"] .next-day-row time{font-size:18px!important}
+html[data-admin-page="dashboard"] .shortcut-grid{gap:10px!important}
+html[data-admin-page="dashboard"] .shortcut-grid a{
+  min-height:114px!important;border:1px solid #e9e2d7!important;
+  background:#faf8f4!important;border-radius:16px!important;padding:16px!important;
+  transition:background .18s ease,transform .18s ease,border-color .18s ease;
+}
+html[data-admin-page="dashboard"] .shortcut-grid a:hover{
+  transform:translateY(-2px);background:#fffdf6!important;border-color:#d1b782!important;
+}
+html[data-admin-page="dashboard"] .shortcut-grid b{font-size:24px!important}
+html[data-admin-page="dashboard"] .shortcut-grid span{font-size:12px!important}
+html[data-admin-page="dashboard"] .patient-result-copy p{font-size:11px!important}
+html[data-admin-page="dashboard"] .patient-result-copy h3{font-size:18px!important}
+html[data-admin-page="dashboard"] .patient-result-actions a,
+html[data-admin-page="dashboard"] .patient-result-actions button{font-size:11px!important}
+@media(max-width:1120px){
+ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar{
+   gap:10px!important;padding:13px 14px!important;
+ }
+ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-nav a{
+   padding:9px 7px!important;font-size:11px!important;
+ }
+ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-brand .brand-meta{display:none!important}
+}
+@media(max-width:900px){
+ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar{
+   display:none!important;
+ }
+ html[data-admin-page="dashboard"] .command-hero{padding:27px 24px!important;min-height:0!important}
+ html[data-admin-page="dashboard"] .command-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+ html[data-admin-page="dashboard"] .command-grid-two{grid-template-columns:1fr!important}
+}
+@media(max-width:520px){
+ html[data-admin-page="dashboard"] .command-hero{padding:27px 19px!important;border-radius:19px!important}
+ html[data-admin-page="dashboard"] .command-hero h1{font-size:44px!important}
+ html[data-admin-page="dashboard"] .command-stats{gap:6px!important}
+ html[data-admin-page="dashboard"] .command-stats article{padding:12px!important;min-height:93px!important}
+ html[data-admin-page="dashboard"] .command-stats b{font-size:26px!important}
+ html[data-admin-page="dashboard"] .command-search-panel{padding:19px!important}
+ html[data-admin-page="dashboard"] .command-panel{padding:18px!important}
+ html[data-admin-page="dashboard"] .patient-result-card{min-width:0}
+}
