@@ -128,6 +128,18 @@ class DoctorPrivateCalendarTests(TestCase):
         self.assertTrue(Appointment.objects.filter(staff=self.doctor, customer=new_patient).exists())
         self.assertFalse(Appointment.objects.filter(staff=self.other, customer=new_patient).exists())
 
+    def test_shared_patient_identity_cannot_be_modified_by_doctor(self):
+        shared = self.mine.customer
+        Appointment.objects.create(staff=self.other, customer=shared, service=self.service,
+                                   starts_at=self.theirs.starts_at + timedelta(days=7),
+                                   ends_at=self.theirs.ends_at + timedelta(days=7))
+        before = shared.first_name
+        response = self.post_calendar(action='add_customer', first_name='Verändert',
+                                      last_name=shared.last_name, email=shared.email)
+        self.assertIn('notice=error', response.url)
+        shared.refresh_from_db()
+        self.assertEqual(shared.first_name, before)
+
     def test_main_admin_edit_modal_rejects_other_staff_patient_and_booking(self):
         item = self.mine
         original = item.starts_at
