@@ -138,16 +138,26 @@ class AppManagementTests(TestCase):
         WhatsAppTemplate.objects.create(name='Nachsorge', body='Hallo {anrede} {nachname}, alles gut?', sort_order=1)
         PatientRecord.objects.create(customer=customer, appointment=appointment, kind='note', title='Vom Patienten', note='Patient upload', source='a_esthetic_app_customer', captured_at=timezone.now())
         api.return_value = {'ok': True, 'customers': [{'id': 90, 'email': customer.email, 'coins': 720}]}
-        response = self.client.get(f'/verwaltung/app/patients/?customer={customer.pk}')
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, customer.full_name)
-        self.assertContains(response, '720')
-        self.assertContains(response, '30 Min.')
-        self.assertContains(response, 'Anrufen')
-        self.assertContains(response, 'WhatsApp')
-        self.assertContains(response, 'Frau Muster')
-        self.assertContains(response, 'Foto aufnehmen')
-        self.assertContains(response, 'admin-native-camera-v11.js')
+        base = f'/verwaltung/app/patients/?customer={customer.pk}'
+        overview = self.client.get(base)
+        self.assertEqual(overview.status_code, 200)
+        self.assertContains(overview, customer.full_name)
+        self.assertContains(overview, '720')
+        self.assertContains(overview, 'Anrufen')
+        self.assertContains(overview, 'WhatsApp')
+        self.assertContains(overview, 'Frau Muster')
+        self.assertNotContains(overview, 'Foto aufnehmen')
+        self.assertNotContains(overview, '30 Min.')
+
+        appointments = self.client.get(base + '&tab=appointments')
+        self.assertEqual(appointments.status_code, 200)
+        self.assertContains(appointments, '30 Min.')
+        self.assertNotContains(appointments, 'Foto aufnehmen')
+
+        records = self.client.get(base + '&tab=records')
+        self.assertEqual(records.status_code, 200)
+        self.assertContains(records, 'Foto aufnehmen')
+        self.assertContains(records, 'admin-native-camera-v11.js')
 
     def test_local_view_only_doctor_can_read_patient_but_cannot_post(self):
         customer, _, staff, _ = self._booking_fixture()
