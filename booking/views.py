@@ -208,7 +208,7 @@ def patient_file(request, customer_id):
             if not uploaded:
                 kind = 'note' if kind == 'document' else kind
 
-            PatientRecord.objects.create(
+            record = PatientRecord.objects.create(
                 customer=customer,
                 appointment=appointment,
                 kind=kind,
@@ -218,9 +218,30 @@ def patient_file(request, customer_id):
                 original_name=original_name,
                 mime_type=mime_type,
                 file_size=file_size,
+                source='book_staff' if doctor_staff else 'manual',
+                metadata={'shared_with_customer': request.POST.get('shared_with_customer') == 'on'} if doctor_staff else {},
                 uploaded_by=request.user,
             )
+            if doctor_staff and record.metadata.get('shared_with_customer'):
+                from .patient_portal import _notify_customer
+                _notify_customer(record)
             return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=added#akte')
+
+        if doctor_staff and action == 'toggle_share':
+            from .patient_portal import _notify_customer, APP_SHARED_SOURCES
+            record = get_object_or_404(_doctor_visible_records(request, customer, doctor_staff),
+                                       public_id=request.POST.get('record_id'))
+            if record.source in APP_SHARED_SOURCES:
+                return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=customer-owned#akte')
+            metadata = record.metadata.copy() if isinstance(record.metadata, dict) else {}
+            target = not (metadata.get('shared_with_customer') is True)
+            metadata['shared_with_customer'] = target
+            metadata['shared_by_user_id' if target else 'unshared_by_user_id'] = request.user.pk
+            record.metadata = metadata
+            record.save(update_fields=['metadata'])
+            if target:
+                _notify_customer(record)
+            return redirect(f'/verwaltung/patienten/{customer.pk}/?notice={"shared" if target else "unshared"}#akte')
 
         if action == 'delete_record':
             record = get_object_or_404(
