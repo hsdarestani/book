@@ -1,5 +1,6 @@
 import base64
 import binascii
+import hashlib
 import ipaddress
 import json
 import mimetypes
@@ -89,15 +90,23 @@ def _trusted_source(request):
 
 
 def _authorized(request):
-    # Preferred path: shared token, when one is configured on both services.
+    # Preserve existing app-to-booking token. WordPress gets an independent
+    # randomly generated credential whose SHA-256 fingerprint is configured on
+    # the booking server; the raw WordPress credential is never stored here.
     expected = _sync_token()
-    if expected:
-        provided = str(request.headers.get('X-Aesthetic-Patient-Sync') or '').strip()
-        if not provided:
-            authorization = str(request.headers.get('Authorization') or '').strip()
-            if authorization.lower().startswith('bearer '):
-                provided = authorization[7:].strip()
-        if provided and secrets.compare_digest(provided, expected):
+    provided = str(request.headers.get('X-Aesthetic-Patient-Sync') or '').strip()
+    if not provided:
+        authorization = str(request.headers.get('Authorization') or '').strip()
+        if authorization.lower().startswith('bearer '):
+            provided = authorization[7:].strip()
+    if provided:
+        if expected and secrets.compare_digest(provided, expected):
+            return True
+        wp_fingerprint = str(getattr(settings, 'PATIENT_WP_SYNC_TOKEN_SHA256', '') or '').strip().lower()
+        if re.fullmatch(r'[a-f0-9]{64}', wp_fingerprint) and secrets.compare_digest(
+            hashlib.sha256(provided.encode('utf-8')).hexdigest(),
+            wp_fingerprint,
+        ):
             return True
 
     # The Customer Club currently runs on a separate A+Esthetic server. As a

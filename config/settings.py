@@ -97,6 +97,12 @@ PATIENT_FILE_ALLOWED_EXTENSIONS = {
 }
 PATIENT_SYNC_TOKEN = os.getenv('PATIENT_SYNC_TOKEN', '')
 PATIENT_SYNC_TOKEN_FILE = os.getenv('PATIENT_SYNC_TOKEN_FILE', '/etc/aesthetic-patient-sync.token')
+# SHA-256 fingerprint of a separate high-entropy WordPress-only credential.
+# The WordPress secret is configured in wp-config.php, never committed to Git.
+PATIENT_WP_SYNC_TOKEN_SHA256 = os.getenv(
+    'PATIENT_WP_SYNC_TOKEN_SHA256',
+    '8e17490274ae1fd5048c8982cf4500e09f0a749ef812214046af9ffaf0a02a66',
+)
 PATIENT_SYNC_ALLOWED_HOSTS = [
     x.strip() for x in os.getenv('PATIENT_SYNC_ALLOWED_HOSTS', 'esthetic.smarbiz.sbs').split(',') if x.strip()
 ]

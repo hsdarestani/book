@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import tempfile
 from pathlib import Path
@@ -54,6 +55,25 @@ class PatientRecordSyncTests(TestCase):
     @patch('booking.internal_api._trusted_source', return_value=False)
     def test_ingest_rejects_wrong_token_from_untrusted_source(self, trusted_mock):
         response = self.post(token='wrong')
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(PatientRecord.objects.count(), 0)
+
+    @patch('booking.internal_api._trusted_source', return_value=False)
+    def test_wordpress_independent_token_authenticates_without_rotating_app_token(self, trusted_mock):
+        wordpress_token = 'high-entropy-wordpress-test-token'
+        with override_settings(
+            PATIENT_WP_SYNC_TOKEN_SHA256=hashlib.sha256(wordpress_token.encode('utf-8')).hexdigest()
+        ):
+            response = self.post(token=wordpress_token)
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(PatientRecord.objects.count(), 1)
+
+    @patch('booking.internal_api._trusted_source', return_value=False)
+    def test_wordpress_wrong_token_cannot_authenticate(self, trusted_mock):
+        with override_settings(
+            PATIENT_WP_SYNC_TOKEN_SHA256=hashlib.sha256(b'valid-wordpress-token').hexdigest()
+        ):
+            response = self.post(token='invalid-wordpress-token')
         self.assertEqual(response.status_code, 401)
         self.assertEqual(PatientRecord.objects.count(), 0)
 
