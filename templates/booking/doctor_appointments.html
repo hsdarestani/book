@@ -3,13 +3,25 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Mein Kalender | A+ Esthetic Verwaltung</title>
 <link rel="stylesheet" href="/static/booking/app.css">
-<link rel="stylesheet" href="/static/booking/admin.css?v=20261006-calendar-v20">
+<link rel="stylesheet" href="/static/booking/admin.css?v=20261020-doctor-blankfix">
 <link rel="stylesheet" href="/static/booking/patient.css">
 <link rel="stylesheet" href="/static/booking/admin-luxury-v2.css">
 <link rel="stylesheet" href="/static/booking/admin-luxury-v3.css">
 <link rel="stylesheet" href="/static/booking/admin-shell-v10.css">
 <link rel="stylesheet" href="/static/booking/admin-calendar-stability-v8.css">
 <link rel="stylesheet" href="/static/booking/admin-ferrari-v17.css">
+<!-- The normal admin waits for admin.js to mark inactive route sections.
+     This dedicated server-rendered doctor page does not use that router. -->
+<style data-doctor-calendar-first-paint>
+body.sb-admin-body[data-doctor-calendar="1"] .admin-hero,
+body.sb-admin-body[data-doctor-calendar="1"] .metric-grid,
+body.sb-admin-body[data-doctor-calendar="1"] main > section.admin-panel,
+body.sb-admin-body[data-doctor-calendar="1"] .sb-mobile-title {
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+}
+</style>
 </head>
 <body class="admin-body sb-admin-body aplus-calendar-page" data-doctor-calendar="1">
 <header class="sb-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
