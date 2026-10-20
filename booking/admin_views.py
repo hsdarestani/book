@@ -230,8 +230,11 @@ def _polish_admin_response(
     if doctor_staff_id is not None:
         services_qs = services_qs.filter(staff_members__pk=doctor_staff_id)
         staff_qs = staff_qs.filter(pk=doctor_staff_id)
-        customer_qs = customer_qs.filter(pk__in=Appointment.objects.filter(
-            staff_id=doctor_staff_id).values('customer_id'))
+        from .models import DoctorPatientAccess
+        customer_qs = customer_qs.filter(
+            Q(pk__in=Appointment.objects.filter(staff_id=doctor_staff_id).values('customer_id')) |
+            Q(pk__in=DoctorPatientAccess.objects.filter(staff_id=doctor_staff_id).values('customer_id'))
+        ).distinct()
     services = list(services_qs.order_by('sort_order', 'name'))
     staff_members = list(staff_qs.order_by('sort_order', 'display_name'))
     customers = list(customer_qs.order_by('last_name', 'first_name')[:1000])
