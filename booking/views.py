@@ -128,10 +128,28 @@ def _calendar_scope_prefix(scope, service_id=None):
     return '[STAFF]'
 
 
+
+def _doctor_patient_scope(request, customer):
+    """Return clinician context, denying unrelated patients before any record work."""
+    from .doctor_views import _doctor_staff, _own_customer_ids
+    staff = _doctor_staff(request)
+    if staff and customer.pk not in _own_customer_ids(staff):
+        raise Http404('Patient nicht zugeordnet')
+    return staff
+
+
+def _doctor_visible_records(request, customer, staff):
+    records = PatientRecord.objects.filter(customer=customer)
+    if staff:
+        records = records.filter(Q(appointment__staff_id=staff.pk) | Q(uploaded_by=request.user))
+    return records
+
+
 @staff_member_required(login_url='/verwaltung/login/')
 @require_http_methods(['GET', 'POST'])
 def patient_file(request, customer_id):
     customer = get_object_or_404(Customer, pk=customer_id)
+    doctor_staff = _doctor_patient_scope(request, customer)
     notice = request.GET.get('notice', '')
 
     if request.method == 'POST':
@@ -148,7 +166,12 @@ def patient_file(request, customer_id):
             appointment = None
             appointment_id = (request.POST.get('appointment_id') or '').strip()
             if appointment_id:
-                appointment = Appointment.objects.filter(pk=appointment_id, customer=customer).first()
+                appointment_query = Appointment.objects.filter(pk=appointment_id, customer=customer)
+                if doctor_staff:
+                    appointment_query = appointment_query.filter(staff_id=doctor_staff.pk)
+                appointment = appointment_query.first()
+                if doctor_staff and not appointment:
+                    raise Http404('Termin nicht zugeordnet')
 
             stored_name = ''
             original_name = ''
@@ -200,24 +223,30 @@ def patient_file(request, customer_id):
             return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=added#akte')
 
         if action == 'delete_record':
-            record = get_object_or_404(PatientRecord, pk=request.POST.get('record_id'), customer=customer)
+            record = get_object_or_404(
+                _doctor_visible_records(request, customer, doctor_staff),
+                pk=request.POST.get('record_id'),
+            )
             _delete_patient_file(record)
             record.delete()
             return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=deleted#akte')
 
     appointments = (
-        Appointment.objects.filter(customer=customer)
+        Appointment.objects.filter(customer=customer, **(
+            {'staff_id': doctor_staff.pk} if doctor_staff else {}
+        ))
         .select_related('service', 'staff')
         .order_by('-starts_at')[:80]
     )
     records = (
-        PatientRecord.objects.filter(customer=customer)
+        _doctor_visible_records(request, customer, doctor_staff)
         .select_related('appointment', 'appointment__service', 'uploaded_by')
         .order_by('-created_at', '-pk')
     )
     last_appointment = next((item for item in appointments if item.status != 'cancelled'), None)
     context = {
         'customer': customer,
+        'doctor_mode': doctor_staff is not None,
         'appointments': appointments,
         'records': records,
         'record_kinds': PatientRecord.KIND,
@@ -231,7 +260,10 @@ def patient_file(request, customer_id):
 @staff_member_required(login_url='/verwaltung/login/')
 @require_http_methods(['GET'])
 def patient_record_file(request, customer_id, record_id):
-    record = get_object_or_404(PatientRecord, public_id=record_id, customer_id=customer_id)
+    customer = get_object_or_404(Customer, pk=customer_id)
+    doctor_staff = _doctor_patient_scope(request, customer)
+    record = get_object_or_404(_doctor_visible_records(request, customer, doctor_staff),
+                               public_id=record_id)
     if not record.stored_name:
         raise Http404('Keine Datei vorhanden')
     path = _patient_file_path(record.stored_name)
