@@ -1,3 +1,4 @@
+import re
 from django.http import HttpResponseForbidden
 from django.utils.html import escape
 
@@ -116,11 +117,19 @@ class APlusAdminNavigationMiddleware:
                 '/verwaltung/arzt/', '/verwaltung/logout/', '/verwaltung/login/',
                 '/verwaltung/app/', '/verwaltung/app-sso/',
             }
+            # Customer IDs are additionally checked in the view and file
+            # endpoint. Do not allow shared app/patient API routes here.
+            own_patient_route = bool(re.fullmatch(
+                r'/verwaltung/patienten/[0-9]+/(?:datei/[0-9a-fA-F-]{36}/)?',
+                request.path,
+            ))
             if request.path.startswith('/admin/') or (
-                request.path.startswith('/verwaltung/') and request.path not in allowed
+                request.path.startswith('/verwaltung/')
+                and request.path not in allowed and not own_patient_route
             ):
                 return HttpResponseForbidden('Dieser Zugang ist auf eigene Termine beschränkt.')
-        if view_only and request.path.startswith('/verwaltung/') and request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.path not in {'/verwaltung/app-sso/', '/verwaltung/arzt/'}:
+        if view_only and request.path.startswith('/verwaltung/') and request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.path not in {'/verwaltung/app-sso/', '/verwaltung/arzt/'}
+                and not (qamar_scope and own_patient_route):
             return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
 
         response = self.get_response(request)
