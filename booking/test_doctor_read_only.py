@@ -162,6 +162,28 @@ class DoctorPrivateCalendarTests(TestCase):
                                           'appointment_id': self.theirs.pk})
         self.assertEqual(response.status_code, 404)
 
+    def test_native_admin_calendar_api_is_scoped_to_own_staff(self):
+        path = '/verwaltung/api/calendar-day/'
+        own = self.client.get(path, {'staff': self.doctor.pk, 'date': self.day.isoformat()})
+        self.assertEqual(own.status_code, 200, own.content)
+        self.assertIn('Meine Patientin', str(own.json()))
+        self.assertNotIn('Fremde Patientin', str(own.json()))
+        other = self.client.get(path, {'staff': self.other.pk, 'date': self.day.isoformat()})
+        self.assertEqual(other.status_code, 403)
+        other_hours = self.client.get('/verwaltung/api/day-availability/',
+                                      {'staff': self.other.pk, 'date': self.day.isoformat()})
+        self.assertEqual(other_hours.status_code, 403)
+        own_close = self.client.post('/verwaltung/api/day-availability/',
+                                     {'staff_id': self.doctor.pk, 'date': self.day.isoformat(),
+                                      'closed': 'on'})
+        self.assertEqual(own_close.status_code, 302)
+        self.assertIn('/verwaltung/arzt/', own_close.url)
+        other_close = self.client.post('/verwaltung/api/day-availability/',
+                                       {'staff_id': self.other.pk, 'date': self.day.isoformat(),
+                                        'closed': 'on'})
+        self.assertEqual(other_close.status_code, 403)
+        self.assertFalse(DailyAvailabilityOverride.objects.filter(staff=self.other).exists())
+
     def test_daily_open_close_reset_only_changes_own_availability(self):
         result = self.post_calendar(action='save', closed='on', staff_id=str(self.other.pk))
         self.assertEqual(result.status_code, 302)
