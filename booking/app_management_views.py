@@ -13,6 +13,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from . import patient_portal
+from .invoice_bridge import _request_bridge
 from .customer_identity import duplicate_customer_groups, grouped_customers_for_display
 from .models import Appointment, Customer, PatientRecord, WhatsAppTemplate
 
@@ -76,6 +77,39 @@ def _api(request, endpoint, method='GET', payload=None, query=None):
     if status >= 400 or not data.get('ok', False):
         raise RuntimeError(data.get('error') or f'A+ API Fehler {status}')
     return data
+
+
+def _billing_api(request, endpoint, method='GET', payload=None):
+    """Use existing app admin session when available, else the private bridge.
+
+    Both methods operate on the same App Invoice and InvoiceSettings tables.
+    """
+    if _authorization(request):
+        try:
+            return _api(request, endpoint, method=method, payload=payload)
+        except PermissionError:
+            # Expired app bearer: still allow verified Booking staff via
+            # the server-only credential; never redirect to another domain.
+            pass
+    if endpoint == 'billing/':
+        operation = 'overview'
+    elif endpoint == 'billing/settings/':
+        operation = 'settings'
+    elif endpoint == 'billing/invoices/':
+        operation = 'invoices'
+    elif endpoint.startswith('billing/services/') and endpoint.endswith('/'):
+        number = endpoint.removeprefix('billing/services/').strip('/')
+        if not number.isdecimal():
+            raise ValueError('Ungültige Behandlung.')
+        operation = f'services/{number}'
+    elif endpoint.startswith('billing/invoices/') and endpoint.endswith('/finalize/'):
+        number = endpoint.removeprefix('billing/invoices/').removesuffix('/finalize/')
+        if not number.isdecimal():
+            raise ValueError('Ungültige Rechnung.')
+        operation = f'finalize/{number}'
+    else:
+        raise ValueError('Unbekannte Rechnungsfunktion.')
+    return _request_bridge(request, operation, method=method, payload=payload)
 
 
 def _redirect(section, notice='saved', extra=None):
@@ -282,17 +316,14 @@ def app_management(request, section='bookings'):
 
     local_view_only = _local_view_only(request)
 
-    # Rechnungen has a dedicated web Office surface. When the focused A+ app
-    # bearer token is not available (for example a direct desktop browser
-    # visit), send staff to the browser-native Office instead of showing the
-    # misleading "Admin-Sitzung fehlt" error. Inside the A+ app, the bearer
-    # token is present and the integrated Rechnungen view continues to work.
-    if section == 'invoices' and not _authorization(request):
-        return redirect('https://office.a-esthetic.de/office/admin/')
-
-    if not request.session.get('aplus_app_admin') and not local_view_only:
+    # Rechnungen is a first-party Booking admin page for authenticated staff,
+    # even without a mobile-app bearer token. The server performs the billing
+    # API request; invoice credentials never reach the browser.
+    if section == 'invoices' and local_view_only:
+        return HttpResponseForbidden('Dieses Arztkonto hat keinen Rechnungszugriff.')
+    if section != 'invoices' and not request.session.get('aplus_app_admin') and not local_view_only:
         return HttpResponseForbidden('A+ App Management ist nur über eine bestätigte A+ Admin-Sitzung verfügbar.')
-    if local_view_only and not request.session.get('aplus_app_admin') and section != 'patients':
+    if section != 'invoices' and local_view_only and not request.session.get('aplus_app_admin') and section != 'patients':
         return redirect('/verwaltung/app/patients/')
 
     try:
@@ -393,12 +424,12 @@ def app_management(request, section='bookings'):
                     'invoice_prefix': request.POST.get('invoice_prefix') or 'RE',
                     'next_sequence': int(request.POST.get('next_sequence') or 1),
                 }
-                _api(request, 'billing/settings/', method='POST', payload=payload)
+                _billing_api(request, 'billing/settings/', method='POST', payload=payload)
                 return _redirect('invoices', 'settings')
 
             if action == 'billing_service':
                 service_id = int(request.POST.get('service_id'))
-                _api(
+                _billing_api(
                     request,
                     f'billing/services/{service_id}/',
                     method='POST',
@@ -410,7 +441,7 @@ def app_management(request, section='bookings'):
                 return _redirect('invoices', 'service')
 
             if action == 'billing_create':
-                _api(
+                _billing_api(
                     request,
                     'billing/invoices/',
                     method='POST',
@@ -424,7 +455,7 @@ def app_management(request, section='bookings'):
 
             if action == 'billing_finalize':
                 invoice_id = int(request.POST.get('invoice_id'))
-                _api(request, f'billing/invoices/{invoice_id}/finalize/', method='POST', payload={})
+                _billing_api(request, f'billing/invoices/{invoice_id}/finalize/', method='POST', payload={})
                 return _redirect('invoices', 'finalized')
 
         data = {}
@@ -441,7 +472,7 @@ def app_management(request, section='bookings'):
         elif section == 'reviews':
             data = _api(request, 'reviews/')
         elif section == 'invoices':
-            data = _api(request, 'billing/')
+            data = _billing_api(request, 'billing/')
         else:
             data = _api(request, 'referrals/')
         title, subtitle = SECTIONS[section]
@@ -456,8 +487,6 @@ def app_management(request, section='bookings'):
         })
         return render(request, 'booking/app_management.html', context)
     except PermissionError as exc:
-        if section == 'invoices':
-            return redirect('https://office.a-esthetic.de/office/admin/')
         return render(request, 'booking/app_management.html', {
             'section': section,
             'section_title': SECTIONS[section][0],
