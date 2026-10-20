@@ -477,6 +477,11 @@ def app_management(request, section='bookings'):
         context = {}
         query = str(request.GET.get('q') or '').strip()
         if section == 'patients':
+            # Render exactly one patient tab on the server, not four sections
+            # whose visibility depends on JS/CSS loading in the browser.
+            allowed_tabs = {'overview', 'appointments', 'records', 'points'}
+            tab = str(request.GET.get('tab') or '').strip().lower()
+            context['customer_tab'] = tab if tab in allowed_tabs else 'overview'
             context.update(_patient_context(request))
         elif section == 'wallet':
             data = _api(request, 'customers/', query={'q': query})
