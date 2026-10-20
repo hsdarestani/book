@@ -8,7 +8,7 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate, login, logout
 from django.core.exceptions import ValidationError
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -128,10 +128,28 @@ def _calendar_scope_prefix(scope, service_id=None):
     return '[STAFF]'
 
 
+
+def _doctor_patient_scope(request, customer):
+    """Return clinician context, denying unrelated patients before any record work."""
+    from .doctor_views import _doctor_staff, _own_customer_ids
+    staff = _doctor_staff(request)
+    if staff and customer.pk not in _own_customer_ids(staff):
+        raise Http404('Patient nicht zugeordnet')
+    return staff
+
+
+def _doctor_visible_records(request, customer, staff):
+    records = PatientRecord.objects.filter(customer=customer)
+    if staff:
+        records = records.filter(Q(appointment__staff_id=staff.pk) | Q(uploaded_by=request.user))
+    return records
+
+
 @staff_member_required(login_url='/verwaltung/login/')
 @require_http_methods(['GET', 'POST'])
 def patient_file(request, customer_id):
     customer = get_object_or_404(Customer, pk=customer_id)
+    doctor_staff = _doctor_patient_scope(request, customer)
     notice = request.GET.get('notice', '')
 
     if request.method == 'POST':
@@ -148,7 +166,12 @@ def patient_file(request, customer_id):
             appointment = None
             appointment_id = (request.POST.get('appointment_id') or '').strip()
             if appointment_id:
-                appointment = Appointment.objects.filter(pk=appointment_id, customer=customer).first()
+                appointment_query = Appointment.objects.filter(pk=appointment_id, customer=customer)
+                if doctor_staff:
+                    appointment_query = appointment_query.filter(staff_id=doctor_staff.pk)
+                appointment = appointment_query.first()
+                if doctor_staff and not appointment:
+                    raise Http404('Termin nicht zugeordnet')
 
             stored_name = ''
             original_name = ''
@@ -185,7 +208,7 @@ def patient_file(request, customer_id):
             if not uploaded:
                 kind = 'note' if kind == 'document' else kind
 
-            PatientRecord.objects.create(
+            record = PatientRecord.objects.create(
                 customer=customer,
                 appointment=appointment,
                 kind=kind,
@@ -195,29 +218,56 @@ def patient_file(request, customer_id):
                 original_name=original_name,
                 mime_type=mime_type,
                 file_size=file_size,
+                source='book_staff' if doctor_staff else 'manual',
+                metadata={'shared_with_customer': request.POST.get('shared_with_customer') == 'on'} if doctor_staff else {},
                 uploaded_by=request.user,
             )
+            if doctor_staff and record.metadata.get('shared_with_customer'):
+                from .patient_portal import _notify_customer
+                _notify_customer(record)
             return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=added#akte')
 
+        if doctor_staff and action == 'toggle_share':
+            from .patient_portal import _notify_customer, APP_SHARED_SOURCES
+            record = get_object_or_404(_doctor_visible_records(request, customer, doctor_staff),
+                                       public_id=request.POST.get('record_id'))
+            if record.source in APP_SHARED_SOURCES:
+                return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=customer-owned#akte')
+            metadata = record.metadata.copy() if isinstance(record.metadata, dict) else {}
+            target = not (metadata.get('shared_with_customer') is True)
+            metadata['shared_with_customer'] = target
+            metadata['shared_by_user_id' if target else 'unshared_by_user_id'] = request.user.pk
+            record.metadata = metadata
+            record.save(update_fields=['metadata'])
+            if target:
+                _notify_customer(record)
+            return redirect(f'/verwaltung/patienten/{customer.pk}/?notice={"shared" if target else "unshared"}#akte')
+
         if action == 'delete_record':
-            record = get_object_or_404(PatientRecord, pk=request.POST.get('record_id'), customer=customer)
+            record = get_object_or_404(
+                _doctor_visible_records(request, customer, doctor_staff),
+                pk=request.POST.get('record_id'),
+            )
             _delete_patient_file(record)
             record.delete()
             return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=deleted#akte')
 
     appointments = (
-        Appointment.objects.filter(customer=customer)
+        Appointment.objects.filter(customer=customer, **(
+            {'staff_id': doctor_staff.pk} if doctor_staff else {}
+        ))
         .select_related('service', 'staff')
         .order_by('-starts_at')[:80]
     )
     records = (
-        PatientRecord.objects.filter(customer=customer)
+        _doctor_visible_records(request, customer, doctor_staff)
         .select_related('appointment', 'appointment__service', 'uploaded_by')
         .order_by('-created_at', '-pk')
     )
     last_appointment = next((item for item in appointments if item.status != 'cancelled'), None)
     context = {
         'customer': customer,
+        'doctor_mode': doctor_staff is not None,
         'appointments': appointments,
         'records': records,
         'record_kinds': PatientRecord.KIND,
@@ -231,7 +281,10 @@ def patient_file(request, customer_id):
 @staff_member_required(login_url='/verwaltung/login/')
 @require_http_methods(['GET'])
 def patient_record_file(request, customer_id, record_id):
-    record = get_object_or_404(PatientRecord, public_id=record_id, customer_id=customer_id)
+    customer = get_object_or_404(Customer, pk=customer_id)
+    doctor_staff = _doctor_patient_scope(request, customer)
+    record = get_object_or_404(_doctor_visible_records(request, customer, doctor_staff),
+                               public_id=record_id)
     if not record.stored_name:
         raise Http404('Keine Datei vorhanden')
     path = _patient_file_path(record.stored_name)
@@ -251,7 +304,10 @@ def patient_record_file(request, customer_id, record_id):
 @staff_member_required(login_url='/verwaltung/login/')
 @require_http_methods(['GET', 'POST'])
 def dashboard(request):
+    doctor_staff = getattr(request, 'doctor_staff_scope', None)
     staff_qs = StaffMember.objects.filter(active=True).order_by('sort_order', 'display_name')
+    if doctor_staff is not None:
+        staff_qs = staff_qs.filter(pk=doctor_staff.pk)
     selected_staff = None
     selected_id = request.POST.get('staff_id') or request.GET.get('staff')
     if selected_id:
@@ -436,13 +492,22 @@ def dashboard(request):
 
     now = timezone.now()
     today = timezone.localdate()
+    appointment_scope = Appointment.objects.all()
+    customer_scope = Customer.objects.all()
+    if doctor_staff is not None:
+        appointment_scope = appointment_scope.filter(staff_id=doctor_staff.pk)
+        from .models import DoctorPatientAccess
+        customer_scope = customer_scope.filter(
+            Q(pk__in=appointment_scope.values('customer_id')) |
+            Q(pk__in=DoctorPatientAccess.objects.filter(staff_id=doctor_staff.pk).values('customer_id'))
+        )
     upcoming = (
-        Appointment.objects.select_related('customer', 'service', 'staff')
+        appointment_scope.select_related('customer', 'service', 'staff')
         .filter(starts_at__gte=now)
         .order_by('starts_at')[:80]
     )
     customers = (
-        Customer.objects.annotate(
+        customer_scope.annotate(
             record_count=Count('patient_records', distinct=True),
             appointment_count=Count('appointments', distinct=True),
         )
@@ -454,6 +519,8 @@ def dashboard(request):
         'injektionslipolyse', 'kontrolltermin',
     ]
     services = Service.objects.filter(slug__in=canonical_service_slugs).order_by('sort_order', 'name')
+    if doctor_staff is not None:
+        services = services.filter(staff_members=doctor_staff)
 
     weekday_labels = dict(WorkingHour.WEEKDAYS)
     hour_map = {day: [] for day in range(7)}
@@ -551,9 +618,10 @@ def dashboard(request):
         day_cursor += timedelta(days=1)
 
     context = {
-        'today_count': Appointment.objects.filter(starts_at__date=today).exclude(status='cancelled').count(),
-        'new_count': Appointment.objects.filter(status='new', starts_at__gte=now).count(),
-        'customer_count': Customer.objects.count(),
+        'doctor_mode': doctor_staff is not None,
+        'today_count': appointment_scope.filter(starts_at__date=today).exclude(status='cancelled').count(),
+        'new_count': appointment_scope.filter(status='new', starts_at__gte=now).count(),
+        'customer_count': customer_scope.count(),
         'staff_count': staff_qs.count(),
         'staff_members': staff_qs,
         'selected_staff': selected_staff,

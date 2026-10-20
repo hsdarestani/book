@@ -197,6 +197,7 @@ def _polish_admin_response(
     focus_block=None,
     focus_appointment=None,
     notice=None,
+    doctor_staff_id=None,
 ):
     content_type = response.get('Content-Type', '')
     if response.status_code != 200 or 'text/html' not in content_type:
@@ -223,9 +224,20 @@ def _polish_admin_response(
     day_value = (calendar_day or timezone.localdate()).isoformat()
     staff_value = str(selected_staff_id or '')
 
-    services = list(Service.objects.filter(active=True).order_by('sort_order', 'name'))
-    staff_members = list(StaffMember.objects.filter(active=True).order_by('sort_order', 'display_name'))
-    customers = list(Customer.objects.order_by('last_name', 'first_name')[:1000])
+    services_qs = Service.objects.filter(active=True)
+    staff_qs = StaffMember.objects.filter(active=True)
+    customer_qs = Customer.objects.all()
+    if doctor_staff_id is not None:
+        services_qs = services_qs.filter(staff_members__pk=doctor_staff_id)
+        staff_qs = staff_qs.filter(pk=doctor_staff_id)
+        from .models import DoctorPatientAccess
+        customer_qs = customer_qs.filter(
+            Q(pk__in=Appointment.objects.filter(staff_id=doctor_staff_id).values('customer_id')) |
+            Q(pk__in=DoctorPatientAccess.objects.filter(staff_id=doctor_staff_id).values('customer_id'))
+        ).distinct()
+    services = list(services_qs.order_by('sort_order', 'name'))
+    staff_members = list(staff_qs.order_by('sort_order', 'display_name'))
+    customers = list(customer_qs.order_by('last_name', 'first_name')[:1000])
 
     service_options = ['<option value="">Dienstleistung auswählen</option>']
     for service in services:
@@ -257,7 +269,9 @@ def _polish_admin_response(
 
     appointment_map = {str(item.pk): _appointment_payload(item) for item in visible_appointments}
     for item in (
-        Appointment.objects.filter(starts_at__gte=timezone.now())
+        Appointment.objects.filter(starts_at__gte=timezone.now(), **(
+            {'staff_id': doctor_staff_id} if doctor_staff_id is not None else {}
+        ))
         .select_related('customer', 'service', 'staff')
         .order_by('starts_at')[:120]
     ):
@@ -272,7 +286,9 @@ def _polish_admin_response(
     ) if selected_staff_id else []
     block_map = {str(item.pk): _block_payload(item) for item in visible_blocks}
     for item in (
-        BlockedPeriod.objects.filter(ends_at__gte=timezone.now())
+        BlockedPeriod.objects.filter(ends_at__gte=timezone.now(), **(
+            {'staff_id': doctor_staff_id} if doctor_staff_id is not None else {}
+        ))
         .select_related('staff')
         .order_by('starts_at')[:200]
     ):
@@ -361,7 +377,7 @@ def _polish_admin_response(
 
     focus_time = ''
     if focus_block:
-        item = BlockedPeriod.objects.filter(pk=focus_block).first()
+        item = BlockedPeriod.objects.filter(pk=focus_block, **({'staff_id': doctor_staff_id} if doctor_staff_id is not None else {})).first()
         if item:
             start = timezone.localtime(item.starts_at).strftime('%H:%M')
             end = timezone.localtime(item.ends_at).strftime('%H:%M')

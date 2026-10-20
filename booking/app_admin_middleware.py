@@ -1,3 +1,4 @@
+import re
 from django.http import HttpResponseForbidden
 from django.utils.html import escape
 
@@ -110,22 +111,34 @@ class APlusAdminNavigationMiddleware:
         view_only = self._view_only(request)
         qamar_scope = self._qamar_scope(request)
         if qamar_scope:
-            # Restrict Qamar to the dedicated appointment page only. Keep other
-            # existing read-only team members' patient workflows unchanged.
+            # One full-featured admin shell, but only Qamar's scoped routes.
+            # Other view-only team members retain their own prior access.
             allowed = {
                 '/verwaltung/arzt/', '/verwaltung/logout/', '/verwaltung/login/',
                 '/verwaltung/app/', '/verwaltung/app-sso/',
+                '/verwaltung/api/calendar-day/', '/verwaltung/api/day-availability/',
             }
+            # Customer IDs are additionally checked in the view and file
+            # endpoint. Do not allow shared app/patient API routes here.
+            own_patient_route = bool(re.fullmatch(
+                r'/verwaltung/patienten/[0-9]+/(?:datei/[0-9a-fA-F-]{36}/)?',
+                request.path,
+            ))
             if request.path.startswith('/admin/') or (
-                request.path.startswith('/verwaltung/') and request.path not in allowed
+                request.path.startswith('/verwaltung/')
+                and request.path not in allowed and not own_patient_route
             ):
                 return HttpResponseForbidden('Dieser Zugang ist auf eigene Termine beschränkt.')
-        if view_only and request.path.startswith('/verwaltung/') and request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.path not in {'/verwaltung/app-sso/', '/verwaltung/arzt/'}:
+        if (
+            view_only
+            and request.path.startswith('/verwaltung/')
+            and request.method not in {'GET', 'HEAD', 'OPTIONS'}
+            and request.path not in {'/verwaltung/app-sso/', '/verwaltung/arzt/', '/verwaltung/api/day-availability/'}
+            and not (qamar_scope and own_patient_route)
+        ):
             return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
 
         response = self.get_response(request)
-        if qamar_scope:
-            return response
         if not request.path.startswith('/verwaltung/'):
             return response
         if response.status_code != 200 or 'text/html' not in response.get('Content-Type', ''):
@@ -140,7 +153,11 @@ class APlusAdminNavigationMiddleware:
         except (AttributeError, UnicodeDecodeError):
             return response
 
-        is_calendar = request.path.startswith('/verwaltung/kalender/') or request.path == '/verwaltung/'
+        is_calendar = (
+            request.path.startswith('/verwaltung/kalender/')
+            or request.path == '/verwaltung/'
+            or qamar_scope and request.path == '/verwaltung/arzt/'
+        )
         is_patient = request.path.startswith('/verwaltung/patienten/') or request.path.startswith('/verwaltung/app/patients/')
 
         if is_aplus and 'data-aplus-luxury' not in html and '</head>' in html:
@@ -186,7 +203,7 @@ class APlusAdminNavigationMiddleware:
         if is_aplus and 'data-aplus-ferrari-v17' not in html and '</head>' in html:
             html = html.replace('</head>', self.FINAL_FERRARI_ASSETS + '</head>', 1)
 
-        if self._view_only(request) and '<body' in html:
+        if self._view_only(request) and not qamar_scope and '<body' in html:
             body_start = html.find('<body')
             body_end = html.find('>', body_start)
             if body_end >= 0 and 'data-aplus-view-only' not in html[body_start:body_end]:

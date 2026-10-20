@@ -5,16 +5,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <title>{{ customer.full_name }} · Patientenakte | A+Esthetic</title>
-  <link rel="stylesheet" href="{% static 'booking/app.css' %}">
-  <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
-  <link rel="stylesheet" href="{% static 'booking/patient.css' %}">
+  <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/app.css{% else %}{% static 'booking/app.css' %}{% endif %}">
+  <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}">
+  <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
 </head>
 <body class="admin-body patient-file-body">
 <main class="admin-shell patient-file-shell">
   <header class="admin-topbar patient-file-topbar">
-    <div class="admin-brand"><a class="brand brand-image" href="/verwaltung/" aria-label="A+Esthetic Buchungsverwaltung"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+Esthetic"></a><div class="brand-meta">Patientenakte</div></div>
+    <div class="admin-brand"><a class="brand brand-image" href="{% if doctor_mode %}/verwaltung/arzt/{% else %}/verwaltung/{% endif %}" aria-label="A+Esthetic Buchungsverwaltung"><img class="brand-logo" src="{% if doctor_mode %}/static/booking/logo.png{% else %}{% static 'booking/logo.png' %}{% endif %}" alt="A+Esthetic"></a><div class="brand-meta">Patientenakte</div></div>
     <nav class="admin-nav" aria-label="Patientenakte"><a href="#akte">Akte</a><a href="#termine">Terminhistorie</a></nav>
-    <div class="admin-actions"><a href="/verwaltung/#kunden">← Alle Patienten</a><a href="/verwaltung/logout/">Abmelden</a></div>
+    <div class="admin-actions"><a href="{% if doctor_mode %}/verwaltung/arzt/?section=customers{% else %}/verwaltung/#kunden{% endif %}">← Alle Patienten</a><a href="/verwaltung/logout/">Abmelden</a></div>
   </header>
 
   {% if notice %}
@@ -57,7 +57,7 @@
       <div class="eyebrow">Neuer Eintrag</div>
       <h2>Zur Akte hinzufügen</h2>
       <p>Fotos, Formulare, PDFs, Dokumente oder Notizen werden direkt dieser Patientenakte zugeordnet.</p>
-      <form method="post" action="/verwaltung/patienten/{{ customer.pk }}/shared/add/" enctype="multipart/form-data" class="record-upload-form">
+      <form method="post" action="{% if doctor_mode %}/verwaltung/patienten/{{ customer.pk }}/{% else %}/verwaltung/patienten/{{ customer.pk }}/shared/add/{% endif %}" enctype="multipart/form-data" class="record-upload-form">
         {% csrf_token %}
         <label>Typ<select name="kind">{% for value,label in record_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
         <label>Titel <small>optional bei Datei</small><input name="title" maxlength="180" placeholder="z. B. Behandlungsinformation 04.09.2026"></label>
@@ -88,10 +88,10 @@
                 <span class="share-pill shared">● Aus A+ App · geteilt</span>
               {% elif record.metadata.shared_with_customer %}
                 <span class="share-pill shared">● Mit Kunde geteilt</span>
-                <form method="post" action="/verwaltung/patienten/{{ customer.pk }}/shared/{{ record.public_id }}/toggle/">{% csrf_token %}<button type="submit" class="share-action">Nur intern setzen</button></form>
+                <form method="post" action="{% if doctor_mode %}/verwaltung/patienten/{{ customer.pk }}/{% else %}/verwaltung/patienten/{{ customer.pk }}/shared/{{ record.public_id }}/toggle/{% endif %}">{% csrf_token %}{% if doctor_mode %}<input type="hidden" name="action" value="toggle_share"><input type="hidden" name="record_id" value="{{ record.public_id }}">{% endif %}<button type="submit" class="share-action">Nur intern setzen</button></form>
               {% else %}
                 <span class="share-pill private">● Nur intern</span>
-                <form method="post" action="/verwaltung/patienten/{{ customer.pk }}/shared/{{ record.public_id }}/toggle/">{% csrf_token %}<button type="submit" class="share-action">In A+ App teilen</button></form>
+                <form method="post" action="{% if doctor_mode %}/verwaltung/patienten/{{ customer.pk }}/{% else %}/verwaltung/patienten/{{ customer.pk }}/shared/{{ record.public_id }}/toggle/{% endif %}">{% csrf_token %}{% if doctor_mode %}<input type="hidden" name="action" value="toggle_share"><input type="hidden" name="record_id" value="{{ record.public_id }}">{% endif %}<button type="submit" class="share-action">In A+ App teilen</button></form>
               {% endif %}
             </div>
             <h3>{{ record.title }}</h3>

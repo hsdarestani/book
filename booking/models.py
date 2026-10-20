@@ -197,6 +197,18 @@ class AdminAccessProfile(models.Model):
     def __str__(self): return f'{self.user} – {"View only" if self.view_only else "Bearbeiten"}'
 
 
+class DoctorPatientAccess(models.Model):
+    """Patients manually created/claimed by one clinician, independently of a booking."""
+    staff = models.ForeignKey(StaffMember, on_delete=models.CASCADE, related_name='doctor_patient_access')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='doctor_access')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['staff', 'customer'], name='unique_doctor_patient_access')
+        ]
+
+
 class ExternalSyncState(models.Model):
     source = models.CharField(max_length=40, unique=True)
     baseline_completed_at = models.DateTimeField(null=True, blank=True)

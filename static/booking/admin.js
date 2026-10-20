@@ -43,7 +43,7 @@
   function loadCalendarPlus() {
     if (document.querySelector('script[data-admin-calendar-plus]')) return;
     const script = document.createElement('script');
-    script.src = '/static/booking/admin-calendar-plus.js?v=20260923-v19';
+    script.src = '/static/booking/admin-calendar-plus.js?v=20261020-doctor-role';
     script.defer = true;
     script.setAttribute('data-admin-calendar-plus', '1');
     document.head.appendChild(script);
@@ -208,7 +208,17 @@
     else initDesktopPicker(inputs);
   }
 
+  function doctorRole() {
+    return document.body?.dataset.doctorCalendar === '1';
+  }
+
   function pageFromLocation() {
+    if (doctorRole()) {
+      const section = new URLSearchParams(window.location.search).get('section');
+      if (['dashboard', 'calendar', 'bookings', 'customers', 'settings', 'information'].includes(section)) {
+        return section;
+      }
+    }
     const path = window.location.pathname;
     if (path.includes('/dashboard/')) return 'dashboard';
     if (path.includes('/kalender/')) return 'calendar';
@@ -240,6 +250,16 @@
     return current.get('staff') ? `?staff=${encodeURIComponent(current.get('staff'))}` : '';
   }
   function routeForPage(page) {
+    if (doctorRole()) {
+      const existing = new URLSearchParams(window.location.search);
+      const next = new URLSearchParams();
+      const section = ['dashboard', 'calendar', 'bookings', 'customers', 'settings', 'information'].includes(page) ? page : 'calendar';
+      next.set('section', section);
+      ['date', 'cal_view', 'notice', 'focus_block', 'focus_appointment'].forEach(key => {
+        if (existing.get(key)) next.set(key, existing.get(key));
+      });
+      return '/verwaltung/arzt/?' + next.toString();
+    }
     if (page === 'calendar') return `${PAGE_ROUTES.calendar}${currentCalendarQuery()}`;
     if (page === 'settings') return `${PAGE_ROUTES.settings}${currentStaffQuery()}`;
     return PAGE_ROUTES[page] || PAGE_ROUTES.calendar;
@@ -270,7 +290,7 @@
       const menu = document.querySelector('[data-view-menu]');
       if (menu) menu.hidden = true;
     }
-    if (window.location.pathname === '/verwaltung/') {
+    if (window.location.pathname === '/verwaltung/' || (doctorRole() && !new URLSearchParams(window.location.search).has('section'))) {
       try { window.history.replaceState(null, '', routeForPage(activePage)); } catch (_error) { /* no-op */ }
     }
   }

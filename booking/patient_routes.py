@@ -13,6 +13,9 @@ def canonical_patient_file(request, customer_id):
     """Keep legacy patient POST behavior while using one canonical patient UI."""
     if request.method == 'POST':
         return views.patient_file(request, customer_id)
+    from .doctor_views import _doctor_staff
+    if _doctor_staff(request):
+        return views.patient_file(request, customer_id)
 
     query = {'customer': customer_id}
     notice = str(request.GET.get('notice') or '').strip()
