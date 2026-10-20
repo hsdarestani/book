@@ -453,6 +453,21 @@ def app_management(request, section='bookings'):
                 )
                 return _redirect('invoices', 'invoice')
 
+            if action == 'billing_create_goae':
+                payload = {
+                    'billing_method': 'goae',
+                    'customer_id': int(request.POST.get('customer_id')),
+                    'service_date': str(request.POST.get('service_date') or ''),
+                    'goae_number': str(request.POST.get('goae_number') or '').strip(),
+                    'goae_description': str(request.POST.get('goae_description') or '').strip(),
+                    'goae_base_eur': str(request.POST.get('goae_base_eur') or '').strip(),
+                    'goae_factor': str(request.POST.get('goae_factor') or '').strip(),
+                    'goae_vat_rate': str(request.POST.get('goae_vat_rate') or '').strip(),
+                    'goae_justification': str(request.POST.get('goae_justification') or '').strip(),
+                }
+                _billing_api(request, 'billing/invoices/', method='POST', payload=payload)
+                return _redirect('invoices', 'goae_draft')
+
             if action == 'billing_finalize':
                 invoice_id = int(request.POST.get('invoice_id'))
                 _billing_api(request, f'billing/invoices/{invoice_id}/finalize/', method='POST', payload={})
@@ -514,4 +529,4 @@ def app_management(request, section='bookings'):
             'error': str(exc),
             'view_only': local_view_only,
             'hero_images': hero_slots,
-        }, status=400 if section == 'hero' and isinstance(exc, ValueError) else 502)
+        }, status=400 if section in {'hero', 'invoices'} and isinstance(exc, ValueError) else 502)
