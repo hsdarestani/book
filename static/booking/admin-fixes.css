@@ -268,15 +268,15 @@
    .sb-page-hidden in one synchronous task; until that marker exists, keep every
    route-controlled section invisible. This prevents the dashboard from flashing
    for a frame when navigating to Buchungen, Kunden, Einstellungen, etc. */
-body.sb-admin-body:not(:has(.sb-page-hidden)) .admin-hero,
-body.sb-admin-body:not(:has(.sb-page-hidden)) .metric-grid,
-body.sb-admin-body:not(:has(.sb-page-hidden)) main > section.admin-panel{
+body.sb-admin-body:not([data-doctor-calendar="1"]):not(:has(.sb-page-hidden)) .admin-hero,
+body.sb-admin-body:not([data-doctor-calendar="1"]):not(:has(.sb-page-hidden)) .metric-grid,
+body.sb-admin-body:not([data-doctor-calendar="1"]):not(:has(.sb-page-hidden)) main > section.admin-panel{
   visibility:hidden!important;
   opacity:0!important;
   pointer-events:none!important;
 }
 @media(max-width:760px){
-  body.sb-admin-body:not(:has(.sb-page-hidden)) .sb-mobile-title{
+  body.sb-admin-body:not([data-doctor-calendar="1"]):not(:has(.sb-page-hidden)) .sb-mobile-title{
     visibility:hidden!important;
   }
 }
