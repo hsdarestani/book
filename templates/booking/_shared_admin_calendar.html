@@ -66,7 +66,8 @@
 
     <div class="sb-fab-wrap" data-fab-wrap>
       <div class="sb-fab-actions" data-fab-actions hidden>
-        <button type="button" data-open-note><span>Notiz hinzufügen / Zeitenfenster blockieren</span><b>✎</b></button>
+        {% if doctor_mode %}<button type="button" data-open-block><span>Zeitraum blockieren</span><b>⛔</b></button>
+        <button type="button" data-open-note><span>Notiz hinzufügen</span><b>✎</b></button>{% else %}<button type="button" data-open-note><span>Notiz hinzufügen / Zeitenfenster blockieren</span><b>✎</b></button>{% endif %}
         {% if not doctor_mode %}<button type="button" data-open-booking><span>Buchung hinzufügen</span><b>＋</b></button>{% endif %}
       </div>
       <button type="button" class="sb-fab" data-fab aria-label="Hinzufügen">＋</button>
