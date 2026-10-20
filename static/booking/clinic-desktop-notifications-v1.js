@@ -1,6 +1,7 @@
 (() => {
   'use strict';
-  if (!document.querySelector('.admin-topbar') ||
+  const adminHeader = document.querySelector('[data-clinic-header]');
+  if (!adminHeader || adminHeader.dataset.clinicViewOnly === '1' ||
       !('Notification' in window) || !window.isSecureContext) return;
 
   const endpoint = '/verwaltung/api/patient-form-notifications/';
