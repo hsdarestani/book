@@ -74,7 +74,7 @@
   }
 }
 
-</style>{% if section == 'patients' %}<link rel="stylesheet" href="{% static 'booking/clinic-patient-polish-v1.css' %}?v=20261020-1">{% endif %}{% if section == 'hero' %}<link rel="stylesheet" href="{% static 'booking/admin-unified-nav-v14.css' %}?v=20261017-nav-v3">{% endif %}<link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"></head>
+</style>{% if section == 'patients' %}<link rel="stylesheet" href="{% static 'booking/clinic-patient-polish-v1.css' %}?v=20261020-1">{% endif %}{% if section == 'hero' %}<link rel="stylesheet" href="{% static 'booking/admin-unified-nav-v14.css' %}?v=20261017-nav-v3">{% endif %}<link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-readable-ui-v1.css?v=20261020-readable1"></head>
 <body class="admin-body sb-admin-body app-management-body">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">{{ section_title }}</strong><span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div><aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav app-focused-nav"><div class="app-nav-label">A+ MANAGEMENT</div><a href="/verwaltung/dashboard/"><span>⌂</span>Dashboard</a><a href="/verwaltung/kalender/"><span>▣</span>Kalender</a><a href="/verwaltung/app/patients/" class="{% if section == 'patients' %}is-active{% endif %}"><span>▤</span>Patientenakten</a><a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}"><span>◆</span>A+ Punkte</a><a href="/verwaltung/app/reviews/" class="{% if section == 'reviews' %}is-active{% endif %}"><span>★</span>Google Bewertungen</a><a href="/verwaltung/app/referrals/" class="{% if section == 'referrals' %}is-active{% endif %}"><span>↗</span>Empfehlungen</a><a href="/verwaltung/app/hero/" class="{% if section == 'hero' %}is-active{% endif %}"><span>▧</span>Startseitenbilder</a><a href="/verwaltung/app/invoices/" class="{% if section == 'invoices' %}is-active{% endif %}"><span>▧</span>Rechnungen</a><a href="/verwaltung/mehr/"><span>⋯</span>Mehr</a><div class="app-nav-spacer"></div><a href="/verwaltung/logout/"><span>↪</span>Abmelden</a></nav></aside>
@@ -206,21 +206,38 @@
 {% include "booking/_billing_goae_form.html" %}
 
 <section class="admin-panel app-core-panel billing-services-panel">
-  <div class="panel-head"><div><div class="eyebrow">PREISE & MWST</div><h2>Behandlungen</h2><p>Der Bruttopreis und die MwSt werden in der A+ App Datenbank gespeichert.</p></div></div>
-  <div class="billing-service-list">
+  <div class="panel-head">
+    <div><div class="eyebrow">LEISTUNGSKATALOG</div><h2>Behandlungen & Preise</h2>
+    <p>Eine Behandlung suchen und bei Bedarf zum Bearbeiten aufklappen. Preise werden zentral gespeichert.</p></div>
+    <span class="clinic-service-count">{{ data.services|length }} Leistungen</span>
+  </div>
+  <div class="clinic-service-toolbar">
+    <label for="clinic-service-search">Behandlung suchen
+      <input id="clinic-service-search" type="search" placeholder="z. B. Botox, Beratung, Infusion" autocomplete="off" data-clinic-service-search>
+    </label>
+    <output data-clinic-service-count aria-live="polite"></output>
+  </div>
+  <div class="billing-service-list" data-clinic-service-list>
     {% for service in data.services %}
-    <form method="post" class="billing-service-card">{% csrf_token %}
-      <input type="hidden" name="action" value="billing_service">
-      <input type="hidden" name="service_id" value="{{ service.id }}">
-      <div class="billing-service-head"><div><strong>{{ service.name }}</strong><small>{{ service.slug }}</small></div><span class="{% if service.configured %}is-ready{% endif %}">{% if service.configured %}Bereit{% else %}Offen{% endif %}</span></div>
-      <div class="billing-two">
-        <label>Brutto €<input name="price" inputmode="decimal" value="{{ service.price_input }}" placeholder="119,00"></label>
-        <label>MwSt %<input name="vat_rate" inputmode="decimal" value="{{ service.vat_rate }}" placeholder="19"></label>
-      </div>
-      <button class="billing-small" type="submit">Speichern</button>
-    </form>
+    <details class="billing-service-card clinic-service-card" data-clinic-service-card data-clinic-service-name="{{ service.name|lower }} {{ service.slug|lower }}">
+      <summary class="billing-service-head">
+        <span class="clinic-service-copy"><strong>{{ service.name }}</strong><small>{% if service.configured %}{{ service.price_label }} · {{ service.vat_rate }} % MwSt{% else %}Preis und MwSt festlegen{% endif %}</small></span>
+        <span class="clinic-service-status {% if service.configured %}is-ready{% endif %}">{% if service.configured %}Bereit{% else %}Offen{% endif %}</span>
+        <span class="clinic-service-chevron" aria-hidden="true">⌄</span>
+      </summary>
+      <form method="post" class="clinic-service-editor">{% csrf_token %}
+        <input type="hidden" name="action" value="billing_service">
+        <input type="hidden" name="service_id" value="{{ service.id }}">
+        <div class="billing-two">
+          <label>Bruttopreis in €<input name="price" inputmode="decimal" value="{{ service.price_input }}" placeholder="119,00"></label>
+          <label>MwSt in %<input name="vat_rate" inputmode="decimal" value="{{ service.vat_rate }}" placeholder="19"></label>
+        </div>
+        <button class="billing-small" type="submit">Änderungen speichern</button>
+      </form>
+    </details>
     {% empty %}<div class="empty">Keine Behandlungen gefunden.</div>{% endfor %}
   </div>
+  <p class="clinic-service-empty" data-clinic-service-empty hidden>Keine passende Behandlung gefunden.</p>
 </section>
 
 <section class="admin-panel app-core-panel billing-invoices-panel">
@@ -321,4 +338,4 @@
 <section class="admin-panel app-core-panel"><div class="panel-head"><div><div class="eyebrow">EMPFEHLUNGEN</div><h2>Freunde eingeladen</h2><p>Erfolgreiche Einladungen und automatisch vergebene Punkte.</p></div></div><div class="referral-admin-list">{% for item in data.referrals %}<article><div><strong>{{ item.customer }}</strong><span>{{ item.email }} · {{ item.code }}</span></div><div><b>{{ item.status_label }}</b>{% if item.reward_coins %}<small>+{{ item.reward_coins }} Punkte</small>{% endif %}</div></article>{% empty %}<div class="empty">Noch keine Empfehlungen.</div>{% endfor %}</div></section>
 {% endif %}
 {% endif %}
-</main><script>(()=>{const d=document.querySelector('[data-drawer]'),b=document.querySelector('[data-drawer-backdrop]');const c=()=>{d?.classList.remove('is-open');b?.classList.remove('is-open');d?.setAttribute('aria-hidden','true')};document.querySelectorAll('[data-drawer-open]').forEach(x=>x.onclick=()=>{d?.classList.add('is-open');b?.classList.add('is-open');d?.setAttribute('aria-hidden','false')});b?.addEventListener('click',c);document.querySelectorAll('[data-point]').forEach(x=>x.onclick=()=>{const i=x.closest('form')?.querySelector('[name=point_delta]');if(i){i.value=x.dataset.point;i.focus()}})})();</script>{% if section == 'hero' %}<script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20261017-nav-v3"></script>{% endif %}<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20260914"></script><script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260923-v19"></script><script defer src="{% static 'booking/admin-native-camera-v11.js' %}?v=20261006-v12"></script><script defer src="{% static 'booking/admin-patient-upload-preview-v12.js' %}?v=20261006-v12"></script><script defer src="{% static 'booking/app-billing-v2.js' %}?v=20261006-v2"></script><script defer src="{% static 'booking/medical-form-push-v1.js' %}?v=20261020"></script><script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-desktop1"></script><script defer src="/static/booking/clinic-header-v3.js?v=20261020-header3"></script></body></html>
+</main><script>(()=>{const d=document.querySelector('[data-drawer]'),b=document.querySelector('[data-drawer-backdrop]');const c=()=>{d?.classList.remove('is-open');b?.classList.remove('is-open');d?.setAttribute('aria-hidden','true')};document.querySelectorAll('[data-drawer-open]').forEach(x=>x.onclick=()=>{d?.classList.add('is-open');b?.classList.add('is-open');d?.setAttribute('aria-hidden','false')});b?.addEventListener('click',c);document.querySelectorAll('[data-point]').forEach(x=>x.onclick=()=>{const i=x.closest('form')?.querySelector('[name=point_delta]');if(i){i.value=x.dataset.point;i.focus()}})})();</script>{% if section == 'hero' %}<script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20261017-nav-v3"></script>{% endif %}<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20260914"></script><script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260923-v19"></script><script defer src="{% static 'booking/admin-native-camera-v11.js' %}?v=20261006-v12"></script><script defer src="{% static 'booking/admin-patient-upload-preview-v12.js' %}?v=20261006-v12"></script><script defer src="{% static 'booking/app-billing-v2.js' %}?v=20261006-v2"></script><script defer src="{% static 'booking/medical-form-push-v1.js' %}?v=20261020"></script><script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-desktop1"></script><script defer src="/static/booking/clinic-header-v3.js?v=20261020-header3"></script><script defer src="/static/booking/clinic-readable-ui-v1.js?v=20261020-readable1"></script></body></html>
