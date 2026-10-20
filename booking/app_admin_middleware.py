@@ -116,6 +116,7 @@ class APlusAdminNavigationMiddleware:
             allowed = {
                 '/verwaltung/arzt/', '/verwaltung/logout/', '/verwaltung/login/',
                 '/verwaltung/app/', '/verwaltung/app-sso/',
+                '/verwaltung/api/calendar-day/', '/verwaltung/api/day-availability/',
             }
             # Customer IDs are additionally checked in the view and file
             # endpoint. Do not allow shared app/patient API routes here.
@@ -132,7 +133,7 @@ class APlusAdminNavigationMiddleware:
             view_only
             and request.path.startswith('/verwaltung/')
             and request.method not in {'GET', 'HEAD', 'OPTIONS'}
-            and request.path not in {'/verwaltung/app-sso/', '/verwaltung/arzt/'}
+            and request.path not in {'/verwaltung/app-sso/', '/verwaltung/arzt/', '/verwaltung/api/day-availability/'}
             and not (qamar_scope and own_patient_route)
         ):
             return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
