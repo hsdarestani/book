@@ -5,6 +5,14 @@ from django.test import TestCase
 
 
 class AppAdminSsoTests(TestCase):
+    def test_deep_link_entry_validates_patient_id_after_sso(self):
+        response = self.client.get('/verwaltung/app/?patient=42')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "patientId")
+        self.assertContains(response, "data.redirect")
+        self.assertContains(response, "#records")
+        self.assertContains(response, "target==='/verwaltung/dashboard/'")
+
     def test_entry_never_exposes_token_server_side(self):
         response = self.client.get('/verwaltung/app/')
         self.assertEqual(response.status_code, 200)
