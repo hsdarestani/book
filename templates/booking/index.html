@@ -9,6 +9,7 @@
   <meta name="description" content="Buche deinen Termin bei A+Esthetic online.">
   <link rel="stylesheet" href="{% static 'booking/app.css' %}">
   <link rel="stylesheet" href="{% static 'booking/treatments.css' %}">
+  <link rel="stylesheet" href="{% static 'booking/club-invite.css' %}">
 </head>
 <body>
   <main class="booking-shell">
@@ -147,6 +148,8 @@
       });
     })();
   </script>
+  {% include 'booking/_club_invite.html' %}
   <script src="{% static 'booking/app.js' %}" defer></script>
+  <script src="{% static 'booking/club-invite.js' %}" defer></script>
 </body>
 </html>
