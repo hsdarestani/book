@@ -124,8 +124,6 @@ class APlusAdminNavigationMiddleware:
             return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
 
         response = self.get_response(request)
-        if qamar_scope:
-            return response
         if not request.path.startswith('/verwaltung/'):
             return response
         if response.status_code != 200 or 'text/html' not in response.get('Content-Type', ''):
@@ -140,7 +138,11 @@ class APlusAdminNavigationMiddleware:
         except (AttributeError, UnicodeDecodeError):
             return response
 
-        is_calendar = request.path.startswith('/verwaltung/kalender/') or request.path == '/verwaltung/'
+        is_calendar = (
+            request.path.startswith('/verwaltung/kalender/')
+            or request.path == '/verwaltung/'
+            or qamar_scope and request.path == '/verwaltung/arzt/'
+        )
         is_patient = request.path.startswith('/verwaltung/patienten/') or request.path.startswith('/verwaltung/app/patients/')
 
         if is_aplus and 'data-aplus-luxury' not in html and '</head>' in html:
@@ -186,7 +188,7 @@ class APlusAdminNavigationMiddleware:
         if is_aplus and 'data-aplus-ferrari-v17' not in html and '</head>' in html:
             html = html.replace('</head>', self.FINAL_FERRARI_ASSETS + '</head>', 1)
 
-        if self._view_only(request) and '<body' in html:
+        if self._view_only(request) and not qamar_scope and '<body' in html:
             body_start = html.find('<body')
             body_end = html.find('>', body_start)
             if body_end >= 0 and 'data-aplus-view-only' not in html[body_start:body_end]:
