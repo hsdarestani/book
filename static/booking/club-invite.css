@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Ms+Madi&display=swap");
 /* Optional public booking-site club invitation. Scoped to avoid booking/admin changes. */
 .club-invite[hidden]{display:none!important}
 .club-invite{position:fixed;inset:0;z-index:11000;display:grid;place-items:center;padding:20px;background:rgba(14,17,21,.68);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);overflow-y:auto;overscroll-behavior:contain}
@@ -10,10 +11,12 @@ body.club-invite-open{overflow:hidden}
 .club-invite__art:before{content:"";position:absolute;inset:14px;border:1px solid rgba(225,196,139,.24);border-radius:14px;pointer-events:none}
 .club-invite__art:after{content:"";position:absolute;left:-45%;right:-45%;top:23%;height:1px;transform:rotate(-35deg);background:linear-gradient(90deg,transparent,rgba(222,187,121,.36),transparent);pointer-events:none}
 .club-invite__art-header{display:flex;justify-content:space-between;gap:10px;font-size:10px;font-weight:800;letter-spacing:.22em;z-index:1}
-.club-invite__art-header span{font-size:8px;letter-spacing:.15em;color:#a6a6a1;align-self:center}
-.club-invite__emblem{position:relative;width:186px;height:186px;display:flex;align-items:center;justify-content:center;align-self:center;margin:auto;border:1px solid rgba(224,187,120,.64);border-radius:50%;background:radial-gradient(circle at 35% 25%,rgba(251,226,162,.17),rgba(225,190,120,.035) 65%);box-shadow:inset 0 0 0 8px rgba(225,190,120,.045),0 18px 60px rgba(0,0,0,.2);font:normal 112px/.9 Georgia,"Times New Roman",serif;letter-spacing:-.10em;text-shadow:0 2px 18px rgba(232,196,127,.2)}
-.club-invite__emblem span{transform:translateX(-7px)}
-.club-invite__emblem sup{position:absolute;right:27px;top:37px;font:300 49px/1 Georgia,serif}
+.club-invite__art-header>span:last-child{font-size:8px;letter-spacing:.15em;color:#a6a6a1;align-self:center}
+.club-invite__emblem{position:relative;width:186px;height:186px;display:flex;align-items:center;justify-content:center;align-self:center;margin:auto;border:1px solid rgba(224,187,120,.64);border-radius:50%;background:radial-gradient(circle at 35% 25%,rgba(251,226,162,.17),rgba(225,190,120,.035) 65%);box-shadow:inset 0 0 0 8px rgba(225,190,120,.045),0 18px 60px rgba(0,0,0,.2);font:normal 143px/.9 "Ms Madi","Brush Script MT",cursive;letter-spacing:-.08em;text-shadow:0 2px 18px rgba(232,196,127,.2)}
+.club-invite__emblem span{transform:translateY(8px)}
+.club-invite__art-brand b,.club-invite__signature{font-family:"Ms Madi","Brush Script MT",cursive;font-weight:400;letter-spacing:0;text-transform:none}
+.club-invite__art-brand b{font-size:22px;line-height:0;vertical-align:-4px;padding-right:2px}
+.club-invite__signature{font-size:1.3em;vertical-align:-.04em}
 .club-invite__art-footer{position:relative;z-index:1;display:grid;gap:7px}
 .club-invite__art-footer span{letter-spacing:.32em;font-size:9px;color:#bba77d}
 .club-invite__art-footer strong{font:400 29px/1.1 Georgia,serif;letter-spacing:.08em}
@@ -43,9 +46,8 @@ body.club-invite-open{overflow:hidden}
   .club-invite__art{min-height:135px;padding:20px 22px 15px;flex-direction:row;align-items:flex-end}
   .club-invite__art:before{inset:9px}
   .club-invite__art-header{position:absolute;top:19px;left:22px;right:55px}
-  .club-invite__emblem{width:78px;height:78px;margin:18px 0 0 4px;font-size:51px}
-  .club-invite__emblem span{transform:translateX(-3px)}
-  .club-invite__emblem sup{right:10px;top:15px;font-size:23px}
+  .club-invite__emblem{width:78px;height:78px;margin:18px 0 0 4px;font-size:66px}
+  .club-invite__emblem span{transform:translateY(4px)}
   .club-invite__art-footer{margin-left:auto;text-align:right;gap:3px}
   .club-invite__art-footer strong{font-size:19px}
   .club-invite__art-footer small{font-size:10px}
@@ -56,6 +58,6 @@ body.club-invite-open{overflow:hidden}
   .club-invite__features li{font-size:12px}
   .club-invite__close{top:13px;right:13px;background:#fffdf9}
 }
-@media(max-width:420px){.club-invite__content{padding:20px 17px 18px}.club-invite__store-links{gap:8px}.club-invite__store{padding:8px 5px;gap:6px}.club-invite__store strong{font-size:13px}.club-invite__store svg{width:19px;height:19px}.club-invite__content h2{font-size:31px}.club-invite__art{min-height:116px}.club-invite__emblem{width:64px;height:64px;font-size:43px}.club-invite__emblem sup{top:10px;right:8px;font-size:19px}}
+@media(max-width:420px){.club-invite__content{padding:20px 17px 18px}.club-invite__store-links{gap:8px}.club-invite__store{padding:8px 5px;gap:6px}.club-invite__store strong{font-size:13px}.club-invite__store svg{width:19px;height:19px}.club-invite__content h2{font-size:31px}.club-invite__art{min-height:116px}.club-invite__emblem{width:64px;height:64px;font-size:56px}}
 @media(max-height:620px) and (min-width:701px){.club-invite__dialog{max-width:800px}.club-invite__art{min-height:425px}.club-invite__content{padding-top:39px;padding-bottom:22px}.club-invite__features{gap:9px;margin-bottom:19px}}
 @media(prefers-reduced-motion:reduce){.club-invite__store{transition:none}}
