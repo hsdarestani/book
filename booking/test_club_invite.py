@@ -2,9 +2,13 @@
 from pathlib import Path
 
 from django.conf import settings
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 
+@override_settings(STORAGES={
+    **settings.STORAGES,
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+})
 class BookingClubInviteTests(SimpleTestCase):
     def test_booking_page_has_hidden_club_invite_and_real_store_links(self):
         response = self.client.get("/")
