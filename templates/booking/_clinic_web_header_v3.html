@@ -1,0 +1,30 @@
+{# Canonical web header, reused by all non-calendar admin pages. #}
+<header class="admin-topbar sb-desktop-topbar clinic-header-v3" data-clinic-header>
+  <a class="clinic-header-brand" href="/verwaltung/dashboard/" aria-label="A+ Esthetic, Dashboard">
+    <span class="clinic-header-logo"><img src="{% static 'booking/logo.png' %}" alt="" width="36" height="36" loading="eager"></span>
+    <span class="clinic-header-wordmark"><strong>A+ Esthetic</strong><small>PRAXIS MANAGEMENT</small></span>
+  </a>
+  <nav class="clinic-header-nav" aria-label="Hauptnavigation">
+    <a data-clinic-page="dashboard" href="/verwaltung/dashboard/">Dashboard</a>
+    <a data-clinic-page="calendar" href="/verwaltung/kalender/">Kalender</a>
+    <a data-clinic-page="customers" href="/verwaltung/app/patients/">Kunden</a>
+    <a data-clinic-page="points" href="/verwaltung/app/wallet/">A+ Punkte</a>
+    <a data-clinic-page="reviews" class="clinic-nav-secondary" href="/verwaltung/app/reviews/">Bewertungen</a>
+    <a data-clinic-page="invoices" class="clinic-nav-secondary" href="/verwaltung/app/invoices/">Rechnungen</a>
+  </nav>
+  <div class="admin-actions clinic-header-actions">
+    <details class="clinic-header-more">
+      <summary aria-label="Weitere Bereiche" title="Weitere Bereiche"><span>Mehr</span><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <nav class="clinic-header-menu" aria-label="Weitere Seiten">
+        <span class="clinic-header-menu-title">Verwaltung</span>
+        <a data-clinic-page="invoices" href="/verwaltung/app/invoices/">Rechnungen</a>
+        <a data-clinic-page="reviews" href="/verwaltung/app/reviews/">Google Bewertungen</a>
+        <a data-clinic-page="referrals" href="/verwaltung/app/referrals/">Empfehlungen</a>
+        <a href="/verwaltung/mehr/#campaigns">Kampagnen</a>
+        <a data-clinic-page="hero" href="/verwaltung/app/hero/">Startseitenbilder</a>
+        <a data-clinic-page="more" href="/verwaltung/mehr/">Einstellungen & Mehr</a>
+      </nav>
+    </details>
+    <a class="clinic-header-exit" href="/verwaltung/logout/" aria-label="Abmelden" title="Abmelden"><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5m5 5H3m9-9h6a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-6"/></svg></a>
+  </div>
+</header>
