@@ -1,0 +1,50 @@
+/* A+ Esthetic clinic workspace: accessible, bounded media and responsive Akte. */
+html[data-admin-page="patients"]{overflow-x:hidden}
+html[data-admin-page="patients"] body.sb-admin-body{overflow-x:hidden}
+html[data-admin-page="patients"] .app-management-shell,
+html[data-admin-page="patients"] .app-patient-layout,
+html[data-admin-page="patients"] .app-core-panel,
+html[data-admin-page="patients"] .app-record-timeline{min-width:0;max-width:100%}
+html[data-admin-page="patients"] .app-focused-drawer img,
+html[data-admin-page="patients"] .app-focused-topbar img,
+html[data-admin-page="patients"] img.brand-logo{width:auto!important;height:auto!important;max-width:128px!important;max-height:38px!important;object-fit:contain!important}
+html[data-admin-page="patients"] .app-focused-drawer svg,
+html[data-admin-page="patients"] .app-focused-topbar svg,
+html[data-admin-page="patients"] .app-patient-toolbar svg,
+html[data-admin-page="patients"] .app-record-footer svg{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important;flex:none!important}
+html[data-admin-page="patients"] .app-patient-list strong,
+html[data-admin-page="patients"] .app-record-card strong{font-size:clamp(12px,1vw,15px)!important;line-height:1.5!important}
+html[data-admin-page="patients"] .app-patient-list span,
+html[data-admin-page="patients"] .app-record-card p,
+html[data-admin-page="patients"] .app-record-card small{font-size:12px!important;line-height:1.55!important}
+html[data-admin-page="patients"] .app-patient-upload label,
+html[data-admin-page="patients"] .patient-inline-form label{font-size:13px!important;line-height:1.45!important}
+html[data-admin-page="patients"] .app-patient-upload input,
+html[data-admin-page="patients"] .app-patient-upload select,
+html[data-admin-page="patients"] .app-patient-upload textarea{font-size:16px!important;min-height:46px}
+html[data-admin-page="patients"] .app-patient-upload small{display:block;color:#766c5e;font-size:12px;line-height:1.5;margin-top:5px}
+html[data-admin-page="patients"] .app-primary-btn,
+html[data-admin-page="patients"] .native-admin-photo button{min-height:46px!important;font-size:13px!important;letter-spacing:0!important}
+html[data-admin-page="patients"] .app-record-card{overflow-wrap:anywhere;min-width:0}
+html[data-admin-page="patients"] .app-record-card img{max-width:100%;height:auto;object-fit:cover}
+html[data-admin-page="patients"] .patient-command-card{min-width:0;max-width:100%}
+html[data-admin-page="patients"] .customer-profile-tabs{max-width:100%;overflow-x:auto;scrollbar-width:thin}
+html[data-admin-page="patients"] .customer-profile-tabs button{white-space:nowrap;min-height:44px;font-size:12px!important}
+html[data-admin-page="patients"] .app-record-timeline{overflow-x:hidden}
+body.patient-file-body .record-upload-form input[type=file]{max-width:100%;font-size:15px}
+body.patient-file-body .upload-many-note{display:block;margin-top:8px;font-size:12px;color:#736b60;line-height:1.4}
+body.patient-file-body .native-admin-photo{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
+body.patient-file-body .native-admin-photo button{min-height:46px;border:1px solid #ad8b4c;border-radius:12px;background:#2b2925;color:#fff;font-size:14px;font-weight:700;padding:10px 16px}
+body.patient-file-body .native-admin-photo span{font-size:12px;color:#766c61}
+body.patient-file-body .record-photo-preview img{max-width:100%;max-height:320px;object-fit:contain;border-radius:12px}
+@media (max-width:760px){
+ html[data-admin-page="patients"] .app-patient-layout{display:block}
+ html[data-admin-page="patients"] .app-upload-panel,
+ html[data-admin-page="patients"] .app-timeline-panel{width:100%;min-width:0}
+ html[data-admin-page="patients"] .app-patient-list a{min-width:0}
+ html[data-admin-page="patients"] .app-patient-list a>div{min-width:0}
+ html[data-admin-page="patients"] .patient-command-card{padding:18px 15px!important}
+ html[data-admin-page="patients"] .patient-command-copy h2{font-size:clamp(21px,6vw,27px)!important;overflow-wrap:anywhere}
+ html[data-admin-page="patients"] .app-record-head{display:flex;flex-wrap:wrap;gap:8px}
+ body.patient-file-body .record-upload-form{max-width:100%}
+}

@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
   {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% endif %}
-</head>
+<link rel="stylesheet" href="/static/booking/clinic-patient-polish-v1.css?v=20261020-1"></head>
 <body class="admin-body patient-file-body">
 <main class="admin-shell patient-file-shell">
   <header class="admin-topbar patient-file-topbar">
@@ -60,10 +60,11 @@
       <p>Fotos, Formulare, PDFs, Dokumente oder Notizen werden direkt dieser Patientenakte zugeordnet.</p>
       <form method="post" action="{% if doctor_mode %}/verwaltung/patienten/{{ customer.pk }}/{% else %}/verwaltung/patienten/{{ customer.pk }}/shared/add/{% endif %}" enctype="multipart/form-data" class="record-upload-form">
         {% csrf_token %}
+        {% if doctor_mode %}<input type="hidden" name="action" value="add_record">{% endif %}
         <label>Typ<select name="kind">{% for value,label in record_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
         <label>Titel <small>optional bei Datei</small><input name="title" maxlength="180" placeholder="z. B. Behandlungsinformation 04.09.2026"></label>
         <label>Zu Termin <small>optional</small><select name="appointment_id"><option value="">Keinem Termin zuordnen</option>{% for item in appointments %}<option value="{{ item.pk }}">{{ item.starts_at|date:"d.m.Y H:i" }} · {{ item.service.name }}</option>{% endfor %}</select></label>
-        <label class="secure-upload-zone"><span class="upload-icon">＋</span><strong>Datei auswählen</strong><small>Foto, PDF, Word, Excel, Text · max. {{ max_upload_mb }} MB</small><input type="file" name="file" multiple data-patient-file accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv,.heic,.heif"><span class="upload-many-note">Bis zu 12 Fotos oder Dateien in einem Schritt auswählen.</span></label>
+        <label class="secure-upload-zone"><span class="upload-icon">＋</span><strong>Datei auswählen</strong><small>Fotos oder Dateien, bis zu 12 auf einmal · je max. {{ max_upload_mb }} MB</small><input type="file" name="file" multiple data-patient-file accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv,.heic,.heif"><span class="upload-many-note">Bis zu 12 Fotos oder Dateien in einem Schritt auswählen.</span></label>
         <div class="native-admin-photo"><button type="button" data-admin-native-photo>Foto aufnehmen</button><span data-admin-photo-status>Foto wird direkt der geöffneten Patientenakte zugeordnet.</span></div><label>Notiz <small>optional</small><textarea name="note" rows="5" maxlength="6000" placeholder="Interne oder mit dem Kunden geteilte Information …"></textarea></label>
         <label class="patient-share-toggle"><input type="checkbox" name="shared_with_customer"><span><strong>In A+ App mit dem Kunden teilen</strong><small>Der Kunde kann diesen Eintrag dann in „Meine Patientenakte“ sehen und die Datei sicher öffnen.</small></span></label>
         <button class="admin-primary record-save" type="submit">In Patientenakte speichern</button>
