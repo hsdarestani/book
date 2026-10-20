@@ -38,7 +38,9 @@ def _payload(staff, day):
     }
 
 
-def _calendar_redirect(staff_id, day, notice='hours'):
+def _calendar_redirect(staff_id, day, notice='hours', *, doctor=False):
+    if doctor:
+        return redirect(f'/verwaltung/arzt/?section=calendar&date={day.isoformat()}&cal_view=day&notice={notice}')
     return redirect(f'/verwaltung/kalender/?date={day.isoformat()}&cal_view=day&staff={staff_id}&notice={notice}')
 
 
@@ -157,6 +159,10 @@ def calendar_day(request):
     staff = StaffMember.objects.filter(pk=staff_id, active=True).first()
     if not staff or not day:
         return _private_json({'ok': False, 'error': 'invalid_request'}, status=400)
+    from .doctor_views import _doctor_staff
+    doctor = _doctor_staff(request)
+    if doctor and doctor.pk != staff.pk:
+        return _private_json({'ok': False, 'error': 'doctor_staff_forbidden'}, status=403)
 
     start, end = _day_bounds(day)
     appointments = (
@@ -198,6 +204,10 @@ def day_availability(request):
         if request.method == 'GET':
             return _private_json({'ok': False, 'error': 'invalid_request'}, status=400)
         return redirect('/verwaltung/kalender/?notice=hours-error')
+    from .doctor_views import _doctor_staff
+    doctor = _doctor_staff(request)
+    if doctor and doctor.pk != staff.pk:
+        return _private_json({'ok': False, 'error': 'doctor_staff_forbidden'}, status=403)
 
     if request.method == 'GET':
         return _private_json({'ok': True, **_payload(staff, day)})
@@ -205,7 +215,7 @@ def day_availability(request):
     action = request.POST.get('action') or 'save'
     if action == 'reset':
         DailyAvailabilityOverride.objects.filter(staff=staff, date=day).delete()
-        return _calendar_redirect(staff.pk, day)
+        return _calendar_redirect(staff.pk, day, doctor=bool(doctor))
 
     closed = request.POST.get('closed') == 'on'
     start_1 = parse_time(request.POST.get('start_1') or '')
@@ -215,11 +225,11 @@ def day_availability(request):
 
     if not closed:
         if not start_1 or not end_1 or not _is_quarter(start_1) or not _is_quarter(end_1):
-            return _calendar_redirect(staff.pk, day, 'hours-error')
+            return _calendar_redirect(staff.pk, day, 'hours-error', doctor=bool(doctor))
         if bool(start_2) != bool(end_2):
-            return _calendar_redirect(staff.pk, day, 'hours-error')
+            return _calendar_redirect(staff.pk, day, 'hours-error', doctor=bool(doctor))
         if start_2 and (not _is_quarter(start_2) or not _is_quarter(end_2)):
-            return _calendar_redirect(staff.pk, day, 'hours-error')
+            return _calendar_redirect(staff.pk, day, 'hours-error', doctor=bool(doctor))
     else:
         start_1 = end_1 = start_2 = end_2 = None
 
@@ -232,6 +242,6 @@ def day_availability(request):
     try:
         override.full_clean()
     except ValidationError:
-        return _calendar_redirect(staff.pk, day, 'hours-error')
+        return _calendar_redirect(staff.pk, day, 'hours-error', doctor=bool(doctor))
     override.save()
-    return _calendar_redirect(staff.pk, day)
+    return _calendar_redirect(staff.pk, day, doctor=bool(doctor))
