@@ -22,8 +22,8 @@ class TabInspector(HTMLParser):
         a = dict(attrs)
         if a.get('data-customer-panel'):
             self.sections.append(a['data-customer-panel'])
-        if tag == "a" and a.get("aria-current") == "page":
-            self.active_links.append(a.get("href", ""))
+        if tag == "button" and a.get("aria-current") == "page":
+            self.active_links.append(a.get("value", ""))
 
 
 @override_settings(STORAGES={"staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
@@ -55,7 +55,7 @@ class PatientTabVisibilityTests(SimpleTestCase):
                 inspector.feed(html)
                 self.assertEqual(set(inspector.sections), set(expected))
                 self.assertEqual(len(inspector.active_links), 1)
-                self.assertIn("tab=" + tab, inspector.active_links[0])
+                self.assertEqual(tab, inspector.active_links[0])
                 self.assertEqual(html.count('data-customer-panel="' + tab + '"'), len(inspector.sections))
 
     def test_termine_never_leaks_into_overview_points_or_records(self):
@@ -88,16 +88,19 @@ class PatientTabVisibilityTests(SimpleTestCase):
         self.assertIn("Punkte anpassen", points)
         self.assertNotIn("Anrede & Kommunikation", points)
 
-    def test_tabs_are_native_links_and_do_not_require_js(self):
+    def test_tabs_are_native_get_buttons_and_do_not_require_js(self):
         html = self.render_tab("overview")
         self.assertIn('id="patient-tab-nav"', html)
-        self.assertIn("tab=records", html)
-        self.assertIn("q=Sophie", html)
+        self.assertIn('name="tab" value="records"', html)
+        self.assertIn('name="q" value="Sophie"', html)
+        self.assertIn('name="customer" value="1123"', html)
+        self.assertEqual(html.count('class="patient-tab-form"'), 4)
         self.assertNotIn("clinic-patient-tabs-v2.js", html)
-        self.assertIn('clinic-server-tabs-v1.css', html)
+        self.assertIn('clinic-patient-finish-v4.css', html)
         self.assertIn('location.replace(u.pathname+u.search)', html)
         css = (Path(__file__).resolve().parent.parent
-               / "static/booking/clinic-server-tabs-v1.css").read_text()
+               / "static/booking/clinic-patient-finish-v4.css").read_text()
         self.assertIn("position:static!important", css)
-        self.assertIn("#patient-tab-nav", css)
+        self.assertIn("patient-tab-button", css)
         self.assertIn("grid-template-columns:repeat(4", css)
+        self.assertIn("patient-profile-single", html)
