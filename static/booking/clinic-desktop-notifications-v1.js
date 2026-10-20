@@ -21,15 +21,20 @@
   let broadcast;
   try { broadcast = new BroadcastChannel('aesthetic-clinic-forms'); } catch (_) {}
 
+  const bell = '<svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="clinic-notification-status" aria-hidden="true"></span>';
   const updateButton = () => {
     const status = Notification.permission;
-    button.textContent = status === 'granted' ? '◉ Benachrichtigungen aktiv'
-      : status === 'denied' ? '⊘ Im Browser blockiert'
-      : '◌ Desktop-Mitteilungen aktivieren';
+    button.innerHTML = bell;
     button.dataset.permission = status;
-    button.title = status === 'denied'
+    button.setAttribute('aria-label', status === 'granted'
+      ? 'Desktop-Benachrichtigungen aktiv'
+      : status === 'denied' ? 'Benachrichtigungen im Browser blockiert'
+      : 'Desktop-Benachrichtigungen aktivieren');
+    button.title = status === 'granted'
+      ? 'Desktop-Benachrichtigungen sind aktiv.'
+      : status === 'denied'
       ? 'Bitte Benachrichtigungen in den Browser-Einstellungen erlauben.'
-      : 'Neue Patientenbögen als Desktop-Mitteilung erhalten, auch wenn der Tab im Hintergrund ist.';
+      : 'Desktop-Benachrichtigungen für neue Patientenbögen aktivieren';
   };
 
   const seenKey = id => 'aesthetic_form_notice_cursor:' + id;
