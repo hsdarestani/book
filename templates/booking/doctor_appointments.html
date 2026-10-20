@@ -2,14 +2,14 @@
 <!doctype html><html lang="de" data-admin-page="calendar"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Mein Kalender | A+ Esthetic Verwaltung</title>
-<link rel="stylesheet" href="{% static 'booking/app.css' %}">
-<link rel="stylesheet" href="{% static 'booking/admin.css' %}?v=20261006-calendar-v20">
-<link rel="stylesheet" href="{% static 'booking/patient.css' %}">
-<link rel="stylesheet" href="{% static 'booking/admin-luxury-v2.css' %}">
-<link rel="stylesheet" href="{% static 'booking/admin-luxury-v3.css' %}">
-<link rel="stylesheet" href="{% static 'booking/admin-shell-v10.css' %}">
-<link rel="stylesheet" href="{% static 'booking/admin-calendar-stability-v8.css' %}">
-<link rel="stylesheet" href="{% static 'booking/admin-ferrari-v17.css' %}">
+<link rel="stylesheet" href="/static/booking/app.css">
+<link rel="stylesheet" href="/static/booking/admin.css?v=20261006-calendar-v20">
+<link rel="stylesheet" href="/static/booking/patient.css">
+<link rel="stylesheet" href="/static/booking/admin-luxury-v2.css">
+<link rel="stylesheet" href="/static/booking/admin-luxury-v3.css">
+<link rel="stylesheet" href="/static/booking/admin-shell-v10.css">
+<link rel="stylesheet" href="/static/booking/admin-calendar-stability-v8.css">
+<link rel="stylesheet" href="/static/booking/admin-ferrari-v17.css">
 </head>
 <body class="admin-body sb-admin-body aplus-calendar-page" data-doctor-calendar="1">
 <header class="sb-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
@@ -17,7 +17,7 @@
 <button type="button" class="sb-icon-button" data-view-menu-open aria-label="Ansicht ändern">⋯</button></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div>
 <aside class="sb-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand">
-<img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Meine Verwaltung</span></div></div>
+<img src="/static/booking/logo.png" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Meine Verwaltung</span></div></div>
 <nav class="sb-drawer-nav">
 <a href="#uebersicht"><span>▦</span>Übersicht</a>
 <a href="#kalender"><span>▣</span>Kalender</a>
@@ -31,7 +31,7 @@
 <a href="#einstellungen">Arbeitszeiten</a></div>
 <main class="admin-shell sb-admin-shell">
 <header class="admin-topbar sb-desktop-topbar"><div class="admin-brand">
-<a class="brand brand-image" href="/verwaltung/arzt/" aria-label="A+ Esthetic"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"></a>
+<a class="brand brand-image" href="/verwaltung/arzt/" aria-label="A+ Esthetic"><img class="brand-logo" src="/static/booking/logo.png" alt="A+ Esthetic"></a>
 <div class="brand-meta">Meine Verwaltung · Dr. {{ staff.display_name }}</div></div>
 <nav class="admin-nav" aria-label="Verwaltung"><a href="#uebersicht">Übersicht</a><a href="#kalender">Kalender</a><a href="#termine">Meine Buchungen</a><a href="#einstellungen">Arbeitszeiten</a></nav>
 <div class="admin-actions"><a href="/verwaltung/logout/">Abmelden</a></div></header>
