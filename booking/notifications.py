@@ -75,6 +75,7 @@ def _push(appointment, *, target, event, title, body):
     url = str(getattr(settings, "AESTHETIC_BOOKING_NOTIFICATION_URL", DEFAULT_RELAY_URL) or DEFAULT_RELAY_URL)
     return _post_internal(url, {
         "target": target,
+        "staff_name": appointment.staff.display_name if target == "doctor" else "",
         "event": event,
         "title": title,
         "body": body,
@@ -94,6 +95,13 @@ def _referral_booking(appointment):
     })
 
 
+def _notify_doctor(appointment, *, event, title, body):
+    """Only the clinician assigned to this booking can receive its notification."""
+    if appointment.staff.display_name.strip().casefold() != 'qamar hameed':
+        return {"ok": True, "skipped": "different_doctor"}
+    return _push(appointment, target="doctor", event=event, title=title, body=body)
+
+
 def notify_booking_created(appointment):
     local = _local_start(appointment)
     customer = _push(
@@ -104,7 +112,11 @@ def notify_booking_created(appointment):
         appointment, target="admin", event="booking_created", title="Neue Buchung",
         body=f"{appointment.customer.full_name} · {appointment.service.name} · {local:%d.%m.%Y %H:%M} · {appointment.staff.display_name}",
     )
-    return {"customer": customer, "admin": admin, "referral": _referral_booking(appointment)}
+    doctor = _notify_doctor(
+        appointment, event="booking_created", title="Neuer Termin",
+        body=f"{appointment.customer.full_name} · {appointment.service.name} · {local:%d.%m.%Y %H:%M}",
+    )
+    return {"customer": customer, "admin": admin, "doctor": doctor, "referral": _referral_booking(appointment)}
 
 
 def notify_customer_cancelled(appointment):
@@ -118,7 +130,11 @@ def notify_customer_cancelled(appointment):
         body=f"{appointment.customer.full_name} hat den Termin {appointment.service.name} am {local:%d.%m.%Y um %H:%M} storniert.",
     )
     send_appointment_event_emails(appointment, "cancelled", include_admin=True)
-    return {"customer": customer, "admin": admin}
+    doctor = _notify_doctor(
+        appointment, event="booking_cancelled", title="Termin storniert",
+        body=f"{appointment.customer.full_name} · {local:%d.%m.%Y %H:%M}",
+    )
+    return {"customer": customer, "admin": admin, "doctor": doctor}
 
 
 def notify_customer_rescheduled(appointment):
@@ -132,7 +148,11 @@ def notify_customer_rescheduled(appointment):
         body=f"{appointment.customer.full_name} · {appointment.service.name} · neu {local:%d.%m.%Y um %H:%M}.",
     )
     send_appointment_event_emails(appointment, "changed", include_admin=True)
-    return {"customer": customer, "admin": admin}
+    doctor = _notify_doctor(
+        appointment, event="booking_rescheduled", title="Termin verschoben",
+        body=f"{appointment.customer.full_name} · {local:%d.%m.%Y %H:%M}",
+    )
+    return {"customer": customer, "admin": admin, "doctor": doctor}
 
 
 def notify_admin_created(appointment):
@@ -142,6 +162,10 @@ def notify_admin_created(appointment):
         body=f"Für Sie wurde ein Termin für {appointment.service.name} am {local:%d.%m.%Y} um {local:%H:%M} eingetragen.",
     )
     _referral_booking(appointment)
+    _notify_doctor(
+        appointment, event="booking_created", title="Neuer Termin",
+        body=f"{appointment.customer.full_name} · {local:%d.%m.%Y %H:%M}",
+    )
     return result
 
 
@@ -171,6 +195,10 @@ def notify_admin_changed(appointment, previous):
         or previous.get("service_id") != current.get("service_id")
     ):
         send_appointment_event_emails(appointment, "changed", include_admin=False)
+    _notify_doctor(
+        appointment, event=event, title="Termin aktualisiert",
+        body=f"{appointment.customer.full_name} · {local:%d.%m.%Y %H:%M}",
+    )
     return result
 
 
@@ -181,6 +209,10 @@ def notify_admin_deleted(appointment):
         body=f"Ihr Termin für {appointment.service.name} am {local:%d.%m.%Y} um {local:%H:%M} wurde abgesagt.",
     )
     send_appointment_event_emails(appointment, "cancelled", include_admin=False)
+    _notify_doctor(
+        appointment, event="booking_cancelled", title="Termin abgesagt",
+        body=f"{appointment.customer.full_name} · {local:%d.%m.%Y %H:%M}",
+    )
     return result
 
 
