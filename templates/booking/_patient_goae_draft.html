@@ -1,7 +1,12 @@
-<section class="admin-panel app-core-panel is-tab-hidden" data-customer-panel="records" style="margin-top:14px">
-  <div class="panel-head"><div><h2>Rechnung nach GOÄ</h2>
-    <p>Privatpraxis Ariane Regaei · Entwurf für {{ selected_customer.first_name }} {{ selected_customer.last_name }}</p></div></div>
+<section class="admin-panel app-core-panel patient-goae-panel">
+  <details class="patient-goae-details">
+    <summary><span><strong>Rechnung nach GOÄ</strong>
+      <small>Privatpraxis Ariane Regaei · Entwurf für {{ selected_customer.first_name }} {{ selected_customer.last_name }}</small></span>
+      <span class="goae-details-arrow" aria-hidden="true">⌄</span>
+    </summary>
+    <div class="goae-details-body">
   {% if remote_customer_id and not view_only %}
+  <p class="goae-context">GOÄ Angaben vor dem Speichern prüfen. Der Entwurf ist keine endgültige Rechnung.</p>
   <form method="post" class="app-patient-upload">
     {% csrf_token %}<input type="hidden" name="action" value="patient_goae_draft">
     <input type="hidden" name="customer_id" value="{{ selected_customer.pk }}">
@@ -19,5 +24,14 @@
     </div>
     <button type="submit" class="app-primary-btn">GOÄ Entwurf erstellen</button>
   </form>
-  {% else %}<p>Verknüpftes App-Kundenkonto und Admin-Zugriff erforderlich.</p>{% endif %}
+  {% elif view_only %}
+  <p class="goae-context">Für die Abrechnung ist der Zugang der Praxisverwaltung erforderlich.</p>
+  {% else %}
+    <div class="goae-no-account">
+      <p>Für diesen Patienten ist noch kein App Konto eindeutig verknüpft. Die vorhandene Akte bleibt unverändert; es wird kein zweites Patientenprofil erstellt.</p>
+      <a href="/verwaltung/app/invoices/">Zum Rechnungsbereich</a>
+    </div>
+  {% endif %}
+    </div>
+  </details>
 </section>
