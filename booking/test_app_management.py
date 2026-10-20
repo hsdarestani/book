@@ -159,6 +159,31 @@ class AppManagementTests(TestCase):
         self.assertContains(records, 'Foto aufnehmen')
         self.assertContains(records, 'admin-native-camera-v11.js')
 
+    @patch('booking.app_management_views._api')
+    def test_patient_tab_get_submission_keeps_selected_tab(self, api):
+        """Reproduce live click bug: submitter can be disabled, hidden tab still sent."""
+        customer, _, _, _ = self._booking_fixture()
+        api.return_value = {'ok': True, 'customers': []}
+        path = '/verwaltung/app/patients/'
+        expected = {
+            'overview': ('Anrede & Kommunikation', 'Neuer Akteneintrag'),
+            'appointments': ('Alle Reservierungen dieses Patienten.', 'Neuer Akteneintrag'),
+            'records': ('Neuer Akteneintrag', 'Anrede & Kommunikation'),
+            'points': ('Punkte anpassen', 'Anrede & Kommunikation'),
+        }
+        for tab, (visible, absent) in expected.items():
+            with self.subTest(tab=tab):
+                # Browser sends hidden GET fields even if submit button is disabled.
+                response = self.client.get(path, {
+                    'customer': str(customer.pk), 'q': 'Anna', 'tab': tab,
+                })
+                self.assertEqual(response.status_code, 200, response.content[:300])
+                self.assertContains(response, visible)
+                self.assertNotContains(response, absent)
+                self.assertContains(response, f'<input type="hidden" name="tab" value="{tab}">')
+                self.assertContains(response, 'data-clinic-profile-build="4"')
+                self.assertEqual(response.context['customer_tab'], tab)
+
     def test_local_view_only_doctor_can_read_patient_but_cannot_post(self):
         customer, _, staff, _ = self._booking_fixture()
         session = self.client.session
