@@ -1,0 +1,23 @@
+<section class="admin-panel app-core-panel is-tab-hidden" data-customer-panel="records" style="margin-top:14px">
+  <div class="panel-head"><div><h2>Rechnung nach GOÄ</h2>
+    <p>Privatpraxis Ariane Regaei · Entwurf für {{ selected_customer.first_name }} {{ selected_customer.last_name }}</p></div></div>
+  {% if remote_customer_id and not view_only %}
+  <form method="post" class="app-patient-upload">
+    {% csrf_token %}<input type="hidden" name="action" value="patient_goae_draft">
+    <input type="hidden" name="customer_id" value="{{ selected_customer.pk }}">
+    <div class="app-form-grid">
+      <label>Leistungsdatum<input type="date" name="service_date" required></label>
+      <label>GOÄ Nummer<input name="goae_number" maxlength="24" required></label>
+      <label>Leistungsbezeichnung<input name="goae_description" maxlength="220" required></label>
+      <label>Einfachsatz EUR<input name="goae_base_eur" inputmode="decimal" placeholder="10,00" required></label>
+      <label>Steigerungsfaktor<input name="goae_factor" inputmode="decimal" placeholder="2,30" required></label>
+      <label>Umsatzsteuerstatus<select name="goae_vat_rate" required>
+        <option value="">Bitte prüfen</option><option value="0">0 %</option>
+        <option value="7">7 %</option><option value="19">19 %</option>
+      </select></label>
+      <label>Begründung bei erhöhtem Faktor<input name="goae_justification" maxlength="1500"></label>
+    </div>
+    <button type="submit" class="app-primary-btn">GOÄ Entwurf erstellen</button>
+  </form>
+  {% else %}<p>Verknüpftes App-Kundenkonto und Admin-Zugriff erforderlich.</p>{% endif %}
+</section>
