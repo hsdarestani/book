@@ -23,7 +23,7 @@ class TabInspector(HTMLParser):
         if a.get('data-customer-panel'):
             self.sections.append(a['data-customer-panel'])
         if tag == "button" and a.get("aria-current") == "page":
-            self.active_links.append(a.get("value", ""))
+            self.active_links.append(a.get("data-customer-tab", ""))
 
 
 @override_settings(STORAGES={"staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
@@ -91,10 +91,11 @@ class PatientTabVisibilityTests(SimpleTestCase):
     def test_tabs_are_native_get_buttons_and_do_not_require_js(self):
         html = self.render_tab("overview")
         self.assertIn('id="patient-tab-nav"', html)
-        self.assertIn('name="tab" value="records"', html)
+        self.assertIn('<input type="hidden" name="tab" value="records">', html)
         self.assertIn('name="q" value="Sophie"', html)
         self.assertIn('name="customer" value="1123"', html)
         self.assertEqual(html.count('class="patient-tab-form"'), 4)
+        self.assertNotIn('type="submit" name="tab"', html)
         self.assertNotIn("clinic-patient-tabs-v2.js", html)
         self.assertIn('clinic-patient-finish-v4.css', html)
         self.assertIn('location.replace(u.pathname+u.search)', html)
