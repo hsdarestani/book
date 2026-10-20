@@ -97,10 +97,24 @@ class APlusAdminNavigationMiddleware:
         return bool(profile and profile.view_only)
 
     def __call__(self, request):
-        if request.path.startswith('/verwaltung/') and request.method not in {'GET', 'HEAD', 'OPTIONS'} and self._view_only(request):
-            return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
+        view_only = self._view_only(request)
+        if view_only:
+            # An allowlist, not UI hiding: no other patients, doctors, endpoints
+            # or Django admin screens can be accessed using a clinical session.
+            allowed = {
+                '/verwaltung/arzt/', '/verwaltung/logout/', '/verwaltung/login/',
+                '/verwaltung/app/', '/verwaltung/app-sso/',
+            }
+            if request.path.startswith('/admin/') or (
+                request.path.startswith('/verwaltung/') and request.path not in allowed
+            ):
+                return HttpResponseForbidden('Dieser Zugang ist auf eigene Termine beschränkt.')
+            if request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.path != '/verwaltung/app-sso/':
+                return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
 
         response = self.get_response(request)
+        if view_only:
+            return response
         if not request.path.startswith('/verwaltung/'):
             return response
         if response.status_code != 200 or 'text/html' not in response.get('Content-Type', ''):
