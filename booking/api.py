@@ -8,6 +8,7 @@ from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.http import require_GET, require_POST
 
 from .emails import send_booking_emails
+from .customer_identity import resolve_patient_identity
 from .models import Customer, Service, StaffMember
 from .notifications import notify_booking_created
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
@@ -173,19 +174,20 @@ def appointments(request):
             })
 
     with transaction.atomic():
-        customer = Customer.objects.filter(email__iexact=email).order_by('pk').first()
+        first = str(data.get('first_name') or '').strip()[:80]
+        last = str(data.get('last_name') or '').strip()[:80]
+        phone = str(data.get('phone') or '').strip()[:40]
+        customer, conflict = resolve_patient_identity(
+            email=email, phone=phone, first_name=first, last_name=last)
+        if conflict:
+            return _error('identity_conflict', 'Patientendaten bitte mit der Praxis klären.', 409)
         if customer:
-            customer.first_name = str(data.get('first_name')).strip()[:80]
-            customer.last_name = str(data.get('last_name')).strip()[:80]
-            customer.phone = str(data.get('phone')).strip()[:40]
-            customer.save(update_fields=['first_name', 'last_name', 'phone', 'updated_at'])
+            customer.first_name, customer.last_name = first, last
+            customer.phone, customer.email = phone, email
+            customer.save(update_fields=['first_name', 'last_name', 'phone', 'email', 'updated_at'])
         else:
             customer = Customer.objects.create(
-                first_name=str(data.get('first_name')).strip()[:80],
-                last_name=str(data.get('last_name')).strip()[:80],
-                phone=str(data.get('phone')).strip()[:40],
-                email=email,
-            )
+                first_name=first, last_name=last, phone=phone, email=email)
         try:
             appointment, created = create_appointment(
                 customer=customer,

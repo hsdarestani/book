@@ -13,6 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .emails import send_booking_emails
+from .customer_identity import resolve_patient_identity
 from .models import Appointment, Customer, Service, StaffMember
 from .notifications import notify_booking_created, notify_customer_cancelled, notify_customer_rescheduled
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
@@ -86,15 +87,21 @@ def _member(request):
 
 
 def _customer(member):
-    item = Customer.objects.filter(email__iexact=member['email']).order_by('pk').first()
+    item, conflict = resolve_patient_identity(
+        email=member['email'], phone=member['phone'],
+        first_name=member['first_name'], last_name=member['last_name'])
+    if conflict:
+        raise ValueError('identity_conflict')
     if item:
         item.first_name = member['first_name']
         item.last_name = member['last_name']
         item.phone = member['phone']
-        item.save(update_fields=['first_name', 'last_name', 'phone', 'updated_at'])
+        item.email = member['email']
+        item.save(update_fields=['first_name', 'last_name', 'phone', 'email', 'updated_at'])
         return item
     return Customer.objects.create(
-        first_name=member['first_name'], last_name=member['last_name'], phone=member['phone'], email=member['email'],
+        first_name=member['first_name'], last_name=member['last_name'],
+        phone=member['phone'], email=member['email'],
     )
 
 
@@ -193,7 +200,10 @@ def mobile_booking(request):
         if not staff:
             return _error('time_not_available', 'Diese Zeit ist inzwischen nicht mehr verfügbar.', 409)
 
-        customer = _customer(member)
+        try:
+            customer = _customer(member)
+        except ValueError:
+            return _error('identity_conflict', 'Patientendaten bitte mit der Praxis klären.', 409)
         supplied_key = (request.headers.get('Idempotency-Key') or '').strip()[:80]
         if supplied_key:
             idem_key = supplied_key

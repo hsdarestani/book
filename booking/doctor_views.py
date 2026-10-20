@@ -13,6 +13,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from .models import Appointment, BlockedPeriod, DailyAvailabilityOverride, WorkingHour
+from .customer_identity import resolve_patient_identity
 from .notifications import appointment_snapshot, notify_admin_changed
 from .services import available_slots, effective_working_ranges
 from .views import _calendar_position, _calendar_block_kind, _clean_calendar_reason, CALENDAR_START_HOUR, CALENDAR_END_HOUR
@@ -283,8 +284,11 @@ def _create_own_customer(staff, post):
     email = str(post.get('email') or '').strip().lower()[:254]
     if not first or '@' not in email:
         raise ValidationError('Name und E-Mail erforderlich.')
-    existing = Customer.objects.filter(email__iexact=email).first()
-    if existing and not Appointment.objects.filter(staff_id=staff.pk, customer_id=existing.pk).exists():
+    existing, conflict = resolve_patient_identity(
+        email=email, phone=post.get('phone'), first_name=first, last_name=last)
+    if conflict:
+        raise ValidationError('Patientendaten sind widersprüchlich. Bitte Verwaltung prüfen.')
+    if existing and existing.pk not in _own_customer_ids(staff):
         raise ValidationError('Patient kann hier nicht übernommen werden.')
     from .models import DoctorPatientAccess
     if existing:
