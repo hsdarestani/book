@@ -140,4 +140,18 @@ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="do
 }
 @media(max-width:980px){
  html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-v3{display:none!important}
+ /* Most legacy mobile headers started at 760px. Keep navigation available
+    between 761 and 980px too, including portrait tablets. */
+ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.sb-admin-body{
+   padding-top:64px!important;
+ }
+ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.sb-admin-body>.sb-mobile-bar{
+   box-sizing:border-box!important;display:grid!important;
+   grid-template-columns:44px minmax(0,1fr) 44px!important;
+   align-items:center!important;position:fixed!important;top:0!important;left:0!important;right:0!important;
+   width:100%!important;height:64px!important;min-height:64px!important;
+   padding:0 12px!important;z-index:70!important;
+   background:#24231f!important;color:#fff!important;
+   border-bottom:1px solid #37332e!important;
+ }
 }
