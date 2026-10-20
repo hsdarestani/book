@@ -4,6 +4,19 @@
   // One canonical A+ Management navigation. Customer CRM and patient records now
   // live in one customer area; calendar grid/timeline behaviour is untouched.
   const path = window.location.pathname;
+  // Doctor and full admin intentionally share this exact navigation component.
+  // The server remains the authority for clinician access, but inaccessible
+  // management pages should never be offered as navigation choices.
+  const doctorRole = document.documentElement.dataset.doctorRole === '1'
+    || document.body?.dataset.doctorCalendar === '1';
+  const doctorSection = new URLSearchParams(window.location.search).get('section') || 'calendar';
+  const doctorItems = [
+    ['dashboard', '⌂', 'Dashboard', '/verwaltung/arzt/?section=dashboard'],
+    ['calendar', '▣', 'Kalender', '/verwaltung/arzt/?section=calendar'],
+    ['bookings', '▤', 'Meine Buchungen', '/verwaltung/arzt/?section=bookings'],
+    ['customers', '♙', 'Meine Patienten', '/verwaltung/arzt/?section=customers'],
+    ['settings', '◷', 'Arbeitszeiten', '/verwaltung/arzt/?section=settings'],
+  ];
 
   // Retire the duplicate legacy customer surface without breaking old bookmarks.
   if (/^\/verwaltung\/kunden\/?$/.test(path)) {
@@ -13,6 +26,10 @@
   }
 
   const page = (() => {
+    if (doctorRole) {
+      if (/^\/verwaltung\/patienten\//.test(path)) return 'customers';
+      return doctorItems.some(([key]) => key === doctorSection) ? doctorSection : 'calendar';
+    }
     if (/^\/verwaltung\/dashboard\/?$/.test(path)) return 'dashboard';
     if (path === '/verwaltung/' || path.includes('/kalender/')) return 'calendar';
     if (path.includes('/app/patients/') || /\/verwaltung\/patienten\//.test(path)) return 'customers';
@@ -27,7 +44,7 @@
 
   if (page !== 'other') document.documentElement.dataset.adminPage = page;
 
-  const items = [
+  const items = doctorRole ? doctorItems : [
     ['dashboard', '⌂', 'Dashboard', '/verwaltung/dashboard/'],
     ['calendar', '▣', 'Kalender', '/verwaltung/kalender/'],
     ['customers', '♙', 'Kunden', '/verwaltung/app/patients/'],
@@ -55,7 +72,7 @@
       brand.className = 'sb-drawer-brand';
       drawer.prepend(brand);
     }
-    brand.innerHTML = '<img src="/static/booking/logo.png" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div>';
+    brand.innerHTML = '<img src="/static/booking/logo.png" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>' + (doctorRole ? 'DOCTOR' : 'Management') + '</span></div>';
 
     let nav = drawer.querySelector('.sb-drawer-nav');
     if (!nav) {
@@ -91,7 +108,9 @@
     const title = document.querySelector('.sb-mobile-title');
     const titles = {
       dashboard: 'Dashboard',
-      customers: 'Kunden',
+      customers: doctorRole ? 'Meine Patienten' : 'Kunden',
+      bookings: 'Meine Buchungen',
+      settings: 'Arbeitszeiten',
       points: 'A+ Punkte',
       reviews: 'Google Bewertungen',
       referrals: 'Empfehlungen',

@@ -84,6 +84,28 @@ class APlusAdminNavigationMiddleware:
 </aside>
 '''
 
+    PATIENT_MOBILE_SHELL_DOCTOR = '''
+<header class="sb-mobile-bar app-mobile-bar">
+  <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
+  <strong class="sb-mobile-title">Patientenakte</strong>
+  <span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span>
+</header>
+<div class="sb-drawer-backdrop" data-drawer-backdrop></div>
+<aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true">
+  <div class="sb-drawer-brand"><img src="/static/booking/logo.png" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Doctor</span></div></div>
+  <nav class="sb-drawer-nav app-focused-nav">
+    <div class="lux-nav-label">MEINE VERWALTUNG</div>
+    <a href="/verwaltung/arzt/?section=dashboard"><span>⌂</span>Dashboard</a>
+    <a href="/verwaltung/arzt/?section=calendar"><span>▣</span>Kalender</a>
+    <a href="/verwaltung/arzt/?section=bookings"><span>▤</span>Meine Buchungen</a>
+    <a href="/verwaltung/arzt/?section=customers"><span>♙</span>Meine Patienten</a>
+    <a href="/verwaltung/arzt/?section=settings"><span>◷</span>Arbeitszeiten</a>
+    <div class="lux-nav-break"></div>
+    <a href="/verwaltung/logout/"><span>↪</span>Abmelden</a>
+  </nav>
+</aside>
+'''
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -181,7 +203,11 @@ class APlusAdminNavigationMiddleware:
             if body_start >= 0:
                 body_open_end = html.find('>', body_start)
                 if body_open_end >= 0:
-                    html = html[:body_open_end + 1] + self.PATIENT_MOBILE_SHELL + html[body_open_end + 1:]
+                    html = (
+                    html[:body_open_end + 1]
+                    + (self.PATIENT_MOBILE_SHELL_DOCTOR if qamar_scope else self.PATIENT_MOBILE_SHELL)
+                    + html[body_open_end + 1:]
+                )
 
         if is_aplus and not is_calendar:
             html = html.replace('<button type="button" class="sb-icon-button" data-view-menu-open aria-label="Ansicht ändern">⋯</button>', '<span class="sb-icon-button" aria-hidden="true"></span>')

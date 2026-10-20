@@ -173,6 +173,48 @@ class DoctorPrivateCalendarTests(TestCase):
                                           'appointment_id': self.theirs.pk})
         self.assertEqual(response.status_code, 404)
 
+    def test_doctor_navigation_shows_only_working_role_links(self):
+        from pathlib import Path
+        html = self.client.get('/verwaltung/arzt/', {
+            'section': 'calendar', 'date': self.day.isoformat(),
+        })
+        self.assertEqual(html.status_code, 200)
+        self.assertContains(html, 'data-doctor-role="1"')
+        self.assertContains(html, 'admin-unified-nav-v14.js?v=20261020-doctor-menu')
+        for section in ('dashboard', 'calendar', 'bookings', 'customers', 'settings'):
+            self.assertContains(html, f'/verwaltung/arzt/?section={section}')
+            landing = self.client.get('/verwaltung/arzt/', {'section': section})
+            self.assertEqual(landing.status_code, 200)
+            self.assertNotContains(landing, 'Fremde Patientin')
+        for forbidden in ('/verwaltung/app/wallet/', '/verwaltung/app/reviews/',
+                          '/verwaltung/app/referrals/', '/verwaltung/app/invoices/',
+                          '/verwaltung/app/hero/', '/verwaltung/mehr/'):
+            self.assertNotContains(html, f'href="{forbidden}"')
+        script = (Path(__file__).resolve().parent.parent /
+                  'static/booking/admin-unified-nav-v14.js').read_text(encoding='utf-8')
+        self.assertIn('const items = doctorRole ? doctorItems', script)
+        self.assertIn("'Meine Buchungen', '/verwaltung/arzt/?section=bookings'", script)
+        self.assertIn("'Arbeitszeiten', '/verwaltung/arzt/?section=settings'", script)
+
+    def test_doctor_patient_record_menu_uses_scoped_navigation(self):
+        response = self.client.get(f'/verwaltung/patienten/{self.mine.customer.pk}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-doctor-role="1"')
+        self.assertContains(response, '/verwaltung/arzt/?section=customers')
+        self.assertContains(response, 'admin-unified-nav-v14.js?v=20261020-doctor-menu')
+        self.assertNotContains(response, 'href="/verwaltung/app/wallet/"')
+        self.assertNotContains(response, 'href="/verwaltung/dashboard/"')
+
+    def test_booking_status_save_returns_to_booking_tab(self):
+        url = '/verwaltung/arzt/?section=bookings&date=' + self.day.isoformat()
+        response = self.client.post(url, {
+            'action': 'appointment_status', 'appointment_id': self.mine.pk,
+            'status': 'confirmed',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('section=bookings', response.url)
+        self.assertIn('notice=saved', response.url)
+
     def test_native_admin_calendar_api_is_scoped_to_own_staff(self):
         path = '/verwaltung/api/calendar-day/'
         own = self.client.get(path, {'staff': self.doctor.pk, 'date': self.day.isoformat()})

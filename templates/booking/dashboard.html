@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
   <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261020-role-admin"></script>
   <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20260923-v19"></script>
+  {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% endif %}
 </head>
 <body class="admin-body sb-admin-body" {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
 
@@ -26,12 +27,21 @@
     <div><strong>A+ Esthetic</strong><span>Buchungsverwaltung</span></div>
   </div>
   <nav class="sb-drawer-nav">
+    {% if doctor_mode %}
+    <a href="/verwaltung/arzt/?section=dashboard"><span>⌂</span>Dashboard</a>
+    <a href="/verwaltung/arzt/?section=calendar"><span>▣</span>Kalender</a>
+    <a href="/verwaltung/arzt/?section=bookings"><span>▤</span>Meine Buchungen</a>
+    <a href="/verwaltung/arzt/?section=customers"><span>♙</span>Meine Patienten</a>
+    <a href="/verwaltung/arzt/?section=settings"><span>◷</span>Arbeitszeiten</a>
+    {% else %}
     <a href="#uebersicht"><span>▦</span>Dashboard</a>
     <a href="#kalender"><span>▣</span>Kalender</a>
         <button type="button" data-open-note><span>✎</span>Notizen</button>
     <a href="#kunden"><span>♙</span>Kunden</a>
     <a href="{% if doctor_mode %}#einstellungen{% else %}/verwaltung/mehr/{% endif %}"><span>⋯</span>Mehr</a>
-    <a href="/verwaltung/logout/"><span>↪</span>Logout</a>
+
+    {% endif %}
+    <a href="/verwaltung/logout/"><span>↪</span>Abmelden</a>
   </nav>
 </aside>
 
