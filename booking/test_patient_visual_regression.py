@@ -12,16 +12,19 @@ STATIC = ROOT / "static" / "booking"
 
 
 class PatientVisualRegressionTests(SimpleTestCase):
-    def test_customer_view_contains_last_resort_inline_tab_design(self):
+    def test_customer_view_has_native_buttons_and_independent_inline_styles(self):
         tpl = get_template("booking/app_management.html").template.source
-        self.assertIn("clinic-patient-critical-v3", tpl)
-        self.assertIn("clinic-patient-finish-v3.css", tpl)
-        self.assertIn('#patient-tab-nav.customer-profile-tabs>a', tpl)
+        self.assertIn("clinic-patient-critical-v4", tpl)
+        self.assertIn("clinic-patient-finish-v4.css", tpl)
+        self.assertIn('#patient-tab-nav.customer-profile-tabs .patient-tab-button', tpl)
         self.assertIn("text-decoration:none!important", tpl)
         self.assertIn("position:static!important", tpl)
         self.assertIn("grid-template-columns:repeat(4", tpl)
-        self.assertIn('<a href="?customer=', tpl)
-        # The custom CSS must not be injected into other pages.
+        self.assertIn('name="tab" value="records"', tpl)
+        self.assertIn('data-clinic-profile-build="4"', tpl)
+        self.assertIn('class="patient-profile-single"', tpl)
+        self.assertIn("display:block!important;width:100%!important", tpl)
+        self.assertNotIn('<a href="?customer=', tpl)
         self.assertIn("{% if section == 'patients' %}", tpl)
 
     def test_checkbox_is_normal_size_and_remains_accessible(self):
@@ -46,5 +49,5 @@ class PatientVisualRegressionTests(SimpleTestCase):
 
     def test_calendar_template_does_not_receive_patient_css(self):
         calendar = get_template("booking/dashboard.html").template.source
-        self.assertNotIn("clinic-patient-finish-v3.css", calendar)
-        self.assertNotIn("clinic-patient-critical-v3", calendar)
+        self.assertNotIn("clinic-patient-finish-v4.css", calendar)
+        self.assertNotIn("clinic-patient-critical-v4", calendar)
