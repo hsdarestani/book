@@ -51,6 +51,18 @@ class DoctorPrivateCalendarTests(TestCase):
         self.assertNotContains(response, '/verwaltung/patienten/')
         self.assertNotContains(response, 'Andere Ärztin')
 
+    def test_calendar_content_is_not_hidden_until_admin_javascript_runs(self):
+        from pathlib import Path
+        css = (Path(__file__).resolve().parent.parent /
+               'static/booking/admin-fixes.css').read_text(encoding='utf-8')
+        self.assertIn('body.sb-admin-body:not([data-doctor-calendar="1"]):not(:has(.sb-page-hidden))', css)
+        result = self.client.get('/verwaltung/arzt/', {'date': self.day.isoformat()})
+        self.assertEqual(result.status_code, 200)
+        self.assertContains(result, 'data-doctor-calendar="1"')
+        self.assertContains(result, 'data-doctor-calendar-first-paint')
+        self.assertContains(result, 'visibility:visible!important')
+        self.assertContains(result, 'Meine Patientin')
+
     def test_other_admin_surfaces_and_write_apis_are_rejected(self):
         for url in ['/verwaltung/dashboard/', '/verwaltung/kalender/', '/verwaltung/kunden/',
                     '/verwaltung/mehr/', '/verwaltung/patienten/1/', '/verwaltung/api/day-availability/',
