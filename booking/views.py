@@ -180,7 +180,9 @@ def patient_file(request, customer_id):
                     source='book_staff' if doctor_staff else 'manual',
                 )
             except PatientUploadError as exc:
-                return redirect(f'/verwaltung/patienten/{customer.pk}/?notice={str(exc)}#akte')
+                notice_code = {'file_type': 'file-type', 'file_size': 'file-size',
+                               'type_error': 'type-error'}.get(str(exc), str(exc))
+                return redirect(f'/verwaltung/patienten/{customer.pk}/?notice={notice_code}#akte')
             if shared:
                 from .patient_portal import _notify_customer
                 for record in records:
