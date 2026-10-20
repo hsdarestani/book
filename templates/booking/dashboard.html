@@ -5,11 +5,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <title>Verwaltung | A+ Esthetic Buchung</title>
-  <link rel="stylesheet" href="{% static 'booking/app.css' %}">
-  <link rel="stylesheet" href="{% static 'booking/admin.css' %}?v=20261006-calendar-v20">
-  <link rel="stylesheet" href="{% static 'booking/patient.css' %}">
-  <script defer src="{% static 'booking/admin.js' %}?v=20261020-role-admin"></script>
-  <script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260923-v19"></script>
+  <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/app.css{% else %}{% static 'booking/app.css' %}{% endif %}">
+  <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}?v=20261006-calendar-v20">
+  <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
+  <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261020-role-admin"></script>
+  <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20260923-v19"></script>
 </head>
 <body class="admin-body sb-admin-body" {% if doctor_mode %}data-doctor-calendar="1"{% endif %}>
 
@@ -22,7 +22,7 @@
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div>
 <aside class="sb-drawer" data-drawer aria-hidden="true">
   <div class="sb-drawer-brand">
-    <img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic">
+    <img src="{% if doctor_mode %}/static/booking/logo.png{% else %}{% static 'booking/logo.png' %}{% endif %}" alt="A+ Esthetic">
     <div><strong>A+ Esthetic</strong><span>Buchungsverwaltung</span></div>
   </div>
   <nav class="sb-drawer-nav">
@@ -45,7 +45,7 @@
 <main class="admin-shell sb-admin-shell">
   <header class="admin-topbar sb-desktop-topbar">
     <div class="admin-brand">
-      <a class="brand brand-image" href="{% if doctor_mode %}/verwaltung/arzt/{% else %}/verwaltung/{% endif %}" aria-label="A+ Esthetic Buchungsverwaltung"><img class="brand-logo" src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"></a>
+      <a class="brand brand-image" href="{% if doctor_mode %}/verwaltung/arzt/{% else %}/verwaltung/{% endif %}" aria-label="A+ Esthetic Buchungsverwaltung"><img class="brand-logo" src="{% if doctor_mode %}/static/booking/logo.png{% else %}{% static 'booking/logo.png' %}{% endif %}" alt="A+ Esthetic"></a>
       <div class="brand-meta">Buchungsverwaltung</div>
     </div>
     <nav class="admin-nav" aria-label="Verwaltung">
