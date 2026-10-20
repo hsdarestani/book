@@ -303,7 +303,14 @@ class APlusAdminNavigationMiddleware:
         is_patient = request.path.startswith('/verwaltung/patienten/') or request.path.startswith('/verwaltung/app/patients/')
 
         if is_aplus and 'data-aplus-luxury' not in html and '</head>' in html:
-            html = html.replace('</head>', self.LUXURY_ASSETS + '</head>', 1)
+            assets = self.LUXURY_ASSETS
+            if qamar_scope:
+                # Explicit cache bust for older installed WebViews / browser CSS+JS.
+                assets = assets.replace(
+                    'admin-luxury-v2.js?v=20260907-v2',
+                    'admin-luxury-v2.js?v=20261020-doctor-role-v2',
+                )
+            html = html.replace('</head>', assets + '</head>', 1)
 
         if is_aplus and is_calendar:
             if 'data-aplus-calendar-stability-v8' not in html and '</head>' in html:
