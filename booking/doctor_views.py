@@ -170,7 +170,10 @@ def _calendar_block(staff, post):
 
 
 def _own_customer_ids(staff):
-    return Appointment.objects.filter(staff_id=staff.pk).values('customer_id')
+    from .models import DoctorPatientAccess
+    return set(Appointment.objects.filter(staff_id=staff.pk).values_list('customer_id', flat=True)) | set(
+        DoctorPatientAccess.objects.filter(staff_id=staff.pk).values_list('customer_id', flat=True)
+    )
 
 
 def _edit_own_block(staff, post):
@@ -283,13 +286,16 @@ def _create_own_customer(staff, post):
     existing = Customer.objects.filter(email__iexact=email).first()
     if existing and not Appointment.objects.filter(staff_id=staff.pk, customer_id=existing.pk).exists():
         raise ValidationError('Patient kann hier nicht übernommen werden.')
+    from .models import DoctorPatientAccess
     if existing:
         existing.first_name = first
         existing.last_name = last or existing.last_name
         existing.save(update_fields=['first_name', 'last_name', 'updated_at'])
+        DoctorPatientAccess.objects.get_or_create(staff=staff, customer=existing)
     else:
-        Customer.objects.create(first_name=first, last_name=last, email=email,
-                                phone=str(post.get('phone') or '')[:40])
+        created = Customer.objects.create(first_name=first, last_name=last, email=email,
+                                          phone=str(post.get('phone') or '')[:40])
+        DoctorPatientAccess.objects.create(staff=staff, customer=created)
 
 
 @never_cache
