@@ -111,8 +111,8 @@ class APlusAdminNavigationMiddleware:
         view_only = self._view_only(request)
         qamar_scope = self._qamar_scope(request)
         if qamar_scope:
-            # Restrict Qamar to the dedicated appointment page only. Keep other
-            # existing read-only team members' patient workflows unchanged.
+            # One full-featured admin shell, but only Qamar's scoped routes.
+            # Other view-only team members retain their own prior access.
             allowed = {
                 '/verwaltung/arzt/', '/verwaltung/logout/', '/verwaltung/login/',
                 '/verwaltung/app/', '/verwaltung/app-sso/',
@@ -128,8 +128,13 @@ class APlusAdminNavigationMiddleware:
                 and request.path not in allowed and not own_patient_route
             ):
                 return HttpResponseForbidden('Dieser Zugang ist auf eigene Termine beschränkt.')
-        if view_only and request.path.startswith('/verwaltung/') and request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.path not in {'/verwaltung/app-sso/', '/verwaltung/arzt/'}
-                and not (qamar_scope and own_patient_route):
+        if (
+            view_only
+            and request.path.startswith('/verwaltung/')
+            and request.method not in {'GET', 'HEAD', 'OPTIONS'}
+            and request.path not in {'/verwaltung/app-sso/', '/verwaltung/arzt/'}
+            and not (qamar_scope and own_patient_route)
+        ):
             return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
 
         response = self.get_response(request)
