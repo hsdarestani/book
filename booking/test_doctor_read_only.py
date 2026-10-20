@@ -44,7 +44,12 @@ class DoctorPrivateCalendarTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Meine Patientin')
         self.assertNotContains(response, 'Fremde Patientin')
-        self.assertContains(response, 'Wochenzeiten speichern')
+        self.assertContains(response, 'Wochenplan')
+        self.assertContains(response, 'sb-calendar-shell')
+        self.assertContains(response, 'sb-provider-switcher')
+        self.assertContains(response, 'admin-ferrari-v17.css')
+        self.assertNotContains(response, '/verwaltung/patienten/')
+        self.assertNotContains(response, 'Andere Ärztin')
 
     def test_other_admin_surfaces_and_write_apis_are_rejected(self):
         for url in ['/verwaltung/dashboard/', '/verwaltung/kalender/', '/verwaltung/kunden/',
@@ -100,6 +105,30 @@ class DoctorPrivateCalendarTests(TestCase):
         self.mine.refresh_from_db()
         self.assertEqual(timezone.localtime(self.mine.starts_at).time(), time(13))
         self.assertEqual(timezone.localtime(self.theirs.starts_at).time(), time(10))
+
+    def test_weekly_admin_form_changes_only_own_schedule(self):
+        form = {'date': self.day.isoformat(), 'action': 'save_hours',
+                'day_0_enabled': 'on', 'day_0_start_1': '08:00', 'day_0_end_1': '12:00',
+                'day_0_start_2': '', 'day_0_end_2': ''}
+        response = self.client.post('/verwaltung/arzt/', form)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(WorkingHour.objects.filter(staff=self.doctor).count(), 1)
+        self.assertEqual(WorkingHour.objects.filter(staff=self.other).count(), 1)
+        self.assertEqual(WorkingHour.objects.get(staff=self.doctor).start_time, time(8))
+
+    def test_delete_calendar_block_cannot_affect_another_doctor(self):
+        from .models import BlockedPeriod
+        start = self.mine.starts_at + timedelta(hours=3)
+        other_block = BlockedPeriod.objects.create(
+            staff=self.other, starts_at=start, ends_at=start + timedelta(minutes=30))
+        own_block = BlockedPeriod.objects.create(
+            staff=self.doctor, starts_at=start, ends_at=start + timedelta(minutes=30))
+        response = self.post_calendar(action='delete_block', block_id=other_block.pk,
+                                      staff_id=str(self.other.pk))
+        self.assertIn('notice=error', response.url)
+        self.assertTrue(BlockedPeriod.objects.filter(pk=other_block.pk).exists())
+        self.post_calendar(action='delete_block', block_id=own_block.pk)
+        self.assertFalse(BlockedPeriod.objects.filter(pk=own_block.pk).exists())
 
     def test_invalid_weekly_times_preserve_existing_schedule(self):
         self.post_calendar(action='weekly', start_1='16:00', end_1='09:00')

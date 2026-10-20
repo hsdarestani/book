@@ -1,0 +1,77 @@
+  <section class="admin-panel sb-calendar-panel" id="kalender">
+    <div class="sb-calendar-head">
+      <div class="sb-calendar-heading">
+        <div class="eyebrow">Kalender</div>
+        <h2>{% if calendar_view == 'week' %}Wochenansicht{% else %}Tagesansicht{% endif %}</h2>
+      </div>
+      <div class="sb-calendar-head-actions">
+        <button type="button" class="sb-subtle-button" data-view-menu-open>Ansicht ▾</button>
+      </div>
+    </div>
+
+    <div class="doctor-switcher sb-provider-switcher" role="navigation" aria-label="Behandler wählen">
+      {% for member in staff_members %}
+      <a href="{% if doctor_mode %}?date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender{% else %}/verwaltung/?staff={{ member.pk }}&date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender{% endif %}" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b>{{ member.display_name }}</b></a>
+      {% endfor %}
+    </div>
+
+    <div class="sb-date-nav">
+      <a class="sb-date-arrow" href="?date={{ previous_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" aria-label="Zurück">‹</a>
+      <div class="sb-date-title">
+        {% if calendar_view == 'week' %}
+          <strong>{{ range_start|date:"d.m." }} – {{ range_end_display|date:"d.m.Y" }}</strong>
+          <span>Woche</span>
+        {% else %}
+          <strong>{{ calendar_date|date:"l, d.m.Y" }}</strong>
+          <span>{{ calendar_date|date:"F Y" }}</span>
+        {% endif %}
+      </div>
+      <a class="sb-date-arrow" href="?date={{ next_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" aria-label="Weiter">›</a>
+    </div>
+
+    {% if selected_staff %}
+    <div class="sb-calendar-shell {% if calendar_view == 'week' %}is-week{% else %}is-day{% endif %}">
+      <div class="sb-time-axis">
+        {% for hour in calendar_hour_labels %}<span>{{ hour }}</span>{% endfor %}
+      </div>
+      <div class="sb-calendar-days" style="--day-count:{{ calendar_days|length }}">
+        {% for day in calendar_days %}
+        <div class="sb-calendar-day {% if day.is_today %}is-today{% endif %}">
+          <div class="sb-day-head"><span>{{ day.day_name }}</span><b>{{ day.date|date:"d.m." }}</b></div>
+          <div class="sb-day-track">
+            {% for segment in day.working_segments %}
+            <div class="sb-working-segment" style="top:{{ segment.top }}%;height:{{ segment.height }}%;"><span>{{ segment.label }}</span></div>
+            {% endfor %}
+
+            {% for event in day.appointments %}
+            <a class="sb-calendar-event" href="#termine" style="top:{{ event.top }}%;height:{{ event.height }}%;" title="{{ event.item.customer.full_name }} – {{ event.item.service.name }}">
+              <strong>{{ event.item.customer.full_name }}</strong>
+              <span>{{ event.item.service.name }}</span>
+              <small>{{ event.item.starts_at|date:"H:i" }}–{{ event.item.ends_at|date:"H:i" }}</small>
+            </a>
+            {% endfor %}
+
+            {% for block in day.blocks %}
+            <div class="sb-calendar-block is-{{ block.kind }}" style="top:{{ block.top }}%;height:{{ block.height }}%;">
+              <strong>{{ block.label }}</strong>
+              <small>{{ block.item.starts_at|date:"H:i" }}–{{ block.item.ends_at|date:"H:i" }}</small>
+              <form method="post" class="sb-event-delete">{% csrf_token %}<input type="hidden" name="action" value="delete_calendar_item"><input type="hidden" name="block_id" value="{{ block.item.pk }}"><input type="hidden" name="staff_id" value="{{ selected_staff.pk }}"><input type="hidden" name="return_date" value="{{ calendar_date|date:'Y-m-d' }}"><input type="hidden" name="return_view" value="{{ calendar_view }}"><button type="submit" aria-label="Eintrag löschen">×</button></form>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="sb-fab-wrap" data-fab-wrap>
+      <div class="sb-fab-actions" data-fab-actions hidden>
+        {% if doctor_mode %}<button type="button" data-open-block><span>Zeitraum blockieren</span><b>⛔</b></button>
+        <button type="button" data-open-note><span>Notiz hinzufügen</span><b>✎</b></button>{% else %}<button type="button" data-open-note><span>Notiz hinzufügen / Zeitenfenster blockieren</span><b>✎</b></button>{% endif %}
+        {% if not doctor_mode %}<button type="button" data-open-booking><span>Buchung hinzufügen</span><b>＋</b></button>{% endif %}
+      </div>
+      <button type="button" class="sb-fab" data-fab aria-label="Hinzufügen">＋</button>
+    </div>
+    {% else %}<div class="empty">Es ist noch kein aktiver Behandler angelegt.</div>{% endif %}
+  </section>
+
