@@ -128,8 +128,13 @@ def _booking_context(request):
 
 
 def _patient_context(request):
+    from .doctor_views import _doctor_staff, _own_customer_ids
     query = str(request.GET.get('q') or '').strip()
-    all_customers = list(Customer.objects.order_by('last_name', 'first_name', 'pk'))
+    doctor_staff = _doctor_staff(request)
+    qs = Customer.objects.order_by('last_name', 'first_name', 'pk')
+    if doctor_staff:
+        qs = qs.filter(pk__in=_own_customer_ids(doctor_staff))
+    all_customers = list(qs)
     groups = duplicate_customer_groups(all_customers)
     group_by_customer_id = {}
     for group in groups:
@@ -167,7 +172,9 @@ def _patient_context(request):
     call_url = ''
     raw_customer = str(request.GET.get('customer') or '').strip()
     if raw_customer.isdigit():
-        selected = Customer.objects.filter(pk=int(raw_customer)).first()
+        selected = next((c for c in all_customers if c.pk == int(raw_customer)), None)
+        if selected is None and doctor_staff:
+            raise PermissionError('Patient ist diesem Arzt nicht zugeordnet.')
     if selected:
         group_ids = group_by_customer_id.get(selected.pk, [selected.pk])
         selected_group = [item for item in all_customers if item.pk in set(group_ids)]
@@ -290,9 +297,15 @@ def app_management(request, section='bookings'):
 
     try:
         if request.method == 'POST':
-            if local_view_only:
-                return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
             action = str(request.POST.get('action') or '')
+            if local_view_only:
+                from .doctor_views import _doctor_staff, _own_customer_ids
+                doctor_staff = _doctor_staff(request)
+                selected_id = str(request.POST.get('customer_id') or '')
+                if not (doctor_staff and section == 'patients' and action == 'patient_upload'
+                        and selected_id.isdigit() and int(selected_id) in _own_customer_ids(doctor_staff)):
+                    return HttpResponseForbidden('Aktion für dieses Arztkonto nicht erlaubt.')
+                return patient_portal.staff_add_record(request, int(selected_id))
             if section == 'hero' and action in {'hero_upload', 'hero_clear'}:
                 variant = str(request.POST.get('variant') or '')
                 if variant not in {'frau', 'herr', 'default'}:

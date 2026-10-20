@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
-from django.http import Http404
+from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
@@ -71,6 +71,12 @@ def _record_redirect(request, customer_id, notice):
 @require_POST
 def staff_add_record(request, customer_id):
     customer = get_object_or_404(Customer, pk=customer_id)
+    from .doctor_views import _doctor_staff, _own_customer_ids
+    doctor_staff = _doctor_staff(request)
+    profile = getattr(request.user, 'aesthetic_access', None)
+    if profile and profile.view_only:
+        if not doctor_staff or customer.pk not in _own_customer_ids(doctor_staff):
+            return HttpResponseForbidden('Patient ist diesem Arzt nicht zugeordnet.')
     kind = str(request.POST.get("kind") or "document").strip()
     allowed_kinds = {value for value, _ in PatientRecord.KIND}
     if kind not in allowed_kinds:
@@ -79,11 +85,16 @@ def staff_add_record(request, customer_id):
     appointment = None
     appointment_id = str(request.POST.get("appointment_id") or "").strip()
     if appointment_id:
-        appointment = Appointment.objects.filter(pk=appointment_id, customer=customer).first()
+        apt_qs = Appointment.objects.filter(pk=appointment_id, customer=customer)
+        if doctor_staff:
+            apt_qs = apt_qs.filter(staff_id=doctor_staff.pk)
+        appointment = apt_qs.first()
+        if doctor_staff and not appointment:
+            return HttpResponseForbidden('Termin ist diesem Arzt nicht zugeordnet.')
 
     title = str(request.POST.get("title") or "").strip()[:180]
     note = str(request.POST.get("note") or "").strip()[:6000]
-    shared = request.POST.get("shared_with_customer") == "on"
+    shared = request.POST.get("shared_with_customer") == "on" and not doctor_staff
     uploaded = request.FILES.get("file")
     stored_name = ""
     original_name = ""

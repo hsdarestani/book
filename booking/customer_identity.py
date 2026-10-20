@@ -168,3 +168,44 @@ def merge_customer(keeper, duplicate):
             keeper.save(update_fields=changed + ["updated_at"])
         duplicate.delete()
     return keeper
+
+
+def resolve_patient_identity(*, email="", phone="", first_name="", last_name=""):
+    """Resolve one customer safely for medical record ingestion.
+
+    Return (customer, reason), never join two different people by a shared
+    telephone number, and never pick an arbitrary row out of legacy duplicates.
+    Callers must not write a clinical record when reason is nonempty.
+    """
+    normalized_email = normalize_email(email)
+    normalized_phone = normalize_phone(phone)
+    name_first, name_last = normalize_name(first_name), normalize_name(last_name)
+    email_matches = list(Customer.objects.filter(email__iexact=normalized_email).order_by("pk")) if normalized_email else []
+    if len(email_matches) > 1:
+        return None, "duplicate_email"
+    phone_matches = [
+        candidate for candidate in Customer.objects.exclude(phone="").order_by("pk")
+        if normalized_phone and normalize_phone(candidate.phone) == normalized_phone
+    ]
+    email_match = email_matches[0] if email_matches else None
+    if email_match:
+        other_phone_matches = [p for p in phone_matches if p.pk != email_match.pk]
+        if other_phone_matches:
+            return None, "email_phone_conflict"
+        if name_first and name_last and (
+            normalize_name(email_match.first_name) not in ("", "patient", name_first)
+            or normalize_name(email_match.last_name) not in ("", name_last)
+        ):
+            return None, "name_conflict"
+        return email_match, ""
+    if phone_matches:
+        same_name = [
+            p for p in phone_matches
+            if name_first and name_last
+            and normalize_name(p.first_name) == name_first
+            and normalize_name(p.last_name) == name_last
+        ]
+        if len(same_name) == 1 and len(phone_matches) == 1:
+            return same_name[0], ""
+        return None, "phone_identity_conflict"
+    return None, ""

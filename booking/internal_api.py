@@ -18,6 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import Appointment, Customer, PatientRecord, Service
+from .customer_identity import resolve_patient_identity
 
 
 def _error(code, message, status=400):
@@ -138,17 +139,12 @@ def _normalize_phone(value):
     return re.sub(r'\D+', '', str(value or ''))
 
 
-def _find_customer(email, phone):
-    if email:
-        customer = Customer.objects.filter(email__iexact=email).order_by('pk').first()
-        if customer:
-            return customer
-    normalized = _normalize_phone(phone)
-    if normalized:
-        for customer in Customer.objects.exclude(phone='').only('pk', 'phone', 'email', 'first_name', 'last_name'):
-            if _normalize_phone(customer.phone) == normalized:
-                return customer
-    return None
+def _find_customer(email, phone, first_name='', last_name=''):
+    # Keep the legacy helper for non-medical callsites. Medical endpoints use
+    # resolve_patient_identity() and return 409 when identifiers disagree.
+    patient, reason = resolve_patient_identity(
+        email=email, phone=phone, first_name=first_name, last_name=last_name)
+    return patient if not reason else None
 
 
 @csrf_exempt
@@ -168,7 +164,10 @@ def sync_customer(request):
     if not email or '@' not in email:
         return _error('email_required', 'Eine gültige E Mail Adresse ist erforderlich.')
 
-    customer = _find_customer(email, phone)
+    customer, conflict = resolve_patient_identity(
+        email=email, phone=phone, first_name=first_name, last_name=last_name)
+    if conflict:
+        return _error('identity_conflict', 'Patientendaten widersprechen einem bestehenden Profil. Bitte in der Verwaltung prüfen.', 409)
     created = False
     if not customer:
         customer = Customer.objects.create(
@@ -304,7 +303,10 @@ def ingest_patient_record(request):
         first_name = parts[0][:80]
         last_name = parts[1][:80] if len(parts) > 1 else ''
 
-    customer = _find_customer(email, phone)
+    customer, conflict = resolve_patient_identity(
+        email=email, phone=phone, first_name=first_name, last_name=last_name)
+    if conflict:
+        return _error('identity_conflict', 'Patientendaten widersprechen einem bestehenden Profil. Bitte in der Verwaltung prüfen.', 409)
     if not customer:
         if not email or '@' not in email:
             return _error('patient_not_found', 'Für einen neuen Patienten ist eine gültige E-Mail-Adresse erforderlich.')

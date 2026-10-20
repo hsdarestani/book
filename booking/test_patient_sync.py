@@ -131,3 +131,30 @@ class PatientRecordSyncTests(TestCase):
         path = Path(self.tmp.name) / record.stored_name
         self.assertTrue(path.exists())
         self.assertEqual(path.read_bytes(), b'%PDF-1.4 private form')
+
+    def test_ingest_rejects_phone_of_another_patient(self):
+        Customer.objects.create(email='other@example.com', phone='+49 171 1234567',
+                                first_name='Other', last_name='Patient')
+        payload = self.payload()
+        payload.update(email='new@example.com', phone='+49 171 1234567')
+        response = self.post(payload)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(PatientRecord.objects.count(), 0)
+        self.assertEqual(Customer.objects.count(), 1)
+
+    def test_ingest_rejects_email_phone_matching_different_patients(self):
+        Customer.objects.create(email='anna@example.com', phone='+49 171 8889999',
+                                first_name='Anna', last_name='Muster')
+        Customer.objects.create(email='other@example.com', phone='+49 151 2345678',
+                                first_name='Other', last_name='Patient')
+        response = self.post()
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(PatientRecord.objects.count(), 0)
+
+    def test_ingest_uses_existing_patient_after_normalized_phone_and_name_match(self):
+        Customer.objects.create(email='old@example.com', phone='0151 2345678',
+                                first_name='Anna', last_name='Muster')
+        response = self.post()
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(Customer.objects.count(), 1)
+        self.assertEqual(PatientRecord.objects.count(), 1)
