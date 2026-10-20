@@ -117,9 +117,9 @@
 {% elif section == 'invoices' %}
 <section class="billing-command">
   <div class="billing-command-copy">
-    <span>A+ ESTHETIC · BILLING</span>
-    <h2>Rechnungen direkt in der App.</h2>
-    <p>Kundendaten, Preise, MwSt und Rechnungsnummern kommen direkt aus der A+ Esthetic Hauptdatenbank.</p>
+    <span>A+ ESTHETIC · RECHNUNGEN</span>
+    <h2>Rechnungen direkt in der Verwaltung.</h2>
+    <p>Entwürfe, ausgestellte Rechnungen, GOÄ und Abrechnungsdaten an einem Ort. Alle Angaben stammen aus der zentralen Rechnungsdatenbank.</p>
   </div>
   <div class="billing-command-state {% if data.settings.ready_for_issue %}is-ready{% endif %}">
     {% if data.settings.ready_for_issue %}Bereit{% else %}Steuerdaten fehlen{% endif %}
@@ -203,6 +203,8 @@
   </section>
 </div>
 
+{% include "booking/_billing_goae_form.html" %}
+
 <section class="admin-panel app-core-panel billing-services-panel">
   <div class="panel-head"><div><div class="eyebrow">PREISE & MWST</div><h2>Behandlungen</h2><p>Der Bruttopreis und die MwSt werden in der A+ App Datenbank gespeichert.</p></div></div>
   <div class="billing-service-list">
@@ -227,9 +229,15 @@
     {% for invoice in data.invoices %}
     <article class="billing-invoice-card">
       <div><span>{{ invoice.status_label }}</span><strong>{{ invoice.number|default:"Entwurf" }} · {{ invoice.customer_name }}</strong><small>{{ invoice.service_date }} · {{ invoice.total }} € · {{ invoice.customer_email }}</small></div>
-      {% if invoice.status == 'draft' %}
-      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="billing_finalize"><input type="hidden" name="invoice_id" value="{{ invoice.id }}"><button type="submit">Endgültig ausstellen</button></form>
-      {% else %}<b>✓</b>{% endif %}
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end">
+        {% if invoice.status == 'draft' and invoice.billing_method == 'goae' %}
+          <a class="billing-small" href="/verwaltung/app/invoices/{{ invoice.id }}/pdf/" target="_blank" rel="noopener">GOÄ Entwurf PDF</a>
+        {% elif invoice.status == 'draft' %}
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="billing_finalize"><input type="hidden" name="invoice_id" value="{{ invoice.id }}"><button type="submit">Endgültig ausstellen</button></form>
+        {% elif invoice.status == 'issued' %}
+          <a class="billing-small" href="/verwaltung/app/invoices/{{ invoice.id }}/pdf/" target="_blank" rel="noopener">PDF ansehen</a>
+        {% else %}<b>✓</b>{% endif %}
+      </div>
     </article>
     {% empty %}<div class="empty">Noch keine Rechnungen.</div>{% endfor %}
   </div>
