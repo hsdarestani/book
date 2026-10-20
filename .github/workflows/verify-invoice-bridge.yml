@@ -44,3 +44,16 @@ jobs:
             PY
             curl -fsS --max-time 15 https://book.a-esthetic.de/static/booking/clinic-calendar-topbar-v1.css -o /dev/null
             echo "Calendar header static asset: available."
+            WALLET_CODE="$(curl -sS --max-time 20 -o "$OUT" -w '%{http_code}' \
+              -H "X-Aesthetic-Patient-Sync: $(cat "$TOKEN_FILE")" \
+              -H 'Accept: application/json' \
+              'https://esthetic.smarbiz.sbs/api/mobile/internal/book-wallet/customers/?q=__no_such_customer_6381__')"
+            test "$WALLET_CODE" = "200"
+            python3 - "$OUT" <<'PY'
+            import json, sys
+            with open(sys.argv[1], encoding='utf-8') as handle:
+                result=json.load(handle)
+            assert result.get('ok') is True, 'wallet bridge unhealthy'
+            assert isinstance(result.get('customers'), list), 'wallet customers contract missing'
+            print('Production Booking-to-App points bridge: authenticated and healthy.')
+            PY
