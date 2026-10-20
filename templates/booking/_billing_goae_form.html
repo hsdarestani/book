@@ -1,0 +1,47 @@
+<section class="admin-panel app-core-panel billing-goae-panel" style="margin:20px 0">
+  <details class="billing-goae-details">
+    <summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:19px 22px">
+      <span><strong style="display:block;font-size:17px">Rechnung nach GOÄ</strong>
+        <small style="display:block;margin-top:7px;color:#817364">Privatpraxis Ariane Regaei · Ärztlichen Entwurf erstellen</small></span>
+      <span aria-hidden="true" style="font-size:21px;color:#a78345">⌄</span>
+    </summary>
+    <div style="padding:0 22px 24px">
+      <p style="font-size:12px;line-height:1.6;color:#736c61">
+        GOÄ Ziffer, Einfachsatz, Steigerungsfaktor und Umsatzsteuer müssen durch die Praxis geprüft werden.
+        Bis zur Freigabe der endgültigen Vorlage bleibt die Rechnung ein Entwurf.
+      </p>
+      <form class="billing-form" method="post">
+        {% csrf_token %}<input type="hidden" name="action" value="billing_create_goae">
+        <div class="billing-two">
+          <label>Patient
+            <select name="customer_id" required>
+              <option value="">Patient auswählen</option>
+              {% for customer in data.customers %}
+                <option value="{{ customer.id }}">{{ customer.name }} · {{ customer.email }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Leistungsdatum<input name="service_date" type="date" required></label>
+        </div>
+        <div class="billing-two">
+          <label>GOÄ Nummer<input name="goae_number" maxlength="24" required placeholder="GOÄ Ziffer"></label>
+          <label>Steigerungsfaktor<input name="goae_factor" inputmode="decimal" placeholder="2,30" required></label>
+        </div>
+        <label>Leistungsbeschreibung<input name="goae_description" maxlength="220" placeholder="Ärztliche Leistung" required></label>
+        <div class="billing-two">
+          <label>GOÄ Einfachsatz in €<input name="goae_base_eur" inputmode="decimal" required placeholder="10,00"></label>
+          <label>Umsatzsteuerstatus
+            <select name="goae_vat_rate" required>
+              <option value="">Bitte prüfen</option>
+              <option value="0">0 %</option><option value="7">7 %</option><option value="19">19 %</option>
+            </select>
+          </label>
+        </div>
+        <label>Individuelle Begründung bei erhöhtem Faktor
+          <textarea name="goae_justification" rows="2" maxlength="1500" placeholder="Medizinische Begründung"></textarea>
+        </label>
+        <button class="billing-primary" type="submit">GOÄ Entwurf erstellen</button>
+      </form>
+    </div>
+  </details>
+</section>
