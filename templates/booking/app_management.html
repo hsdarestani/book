@@ -132,22 +132,26 @@
     <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
       <input type="hidden" name="customer" value="{{ selected_customer.id }}">
       {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
-      <button type="submit" name="tab" value="overview" data-customer-tab="overview" class="patient-tab-button {% if customer_tab == 'overview' %}is-active{% endif %}" aria-current="{% if customer_tab == 'overview' %}page{% else %}false{% endif %}">Übersicht</button>
+      <input type="hidden" name="tab" value="overview">
+      <button type="submit" data-customer-tab="overview" class="patient-tab-button {% if customer_tab == 'overview' %}is-active{% endif %}" aria-current="{% if customer_tab == 'overview' %}page{% else %}false{% endif %}">Übersicht</button>
     </form>
     <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
       <input type="hidden" name="customer" value="{{ selected_customer.id }}">
       {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
-      <button type="submit" name="tab" value="appointments" data-customer-tab="appointments" class="patient-tab-button {% if customer_tab == 'appointments' %}is-active{% endif %}" aria-current="{% if customer_tab == 'appointments' %}page{% else %}false{% endif %}">Termine</button>
+      <input type="hidden" name="tab" value="appointments">
+      <button type="submit" data-customer-tab="appointments" class="patient-tab-button {% if customer_tab == 'appointments' %}is-active{% endif %}" aria-current="{% if customer_tab == 'appointments' %}page{% else %}false{% endif %}">Termine</button>
     </form>
     <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
       <input type="hidden" name="customer" value="{{ selected_customer.id }}">
       {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
-      <button type="submit" name="tab" value="records" data-customer-tab="records" class="patient-tab-button {% if customer_tab == 'records' %}is-active{% endif %}" aria-current="{% if customer_tab == 'records' %}page{% else %}false{% endif %}">Patientenakte</button>
+      <input type="hidden" name="tab" value="records">
+      <button type="submit" data-customer-tab="records" class="patient-tab-button {% if customer_tab == 'records' %}is-active{% endif %}" aria-current="{% if customer_tab == 'records' %}page{% else %}false{% endif %}">Patientenakte</button>
     </form>
     <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
       <input type="hidden" name="customer" value="{{ selected_customer.id }}">
       {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
-      <button type="submit" name="tab" value="points" data-customer-tab="points" class="patient-tab-button {% if customer_tab == 'points' %}is-active{% endif %}" aria-current="{% if customer_tab == 'points' %}page{% else %}false{% endif %}">Punkte</button>
+      <input type="hidden" name="tab" value="points">
+      <button type="submit" data-customer-tab="points" class="patient-tab-button {% if customer_tab == 'points' %}is-active{% endif %}" aria-current="{% if customer_tab == 'points' %}page{% else %}false{% endif %}">Punkte</button>
     </form>
   </nav>
 
