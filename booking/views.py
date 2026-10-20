@@ -251,7 +251,10 @@ def patient_record_file(request, customer_id, record_id):
 @staff_member_required(login_url='/verwaltung/login/')
 @require_http_methods(['GET', 'POST'])
 def dashboard(request):
+    doctor_staff = getattr(request, 'doctor_staff_scope', None)
     staff_qs = StaffMember.objects.filter(active=True).order_by('sort_order', 'display_name')
+    if doctor_staff is not None:
+        staff_qs = staff_qs.filter(pk=doctor_staff.pk)
     selected_staff = None
     selected_id = request.POST.get('staff_id') or request.GET.get('staff')
     if selected_id:
@@ -436,13 +439,18 @@ def dashboard(request):
 
     now = timezone.now()
     today = timezone.localdate()
+    appointment_scope = Appointment.objects.all()
+    customer_scope = Customer.objects.all()
+    if doctor_staff is not None:
+        appointment_scope = appointment_scope.filter(staff_id=doctor_staff.pk)
+        customer_scope = customer_scope.filter(pk__in=appointment_scope.values('customer_id'))
     upcoming = (
-        Appointment.objects.select_related('customer', 'service', 'staff')
+        appointment_scope.select_related('customer', 'service', 'staff')
         .filter(starts_at__gte=now)
         .order_by('starts_at')[:80]
     )
     customers = (
-        Customer.objects.annotate(
+        customer_scope.annotate(
             record_count=Count('patient_records', distinct=True),
             appointment_count=Count('appointments', distinct=True),
         )
@@ -454,6 +462,8 @@ def dashboard(request):
         'injektionslipolyse', 'kontrolltermin',
     ]
     services = Service.objects.filter(slug__in=canonical_service_slugs).order_by('sort_order', 'name')
+    if doctor_staff is not None:
+        services = services.filter(staff_members=doctor_staff)
 
     weekday_labels = dict(WorkingHour.WEEKDAYS)
     hour_map = {day: [] for day in range(7)}
@@ -551,9 +561,10 @@ def dashboard(request):
         day_cursor += timedelta(days=1)
 
     context = {
-        'today_count': Appointment.objects.filter(starts_at__date=today).exclude(status='cancelled').count(),
-        'new_count': Appointment.objects.filter(status='new', starts_at__gte=now).count(),
-        'customer_count': Customer.objects.count(),
+        'doctor_mode': doctor_staff is not None,
+        'today_count': appointment_scope.filter(starts_at__date=today).exclude(status='cancelled').count(),
+        'new_count': appointment_scope.filter(status='new', starts_at__gte=now).count(),
+        'customer_count': customer_scope.count(),
         'staff_count': staff_qs.count(),
         'staff_members': staff_qs,
         'selected_staff': selected_staff,
