@@ -3,6 +3,9 @@
 
   // One canonical A+ Management drawer for every admin surface.
   // This deliberately does not touch calendar grid/timeline behaviour.
+  // Retired legacy navigation must not reconstruct the global menu for Qamar.
+  if (document.documentElement.dataset.doctorRole === '1'
+      || document.body?.dataset.doctorCalendar === '1') return;
   const path = window.location.pathname;
   const page = (() => {
     if (/^\/verwaltung\/dashboard\/?$/.test(path)) return 'dashboard';

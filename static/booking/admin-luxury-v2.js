@@ -30,7 +30,11 @@
 
   const drawer = document.querySelector('[data-drawer]');
   const backdrop = document.querySelector('[data-drawer-backdrop]');
-  if (drawer) {
+  // The clinician menu is owned by the role-aware finalizer, never by the
+  // legacy full-clinic navigation writer.
+  const doctorRole = document.documentElement.dataset.doctorRole === '1'
+    || document.body?.dataset.doctorCalendar === '1';
+  if (drawer && !doctorRole) {
     const brand = drawer.querySelector('.sb-drawer-brand');
     if (brand) {
       const img = brand.querySelector('img');

@@ -106,6 +106,126 @@ class APlusAdminNavigationMiddleware:
 </aside>
 '''
 
+    # This inline finalizer is intentionally after every deferred or dynamically
+    # loaded legacy A+ menu. Several generations of menu scripts still coexist
+    # in deployed browsers and may rebuild the DOM after the role-aware script.
+    # The middleware enforces permissions independently of this UX safeguard.
+    DOCTOR_NAV_GUARD = """
+<script data-aplus-doctor-nav-finalizer>
+(() => {
+  'use strict';
+  const isDoctor = document.documentElement.dataset.doctorRole === '1'
+    || document.body?.dataset.doctorCalendar === '1';
+  if (!isDoctor) return;
+  const entries = [
+    ['dashboard', '⌂', 'Dashboard'],
+    ['calendar', '▣', 'Kalender'],
+    ['bookings', '▤', 'Meine Buchungen'],
+    ['customers', '♙', 'Meine Patienten'],
+    ['settings', '◷', 'Arbeitszeiten'],
+  ];
+  const keys = new Set(entries.map(item => item[0]));
+  const href = section => '/verwaltung/arzt/?section=' + section;
+  function selectedSection() {
+    if (/^\\/verwaltung\\/patienten\\//.test(location.pathname)) return 'customers';
+    const section = new URLSearchParams(location.search).get('section') || 'calendar';
+    return keys.has(section) ? section : 'calendar';
+  }
+  function expectedLinks() {
+    return entries.map(([key, icon, name]) =>
+      '<a href="' + href(key) + '" data-aplus-nav="' + key
+      + '" class="' + (selectedSection() === key ? 'is-active' : '') + '"><span>'
+      + icon + '</span>' + name + '</a>'
+    ).join('');
+  }
+  const logout = '<a href="/verwaltung/logout/" data-aplus-nav="logout"><span>↪</span>Abmelden</a>';
+  let updating = false;
+  function validLinks(nav) {
+    const links = [...nav.querySelectorAll('a[href]')];
+    if (links.length !== entries.length + 1) return false;
+    return entries.every(([key], i) =>
+      links[i].getAttribute('href') === href(key)
+      && links[i].dataset.aplusNav === key
+    ) && links[entries.length].getAttribute('href') === '/verwaltung/logout/';
+  }
+  function validDesktop(nav) {
+    const links = [...nav.querySelectorAll('a[href]')];
+    return links.length === entries.length &&
+      entries.every(([key], i) => links[i].getAttribute('href') === href(key));
+  }
+  function reconcile() {
+    if (updating) return;
+    updating = true;
+    try {
+      document.documentElement.dataset.adminPage = selectedSection();
+      const drawer = document.querySelector('[data-drawer]');
+      const nav = drawer?.querySelector('.sb-drawer-nav');
+      if (drawer && nav && (!validLinks(nav)
+          || !nav.classList.contains('aplus-unified-nav'))) {
+        drawer.classList.add('aplus-unified-drawer');
+        nav.classList.add('aplus-unified-nav');
+        nav.innerHTML = '<div class="lux-nav-label">MEINE VERWALTUNG</div>'
+          + expectedLinks() + '<div class="lux-nav-break"></div>' + logout;
+      }
+      const brand = drawer?.querySelector('.sb-drawer-brand span');
+      if (brand && brand.textContent !== 'Doctor') brand.textContent = 'Doctor';
+      document.querySelectorAll('.admin-topbar .admin-nav').forEach(nav => {
+        if (!validDesktop(nav)) {
+          nav.classList.add('aplus-unified-desktop-nav');
+          nav.innerHTML = entries.map(([key, , name]) =>
+            '<a href="' + href(key) + '" class="'
+            + (selectedSection() === key ? 'is-active' : '') + '">' + name + '</a>'
+          ).join('');
+        }
+      });
+    } finally {
+      updating = false;
+    }
+  }
+  let scheduled = false;
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    queueMicrotask(() => {
+      scheduled = false;
+      reconcile();
+    });
+  }
+  // A legacy deferred or dynamically injected management script can overwrite
+  // the drawer after load. Repair only if its permitted link set changed.
+  const observer = new MutationObserver(schedule);
+  observer.observe(document.body, {subtree: true, childList: true});
+  document.addEventListener('DOMContentLoaded', schedule);
+  window.addEventListener('pageshow', schedule);
+  window.addEventListener('popstate', schedule);
+  document.addEventListener('click', event => {
+    const link = event.target.closest?.('[data-drawer] a[href], .admin-topbar .admin-nav a[href]');
+    if (!link) return;
+    const target = new URL(link.href, location.origin);
+    const allowed = target.origin === location.origin
+      && (target.pathname === '/verwaltung/logout/' ||
+          (target.pathname === '/verwaltung/arzt/' &&
+           keys.has(target.searchParams.get('section'))));
+    if (!allowed) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      reconcile();
+      return;
+    }
+    if (link.closest('[data-drawer]')) {
+      const drawer = document.querySelector('[data-drawer]');
+      drawer?.classList.remove('is-open');
+      drawer?.setAttribute('aria-hidden', 'true');
+      document.querySelector('[data-drawer-backdrop]')?.classList.remove('is-open');
+      document.documentElement.classList.remove('drawer-open');
+      document.body.classList.remove('drawer-open');
+    }
+  }, true);
+  reconcile();
+})();
+</script>
+"""
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -167,7 +287,9 @@ class APlusAdminNavigationMiddleware:
             return response
 
         # View-only local staff still get the visual marker even without A+ SSO.
-        is_aplus = bool(request.session.get('aplus_app_admin'))
+        # Verified clinician sessions use the same management theme regardless
+        # of whether they arrived by SSO or a staff session.
+        is_aplus = bool(request.session.get('aplus_app_admin')) or qamar_scope
         if not is_aplus and not self._view_only(request):
             return response
         try:
@@ -183,7 +305,14 @@ class APlusAdminNavigationMiddleware:
         is_patient = request.path.startswith('/verwaltung/patienten/') or request.path.startswith('/verwaltung/app/patients/')
 
         if is_aplus and 'data-aplus-luxury' not in html and '</head>' in html:
-            html = html.replace('</head>', self.LUXURY_ASSETS + '</head>', 1)
+            assets = self.LUXURY_ASSETS
+            if qamar_scope:
+                # Explicit cache bust for older installed WebViews / browser CSS+JS.
+                assets = assets.replace(
+                    'admin-luxury-v2.js?v=20260907-v2',
+                    'admin-luxury-v2.js?v=20261020-doctor-role-v2',
+                )
+            html = html.replace('</head>', assets + '</head>', 1)
 
         if is_aplus and is_calendar:
             if 'data-aplus-calendar-stability-v8' not in html and '</head>' in html:
@@ -234,6 +363,10 @@ class APlusAdminNavigationMiddleware:
             body_end = html.find('>', body_start)
             if body_end >= 0 and 'data-aplus-view-only' not in html[body_start:body_end]:
                 html = html[:body_end] + ' data-aplus-view-only="1"' + html[body_end:]
+
+        if qamar_scope and '</body>' in html and 'data-aplus-doctor-nav-finalizer' not in html:
+            html = html.replace('</body>', self.DOCTOR_NAV_GUARD + '</body>', 1)
+            response['Cache-Control'] = 'private, no-store, max-age=0'
 
         response.content = html.encode(response.charset or 'utf-8')
         if response.has_header('Content-Length'):
