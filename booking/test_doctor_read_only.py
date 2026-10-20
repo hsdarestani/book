@@ -6,7 +6,7 @@ from django.test import Client, TestCase
 from django.utils import timezone
 
 from .models import (AdminAccessProfile, Appointment, Customer, DailyAvailabilityOverride,
-                     Service, StaffMember, WorkingHour)
+                     DoctorPatientAccess, PatientRecord, Service, StaffMember, WorkingHour)
 
 
 class DoctorPrivateCalendarTests(TestCase):
@@ -47,8 +47,12 @@ class DoctorPrivateCalendarTests(TestCase):
         self.assertContains(response, 'Wochenplan')
         self.assertContains(response, 'sb-calendar-shell')
         self.assertContains(response, 'sb-provider-switcher')
-        self.assertContains(response, 'admin-ferrari-v17.css')
-        self.assertNotContains(response, '/verwaltung/patienten/')
+        self.assertContains(response, 'admin-ferrari-v17.js')
+        self.assertContains(response, 'booking/admin.js')
+        self.assertContains(response, 'data-doctor-role="1"')
+        self.assertContains(response, 'Buchungsübersicht')
+        self.assertContains(response, '/verwaltung/patienten/')
+        self.assertNotContains(response, 'Fremde Patientin')
         self.assertNotContains(response, 'Andere Ärztin')
 
     def test_calendar_content_is_not_hidden_until_admin_javascript_runs(self):
@@ -59,17 +63,104 @@ class DoctorPrivateCalendarTests(TestCase):
         result = self.client.get('/verwaltung/arzt/', {'date': self.day.isoformat()})
         self.assertEqual(result.status_code, 200)
         self.assertContains(result, 'data-doctor-calendar="1"')
-        self.assertContains(result, 'data-doctor-calendar-first-paint')
-        self.assertContains(result, 'visibility:visible!important')
+        self.assertContains(result, 'booking/admin.js')
+        self.assertContains(result, 'data-doctor-role="1"')
         self.assertContains(result, 'Meine Patientin')
 
     def test_other_admin_surfaces_and_write_apis_are_rejected(self):
         for url in ['/verwaltung/dashboard/', '/verwaltung/kalender/', '/verwaltung/kunden/',
-                    '/verwaltung/mehr/', '/verwaltung/patienten/1/', '/verwaltung/api/day-availability/',
+                    '/verwaltung/mehr/', '/verwaltung/api/day-availability/',
                     '/verwaltung/api/calendar-day/', '/admin/']:
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 403)
         self.assertEqual(self.client.post('/verwaltung/dashboard/', {'action': 'save'}).status_code, 403)
+
+    def test_actual_admin_shell_renders_every_doctor_section_without_other_data(self):
+        for section, heading in [('dashboard', 'Buchungsübersicht'), ('calendar', 'Tagesansicht'),
+                                 ('bookings', 'Kommende Termine'), ('customers', 'Kunden'),
+                                 ('settings', 'Verfügbarkeit')]:
+            with self.subTest(section=section):
+                response = self.client.get('/verwaltung/arzt/',
+                                           {'date': self.day.isoformat(), 'section': section})
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, heading)
+                self.assertContains(response, 'admin.js')
+                self.assertNotContains(response, 'Fremde Patientin')
+                self.assertNotContains(response, 'Andere Ärztin')
+
+    def test_scope_patient_record_pages_and_patient_files(self):
+        own_customer = self.mine.customer
+        other_customer = self.theirs.customer
+        own_doc = PatientRecord.objects.create(customer=own_customer, appointment=self.mine,
+                                               title='Only Qamar')
+        hidden_doc = PatientRecord.objects.create(customer=own_customer,
+                                                  title='Clinic confidential')
+        other_doc = PatientRecord.objects.create(customer=other_customer, appointment=self.theirs,
+                                                 title='Other doctor doc')
+        response = self.client.get(f'/verwaltung/patienten/{own_customer.pk}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Only Qamar')
+        self.assertNotContains(response, 'Clinic confidential')
+        self.assertEqual(self.client.get(f'/verwaltung/patienten/{other_customer.pk}/').status_code, 404)
+        self.assertEqual(self.client.get(
+            f'/verwaltung/patienten/{own_customer.pk}/datei/{hidden_doc.public_id}/').status_code, 404)
+        self.assertEqual(self.client.get(
+            f'/verwaltung/patienten/{other_customer.pk}/datei/{other_doc.public_id}/').status_code, 404)
+        response = self.client.post(f'/verwaltung/patienten/{own_customer.pk}/',
+                                    {'action': 'delete_record', 'record_id': hidden_doc.pk})
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(PatientRecord.objects.filter(pk=hidden_doc.pk).exists())
+        self.assertTrue(PatientRecord.objects.filter(pk=own_doc.pk).exists())
+
+    def test_new_patient_creation_is_scoped_and_bookable(self):
+        response = self.post_calendar(action='add_customer', first_name='Neue',
+                                      last_name='Kunde', email='newpatient@example.test')
+        self.assertIn('notice=saved', response.url)
+        new_patient = Customer.objects.get(email='newpatient@example.test')
+        self.assertTrue(DoctorPatientAccess.objects.filter(staff=self.doctor, customer=new_patient).exists())
+        panel = self.client.get('/verwaltung/arzt/', {'date': self.day.isoformat(), 'section': 'customers'})
+        self.assertContains(panel, 'Neue Kunde')
+        response = self.post_calendar(action='add_appointment',
+                                      customer_id=new_patient.pk,
+                                      appointment_staff_id=self.other.pk,
+                                      service_id=self.service.pk, appointment_date=self.day.isoformat(),
+                                      appointment_time='11:00')
+        self.assertIn('notice=saved', response.url)
+        self.assertTrue(Appointment.objects.filter(staff=self.doctor, customer=new_patient).exists())
+        self.assertFalse(Appointment.objects.filter(staff=self.other, customer=new_patient).exists())
+
+    def test_main_admin_edit_modal_rejects_other_staff_patient_and_booking(self):
+        item = self.mine
+        original = item.starts_at
+        self.post_calendar(action='edit_appointment', appointment_id=item.pk,
+                           appointment_staff_id=self.other.pk, customer_id=item.customer.pk,
+                           service_id=self.service.pk, appointment_date=self.day.isoformat(),
+                           appointment_time='12:00', status='confirmed')
+        item.refresh_from_db()
+        self.assertEqual(item.starts_at, original)
+        bad = self.post_calendar(action='edit_appointment', appointment_id=self.theirs.pk,
+                                  appointment_staff_id=self.doctor.pk, customer_id=item.customer.pk,
+                                  service_id=self.service.pk, appointment_date=self.day.isoformat(),
+                                  appointment_time='12:00', status='confirmed')
+        self.assertIn('notice=error', bad.url)
+        self.theirs.refresh_from_db()
+        self.assertEqual(self.theirs.status, 'new')
+        self.post_calendar(action='delete_appointment', appointment_id=self.theirs.pk)
+        self.assertTrue(Appointment.objects.filter(pk=self.theirs.pk).exists())
+
+    def test_own_patient_file_upload_and_unauthorized_attachment_rejected(self):
+        url = f'/verwaltung/patienten/{self.mine.customer.pk}/'
+        response = self.client.post(url, {'action': 'add_record', 'kind': 'note',
+                                          'title': 'Eigene Notiz', 'note': 'Nur für Dr Qamar'})
+        self.assertEqual(response.status_code, 302)
+        record = PatientRecord.objects.get(title='Eigene Notiz')
+        self.assertEqual(record.uploaded_by, self.user)
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.assertContains(self.client.get(url), 'Eigene Notiz')
+        response = self.client.post(url, {'action': 'add_record', 'kind': 'note',
+                                          'note': 'Other linked appointment',
+                                          'appointment_id': self.theirs.pk})
+        self.assertEqual(response.status_code, 404)
 
     def test_daily_open_close_reset_only_changes_own_availability(self):
         result = self.post_calendar(action='save', closed='on', staff_id=str(self.other.pk))
