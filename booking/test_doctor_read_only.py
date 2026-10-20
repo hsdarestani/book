@@ -124,4 +124,4 @@ class DoctorPrivateCalendarTests(TestCase):
         user = User.objects.get(username='aplus_app_admin_908')
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.aesthetic_access.view_only)
-        self.assertEqual(user.aesthetic_access.staff_id, self.doctor.pk)
+        self.assertEqual(user.aesthetic_access.staff.display_name, 'Qamar Hameed')
