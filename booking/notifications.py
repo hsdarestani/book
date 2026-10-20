@@ -224,3 +224,20 @@ def notify_1h_reminder(appointment):
     )
     send_appointment_event_emails(appointment, "reminder_1h", include_admin=False)
     return result
+
+
+def notify_admin_botoxbogen_received(record):
+    """Notify admins once when a signed Botoxbogen is first added to the Akte.
+
+    Only non-medical text and opaque record/customer ids go to the push relay.
+    Repeated delivery of the same external_id never reaches this function.
+    """
+    url = str(getattr(settings, "AESTHETIC_BOOKING_NOTIFICATION_URL", DEFAULT_RELAY_URL) or DEFAULT_RELAY_URL)
+    return _post_internal(url, {
+        "target": "admin",
+        "event": "botoxbogen_submitted",
+        "title": "Neuer Patientenbogen eingegangen",
+        "body": "Ein Patientenbogen wurde ausgefüllt. Patientenakte öffnen.",
+        "patient_customer_id": record.customer_id,
+        "patient_record_id": str(record.public_id),
+    })

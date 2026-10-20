@@ -21,8 +21,11 @@ class PatientRecordSyncTests(TestCase):
             PATIENT_FILE_ALLOWED_EXTENSIONS={'.pdf', '.jpg', '.txt'},
         )
         self.override.enable()
+        self.notification_patch = patch('booking.internal_api.notify_admin_botoxbogen_received')
+        self.mock_notification = self.notification_patch.start()
 
     def tearDown(self):
+        self.notification_patch.stop()
         self.override.disable()
         self.tmp.cleanup()
         super().tearDown()
@@ -158,3 +161,19 @@ class PatientRecordSyncTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(Customer.objects.count(), 1)
         self.assertEqual(PatientRecord.objects.count(), 1)
+
+    def test_new_botoxbogen_triggers_one_admin_push_and_retry_does_not(self):
+        payload = self.payload()
+        payload.update({'source': 'botoxbogen', 'external_id': 'botoxbogen:push-test'})
+        first = self.post(payload)
+        repeated = self.post(payload)
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(repeated.status_code, 200)
+        self.assertEqual(PatientRecord.objects.count(), 1)
+        self.mock_notification.assert_called_once()
+        self.assertEqual(self.mock_notification.call_args.args[0].customer_id,
+                         first.json()['customer_id'])
+
+    def test_other_form_sources_do_not_trigger_botoxbogen_admin_push(self):
+        self.assertEqual(self.post().status_code, 201)
+        self.mock_notification.assert_not_called()

@@ -19,6 +19,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .models import Appointment, Customer, PatientRecord, Service
 from .customer_identity import resolve_patient_identity
+from .notifications import notify_admin_botoxbogen_received
 
 
 def _error(code, message, status=400):
@@ -437,6 +438,15 @@ def ingest_patient_record(request):
                     'customer_id': existing.customer_id,
                 })
         raise
+
+    if source == 'botoxbogen':
+        try:
+            notify_admin_botoxbogen_received(record)
+        except Exception:
+            # Never cause the consent document to be retried or duplicated
+            # merely because remote push delivery is temporarily unavailable.
+            import logging
+            logging.getLogger(__name__).exception('Botoxbogen notification relay failed')
 
     return JsonResponse({
         'ok': True,
