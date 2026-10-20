@@ -74,7 +74,46 @@
   }
 }
 
-</style>{% if section == 'patients' %}<link rel="stylesheet" href="{% static 'booking/clinic-patient-polish-v1.css' %}?v=20261020-1">{% endif %}{% if section == 'hero' %}<link rel="stylesheet" href="{% static 'booking/admin-unified-nav-v14.css' %}?v=20261017-nav-v3">{% endif %}<link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-readable-ui-v1.css?v=20261020-readable1">{% if section == 'patients' %}<link rel="stylesheet" href="/static/booking/clinic-server-tabs-v1.css?v=20261020-server3">{% endif %}{% if section == 'patients' %}<link rel="stylesheet" href="/static/booking/clinic-patient-tabs-v2.css?v=20261020-tabs2">{% endif %}</head>
+</style>{% if section == 'patients' %}<link rel="stylesheet" href="{% static 'booking/clinic-patient-polish-v1.css' %}?v=20261020-1">{% endif %}{% if section == 'hero' %}<link rel="stylesheet" href="{% static 'booking/admin-unified-nav-v14.css' %}?v=20261017-nav-v3">{% endif %}<link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-readable-ui-v1.css?v=20261020-readable1">{% if section == 'patients' %}<link rel="stylesheet" href="/static/booking/clinic-server-tabs-v1.css?v=20261020-server3"><link rel="stylesheet" href="/static/booking/clinic-patient-finish-v3.css?v=20261020-patient-finish3">{% endif %}{% if section == 'patients' %}<link rel="stylesheet" href="/static/booking/clinic-patient-tabs-v2.css?v=20261020-tabs2">{% endif %}{% if section == 'patients' %}
+<style id="clinic-patient-critical-v3">
+/* Keep the primary patient navigation usable even if a CDN serves stale CSS.
+   This is the single critical inline fallback, scoped only to Kunden. */
+html[data-admin-page="patients"] #patient-tab-nav.customer-profile-tabs{
+ display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+ gap:5px!important;padding:5px!important;margin:0 0 15px!important;
+ position:static!important;inset:auto!important;z-index:auto!important;
+ background:#fff!important;border:1px solid #e4dcd0!important;
+ border-radius:13px!important;box-shadow:none!important;
+ overflow:visible!important;width:100%!important;box-sizing:border-box!important;
+}
+html[data-admin-page="patients"] #patient-tab-nav.customer-profile-tabs>a{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ min-width:0!important;min-height:44px!important;
+ padding:9px 8px!important;margin:0!important;
+ text-align:center!important;white-space:nowrap!important;
+ border:0!important;border-radius:10px!important;
+ color:#60594d!important;background:transparent!important;
+ text-decoration:none!important;
+ font:700 13px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif!important;
+}
+html[data-admin-page="patients"] #patient-tab-nav.customer-profile-tabs>a.is-active{
+ background:#e9c986!important;color:#2b2419!important;box-shadow:none!important;
+}
+html[data-admin-page="patients"] .app-patient-upload label.app-share-check>input[type="checkbox"]{
+ position:static!important;opacity:1!important;pointer-events:auto!important;
+ display:block!important;appearance:auto!important;-webkit-appearance:checkbox!important;
+ width:21px!important;height:21px!important;min-width:21px!important;min-height:21px!important;
+ max-width:21px!important;max-height:21px!important;flex:0 0 21px!important;
+ margin:0!important;accent-color:#b88a39!important;
+}
+html[data-admin-page="patients"] .app-patient-upload label.app-share-check>span::before,
+html[data-admin-page="patients"] .app-patient-upload label.app-share-check>span::after{content:none!important;display:none!important}
+@media(max-width:650px){
+ html[data-admin-page="patients"] #patient-tab-nav.customer-profile-tabs>a{font-size:11.5px!important;padding:9px 2px!important}
+}
+</style>
+{% endif %}
+</head>
 <body class="admin-body sb-admin-body app-management-body">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">{{ section_title }}</strong><span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div><aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav app-focused-nav"><div class="app-nav-label">A+ MANAGEMENT</div><a href="/verwaltung/dashboard/"><span>⌂</span>Dashboard</a><a href="/verwaltung/kalender/"><span>▣</span>Kalender</a><a href="/verwaltung/app/patients/" class="{% if section == 'patients' %}is-active{% endif %}"><span>▤</span>Patientenakten</a><a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}"><span>◆</span>A+ Punkte</a><a href="/verwaltung/app/reviews/" class="{% if section == 'reviews' %}is-active{% endif %}"><span>★</span>Google Bewertungen</a><a href="/verwaltung/app/referrals/" class="{% if section == 'referrals' %}is-active{% endif %}"><span>↗</span>Empfehlungen</a><a href="/verwaltung/app/hero/" class="{% if section == 'hero' %}is-active{% endif %}"><span>▧</span>Startseitenbilder</a><a href="/verwaltung/app/invoices/" class="{% if section == 'invoices' %}is-active{% endif %}"><span>▧</span>Rechnungen</a><a href="/verwaltung/mehr/"><span>⋯</span>Mehr</a><div class="app-nav-spacer"></div><a href="/verwaltung/logout/"><span>↪</span>Abmelden</a></nav></aside>
