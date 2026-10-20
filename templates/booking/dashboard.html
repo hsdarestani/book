@@ -95,7 +95,7 @@
       {% for item in upcoming %}
       <div class="table-row">
         <time>{{ item.starts_at|date:"d.m.Y" }}<b>{{ item.starts_at|date:"H:i" }}</b></time>
-        <div>{% if doctor_mode %}<strong>{{ item.customer.full_name }}</strong>{% else %}<a class="patient-inline-link" href="/verwaltung/patienten/{{ item.customer.pk }}/"><strong>{{ item.customer.full_name }}</strong></a>{% endif %}<small>{{ item.customer.email }} · {{ item.customer.phone }}</small></div>
+        <div><a class="patient-inline-link" href="/verwaltung/patienten/{{ item.customer.pk }}/"><strong>{{ item.customer.full_name }}</strong></a><small>{{ item.customer.email }} · {{ item.customer.phone }}</small></div>
         <div><strong>{{ item.service.name }}</strong><small>{% if item.returning_customer %}Bestandspatient{% else %}Neupatient{% endif %}</small></div>
         <div>{{ item.staff.display_name }}</div>
         <form method="post" class="status-form">{% csrf_token %}<input type="hidden" name="action" value="appointment_status"><input type="hidden" name="appointment_id" value="{{ item.pk }}">{% if selected_staff %}<input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">{% endif %}<select name="status" onchange="this.form.submit()">{% for value,label in appointment_statuses %}<option value="{{ value }}" {% if value == item.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></form>
@@ -109,11 +109,11 @@
     <label class="sb-search-field"><span>⌕</span><input type="search" placeholder="Kunden suchen..." data-customer-list-search></label>
     <div class="sb-customer-list" data-customer-list>
       {% for customer in customers %}
-      {% if doctor_mode %}<div class="sb-customer-row" data-customer-search={% else %}<a class="sb-customer-row" href="/verwaltung/patienten/{{ customer.pk }}/" data-customer-search={% endif %}"{{ customer.full_name|lower }} {{ customer.email|lower }} {{ customer.phone|lower }}">
+      <a class="sb-customer-row" href="/verwaltung/patienten/{{ customer.pk }}/" data-customer-search="{{ customer.full_name|lower }} {{ customer.email|lower }} {{ customer.phone|lower }}">
         <div class="customer-avatar">{{ customer.first_name|slice:":1" }}</div>
         <div><strong>{{ customer.full_name }}</strong><span>{{ customer.email }}{% if customer.phone %} / {{ customer.phone }}{% endif %}</span></div>
         <b>⋮</b>
-      {% if doctor_mode %}</div>{% else %}</a>{% endif %}
+      </a>
       {% empty %}<div class="empty">Noch keine Kunden vorhanden.</div>{% endfor %}
     </div>
   </section>
