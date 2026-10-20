@@ -1,0 +1,353 @@
+/* A+ Esthetic admin readability 2026-10-20.
+   Three work areas share one type scale and compact, usable density.
+   Calendar is deliberately not targeted. */
+html[data-admin-page="patients"],
+html[data-admin-page="invoices"],
+html[data-admin-page="wallet"] {
+  --clinic-body:#292824;
+  --clinic-muted:#655f56;
+  --clinic-line:#e5dfd4;
+  --clinic-gold:#a57b38;
+}
+html[data-admin-page="patients"] body.app-management-body,
+html[data-admin-page="invoices"] body.app-management-body,
+html[data-admin-page="wallet"] body.wallet-management-body {
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  color:var(--clinic-body)!important;
+  font-size:15px!important;
+  line-height:1.55!important;
+}
+html[data-admin-page="patients"] .app-management-shell,
+html[data-admin-page="invoices"] .app-management-shell,
+html[data-admin-page="wallet"] .wallet-management-shell{
+  max-width:1240px!important;
+  padding-bottom:56px!important;
+}
+html[data-admin-page="patients"] .app-page-heading,
+html[data-admin-page="invoices"] .app-page-heading{
+  padding:22px 10px 9px!important;
+}
+html[data-admin-page="patients"] .app-page-heading h1,
+html[data-admin-page="invoices"] .app-page-heading h1 {
+  font:750 clamp(29px,2.9vw,38px)/1.16 Inter,system-ui,sans-serif!important;
+  letter-spacing:-.035em!important;margin:6px 0 7px!important;
+}
+html[data-admin-page="patients"] .app-page-heading p,
+html[data-admin-page="invoices"] .app-page-heading p {
+  font-size:14px!important;line-height:1.55!important;color:var(--clinic-muted)!important;
+}
+html[data-admin-page="patients"] :is(.app-core-panel,.app-patient-layout,.patient-control-grid),
+html[data-admin-page="invoices"] :is(.app-core-panel,.billing-layout,.billing-services-panel),
+html[data-admin-page="wallet"] :is(.points-admin-card,.points-search-card,.points-history-panel){
+  min-width:0;max-width:100%;
+}
+html[data-admin-page="patients"] .app-core-panel,
+html[data-admin-page="invoices"] .app-core-panel,
+html[data-admin-page="wallet"] .points-search-card,
+html[data-admin-page="wallet"] .points-admin-card{
+  border:1px solid var(--clinic-line)!important;
+  border-radius:19px!important;background:#fff!important;
+  box-shadow:0 7px 25px rgba(34,31,26,.035)!important;
+}
+html[data-admin-page="patients"] .app-core-panel,
+html[data-admin-page="invoices"] .app-core-panel{padding:23px!important}
+html[data-admin-page="patients"] :is(.app-core-panel,.app-patient-layout,.patient-command-card,.patient-overview-grid,.patient-control-grid,.patient-appointments-panel,.customer-profile-tabs),
+html[data-admin-page="invoices"] :is(.billing-command,.billing-stat-grid,.billing-layout,.billing-services-panel,.billing-invoices-panel){
+  margin-left:0!important;margin-right:0!important;
+}
+html[data-admin-page="patients"] :is(.app-core-panel,.patient-command-card) h2,
+html[data-admin-page="invoices"] :is(.app-core-panel,.billing-command) h2,
+html[data-admin-page="wallet"] :is(.points-search-card,.points-history-panel,.points-results) h2{
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  font-size:clamp(21px,2vw,27px)!important;
+  font-weight:760!important;line-height:1.23!important;
+  letter-spacing:-.035em!important;margin-top:0!important;
+}
+html[data-admin-page="patients"] :is(.app-core-panel,.patient-command-card) p,
+html[data-admin-page="invoices"] :is(.app-core-panel,.billing-command) p,
+html[data-admin-page="wallet"] :is(.points-search-card,.points-history-panel,.points-admin-hero) p{
+  font-size:13px!important;line-height:1.58!important;
+}
+html[data-admin-page="patients"] :is(.app-core-panel,.patient-mini-stat,.patient-command-card) .eyebrow,
+html[data-admin-page="invoices"] :is(.app-core-panel,.billing-command) .eyebrow{
+  font:750 10px/1.5 Inter,system-ui,sans-serif!important;letter-spacing:.10em!important;
+}
+html[data-admin-page="patients"] :is(.app-patient-upload,.patient-inline-form,.point-adjust-form,.app-record-timeline) :is(label,p,small,span),
+html[data-admin-page="invoices"] :is(.billing-form,.clinic-service-editor,.billing-invoice-card,.billing-customer-sheet) :is(label,p,small,span),
+html[data-admin-page="wallet"] :is(.points-search-card,.points-admin-card,.points-history-panel) :is(label,p,small,span){
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  line-height:1.5!important;
+}
+html[data-admin-page="patients"] :is(.app-patient-upload,.patient-inline-form,.point-adjust-form) label,
+html[data-admin-page="invoices"] :is(.billing-form,.clinic-service-editor) label,
+html[data-admin-page="wallet"] :is(.points-adjust-form,.wallet-manual-form) label{
+  font-size:13px!important;font-weight:670!important;color:#51493e!important;
+}
+html[data-admin-page="patients"] :is(.app-patient-upload,.patient-inline-form,.point-adjust-form) :is(input,select,textarea),
+html[data-admin-page="invoices"] :is(.billing-form,.clinic-service-editor,.billing-service-card) :is(input,select,textarea),
+html[data-admin-page="wallet"] :is(.points-search-card,.points-adjust-form,.wallet-manual-form) :is(input,select,textarea){
+  font:500 15px/1.45 Inter,system-ui,sans-serif!important;
+  min-height:45px!important;box-sizing:border-box!important;
+  color:#292824!important;
+}
+html[data-admin-page="patients"] :is(.app-patient-upload,.patient-inline-form,.point-adjust-form,.patient-command-actions) button,
+html[data-admin-page="invoices"] :is(.billing-form,.billing-invoice-card,.billing-service-card,.billing-customer-modal) button,
+html[data-admin-page="wallet"] :is(.points-search-card,.points-adjust-form,.wallet-scanner-actions,.points-admin-hero) button{
+  font-family:Inter,system-ui,sans-serif!important;
+  font-size:13px!important;font-weight:720!important;
+  line-height:1.35!important;min-height:42px;
+}
+html[data-admin-page="patients"] :is(.app-core-panel,.patient-command-card,.patient-overview-grid) :is(.empty,small),
+html[data-admin-page="invoices"] :is(.app-core-panel,.billing-stat-grid) :is(.empty,small),
+html[data-admin-page="wallet"] :is(.points-search-card,.points-results,.points-history-panel) .empty{
+  font-size:13px!important;line-height:1.55!important;color:#746a5e!important;
+}
+html[data-admin-page="patients"] .patient-command-card{
+  padding:23px 26px!important;gap:17px!important;min-height:136px;
+  border-radius:21px!important;box-shadow:0 15px 35px rgba(25,23,19,.09)!important;
+}
+html[data-admin-page="patients"] .patient-command-copy>span,
+html[data-admin-page="patients"] .patient-mini-stat>span{
+  font-size:10px!important;font-family:Inter,system-ui,sans-serif!important;
+  font-weight:750!important;letter-spacing:.08em!important;
+}
+html[data-admin-page="patients"] .patient-command-copy h2{
+  color:#fff!important;font-size:clamp(23px,3vw,32px)!important;
+  letter-spacing:-.025em!important;margin:5px 0 5px!important;
+}
+html[data-admin-page="patients"] .patient-command-copy p{
+  color:#d9d0c0!important;font-size:13px!important;overflow-wrap:anywhere!important;
+}
+html[data-admin-page="patients"] .patient-command-actions a{
+  font:650 12px/1.4 Inter,system-ui,sans-serif!important;
+  padding:10px 13px!important;min-height:39px!important;
+}
+html[data-admin-page="patients"] .patient-overview-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important;
+}
+html[data-admin-page="patients"] .patient-mini-stat{padding:17px 20px!important}
+html[data-admin-page="patients"] .patient-mini-stat strong{
+  font:730 30px/1.1 Inter,system-ui,sans-serif!important;
+}
+html[data-admin-page="patients"] .customer-profile-tabs{
+  margin:12px 0 18px!important;padding:5px!important;border-radius:14px!important;
+  display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important;
+}
+html[data-admin-page="patients"] .customer-profile-tabs button{
+  min-height:44px!important;padding:10px!important;
+  font:660 13px/1.4 Inter,system-ui,sans-serif!important;
+  border-radius:10px!important;letter-spacing:0!important;
+}
+html[data-admin-page="patients"] .patient-control-grid{margin-bottom:12px!important}
+html[data-admin-page="patients"] .patient-appointments-panel{margin-bottom:14px!important}
+html[data-admin-page="patients"] .app-patient-layout{
+  display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);align-items:start;
+  gap:16px!important;margin-top:12px!important;
+}
+html[data-admin-page="patients"] :is(.app-upload-panel,.app-timeline-panel){margin:0!important}
+html[data-admin-page="patients"] .app-record-card{
+  padding:16px!important;border:1px solid #e8e1d6!important;border-radius:14px!important;
+}
+html[data-admin-page="patients"] .app-record-head strong{font-size:15px!important}
+html[data-admin-page="patients"] .app-record-head time,
+html[data-admin-page="patients"] .app-record-source,
+html[data-admin-page="patients"] .app-record-card :is(small,span){
+  font-size:12px!important;line-height:1.5!important;
+}
+html[data-admin-page="patients"] .wa-template-list a{
+  padding:12px!important;gap:6px!important;
+}
+html[data-admin-page="patients"] .wa-template-list :is(b,small),
+html[data-admin-page="patients"] .app-record-usage,
+html[data-admin-page="patients"] .patient-inline-form button{
+  font-size:12px!important;
+}
+/* Both the HTML hidden attribute and the patient tab class must beat
+   legacy !important display:block on .app-core-panel. */
+html[data-admin-page="patients"] [data-customer-panel][hidden],
+html[data-admin-page="patients"] [data-customer-panel].is-tab-hidden,
+html[data-admin-page="patients"] [data-customer-control-grid][hidden],
+html[data-admin-page="patients"] [data-customer-control-grid].is-tab-hidden{
+  display:none!important;visibility:hidden!important;
+}
+html[data-admin-page="patients"] .patient-control-grid.is-single-panel{
+  grid-template-columns:minmax(0,1fr)!important;
+}
+html[data-admin-page="patients"] .patient-appointments-panel:not([hidden]){display:block!important}
+
+/* Billing: searchable services instead of a page full of forms. */
+html[data-admin-page="invoices"] .billing-command{padding:26px 28px!important;border-radius:20px!important;box-shadow:none!important}
+html[data-admin-page="invoices"] .billing-command-copy h2{color:#fff!important;font-size:clamp(25px,2.6vw,34px)!important}
+html[data-admin-page="invoices"] .billing-stat-grid{gap:12px!important}
+html[data-admin-page="invoices"] .billing-stat-grid article{padding:16px 20px!important;border-radius:15px!important}
+html[data-admin-page="invoices"] .billing-stat-grid strong{
+  font:740 27px/1.15 Inter,system-ui,sans-serif!important;
+}
+html[data-admin-page="invoices"] .billing-stat-grid span{font-size:11px!important;letter-spacing:.05em!important}
+html[data-admin-page="invoices"] .billing-layout{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)!important;gap:16px!important}
+html[data-admin-page="invoices"] .billing-service-list{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;
+}
+html[data-admin-page="invoices"] .billing-services-panel .panel-head{
+  display:flex!important;justify-content:space-between;align-items:flex-start!important;gap:18px;
+}
+html[data-admin-page="invoices"] .clinic-service-count{
+  color:#6b552d!important;background:#f5efe3!important;border-radius:999px!important;
+  padding:8px 13px!important;font:700 12px Inter,system-ui,sans-serif!important;white-space:nowrap!important;
+}
+html[data-admin-page="invoices"] .clinic-service-toolbar{
+  display:flex;align-items:end;justify-content:space-between;gap:12px;
+  margin:14px 0 16px;padding:0!important;
+}
+html[data-admin-page="invoices"] .clinic-service-toolbar label{display:grid;gap:6px;flex:1}
+html[data-admin-page="invoices"] .clinic-service-toolbar input{
+  width:100%;min-height:46px;box-sizing:border-box;
+  border:1px solid #ded6c9;border-radius:12px;padding:10px 14px;background:#fff;
+  font:500 14px Inter,system-ui,sans-serif!important;
+}
+html[data-admin-page="invoices"] .clinic-service-toolbar output{
+  color:#746a5c;font:620 12px Inter,system-ui,sans-serif!important;
+  padding-bottom:12px;white-space:nowrap;
+}
+html[data-admin-page="invoices"] .clinic-service-card{
+  display:block!important;padding:0!important;border-radius:14px!important;
+  background:#fff!important;overflow:hidden!important;
+}
+html[data-admin-page="invoices"] .clinic-service-card[hidden]{display:none!important}
+html[data-admin-page="invoices"] .clinic-service-card>summary{
+  display:flex!important;gap:10px!important;align-items:center!important;
+  cursor:pointer;padding:16px!important;margin:0!important;list-style:none!important;
+}
+html[data-admin-page="invoices"] .clinic-service-card>summary::-webkit-details-marker{display:none}
+html[data-admin-page="invoices"] .clinic-service-copy{
+  flex:1;min-width:0;display:grid;gap:4px;
+}
+html[data-admin-page="invoices"] .clinic-service-copy strong{
+  font:680 14px/1.4 Inter,system-ui,sans-serif!important;
+  color:#322f29!important;overflow-wrap:anywhere;
+}
+html[data-admin-page="invoices"] .clinic-service-copy small{
+  font:520 12px/1.4 Inter,system-ui,sans-serif!important;color:#716b62!important;
+}
+html[data-admin-page="invoices"] .clinic-service-status{
+  flex:none;white-space:nowrap;border-radius:999px;padding:6px 9px!important;
+  background:#f6eee2;color:#786343;font:700 11px Inter,system-ui,sans-serif!important;
+}
+html[data-admin-page="invoices"] .clinic-service-status.is-ready{background:#eaf5ed!important;color:#34714b!important}
+html[data-admin-page="invoices"] .clinic-service-chevron{
+  font-size:20px;color:#8a774d;transition:transform .2s;
+}
+html[data-admin-page="invoices"] .clinic-service-card[open] .clinic-service-chevron{transform:rotate(180deg)}
+html[data-admin-page="invoices"] .clinic-service-card[open]{
+  border-color:#cbae78!important;box-shadow:0 0 0 2px rgba(185,144,72,.09)!important;
+}
+html[data-admin-page="invoices"] .clinic-service-editor{
+  padding:14px 16px 17px!important;display:grid!important;gap:12px!important;
+  border-top:1px solid #eee8df;
+}
+html[data-admin-page="invoices"] .clinic-service-editor .billing-small{
+  justify-self:start!important;padding:11px 15px!important;
+}
+html[data-admin-page="invoices"] .clinic-service-empty:not([hidden]){
+  display:block!important;text-align:center;color:#6f6458;padding:22px;
+}
+html[data-admin-page="invoices"] .billing-invoice-card{
+  padding:16px!important;gap:15px!important;
+}
+html[data-admin-page="invoices"] .billing-invoice-card strong{
+  font-size:14px!important;line-height:1.5!important;
+}
+html[data-admin-page="invoices"] .billing-invoice-card span,
+html[data-admin-page="invoices"] .billing-invoice-card small{
+  font-size:12px!important;line-height:1.5!important;
+}
+html[data-admin-page="invoices"] .billing-customer-sheet .billing-customer-option strong{
+  font-size:14px!important;
+}
+html[data-admin-page="invoices"] .billing-customer-sheet .billing-customer-option small{
+  font-size:12px!important;
+}
+html[data-admin-page="invoices"] .billing-picker-copy strong,
+html[data-admin-page="invoices"] .billing-date-display strong{
+  font-size:14px!important;
+}
+html[data-admin-page="invoices"] .billing-picker-copy small,
+html[data-admin-page="invoices"] .billing-date-display small{
+  font-size:12px!important;
+}
+
+/* A+ Punkte: restore legibility without making cards excessively tall. */
+html[data-admin-page="wallet"] .points-admin-hero{
+  min-height:0!important;padding:29px 32px!important;margin:7px 0 18px!important;
+  border-radius:20px!important;box-shadow:0 15px 36px rgba(25,23,19,.09)!important;
+}
+html[data-admin-page="wallet"] .points-admin-hero h1{
+  font:750 clamp(30px,3.3vw,43px)/1.15 Inter,system-ui,sans-serif!important;
+  letter-spacing:-.035em!important;margin:6px 0!important;
+}
+html[data-admin-page="wallet"] .points-admin-hero>div>span{font-size:10px!important}
+html[data-admin-page="wallet"] .points-admin-hero>button{
+  padding:12px 18px!important;min-height:46px!important;font-size:13px!important;
+}
+html[data-admin-page="wallet"] .points-search-card{padding:20px 23px!important;gap:24px!important}
+html[data-admin-page="wallet"] .points-search-card h2{
+  font:740 25px/1.2 Inter,system-ui,sans-serif!important;
+}
+html[data-admin-page="wallet"] .points-search-card :is(p,span){font-size:13px!important}
+html[data-admin-page="wallet"] .points-search-card button{
+  background:#292723!important;color:#fff!important;
+}
+html[data-admin-page="wallet"] .points-results-head span,
+html[data-admin-page="wallet"] .points-history-head span{font-size:10px!important}
+html[data-admin-page="wallet"] .points-admin-card{padding:17px!important}
+html[data-admin-page="wallet"] .points-person>div:nth-child(2)>strong{
+  font-size:15px!important;font-weight:700!important;
+}
+html[data-admin-page="wallet"] .points-person>div:nth-child(2)>small{
+  font-size:12px!important;
+}
+html[data-admin-page="wallet"] .points-person>div:nth-child(2)>span,
+html[data-admin-page="wallet"] .points-balance span{
+  font-size:10px!important;
+}
+html[data-admin-page="wallet"] .points-balance b{
+  font:730 26px/1.1 Inter,system-ui,sans-serif!important;
+}
+html[data-admin-page="wallet"] .points-adjust-form input{
+  min-height:45px!important;
+}
+html[data-admin-page="wallet"] .points-quick button,
+html[data-admin-page="wallet"] .points-save{
+  min-height:41px!important;font-size:12px!important;
+}
+html[data-admin-page="wallet"] .points-open-history{
+  font-size:12px!important;padding:12px 0 5px!important;
+}
+html[data-admin-page="wallet"] .points-history-list article{
+  padding:13px!important;
+}
+html[data-admin-page="wallet"] .points-history-list :is(strong,span,b){
+  font-size:12px!important;
+}
+@media(max-width:900px){
+ html[data-admin-page="patients"] .app-patient-layout,
+ html[data-admin-page="invoices"] .billing-layout{
+  grid-template-columns:1fr!important;
+ }
+ html[data-admin-page="invoices"] .billing-service-list{grid-template-columns:1fr!important}
+}
+@media(max-width:600px){
+ html[data-admin-page="patients"] .app-core-panel,
+ html[data-admin-page="invoices"] .app-core-panel{padding:18px!important}
+ html[data-admin-page="patients"] .patient-command-card{padding:17px!important}
+ html[data-admin-page="patients"] .patient-overview-grid{gap:7px!important}
+ html[data-admin-page="patients"] .patient-mini-stat{padding:12px!important}
+ html[data-admin-page="patients"] .customer-profile-tabs{gap:2px!important;padding:3px!important}
+ html[data-admin-page="patients"] .customer-profile-tabs button{padding:8px 3px!important;font-size:11px!important}
+ html[data-admin-page="invoices"] .billing-stat-grid strong{font-size:23px!important}
+ html[data-admin-page="invoices"] .clinic-service-toolbar{display:grid!important}
+ html[data-admin-page="invoices"] .clinic-service-toolbar output{padding:0!important}
+ html[data-admin-page="invoices"] .billing-services-panel .panel-head{display:block!important}
+ html[data-admin-page="wallet"] .points-admin-hero{padding:20px!important}
+ html[data-admin-page="wallet"] .points-search-card{padding:17px!important}
+}
