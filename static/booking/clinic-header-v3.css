@@ -1,0 +1,143 @@
+/* A+ Esthetic Management: canonical single-row web navigation.
+   Deliberately absent on /verwaltung/kalender/ and clinician calendar templates. */
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-v3{
+  --top-ink:#f7f1e5;--top-gold:#d8b678;
+  position:relative!important;z-index:35!important;box-sizing:border-box!important;
+  display:flex!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:space-between!important;
+  min-height:76px!important;height:76px!important;width:100%!important;max-width:100%!important;
+  margin:0 0 23px!important;padding:0 19px!important;
+  gap:16px!important;border-radius:17px!important;border:1px solid #34312c!important;
+  background:linear-gradient(118deg,#24231f 0%,#191a1a 55%,#292722 100%)!important;
+  box-shadow:0 16px 30px rgba(18,18,16,.12)!important;backdrop-filter:none!important;
+  color:var(--top-ink)!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-v3 :is(a,summary){
+  text-decoration:none!important;white-space:nowrap!important;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-brand{
+  display:inline-flex!important;align-items:center!important;gap:10px!important;
+  min-width:0!important;max-width:195px!important;flex:0 0 auto!important;
+  color:var(--top-ink)!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-logo{
+  box-sizing:border-box!important;display:flex!important;justify-content:center!important;align-items:center!important;
+  flex:0 0 44px!important;width:44px!important;height:44px!important;max-width:44px!important;
+  border-radius:11px!important;background:#eee9dd!important;overflow:hidden!important;padding:5px!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-logo img{
+  display:block!important;flex:0 0 34px!important;box-sizing:border-box!important;
+  width:34px!important;height:34px!important;min-width:0!important;min-height:0!important;
+  max-width:34px!important;max-height:34px!important;aspect-ratio:1!important;object-fit:contain!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-wordmark{
+  display:flex!important;flex-direction:column!important;gap:4px!important;min-width:0!important;line-height:1.1!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-wordmark strong{
+  color:#fffaf3!important;font-size:14px!important;font-weight:700!important;letter-spacing:-.015em!important;line-height:1.15!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-wordmark small{
+  color:#bc9f6f!important;font-size:8px!important;font-weight:730!important;letter-spacing:.14em!important;line-height:1.2!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-nav{
+  display:flex!important;flex:1 1 auto!important;align-items:center!important;justify-content:center!important;
+  flex-wrap:nowrap!important;gap:3px!important;min-width:0!important;max-width:none!important;padding:0!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-nav a{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  min-height:39px!important;padding:9px 11px!important;flex:0 1 auto!important;
+  border:1px solid transparent!important;border-radius:10px!important;
+  color:#d5d0c7!important;background:transparent!important;
+  font-size:12px!important;font-weight:580!important;line-height:1.25!important;
+  transition:background .16s ease,color .16s ease!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-nav a:hover{
+  color:#fff!important;background:#363530!important;
+}
+html[data-admin-page="dashboard"] .clinic-header-nav a[data-clinic-page="dashboard"],
+html[data-admin-page="customers"] .clinic-header-nav a[data-clinic-page="customers"],
+html[data-admin-page="patients"] .clinic-header-nav a[data-clinic-page="customers"],
+html[data-admin-page="points"] .clinic-header-nav a[data-clinic-page="points"],
+html[data-admin-page="wallet"] .clinic-header-nav a[data-clinic-page="points"],
+html[data-admin-page="reviews"] .clinic-header-nav a[data-clinic-page="reviews"],
+html[data-admin-page="invoices"] .clinic-header-nav a[data-clinic-page="invoices"]{
+  color:#eace93!important;background:rgba(214,174,102,.13)!important;border-color:rgba(219,176,102,.16)!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-actions{
+  display:flex!important;flex:0 0 auto!important;align-items:center!important;justify-content:flex-end!important;
+  gap:9px!important;flex-wrap:nowrap!important;min-width:0!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-more{
+  position:relative!important;display:block!important;z-index:50!important;flex:none!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-more>summary{
+  display:flex!important;justify-content:center!important;align-items:center!important;gap:7px!important;
+  min-height:38px!important;box-sizing:border-box!important;padding:8px 11px!important;cursor:pointer!important;
+  border:1px solid rgba(255,255,255,.13)!important;border-radius:10px!important;
+  font-size:12px!important;font-weight:570!important;color:#e4ded4!important;background:rgba(255,255,255,.055)!important;
+  list-style:none!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-more>summary::-webkit-details-marker{display:none}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-more[open]>summary{
+  background:rgba(221,180,106,.15)!important;color:#f4d6a0!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-menu{
+  position:absolute!important;right:0!important;top:calc(100% + 12px)!important;
+  min-width:235px!important;max-width:270px!important;box-sizing:border-box!important;
+  padding:12px!important;display:grid!important;gap:3px!important;z-index:100!important;
+  border-radius:15px!important;border:1px solid rgba(83,72,54,.12)!important;background:#fffdfa!important;
+  box-shadow:0 24px 55px rgba(15,15,13,.22)!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-more:not([open]) .clinic-header-menu{
+  display:none!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-menu-title{
+  color:#a1865c!important;padding:5px 10px 7px!important;font-size:10px!important;letter-spacing:.09em!important;font-weight:760!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-menu>a{
+  color:#342f28!important;font-size:12px!important;font-weight:620!important;line-height:1.3!important;
+  min-height:38px!important;padding:10px!important;border-radius:9px!important;display:block!important;box-sizing:border-box!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-menu>a:hover{
+  color:#332414!important;background:#f5efe5!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-v3 .clinic-header-exit{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  min-width:38px!important;min-height:38px!important;width:38px!important;height:38px!important;
+  flex:0 0 38px!important;box-sizing:border-box!important;border-radius:10px!important;
+  background:#3a3631!important;color:#f4e9d5!important;border:1px solid rgba(255,255,255,.12)!important;
+  padding:0!important;box-shadow:none!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-exit:hover{background:#514236!important}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-v3 .clinic-notification-button{
+  flex:0 0 38px!important;box-sizing:border-box!important;display:inline-flex!important;
+  align-items:center!important;justify-content:center!important;width:38px!important;height:38px!important;
+  min-width:38px!important;min-height:38px!important;max-width:38px!important;
+  padding:0!important;border-radius:10px!important;border:1px solid rgba(255,255,255,.13)!important;
+  background:#3a3631!important;color:#f4e9d5!important;
+  position:relative!important;cursor:pointer!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-v3 .clinic-notification-button[data-permission="granted"]{
+  background:rgba(191,153,86,.18)!important;color:#e4c78f!important;border-color:rgba(218,173,99,.45)!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-v3 .clinic-notification-button .clinic-notification-status{
+  width:5px!important;height:5px!important;position:absolute!important;right:6px!important;top:6px!important;
+  border-radius:50%!important;background:#c7a269!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-v3 .clinic-notification-button[data-permission="granted"] .clinic-notification-status{
+  background:#8aca96!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-v3 :is(a,summary,button):focus-visible{
+  outline:2px solid #efc77c!important;outline-offset:3px!important;
+}
+@media(max-width:1240px){
+ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-nav a{
+   padding:9px 8px!important;font-size:11px!important;
+ }
+ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-nav .clinic-nav-secondary{
+   display:none!important;
+ }
+}
+@media(max-width:980px){
+ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-header-v3{display:none!important}
+}
