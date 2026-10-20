@@ -14,13 +14,13 @@
 border:1px solid #cdb890;border-radius:12px;background:#fffaf1;text-decoration:none;color:#71532b;
 font-size:13px;font-weight:750;white-space:normal}
 @media(max-width:620px){.campaign-content-actions{width:100%}.hero-content-link{flex:1}}
-</style><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"></head>
+</style><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"></head>
 <body class="admin-body sb-admin-body app-management-body aplus-command-body ferrari-more">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">Mehr</strong><span class="sb-icon-button app-management-dot">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div>
 <aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav"></nav></aside>
 <main class="admin-shell sb-admin-shell app-management-shell command-shell">
-<header class="admin-topbar sb-desktop-topbar app-focused-topbar"><div class="admin-brand"><a class="brand brand-image" href="/verwaltung/dashboard/"><img class="brand-logo" width="66" height="48" style="display:block;width:66px;height:48px;max-width:66px;max-height:48px;object-fit:contain" src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"></a><div class="brand-meta">Mehr</div></div><nav class="admin-nav"></nav><div class="admin-actions"><a href="/verwaltung/logout/">Abmelden</a></div></header>
+{% include "booking/_clinic_web_header_v3.html" %}
 
 <section class="ferrari-page-hero"><div><span>A+ ESTHETIC · CONTROL</span><h1>Mehr</h1><p>Kampagnen, Kommunikation und Systemeinstellungen – reduziert auf das Wesentliche.</p></div></section>
 {% if error %}<div class="admin-notice is-error">{{ error }}</div>{% endif %}
@@ -86,4 +86,4 @@ font-size:13px;font-weight:750;white-space:normal}
 <script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20261017-hero-menu-v1"></script>
 <script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script>
 <script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260922-v17"></script>
-<script defer src="{% static 'booking/medical-form-push-v1.js' %}?v=20261020"></script><script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-desktop1"></script></body></html>
+<script defer src="{% static 'booking/medical-form-push-v1.js' %}?v=20261020"></script><script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-desktop1"></script><script defer src="/static/booking/clinic-header-v3.js?v=20261020-header3"></script></body></html>
