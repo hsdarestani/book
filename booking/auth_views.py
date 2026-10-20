@@ -1,4 +1,7 @@
+import json
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
@@ -72,6 +75,28 @@ def app_admin_entry(request):
     return _no_store(response)
 
 
+def _verify_doctor(request):
+    """Verify a clinical identity with the separate A+ Esthetic app authority."""
+    authorization = str(request.headers.get('Authorization') or '').strip()
+    if not authorization.startswith('Bearer ') or len(authorization) < 24:
+        return None
+    remote = Request(
+        'https://esthetic.smarbiz.sbs/api/mobile/doctor/',
+        headers={'Authorization': authorization, 'Accept': 'application/json'},
+    )
+    try:
+        with urlopen(remote, timeout=12) as response:
+            payload = json.loads(response.read().decode('utf-8'))
+    except (HTTPError, URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    doctor = payload.get('doctor') if payload.get('ok') else None
+    if not isinstance(doctor, dict):
+        return None
+    if str(doctor.get('name') or '').strip().casefold() != 'qamar hameed':
+        return None
+    return doctor
+
+
 @csrf_exempt
 @never_cache
 @require_http_methods(['POST'])
@@ -80,18 +105,20 @@ def app_admin_sso(request):
     from .models import AdminAccessProfile, StaffMember
 
     admin = _verify_admin(request)
-    if not admin:
+    doctor = None if admin else _verify_doctor(request)
+    identity = admin or doctor
+    if not identity:
         return _no_store(JsonResponse({'ok': False, 'error': 'admin_required'}, status=403))
 
-    external_id = str(admin.get('id') or '').strip()
+    external_id = str(identity.get('id') or '').strip()
     if not external_id:
         return _no_store(JsonResponse({'ok': False, 'error': 'admin_identity_missing'}, status=403))
 
     username = f'aplus_app_admin_{external_id}'[:150]
     user, _ = User.objects.get_or_create(username=username)
     changed = []
-    email = str(admin.get('email') or '').strip()
-    name = str(admin.get('name') or '').strip()
+    email = str(identity.get('email') or '').strip()
+    name = str(identity.get('name') or '').strip()
     first_name, _, last_name = name.partition(' ')
     desired = {
         'email': email,
@@ -111,12 +138,15 @@ def app_admin_sso(request):
     if changed:
         user.save(update_fields=list(dict.fromkeys(changed)))
 
-    # Qamar Hameed is intentionally view-only. This is enforced server-side for
-    # every /verwaltung/ write request, not merely by hiding buttons in the UI.
+    # Doctor access is scoped to one physician and is never a full admin role.
     normalized = f'{name} {email}'.lower()
-    if 'qamar hameed' in normalized or ('qamar' in normalized and 'hameed' in normalized):
+    qamar_identity = doctor is not None or ('qamar' in normalized and 'hameed' in normalized)
+    if qamar_identity:
         staff = StaffMember.objects.filter(display_name__iexact='Qamar Hameed').first()
+        if not staff:
+            return _no_store(JsonResponse({'ok': False, 'error': 'doctor_not_configured'}, status=403))
         AdminAccessProfile.objects.update_or_create(user=user, defaults={'staff': staff, 'view_only': True})
+    profile = AdminAccessProfile.objects.filter(user=user, view_only=True, staff__isnull=False).first()
 
     login(request, user, backend='django.contrib.auth.backends.ModelBackend')
     request.session['aplus_app_admin'] = True
@@ -124,7 +154,7 @@ def app_admin_sso(request):
     authorization = str(request.headers.get('Authorization') or '').strip()
     if authorization.startswith('Bearer '):
         request.session['aplus_admin_authorization'] = authorization
-    response = JsonResponse({'ok': True, 'redirect': '/verwaltung/dashboard/'})
+    response = JsonResponse({'ok': True, 'redirect': '/verwaltung/arzt/' if profile else '/verwaltung/dashboard/'})
     response.set_cookie('aplus_admin_ui', '1', secure=request.is_secure(), samesite='Lax', max_age=60 * 60 * 24 * 30)
     return _no_store(response)
 
