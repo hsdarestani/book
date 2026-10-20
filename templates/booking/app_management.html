@@ -74,42 +74,45 @@
   }
 }
 
-</style>{% if section == 'patients' %}<link rel="stylesheet" href="{% static 'booking/clinic-patient-polish-v1.css' %}?v=20261020-1">{% endif %}{% if section == 'hero' %}<link rel="stylesheet" href="{% static 'booking/admin-unified-nav-v14.css' %}?v=20261017-nav-v3">{% endif %}<link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-readable-ui-v1.css?v=20261020-readable1">{% if section == 'patients' %}<link rel="stylesheet" href="/static/booking/clinic-server-tabs-v1.css?v=20261020-server3"><link rel="stylesheet" href="/static/booking/clinic-patient-finish-v3.css?v=20261020-patient-finish3">{% endif %}{% if section == 'patients' %}<link rel="stylesheet" href="/static/booking/clinic-patient-tabs-v2.css?v=20261020-tabs2">{% endif %}{% if section == 'patients' %}
-<style id="clinic-patient-critical-v3">
-/* Keep the primary patient navigation usable even if a CDN serves stale CSS.
-   This is the single critical inline fallback, scoped only to Kunden. */
-html[data-admin-page="patients"] #patient-tab-nav.customer-profile-tabs{
+</style>{% if section == 'patients' %}<link rel="stylesheet" href="{% static 'booking/clinic-patient-polish-v1.css' %}?v=20261020-1">{% endif %}{% if section == 'hero' %}<link rel="stylesheet" href="{% static 'booking/admin-unified-nav-v14.css' %}?v=20261017-nav-v3">{% endif %}<link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-readable-ui-v1.css?v=20261020-readable1">{% if section == 'patients' %}<link rel="stylesheet" href="/static/booking/clinic-server-tabs-v1.css?v=20261020-server3"><link rel="stylesheet" href="/static/booking/clinic-patient-finish-v3.css?v=20261020-patient-finish3"><link rel="stylesheet" href="/static/booking/clinic-patient-finish-v4.css?v=20261020-patient-finish4">{% endif %}{% if section == 'patients' %}<link rel="stylesheet" href="/static/booking/clinic-patient-tabs-v2.css?v=20261020-tabs2">{% endif %}{% if section == 'patients' %}
+<style id="clinic-patient-critical-v4">
+/* Render-ready tabs: real forms and styled buttons, independent of link CSS. */
+#patient-tab-nav.customer-profile-tabs {
  display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
  gap:5px!important;padding:5px!important;margin:0 0 15px!important;
  position:static!important;inset:auto!important;z-index:auto!important;
  background:#fff!important;border:1px solid #e4dcd0!important;
- border-radius:13px!important;box-shadow:none!important;
- overflow:visible!important;width:100%!important;box-sizing:border-box!important;
+ border-radius:13px!important;box-shadow:none!important;overflow:visible!important;
+ width:100%!important;box-sizing:border-box!important;
 }
-html[data-admin-page="patients"] #patient-tab-nav.customer-profile-tabs>a{
- display:flex!important;align-items:center!important;justify-content:center!important;
- min-width:0!important;min-height:44px!important;
- padding:9px 8px!important;margin:0!important;
- text-align:center!important;white-space:nowrap!important;
- border:0!important;border-radius:10px!important;
- color:#60594d!important;background:transparent!important;
- text-decoration:none!important;
- font:700 13px/1.3 system-ui,-apple-system,"Segoe UI",sans-serif!important;
+#patient-tab-nav.customer-profile-tabs>.patient-tab-form{
+ display:block!important;min-width:0!important;width:100%!important;margin:0!important;padding:0!important;
 }
-html[data-admin-page="patients"] #patient-tab-nav.customer-profile-tabs>a.is-active{
- background:#e9c986!important;color:#2b2419!important;box-shadow:none!important;
+#patient-tab-nav.customer-profile-tabs .patient-tab-button{
+ display:flex!important;justify-content:center!important;align-items:center!important;
+ width:100%!important;min-width:0!important;min-height:46px!important;
+ box-sizing:border-box!important;border:0!important;border-radius:10px!important;
+ margin:0!important;padding:10px 5px!important;appearance:none!important;
+ background:transparent!important;color:#60594d!important;cursor:pointer!important;
+ font:700 13px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif!important;
+ text-decoration:none!important;text-align:center!important;white-space:normal!important;
 }
-html[data-admin-page="patients"] .app-patient-upload label.app-share-check>input[type="checkbox"]{
- position:static!important;opacity:1!important;pointer-events:auto!important;
- display:block!important;appearance:auto!important;-webkit-appearance:checkbox!important;
- width:21px!important;height:21px!important;min-width:21px!important;min-height:21px!important;
- max-width:21px!important;max-height:21px!important;flex:0 0 21px!important;
- margin:0!important;accent-color:#b88a39!important;
+#patient-tab-nav.customer-profile-tabs .patient-tab-button.is-active{
+ background:#e9c986!important;color:#2b2419!important;
+ box-shadow:0 2px 8px rgba(143,103,36,.09)!important;
 }
-html[data-admin-page="patients"] .app-patient-upload label.app-share-check>span::before,
-html[data-admin-page="patients"] .app-patient-upload label.app-share-check>span::after{content:none!important;display:none!important}
+#patient-tab-nav.customer-profile-tabs .patient-tab-button:focus-visible{
+ outline:2px solid #936e36!important;outline-offset:2px!important;
+}
+.patient-profile-single {display:block!important;width:100%!important;max-width:100%!important;min-width:0!important}
+.patient-profile-single>.patient-profile-panel,.patient-profile-single>.patient-points-panel{
+ box-sizing:border-box!important;display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;
+}
 @media(max-width:650px){
- html[data-admin-page="patients"] #patient-tab-nav.customer-profile-tabs>a{font-size:11.5px!important;padding:9px 2px!important}
+ #patient-tab-nav.customer-profile-tabs {gap:3px!important;padding:4px!important}
+ #patient-tab-nav.customer-profile-tabs .patient-tab-button{
+  font-size:12px!important;min-height:45px!important;padding:9px 2px!important;
+ }
 }
 </style>
 {% endif %}
@@ -125,11 +128,27 @@ html[data-admin-page="patients"] .app-patient-upload label.app-share-check>span:
   <div class="app-patient-toolbar"><a class="app-back-link" data-customer-back href="/verwaltung/app/patients/{% if query %}?q={{ query|urlencode }}{% endif %}">‹ Alle Kunden</a></div>
   <section class="patient-command-card"><div class="patient-command-glow"></div><div class="patient-command-avatar">{{ selected_customer.last_name|slice:":1" }}{{ selected_customer.first_name|slice:":1" }}</div><div class="patient-command-copy"><span>PATIENTENPROFIL</span><h2>{{ selected_customer.first_name }} {{ selected_customer.last_name }}</h2><p>{{ selected_customer.email }}{% if selected_customer.phone %} · {{ selected_customer.phone }}{% endif %}</p>{% if selected_profile_count > 1 %}<div class="patient-linked-badge">{{ selected_profile_count }} Profile zusammen angezeigt · keine Daten gelöscht</div>{% endif %}</div><div class="patient-command-actions">{% if call_url %}<a href="{{ call_url }}">☎ Anrufen</a>{% endif %}{% if whatsapp_url %}<a href="{{ whatsapp_url }}" target="_blank" rel="noopener">◉ WhatsApp</a>{% endif %}</div></section>
 
-  <nav id="patient-tab-nav" class="customer-profile-tabs" aria-label="Kundenprofil Bereiche">
-    <a href="?customer={{ selected_customer.id }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}&amp;tab=overview" class="{% if customer_tab == 'overview' %}is-active{% endif %}" aria-current="{% if customer_tab == 'overview' %}page{% else %}false{% endif %}">Übersicht</a>
-    <a href="?customer={{ selected_customer.id }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}&amp;tab=appointments" class="{% if customer_tab == 'appointments' %}is-active{% endif %}" aria-current="{% if customer_tab == 'appointments' %}page{% else %}false{% endif %}">Termine</a>
-    <a href="?customer={{ selected_customer.id }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}&amp;tab=records" class="{% if customer_tab == 'records' %}is-active{% endif %}" aria-current="{% if customer_tab == 'records' %}page{% else %}false{% endif %}">Patientenakte</a>
-    <a href="?customer={{ selected_customer.id }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}&amp;tab=points" class="{% if customer_tab == 'points' %}is-active{% endif %}" aria-current="{% if customer_tab == 'points' %}page{% else %}false{% endif %}">Punkte</a>
+  <nav id="patient-tab-nav" class="customer-profile-tabs" aria-label="Kundenprofil Bereiche" data-clinic-profile-build="4">
+    <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
+      <input type="hidden" name="customer" value="{{ selected_customer.id }}">
+      {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
+      <button type="submit" name="tab" value="overview" data-customer-tab="overview" class="patient-tab-button {% if customer_tab == 'overview' %}is-active{% endif %}" aria-current="{% if customer_tab == 'overview' %}page{% else %}false{% endif %}">Übersicht</button>
+    </form>
+    <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
+      <input type="hidden" name="customer" value="{{ selected_customer.id }}">
+      {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
+      <button type="submit" name="tab" value="appointments" data-customer-tab="appointments" class="patient-tab-button {% if customer_tab == 'appointments' %}is-active{% endif %}" aria-current="{% if customer_tab == 'appointments' %}page{% else %}false{% endif %}">Termine</button>
+    </form>
+    <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
+      <input type="hidden" name="customer" value="{{ selected_customer.id }}">
+      {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
+      <button type="submit" name="tab" value="records" data-customer-tab="records" class="patient-tab-button {% if customer_tab == 'records' %}is-active{% endif %}" aria-current="{% if customer_tab == 'records' %}page{% else %}false{% endif %}">Patientenakte</button>
+    </form>
+    <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
+      <input type="hidden" name="customer" value="{{ selected_customer.id }}">
+      {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
+      <button type="submit" name="tab" value="points" data-customer-tab="points" class="patient-tab-button {% if customer_tab == 'points' %}is-active{% endif %}" aria-current="{% if customer_tab == 'points' %}page{% else %}false{% endif %}">Punkte</button>
+    </form>
   </nav>
 
   {% if customer_tab == 'overview' %}
@@ -141,7 +160,7 @@ html[data-admin-page="patients"] .app-patient-upload label.app-share-check>span:
 
   {% endif %}
   {% if customer_tab == 'overview' or customer_tab == 'points' %}
-  <div class="patient-control-grid" data-customer-control-grid>
+  <div class="patient-profile-single" data-customer-control-grid style="display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important">
     {% if customer_tab == 'overview' %}
     <section class="admin-panel app-core-panel patient-profile-panel" data-customer-panel="overview"><div class="panel-head"><div><div class="eyebrow">PROFIL</div><h2>Anrede & Kommunikation</h2><p>Die Anrede wird explizit gespeichert – nicht aus dem Namen abgeleitet.</p></div></div><form method="post" class="patient-inline-form">{% csrf_token %}<input type="hidden" name="action" value="patient_salutation"><input type="hidden" name="customer_id" value="{{ selected_customer.id }}"><label>Anrede<select name="salutation">{% for value,label in salutation_choices %}<option value="{{ value }}" {% if selected_customer.salutation == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><button>Speichern</button></form>{% if whatsapp_templates %}<div class="wa-usage-note"><strong>WhatsApp-Vorlagen verwenden</strong><span>Eine Vorlage antippen. WhatsApp öffnet sich direkt mit dem vorbereiteten Text für diesen Kunden.</span></div><div class="wa-template-list"><span>WHATSAPP VORLAGEN</span>{% for item in whatsapp_templates %}<a href="{{ item.url }}" target="_blank" rel="noopener"><b>{{ item.name }}</b><small>{{ item.text|truncatechars:92 }}</small><i>›</i></a>{% endfor %}</div>{% endif %}</section>
     {% else %}
