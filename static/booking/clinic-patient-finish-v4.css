@@ -1,0 +1,134 @@
+/* The patient profile's stable, server-rendered form-tab UI.
+   Avoids the broken link-only selector from v3 and the legacy two-column grid.
+   This file never loads on Kalender. */
+body.app-management-body #patient-tab-nav.customer-profile-tabs{
+ display:grid!important;
+ grid-template-columns:repeat(4,minmax(0,1fr))!important;
+ gap:5px!important;
+ padding:5px!important;
+ margin:0 0 17px!important;
+ width:100%!important;
+ box-sizing:border-box!important;
+ position:static!important;
+ transform:none!important;
+ z-index:auto!important;
+ overflow:visible!important;
+ background:#fff!important;
+ border:1px solid #e5dfd5!important;
+ border-radius:14px!important;
+ box-shadow:0 4px 16px rgba(41,35,27,.045)!important;
+}
+body.app-management-body #patient-tab-nav>.patient-tab-form{
+ min-width:0!important;
+ width:100%!important;
+ display:block!important;
+ margin:0!important;
+ padding:0!important;
+}
+body.app-management-body #patient-tab-nav .patient-tab-button{
+ display:flex!important;
+ align-items:center!important;
+ justify-content:center!important;
+ width:100%!important;
+ min-height:46px!important;
+ padding:11px 8px!important;
+ margin:0!important;
+ box-sizing:border-box!important;
+ appearance:none!important;
+ border:0!important;
+ border-radius:10px!important;
+ background:transparent!important;
+ color:#5f574b!important;
+ font:720 14px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif!important;
+ text-align:center!important;
+ text-decoration:none!important;
+ white-space:normal!important;
+ cursor:pointer!important;
+ transition:background .16s ease,color .16s ease!important;
+}
+body.app-management-body #patient-tab-nav .patient-tab-button.is-active{
+ background:linear-gradient(110deg,#e1b96a,#efd294)!important;
+ color:#221d14!important;
+ box-shadow:0 3px 9px rgba(151,111,46,.12)!important;
+}
+body.app-management-body #patient-tab-nav .patient-tab-button:hover:not(.is-active){
+ background:#f5f0e8!important;color:#352b1d!important;
+}
+body.app-management-body #patient-tab-nav .patient-tab-button:focus-visible{
+ outline:3px solid #b58b46!important;outline-offset:2px!important;
+}
+body.app-management-body .patient-profile-single[data-customer-control-grid]{
+ display:block!important;
+ grid-template-columns:none!important;
+ width:100%!important;
+ max-width:100%!important;
+ min-width:0!important;
+ box-sizing:border-box!important;
+ margin:0!important;
+ padding:0!important;
+}
+body.app-management-body .patient-profile-single>.patient-profile-panel,
+body.app-management-body .patient-profile-single>.patient-points-panel{
+ display:block!important;
+ width:100%!important;
+ max-width:100%!important;
+ min-width:0!important;
+ box-sizing:border-box!important;
+ margin:0!important;
+}
+body.app-management-body .patient-profile-single .patient-inline-form{
+ display:flex!important;align-items:end!important;
+ gap:12px!important;flex-wrap:wrap!important;
+ margin:0!important;
+}
+body.app-management-body .patient-profile-single .patient-inline-form label{
+ flex:1 1 320px!important;min-width:0!important;
+}
+body.app-management-body .patient-profile-single .patient-inline-form button{
+ min-height:46px!important;padding:10px 19px!important;font-size:13px!important;
+}
+body.app-management-body .patient-profile-single .wa-template-list{
+ display:grid!important;
+ grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ gap:9px!important;
+}
+body.app-management-body .patient-profile-single .wa-template-list>span{
+ grid-column:1/-1!important;
+}
+body.app-management-body .patient-profile-single .wa-template-list>a{
+ min-width:0!important;
+}
+body.app-management-body .patient-profile-single .wa-template-list>a b{
+ font-size:14px!important;
+}
+body.app-management-body .patient-profile-single .wa-template-list>a small{
+ font-size:12px!important;
+}
+body.app-management-body .patient-profile-single .patient-profile-panel>.panel-head{
+ margin-bottom:17px!important;
+}
+body.app-management-body .patient-profile-single .patient-profile-panel>.panel-head h2{
+ font-size:clamp(23px,2.5vw,29px)!important;
+}
+@media(max-width:680px){
+ body.app-management-body #patient-tab-nav.customer-profile-tabs{
+  gap:3px!important;padding:4px!important;margin-bottom:13px!important;
+ }
+ body.app-management-body #patient-tab-nav .patient-tab-button{
+  min-height:45px!important;font-size:11.5px!important;
+  padding:9px 2px!important;letter-spacing:-.01em!important;
+ }
+ body.app-management-body .patient-profile-single .wa-template-list{
+  grid-template-columns:minmax(0,1fr)!important;
+ }
+ body.app-management-body .patient-profile-single .patient-inline-form{
+  display:grid!important;grid-template-columns:1fr!important;
+  gap:8px!important;
+ }
+ body.app-management-body .patient-profile-single .patient-inline-form label{
+  min-width:0!important;flex:none!important;
+ }
+ body.app-management-body .patient-profile-single .patient-inline-form button{
+  width:100%!important;min-height:45px!important;
+ }
+}
