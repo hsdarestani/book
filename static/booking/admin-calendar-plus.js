@@ -8,7 +8,9 @@
   const pendingDays = new Map();
 
   function onCalendarPage() {
-    return window.location.pathname.includes('/verwaltung/kalender/') || window.location.pathname === '/verwaltung/';
+    return window.location.pathname.includes('/verwaltung/kalender/')
+      || window.location.pathname === '/verwaltung/'
+      || (window.location.pathname === '/verwaltung/arzt/' && document.body?.dataset.doctorCalendar === '1');
   }
 
   function currentCalendarView() {
@@ -46,6 +48,9 @@
   }
 
   function selectedStaff() {
+    if (document.body?.dataset.doctorCalendar === '1') {
+      return document.body.dataset.doctorStaffId || '';
+    }
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('staff');
     if (fromQuery) return fromQuery;
@@ -503,6 +508,9 @@
 
   function staffIdFromPill(pill) {
     if (!pill) return '';
+    if (document.body?.dataset.doctorCalendar === '1') {
+      return document.body.dataset.doctorStaffId || '';
+    }
     try {
       return new URL(pill.href, window.location.origin).searchParams.get('staff') || '';
     } catch (_error) {
