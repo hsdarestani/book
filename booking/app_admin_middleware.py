@@ -287,7 +287,9 @@ class APlusAdminNavigationMiddleware:
             return response
 
         # View-only local staff still get the visual marker even without A+ SSO.
-        is_aplus = bool(request.session.get('aplus_app_admin'))
+        # Verified clinician sessions use the same management theme regardless
+        # of whether they arrived by SSO or a staff session.
+        is_aplus = bool(request.session.get('aplus_app_admin')) or qamar_scope
         if not is_aplus and not self._view_only(request):
             return response
         try:
