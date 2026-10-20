@@ -153,9 +153,9 @@ def _calendar_block(staff, post):
         if not changed[0]:
             raise ValidationError('Sperrzeit nicht gefunden.')
         return
-    block_date = parse_date(str(post.get('block_date') or post.get('date') or ''))
-    start = _time(post.get('block_start'))
-    end = _time(post.get('block_end'))
+    block_date = parse_date(str(post.get('block_date') or post.get('note_date') or post.get('date') or ''))
+    start = _time(post.get('block_start') or post.get('note_start'))
+    end = _time(post.get('block_end') or post.get('note_end'))
     if not block_date or not start or not end or end <= start:
         raise ValidationError('Bitte gültige Sperrzeit angeben.')
     if block_date < timezone.localdate() - timedelta(days=730) or block_date > timezone.localdate() + timedelta(days=730):
@@ -163,9 +163,133 @@ def _calendar_block(staff, post):
     starts_at = timezone.make_aware(datetime.combine(block_date, start), timezone.get_current_timezone())
     ends_at = timezone.make_aware(datetime.combine(block_date, end), timezone.get_current_timezone())
     is_note = action == 'add_calendar_note'
-    label = (post.get('note_text') if is_note else post.get('block_text')) or ('Notiz' if is_note else 'Gesperrt')
+    label = (post.get('note_text') if is_note else (post.get('block_text') or post.get('block_reason'))) or ('Notiz' if is_note else 'Gesperrt')
     reason = ('[NOTE][STAFF] ' if is_note else '[BLOCKNOTE][STAFF] ') + str(label).strip()[:120]
     BlockedPeriod.objects.create(staff=staff, starts_at=starts_at, ends_at=ends_at, reason=reason[:160])
+
+
+
+def _own_customer_ids(staff):
+    return Appointment.objects.filter(staff_id=staff.pk).values('customer_id')
+
+
+def _edit_own_block(staff, post):
+    ident = str(post.get('block_id') or '')
+    if not ident.isdigit():
+        raise ValidationError('Eintrag nicht gefunden.')
+    item = BlockedPeriod.objects.select_for_update().filter(pk=int(ident), staff_id=staff.pk).first()
+    if not item:
+        raise ValidationError('Eintrag nicht gefunden.')
+    day = parse_date(str(post.get('item_date') or ''))
+    start, end = _time(post.get('item_start')), _time(post.get('item_end'))
+    if not day or not start or not end or end <= start:
+        raise ValidationError('Ungültiger Zeitraum.')
+    kind = str(post.get('item_kind') or '')
+    if kind not in {'note', 'block'}:
+        raise ValidationError('Ungültiger Eintrag.')
+    prefix = '[NOTE][STAFF] ' if kind == 'note' else '[BLOCKNOTE][STAFF] '
+    item.starts_at = timezone.make_aware(datetime.combine(day, start), timezone.get_current_timezone())
+    item.ends_at = timezone.make_aware(datetime.combine(day, end), timezone.get_current_timezone())
+    item.reason = (prefix + str(post.get('item_text') or '').strip())[:160]
+    item.full_clean()
+    item.save()
+
+
+def _edit_own_appointment(staff, post):
+    from .models import Customer, Service
+    ident = str(post.get('appointment_id') or '')
+    if not ident.isdigit():
+        raise ValidationError('Termin nicht gefunden.')
+    item = (Appointment.objects.select_for_update()
+            .select_related('customer', 'service', 'staff')
+            .filter(pk=int(ident), staff_id=staff.pk).first())
+    if not item:
+        raise ValidationError('Termin nicht gefunden.')
+    if str(post.get('appointment_staff_id') or staff.pk) != str(staff.pk):
+        raise ValidationError('Andere Ärzte sind nicht zugelassen.')
+    patient_id = str(post.get('customer_id') or '')
+    if not patient_id.isdigit() or not Customer.objects.filter(
+            pk=int(patient_id), pk__in=_own_customer_ids(staff)).exists():
+        raise ValidationError('Patient nicht zugeordnet.')
+    service = Service.objects.filter(
+        pk=post.get('service_id'), staff_members=staff, active=True).first()
+    day = parse_date(str(post.get('appointment_date') or ''))
+    time_value = _time(post.get('appointment_time'))
+    new_status = str(post.get('status') or '')
+    if not service or not day or not time_value or new_status not in {k for k, _ in Appointment.STATUS}:
+        raise ValidationError('Ungültiger Termin.')
+    new_start = timezone.make_aware(datetime.combine(day, time_value), timezone.get_current_timezone())
+    # Prevent collisions and booking during closure; retaining an unchanged
+    # appointment during a subsequently closed day remains valid.
+    changing_time = new_start != item.starts_at or service.pk != item.service_id
+    if changing_time and new_status in {'new', 'confirmed'}:
+        if new_start not in available_slots(service, staff, day, exclude_appointment_id=item.public_id):
+            raise ValidationError('Zeitfenster nicht verfügbar.')
+    previous = appointment_snapshot(item)
+    item.service = service
+    item.starts_at = new_start
+    item.ends_at = new_start + timedelta(minutes=service.duration_minutes + service.buffer_minutes)
+    item.status = new_status
+    if new_start.isoformat() != previous['starts_at']:
+        item.reminder_1h_sent_at = None
+        item.reminder_24h_sent_at = None
+    item.full_clean()
+    item.save()
+    return item, previous
+
+
+def _delete_own_appointment(staff, post):
+    from .notifications import notify_admin_deleted
+    ident = str(post.get('appointment_id') or '')
+    if not ident.isdigit():
+        raise ValidationError('Termin nicht gefunden.')
+    item = (Appointment.objects.select_related('customer', 'service', 'staff')
+            .filter(pk=int(ident), staff_id=staff.pk).first())
+    if not item:
+        raise ValidationError('Termin nicht gefunden.')
+    transaction.on_commit(lambda appointment=item: notify_admin_deleted(appointment))
+    item.delete()
+
+
+def _create_own_appointment(staff, post):
+    from .models import Customer, Service
+    from .notifications import notify_admin_created
+    from .services import create_appointment
+    service = Service.objects.filter(pk=post.get('service_id'), staff_members=staff, active=True).first()
+    patient_id = str(post.get('customer_id') or '')
+    patient = Customer.objects.filter(
+        pk=int(patient_id), pk__in=_own_customer_ids(staff)).first() if patient_id.isdigit() else None
+    day = parse_date(str(post.get('appointment_date') or ''))
+    time_value = _time(post.get('appointment_time'))
+    if not service or not patient or not day or not time_value:
+        raise ValidationError('Ungültige Buchung.')
+    starts = timezone.make_aware(datetime.combine(day, time_value), timezone.get_current_timezone())
+    try:
+        item, created = create_appointment(
+            customer=patient, service=service, staff=staff, starts_at=starts, source='admin')
+    except ValueError:
+        raise ValidationError('Zeitfenster nicht verfügbar.')
+    if created:
+        transaction.on_commit(lambda item=item: notify_admin_created(item))
+
+
+def _create_own_customer(staff, post):
+    from .models import Customer
+    first = str(post.get('first_name') or '').strip()[:80]
+    last = str(post.get('last_name') or '').strip()[:80]
+    email = str(post.get('email') or '').strip().lower()[:254]
+    if not first or '@' not in email:
+        raise ValidationError('Name und E-Mail erforderlich.')
+    existing = Customer.objects.filter(email__iexact=email).first()
+    if existing and not Appointment.objects.filter(staff_id=staff.pk, customer_id=existing.pk).exists():
+        raise ValidationError('Patient kann hier nicht übernommen werden.')
+    if existing:
+        existing.first_name = first
+        existing.last_name = last or existing.last_name
+        existing.save(update_fields=['first_name', 'last_name', 'updated_at'])
+    else:
+        Customer.objects.create(first_name=first, last_name=last, email=email,
+                                phone=str(post.get('phone') or '')[:40])
 
 
 @never_cache
@@ -208,6 +332,16 @@ def doctor_appointments(request):
                         changed = _change_appointment(staff, request.POST)
                 elif action in {'add_block', 'add_calendar_block', 'add_calendar_note', 'delete_calendar_item', 'delete_block'}:
                     _calendar_block(staff, request.POST)
+                elif action == 'edit_calendar_item':
+                    _edit_own_block(staff, request.POST)
+                elif action == 'edit_appointment':
+                    changed = _edit_own_appointment(staff, request.POST)
+                elif action == 'delete_appointment':
+                    _delete_own_appointment(staff, request.POST)
+                elif action == 'add_appointment':
+                    _create_own_appointment(staff, request.POST)
+                elif action == 'add_customer':
+                    _create_own_customer(staff, request.POST)
                 else:
                     raise ValidationError('Aktion nicht erlaubt.')
         except (ValidationError, ValueError, TypeError):
@@ -216,83 +350,15 @@ def doctor_appointments(request):
             transaction.on_commit(lambda item=changed[0], old=changed[1]: notify_admin_changed(item, old))
         return redirect('/verwaltung/arzt/?date=' + day.isoformat() + '&cal_view=' + cal_view + '&notice=saved')
 
-    now = timezone.now()
-    if cal_view == 'week':
-        range_start = day - timedelta(days=day.weekday())
-        range_end = range_start + timedelta(days=7)
-        previous_date, next_date = range_start - timedelta(days=7), range_start + timedelta(days=7)
-    else:
-        range_start = day
-        range_end = day + timedelta(days=1)
-        previous_date, next_date = day - timedelta(days=1), day + timedelta(days=1)
-    start_dt = timezone.make_aware(datetime.combine(range_start, datetime.min.time()), timezone.get_current_timezone())
-    end_dt = timezone.make_aware(datetime.combine(range_end, datetime.min.time()), timezone.get_current_timezone())
-    shown = list(
-        Appointment.objects.filter(staff_id=staff.pk, starts_at__lt=end_dt, ends_at__gt=start_dt)
-        .exclude(status='cancelled').select_related('customer', 'service', 'staff').order_by('starts_at'))
-    blocks = list(
-        BlockedPeriod.objects.filter(staff_id=staff.pk, starts_at__lt=end_dt, ends_at__gt=start_dt)
-        .order_by('starts_at'))
-    calendar_days = []
-    cursor = range_start
-    while cursor < range_end:
-        ranges, _ = effective_working_ranges(staff, cursor)
-        segments = []
-        for start, end in ranges:
-            starts_at = timezone.make_aware(datetime.combine(cursor, start), timezone.get_current_timezone())
-            ends_at = timezone.make_aware(datetime.combine(cursor, end), timezone.get_current_timezone())
-            top, height = _calendar_position(starts_at, ends_at)
-            segments.append({'top': top, 'height': height, 'label': f'{start:%H:%M}–{end:%H:%M}'})
-        day_appointments = []
-        for item in shown:
-            if timezone.localtime(item.starts_at).date() != cursor:
-                continue
-            top, height = _calendar_position(item.starts_at, item.ends_at)
-            day_appointments.append({'item': item, 'top': top, 'height': height})
-        day_blocks = []
-        for item in blocks:
-            if timezone.localtime(item.starts_at).date() != cursor:
-                continue
-            top, height = _calendar_position(item.starts_at, item.ends_at)
-            day_blocks.append({'item': item, 'top': top, 'height': height,
-                               'kind': _calendar_block_kind(item.reason),
-                               'label': _clean_calendar_reason(item.reason)})
-        calendar_days.append({
-            'date': cursor, 'day_name': ('Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So')[cursor.weekday()],
-            'working_segments': segments, 'appointments': day_appointments,
-            'blocks': day_blocks, 'is_today': cursor == today,
-        })
-        cursor += timedelta(days=1)
-
-    hours = {weekday: [] for weekday in range(7)}
-    for item in WorkingHour.objects.filter(staff_id=staff.pk, active=True).order_by('weekday', 'start_time'):
-        hours[item.weekday].append(item)
-    availability_rows = []
-    for weekday in range(7):
-        intervals = hours[weekday][:2]
-        availability_rows.append({
-            'weekday': weekday, 'label': WEEKDAY_NAMES[weekday], 'enabled': bool(intervals),
-            'start_1': intervals[0].start_time.strftime('%H:%M') if intervals else '09:00',
-            'end_1': intervals[0].end_time.strftime('%H:%M') if intervals else '18:00',
-            'start_2': intervals[1].start_time.strftime('%H:%M') if len(intervals) > 1 else '',
-            'end_2': intervals[1].end_time.strftime('%H:%M') if len(intervals) > 1 else '',
-        })
-    upcoming = list(
-        Appointment.objects.filter(staff_id=staff.pk, starts_at__gte=now)
-        .select_related('customer', 'service', 'staff').order_by('starts_at')[:80])
-    own_customers = len({item.customer_id for item in Appointment.objects.filter(staff_id=staff.pk).only('customer_id')})
-    daily_ranges, override = effective_working_ranges(staff, day)
-    return render(request, 'booking/doctor_appointments.html', {
-        'doctor_mode': True, 'staff': staff, 'selected_staff': staff, 'staff_members': [staff],
-        'today': today, 'day': day, 'calendar_date': day, 'calendar_view': cal_view,
-        'range_start': range_start, 'range_end_display': range_end - timedelta(days=1),
-        'previous_date': previous_date, 'next_date': next_date, 'calendar_days': calendar_days,
-        'calendar_hour_labels': [f'{hour:02d}:00' for hour in range(CALENDAR_START_HOUR, CALENDAR_END_HOUR + 1)],
-        'today_count': Appointment.objects.filter(staff_id=staff.pk, starts_at__date=today).exclude(status='cancelled').count(),
-        'new_count': Appointment.objects.filter(staff_id=staff.pk, starts_at__gte=now, status='new').count(),
-        'customer_count': own_customers, 'upcoming': upcoming,
-        'appointment_statuses': Appointment.STATUS, 'availability_rows': availability_rows,
-        'blocked_periods': BlockedPeriod.objects.filter(staff_id=staff.pk, ends_at__gte=now).order_by('starts_at')[:30],
-        'ranges': daily_ranges, 'override': override,
-        'notice': request.GET.get('notice') if request.GET.get('notice') in {'saved', 'error'} else '',
-    })
+    # Identical template, menu and JS as the real administrator. Only the data
+    # scope differs; the regular admin GET handler never executes a doctor POST.
+    from . import admin_views, views
+    request.doctor_staff_scope = staff
+    response = views.dashboard(request)
+    return admin_views._polish_admin_response(
+        response, selected_staff_id=staff.pk, calendar_day=day,
+        calendar_view=cal_view, doctor_staff_id=staff.pk,
+        focus_block=request.GET.get('focus_block'),
+        focus_appointment=request.GET.get('focus_appointment'),
+        notice=request.GET.get('notice') or '',
+    )
