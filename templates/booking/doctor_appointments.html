@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meine Termine · A+ Esthetic</title>
+<style>
+:root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f7f5f1;color:#25231e;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:810px;margin:auto;padding:24px 16px 56px}
+header{display:flex;justify-content:space-between;gap:12px;align-items:center;border-bottom:1px solid #e3ded5;padding-bottom:22px}
+small,.muted{color:#726e67}h1{font-size:25px;margin:8px 0 6px}a{color:#484036;text-decoration:none}
+.brand{font-family:Georgia,serif;color:#b38b3d;font-size:17px;font-weight:700}.logout{background:#fff;border:1px solid #ddd5c9;border-radius:12px;padding:10px 13px}
+.list{margin-top:24px;display:grid;gap:10px}.item{background:#fff;border:1px solid #e7e1d7;border-radius:14px;padding:16px;display:flex;justify-content:space-between;gap:14px}
+.item time{font-weight:750;min-width:105px}.detail{flex:1;min-width:0}.detail strong{display:block}.detail small{display:block;margin-top:5px}
+.status{font-size:12px;color:#6c6458;white-space:nowrap}.empty{padding:35px 14px;text-align:center;background:#fff;border-radius:14px;border:1px solid #e7e1d7}
+@media(max-width:520px){.item{flex-wrap:wrap}.status{margin-left:auto}}
+</style></head><body><main>
+<header><div><div class="brand">A+ ESTHETIC</div><h1>Meine Termine</h1><div class="muted">{{ staff.display_name }}</div></div><a class="logout" href="/verwaltung/logout/">Abmelden</a></header>
+<p class="muted">Nur Buchungen, die dir zugeordnet sind. Änderungen sind mit diesem Zugang nicht möglich.</p>
+<div class="list">
+{% for appointment in appointments %}
+<article class="item"><time datetime="{{ appointment.starts_at|date:'c' }}">{{ appointment.starts_at|date:"d.m.Y" }}<br>{{ appointment.starts_at|date:"H:i" }}</time>
+<div class="detail"><strong>{{ appointment.customer.full_name }}</strong><small>{{ appointment.service.name }}</small></div><span class="status">{{ appointment.get_status_display }}</span></article>
+{% empty %}<div class="empty">Keine Termine vorhanden.</div>{% endfor %}
+</div></main></body></html>
