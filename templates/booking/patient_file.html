@@ -9,11 +9,11 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
   {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% endif %}
-<link rel="stylesheet" href="/static/booking/clinic-patient-polish-v1.css?v=20261020-1"></head>
+<link rel="stylesheet" href="/static/booking/clinic-patient-polish-v1.css?v=20261020-1"><link rel="stylesheet" href="{% static 'booking/clinic-web-polish-v2.css' %}?v=20261020-web2"></head>
 <body class="admin-body patient-file-body">
 <main class="admin-shell patient-file-shell">
   <header class="admin-topbar patient-file-topbar">
-    <div class="admin-brand"><a class="brand brand-image" href="{% if doctor_mode %}/verwaltung/arzt/{% else %}/verwaltung/{% endif %}" aria-label="A+Esthetic Buchungsverwaltung"><img class="brand-logo" src="{% if doctor_mode %}/static/booking/logo.png{% else %}{% static 'booking/logo.png' %}{% endif %}" alt="A+Esthetic"></a><div class="brand-meta">Patientenakte</div></div>
+    <div class="admin-brand"><a class="brand brand-image" href="{% if doctor_mode %}/verwaltung/arzt/{% else %}/verwaltung/{% endif %}" aria-label="A+Esthetic Buchungsverwaltung"><img class="brand-logo" width="66" height="48" style="display:block;width:66px;height:48px;max-width:66px;max-height:48px;object-fit:contain" src="{% if doctor_mode %}/static/booking/logo.png{% else %}{% static 'booking/logo.png' %}{% endif %}" alt="A+Esthetic"></a><div class="brand-meta">Patientenakte</div></div>
     <nav class="admin-nav" aria-label="Patientenakte"><a href="#akte">Akte</a><a href="#termine">Terminhistorie</a></nav>
     <div class="admin-actions"><a href="{% if doctor_mode %}/verwaltung/arzt/?section=customers{% else %}/verwaltung/#kunden{% endif %}">← Alle Patienten</a><a href="/verwaltung/logout/">Abmelden</a></div>
   </header>
