@@ -196,6 +196,29 @@ class DoctorPrivateCalendarTests(TestCase):
         self.assertIn("'Meine Buchungen', '/verwaltung/arzt/?section=bookings'", script)
         self.assertIn("'Arbeitszeiten', '/verwaltung/arzt/?section=settings'", script)
 
+    def test_final_menu_guard_survives_late_legacy_rewrites(self):
+        from pathlib import Path
+        response = self.client.get('/verwaltung/arzt/', {'section': 'calendar'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-aplus-doctor-nav-finalizer')
+        self.assertContains(response, 'MutationObserver(schedule)')
+        self.assertContains(response, 'MEINE VERWALTUNG')
+        self.assertContains(response, '20261020-doctor-role-v2')
+        self.assertEqual(response['Cache-Control'].find('no-store') >= 0, True)
+        for section in ('dashboard', 'calendar', 'bookings', 'customers', 'settings'):
+            self.assertContains(response, '/verwaltung/arzt/?section=' + section)
+        root = Path(__file__).resolve().parent.parent
+        for script in ('admin-luxury-v2.js', 'admin-unified-nav-v13.js'):
+            contents = (root / 'static' / 'booking' / script).read_text(encoding='utf-8')
+            self.assertIn("document.documentElement.dataset.doctorRole === '1'", contents)
+
+    def test_final_menu_guard_on_doctor_owned_patient_file(self):
+        response = self.client.get('/verwaltung/patienten/' + str(self.mine.customer.pk) + '/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-aplus-doctor-nav-finalizer')
+        self.assertContains(response, '/verwaltung/arzt/?section=customers')
+        self.assertNotContains(response, 'href="/verwaltung/app/wallet/"')
+
     def test_doctor_patient_record_menu_uses_scoped_navigation(self):
         response = self.client.get(f'/verwaltung/patienten/{self.mine.customer.pk}/')
         self.assertEqual(response.status_code, 200)
