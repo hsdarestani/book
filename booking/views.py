@@ -141,7 +141,10 @@ def _doctor_patient_scope(request, customer):
 def _doctor_visible_records(request, customer, staff):
     records = PatientRecord.objects.filter(customer=customer)
     if staff:
-        records = records.filter(Q(appointment__staff_id=staff.pk) | Q(uploaded_by=request.user))
+        records = records.filter(
+            Q(appointment__staff_id=staff.pk) | Q(uploaded_by=request.user)
+            | Q(source__in=['botoxbogen', 'a_esthetic_app'])
+        )
     return records
 
 
@@ -155,76 +158,33 @@ def patient_file(request, customer_id):
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'add_record':
-            kind = (request.POST.get('kind') or 'document').strip()
-            allowed_kinds = {value for value, _ in PatientRecord.KIND}
-            if kind not in allowed_kinds:
-                return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=type-error')
-
-            uploaded = request.FILES.get('file')
-            note = (request.POST.get('note') or '').strip()[:6000]
-            title = (request.POST.get('title') or '').strip()[:180]
+            from .patient_uploads import PatientUploadError, save_patient_upload
             appointment = None
-            appointment_id = (request.POST.get('appointment_id') or '').strip()
-            if appointment_id:
-                appointment_query = Appointment.objects.filter(pk=appointment_id, customer=customer)
+            appt_id = str(request.POST.get('appointment_id') or '').strip()
+            if appt_id:
+                permitted = Appointment.objects.filter(pk=appt_id, customer=customer)
                 if doctor_staff:
-                    appointment_query = appointment_query.filter(staff_id=doctor_staff.pk)
-                appointment = appointment_query.first()
+                    permitted = permitted.filter(staff_id=doctor_staff.pk)
+                appointment = permitted.first()
                 if doctor_staff and not appointment:
                     raise Http404('Termin nicht zugeordnet')
-
-            stored_name = ''
-            original_name = ''
-            mime_type = ''
-            file_size = 0
-
-            if uploaded:
-                original_name = Path(uploaded.name or 'datei').name[:255]
-                extension = Path(original_name).suffix.lower()
-                if extension not in settings.PATIENT_FILE_ALLOWED_EXTENSIONS:
-                    return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=file-type')
-                if uploaded.size > settings.PATIENT_FILE_MAX_BYTES:
-                    return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=file-size')
-                if uploaded.size <= 0:
-                    return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=file-empty')
-
-                root = Path(settings.PATIENT_FILES_ROOT)
-                patient_dir = root / str(customer.pk)
-                patient_dir.mkdir(parents=True, exist_ok=True)
-                stored_name = f'{customer.pk}/{uuid.uuid4().hex}{extension}'
-                destination = _patient_file_path(stored_name)
-                with destination.open('wb') as handle:
-                    for chunk in uploaded.chunks():
-                        handle.write(chunk)
-                file_size = uploaded.size
-                mime_type = (uploaded.content_type or mimetypes.guess_type(original_name)[0] or 'application/octet-stream')[:120]
-                if not title:
-                    title = Path(original_name).stem[:180] or 'Datei'
-
-            if not uploaded and not note:
-                return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=empty')
-            if not title:
-                title = 'Notiz'
-            if not uploaded:
-                kind = 'note' if kind == 'document' else kind
-
-            record = PatientRecord.objects.create(
-                customer=customer,
-                appointment=appointment,
-                kind=kind,
-                title=title,
-                note=note,
-                stored_name=stored_name,
-                original_name=original_name,
-                mime_type=mime_type,
-                file_size=file_size,
-                source='book_staff' if doctor_staff else 'manual',
-                metadata={'shared_with_customer': request.POST.get('shared_with_customer') == 'on'} if doctor_staff else {},
-                uploaded_by=request.user,
-            )
-            if doctor_staff and record.metadata.get('shared_with_customer'):
+            shared = request.POST.get('shared_with_customer') == 'on'
+            try:
+                records = save_patient_upload(
+                    user=request.user, customer=customer,
+                    files=request.FILES.getlist('file'),
+                    kind=str(request.POST.get('kind') or 'document'),
+                    title=str(request.POST.get('title') or '').strip(),
+                    note=str(request.POST.get('note') or '').strip(),
+                    appointment=appointment, shared=shared,
+                    source='book_staff' if doctor_staff else 'manual',
+                )
+            except PatientUploadError as exc:
+                return redirect(f'/verwaltung/patienten/{customer.pk}/?notice={str(exc)}#akte')
+            if shared:
                 from .patient_portal import _notify_customer
-                _notify_customer(record)
+                for record in records:
+                    _notify_customer(record)
             return redirect(f'/verwaltung/patienten/{customer.pk}/?notice=added#akte')
 
         if doctor_staff and action == 'toggle_share':

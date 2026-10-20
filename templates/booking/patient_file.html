@@ -63,8 +63,8 @@
         <label>Typ<select name="kind">{% for value,label in record_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
         <label>Titel <small>optional bei Datei</small><input name="title" maxlength="180" placeholder="z. B. Behandlungsinformation 04.09.2026"></label>
         <label>Zu Termin <small>optional</small><select name="appointment_id"><option value="">Keinem Termin zuordnen</option>{% for item in appointments %}<option value="{{ item.pk }}">{{ item.starts_at|date:"d.m.Y H:i" }} · {{ item.service.name }}</option>{% endfor %}</select></label>
-        <label class="secure-upload-zone"><span class="upload-icon">＋</span><strong>Datei auswählen</strong><small>Foto, PDF, Word, Excel, Text · max. {{ max_upload_mb }} MB</small><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv,.heic,.heif"></label>
-        <label>Notiz <small>optional</small><textarea name="note" rows="5" maxlength="6000" placeholder="Interne oder mit dem Kunden geteilte Information …"></textarea></label>
+        <label class="secure-upload-zone"><span class="upload-icon">＋</span><strong>Datei auswählen</strong><small>Foto, PDF, Word, Excel, Text · max. {{ max_upload_mb }} MB</small><input type="file" name="file" multiple data-patient-file accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv,.heic,.heif"><span class="upload-many-note">Bis zu 12 Fotos oder Dateien in einem Schritt auswählen.</span></label>
+        <div class="native-admin-photo"><button type="button" data-admin-native-photo>Foto aufnehmen</button><span data-admin-photo-status>Foto wird direkt der geöffneten Patientenakte zugeordnet.</span></div><label>Notiz <small>optional</small><textarea name="note" rows="5" maxlength="6000" placeholder="Interne oder mit dem Kunden geteilte Information …"></textarea></label>
         <label class="patient-share-toggle"><input type="checkbox" name="shared_with_customer"><span><strong>In A+ App mit dem Kunden teilen</strong><small>Der Kunde kann diesen Eintrag dann in „Meine Patientenakte“ sehen und die Datei sicher öffnen.</small></span></label>
         <button class="admin-primary record-save" type="submit">In Patientenakte speichern</button>
       </form>
@@ -119,5 +119,5 @@
     </div>
   </section>
 </main>
-</body>
+<script defer src="/static/booking/admin-native-camera-v11.js?v=clinic-multi-20261020"></script></body>
 </html>

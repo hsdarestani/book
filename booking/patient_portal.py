@@ -92,69 +92,24 @@ def staff_add_record(request, customer_id):
         if doctor_staff and not appointment:
             return HttpResponseForbidden('Termin ist diesem Arzt nicht zugeordnet.')
 
-    title = str(request.POST.get("title") or "").strip()[:180]
-    note = str(request.POST.get("note") or "").strip()[:6000]
+    from .patient_uploads import PatientUploadError, save_patient_upload
     shared = request.POST.get("shared_with_customer") == "on" and not doctor_staff
-    uploaded = request.FILES.get("file")
-    stored_name = ""
-    original_name = ""
-    mime_type = ""
-    file_size = 0
-
     try:
-        if uploaded:
-            original_name = Path(uploaded.name or "datei").name[:255]
-            extension = Path(original_name).suffix.lower()
-            if extension not in settings.PATIENT_FILE_ALLOWED_EXTENSIONS:
-                return _record_redirect(request, customer.pk, "file-type")
-            if uploaded.size <= 0:
-                return _record_redirect(request, customer.pk, "file-empty")
-            if uploaded.size > settings.PATIENT_FILE_MAX_BYTES:
-                return _record_redirect(request, customer.pk, "file-size")
-            stored_name = f"{customer.pk}/{uuid.uuid4().hex}{extension}"
-            destination = _patient_path(stored_name)
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            with destination.open("wb") as handle:
-                for chunk in uploaded.chunks():
-                    handle.write(chunk)
-            file_size = uploaded.size
-            mime_type = (uploaded.content_type or mimetypes.guess_type(original_name)[0] or "application/octet-stream")[:120]
-            if not title:
-                title = Path(original_name).stem[:180] or "Datei"
-
-        if not uploaded and not note:
-            return _record_redirect(request, customer.pk, "empty")
-        if not title:
-            title = "Notiz"
-        if not uploaded and kind == "document":
-            kind = "note"
-
-        record = PatientRecord.objects.create(
-            customer=customer,
-            appointment=appointment,
+        records = save_patient_upload(
+            user=request.user, customer=customer, files=request.FILES.getlist("file"),
             kind=kind,
-            title=title,
-            note=note,
-            stored_name=stored_name,
-            original_name=original_name,
-            mime_type=mime_type,
-            file_size=file_size,
+            title=str(request.POST.get("title") or "").strip(),
+            note=str(request.POST.get("note") or "").strip(),
+            appointment=appointment,
+            shared=shared,
             source="book_staff",
-            metadata={
-                "shared_with_customer": shared,
-                "origin": "clinic",
-                "shared_by_user_id": request.user.pk if shared else None,
-            },
-            uploaded_by=request.user,
         )
-    except Exception:
-        _delete_created_file(stored_name)
-        raise
-
+    except PatientUploadError as exc:
+        return _record_redirect(request, customer.pk, str(exc))
     if shared:
-        _notify_customer(record)
-    notice = "added-shared" if shared else "added"
-    return _record_redirect(request, customer.pk, notice)
+        for record in records:
+            _notify_customer(record)
+    return _record_redirect(request, customer.pk, "added-shared" if shared else "added")
 
 
 @staff_member_required(login_url="/verwaltung/login/")
