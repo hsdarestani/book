@@ -96,11 +96,22 @@ class APlusAdminNavigationMiddleware:
             profile = None
         return bool(profile and profile.view_only)
 
+    @staticmethod
+    def _qamar_scope(request):
+        if not APlusAdminNavigationMiddleware._view_only(request):
+            return False
+        profile = getattr(request.user, 'aesthetic_access', None)
+        return bool(
+            profile and profile.staff_id and profile.staff
+            and profile.staff.display_name.strip().casefold() == 'qamar hameed'
+        )
+
     def __call__(self, request):
         view_only = self._view_only(request)
-        if view_only:
-            # An allowlist, not UI hiding: no other patients, doctors, endpoints
-            # or Django admin screens can be accessed using a clinical session.
+        qamar_scope = self._qamar_scope(request)
+        if qamar_scope:
+            # Restrict Qamar to the dedicated appointment page only. Keep other
+            # existing read-only team members' patient workflows unchanged.
             allowed = {
                 '/verwaltung/arzt/', '/verwaltung/logout/', '/verwaltung/login/',
                 '/verwaltung/app/', '/verwaltung/app-sso/',
@@ -109,11 +120,11 @@ class APlusAdminNavigationMiddleware:
                 request.path.startswith('/verwaltung/') and request.path not in allowed
             ):
                 return HttpResponseForbidden('Dieser Zugang ist auf eigene Termine beschränkt.')
-            if request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.path != '/verwaltung/app-sso/':
-                return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
+        if view_only and request.path.startswith('/verwaltung/') and request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.path != '/verwaltung/app-sso/':
+            return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
 
         response = self.get_response(request)
-        if view_only:
+        if qamar_scope:
             return response
         if not request.path.startswith('/verwaltung/'):
             return response
