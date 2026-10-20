@@ -313,12 +313,15 @@ def doctor_appointments(request):
 
     today = timezone.localdate()
     params = request.POST if request.method == 'POST' else request.GET
-    day = parse_date(str(params.get('date') or params.get('return_date') or '')) or today
+    day = parse_date(str(params.get('date') or params.get('return_date') or request.GET.get('date') or '')) or today
     if day < today - timedelta(days=730) or day > today + timedelta(days=730):
         return HttpResponseForbidden('Datum außerhalb des zulässigen Bereichs.')
     cal_view = str(params.get('cal_view') or params.get('return_view') or 'day')
     if cal_view not in {'day', 'week'}:
         cal_view = 'day'
+    section = str(request.GET.get('section') or request.POST.get('section') or 'calendar')
+    if section not in {'dashboard', 'calendar', 'bookings', 'customers', 'settings', 'information'}:
+        section = 'calendar'
 
     if request.method == 'POST':
         action = str(request.POST.get('action') or '')
@@ -355,10 +358,10 @@ def doctor_appointments(request):
                 else:
                     raise ValidationError('Aktion nicht erlaubt.')
         except (ValidationError, ValueError, TypeError):
-            return redirect('/verwaltung/arzt/?date=' + day.isoformat() + '&cal_view=' + cal_view + '&notice=error')
+            return redirect('/verwaltung/arzt/?section=' + section + '&date=' + day.isoformat() + '&cal_view=' + cal_view + '&notice=error')
         if changed:
             transaction.on_commit(lambda item=changed[0], old=changed[1]: notify_admin_changed(item, old))
-        return redirect('/verwaltung/arzt/?date=' + day.isoformat() + '&cal_view=' + cal_view + '&notice=saved')
+        return redirect('/verwaltung/arzt/?section=' + section + '&date=' + day.isoformat() + '&cal_view=' + cal_view + '&notice=saved')
 
     # Identical template, menu and JS as the real administrator. Only the data
     # scope differs; the regular admin GET handler never executes a doctor POST.
