@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}">
   <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
   <link rel="stylesheet" href="{% static 'booking/admin-dashboard-v11.css' %}"><link rel="stylesheet" href="{% static 'booking/admin-app-inset-v5.css' %}?v=20260912-v20"><link rel="stylesheet" href="{% static 'booking/admin-scroll-recovery-v9.css' %}?v=20260911-scroll-v11">
-  <link rel="stylesheet" href="{% static 'booking/admin-wait-ux-v16.css' %}?v=20260914"><link rel="stylesheet" href="{% static 'booking/clinic-web-polish-v2.css' %}?v=20261020-web2"></head>
+  <link rel="stylesheet" href="{% static 'booking/admin-wait-ux-v16.css' %}?v=20260914"><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"></head>
 <body class="admin-body sb-admin-body app-management-body aplus-command-body">
 <header class="sb-mobile-bar app-mobile-bar">
   <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
@@ -99,4 +99,4 @@
   document.querySelectorAll('[data-wa]').forEach(button=>button.onclick=()=>{let p=button.closest('[data-phone]')?.dataset.phone||'';p=p.replace(/\D/g,'');if(p.startsWith('0'))p='49'+p.slice(1);if(p)window.open('https://wa.me/'+p,'_blank','noopener');});
 })();
 </script>
-<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20260914"></script><script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260922-v17"></script><script defer src="{% static 'booking/medical-form-push-v1.js' %}?v=20261020"></script><script defer src="{% static 'booking/clinic-desktop-notifications-v1.js' %}?v=20261020-desktop1"></script></body></html>
+<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20260914"></script><script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260922-v17"></script><script defer src="{% static 'booking/medical-form-push-v1.js' %}?v=20261020"></script><script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-desktop1"></script></body></html>
