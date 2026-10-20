@@ -1,0 +1,46 @@
+name: Verify integrated Rechnungen bridge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/verify-invoice-bridge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify production invoice service token without exposing patient data
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+            TOKEN_FILE="/etc/aesthetic-patient-sync.token"
+            test -s "$TOKEN_FILE"
+            TOKEN="$(cat "$TOKEN_FILE")"
+            OUT="$(mktemp)"
+            trap 'rm -f "$OUT"' EXIT
+            HTTP_CODE="$(curl -sS --max-time 22 -o "$OUT" -w '%{http_code}'               -H "X-Aesthetic-Patient-Sync: $TOKEN"               -H 'Accept: application/json'               https://esthetic.smarbiz.sbs/api/mobile/internal/book-billing/overview/)"
+            unset TOKEN
+            test "$HTTP_CODE" = "200"
+            python3 - "$OUT" <<'PY'
+            import json, sys
+            with open(sys.argv[1], encoding="utf-8") as handle:
+                data = json.load(handle)
+            assert data.get("ok") is True
+            assert isinstance(data.get("stats"), dict)
+            assert isinstance(data.get("invoices"), list)
+            assert isinstance(data.get("customers"), list)
+            print("Production booking-to-app billing bridge: authenticated and healthy.")
+            PY
+            curl -fsS --max-time 15 https://book.a-esthetic.de/static/booking/clinic-calendar-topbar-v1.css -o /dev/null
+            echo "Calendar header static asset: available."
