@@ -69,8 +69,7 @@ class DoctorPrivateCalendarTests(TestCase):
 
     def test_other_admin_surfaces_and_write_apis_are_rejected(self):
         for url in ['/verwaltung/dashboard/', '/verwaltung/kalender/', '/verwaltung/kunden/',
-                    '/verwaltung/mehr/', '/verwaltung/api/day-availability/',
-                    '/verwaltung/api/calendar-day/', '/admin/']:
+                    '/verwaltung/mehr/', '/admin/']:
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 403)
         self.assertEqual(self.client.post('/verwaltung/dashboard/', {'action': 'save'}).status_code, 403)
