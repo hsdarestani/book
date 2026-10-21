@@ -1,0 +1,104 @@
+/* Canonical management theme. Only explicitly opted-in templates load this.
+   Calendar templates, grid styles and calendar scripts are intentionally unchanged. */
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body{--clinic-ink:#262b2a;--clinic-muted:#666e6a;--clinic-line:#e1e6e2;--clinic-ground:#f4f6f3;--clinic-gold:#836739;background:#f4f6f3!important;color:#262b2a!important;font:400 15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body main.admin-shell{box-sizing:border-box!important;max-width:1400px!important;width:100%!important;margin:0 auto!important;padding:28px 32px 64px!important;min-width:0!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(h1,h2,h3,h4){font-family:inherit!important;color:inherit;letter-spacing:-.025em!important;line-height:1.25!important;text-transform:none!important;overflow-wrap:anywhere;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body h1{font-size:clamp(26px,3vw,36px)!important;font-weight:650!important;margin:0 0 10px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body h2{font-size:21px!important;font-weight:650!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body h3{font-size:17px!important;font-weight:650!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(p,label,input,select,textarea,button){font-family:inherit!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(p,small){line-height:1.55!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.app-page-heading,.ferrari-page-hero,.points-admin-hero,.patient-hero,.billing-command,.patient-command-card,.command-hero){background:#fff!important;color:#262b2a!important;border:1px solid #e1e6e2!important;border-radius:16px!important;box-shadow:none!important;padding:28px!important;margin:0 0 24px!important;min-height:0!important;height:auto!important;overflow:visible!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.command-hero-orbit,.patient-command-glow){display:none!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-hero:before,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-hero:after{display:none!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.command-hero-copy,.points-admin-hero,.ferrari-page-hero,.billing-command-copy,.patient-command-copy) p{color:#666e6a!important;font-size:15px!important;max-width:620px;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.eyebrow,.command-hero-copy>span,.app-page-heading .eyebrow,.ferrari-page-hero>div>span,.points-admin-hero>div>span,.command-search-panel>div>span,.command-section-head>div>span){color:#836739!important;font-size:11px!important;letter-spacing:.09em!important;font-weight:650!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-hero{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(340px,.9fr)!important;align-items:center!important;gap:28px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-stats{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-stats article{padding:16px!important;min-height:100px!important;border:1px solid #e1e6e2!important;border-radius:12px!important;background:#f5f7f4!important;color:#262b2a!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-stats b{color:#262b2a!important;font-size:30px!important;font-weight:650!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-stats :is(span,small){color:#626b65!important;font-size:11px!important;letter-spacing:0!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.admin-panel,.app-core-panel,.command-panel,.command-search-panel,.points-search-card,.points-admin-card,.points-history-panel,.hero-admin-card,.ferrari-section,.patient-result-card,.app-record-card,.patient-profile-single,.billing-invoice-card){background:#fff!important;color:#262b2a!important;border:1px solid #e1e6e2!important;border-radius:16px!important;box-shadow:0 3px 12px #26352b04!important;padding:24px!important;min-width:0!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.app-core-panel,.ferrari-section,.command-search-panel,.points-search-card,.points-history-panel){margin:0 0 24px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.panel-head,.command-section-head,.points-results-head){display:flex!important;align-items:flex-start!important;justify-content:space-between!important;flex-wrap:wrap!important;gap:12px!important;margin-bottom:18px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.panel-head,.command-section-head) h2{margin:0!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.panel-head,.app-page-heading) p{font-size:14px!important;color:#666e6a!important;margin:8px 0 0!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.command-grid-two,.app-patient-layout,.billing-layout,.hero-admin-grid,.points-card-grid,.ferrari-grid){gap:24px!important;min-width:0!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.command-search-panel,.points-search-card) form{display:flex!important;gap:10px!important;flex-wrap:wrap!important;min-width:0!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.command-search-panel,.points-search-card) input{flex:1 1 180px!important;width:auto!important;min-width:0!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=range]):not(.billing-date-native){box-sizing:border-box!important;min-height:46px!important;max-width:100%!important;border:1px solid #cbd3cd!important;border-radius:9px!important;background:#fff!important;color:#262b2a!important;font-size:16px!important;font-weight:400!important;line-height:1.45!important;padding:11px 12px!important;box-shadow:none!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body textarea{min-height:110px!important;resize:vertical;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body label{font-size:14px!important;line-height:1.5!important;color:#3c4640!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.app-form-grid,.billing-two,.ferrari-grid-2){gap:16px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.app-primary-btn,.admin-primary,.billing-primary,.ferrari-primary,.points-save,.hero-admin-save,.command-search-panel button,.points-search-card button,.login-form button){background:#292c2a!important;color:#fff!important;border:1px solid #292c2a!important;min-height:46px!important;padding:11px 18px!important;border-radius:9px!important;font-size:14px!important;font-weight:600!important;box-shadow:none!important;cursor:pointer;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(button,a,input,select,textarea,summary):focus-visible{outline:3px solid #b39455!important;outline-offset:3px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body button:disabled{opacity:.55!important;cursor:not-allowed!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.customer-profile-tabs,.hero-admin-nearby){display:flex!important;flex-wrap:wrap!important;gap:8px!important;background:transparent!important;padding:0!important;margin:0 0 24px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.customer-profile-tabs,.hero-admin-nearby) a{display:inline-flex!important;align-items:center!important;min-height:44px!important;padding:8px 16px!important;border:1px solid #dce2dc!important;border-radius:9px!important;font-size:14px!important;text-decoration:none!important;background:#fff!important;color:#4d5951!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .customer-profile-tabs a.is-active,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .customer-profile-tabs a[aria-current=page],
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .hero-admin-nearby a[aria-current=page]{background:#292c2a!important;color:#fff!important;border-color:#292c2a!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.shortcut-grid,.patient-overview-grid){gap:12px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .shortcut-grid a{background:#f7f9f6!important;border:1px solid #e1e6e2!important;border-radius:12px!important;min-height:94px!important;color:#292c2a!important;box-shadow:none!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .shortcut-grid span{font-size:14px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.next-day-row,.app-patient-list>a){background:#fff!important;border:1px solid #e1e6e2!important;border-radius:10px!important;padding:16px!important;min-width:0!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .next-day-row strong,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .app-patient-list strong{font-size:15px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .next-day-row span,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .app-patient-list small{font-size:13px!important;color:#666e6a!important;overflow-wrap:anywhere;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.patient-command-copy,.patient-result-copy,.app-record-card,.points-person,.billing-invoice-card){overflow-wrap:anywhere;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.app-status,.patient-linked-badge,.patient-duplicate-badge){font-size:12px!important;letter-spacing:0!important;line-height:1.4!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .admin-notice{margin:0 0 20px!important;border-radius:10px!important;padding:14px 18px!important;font-size:14px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .empty,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .ferrari-empty{padding:28px 18px!important;color:#666e6a!important;text-align:center!important;font-size:14px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .clinic-header-v3{background:#fff!important;color:#262b2a!important;border:1px solid #e1e6e2!important;border-radius:14px!important;box-shadow:none!important;margin-bottom:28px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .clinic-header-wordmark strong{color:#292c2a!important;font-size:15px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .clinic-header-wordmark small{color:#6e766f!important;letter-spacing:.07em!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .clinic-header-nav a,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .clinic-header-more summary,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .clinic-header-exit{color:#555950!important;font-size:13px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .clinic-header-nav a.is-active,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .clinic-header-nav a[aria-current=page]{background:#f4f0e7!important;color:#69532d!important;box-shadow:none!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .sb-mobile-bar{background:#fff!important;color:#292c2a!important;border-bottom:1px solid #e1e6e2!important;box-shadow:none!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .sb-mobile-title{font-family:inherit!important;font-size:16px!important;font-weight:650!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .sb-drawer{background:#fff!important;color:#292c2a!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .sb-drawer-nav a{color:#555950!important;border-radius:9px!important;font:500 15px/1.4 system-ui,sans-serif!important;min-height:46px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .sb-drawer-nav a.is-active{background:#f4f0e7!important;color:#69532d!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .ferrari-modal-card,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .billing-customer-sheet{border-radius:16px!important;background:#fff!important;color:#262b2a!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .login-shell{max-width:460px!important;padding:48px 20px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .login-card{padding:32px!important;border:1px solid #e1e6e2!important;background:#fff!important;border-radius:16px!important;box-shadow:0 12px 40px #26352b08!important;}
+@media(max-width:1000px){
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-hero{grid-template-columns:1fr!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-grid-two,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .billing-layout,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .app-patient-layout{grid-template-columns:1fr!important;}
+}
+@media(max-width:900px){
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body main.admin-shell{padding:20px max(18px,env(safe-area-inset-right)) 48px max(18px,env(safe-area-inset-left))!important;margin:0 auto!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .clinic-header-v3{display:none!important;}
+}
+@media(max-width:600px){
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.command-hero,.app-page-heading,.ferrari-page-hero,.points-admin-hero,.patient-command-card,.patient-hero,.billing-command){padding:20px!important;border-radius:13px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.admin-panel,.app-core-panel,.command-panel,.command-search-panel,.points-search-card,.points-admin-card,.hero-admin-card,.ferrari-section){padding:18px!important;border-radius:13px!important;border:1px solid #e1e6e2!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.command-stats article){padding:12px 9px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-stats b{font-size:26px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.app-form-grid,.billing-two,.ferrari-grid-2,.points-card-grid,.hero-admin-grid){grid-template-columns:minmax(0,1fr)!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .patient-command-card{display:flex!important;flex-wrap:wrap!important;gap:14px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .patient-command-actions{width:100%!important;display:flex!important;flex-wrap:wrap!important;gap:8px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-search-panel,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .points-search-card{display:block!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .command-search-panel form,
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .points-search-card form{margin-top:16px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .patient-result-card{display:flex!important;flex-wrap:wrap!important;gap:14px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body .patient-result-actions{display:flex!important;flex-wrap:wrap!important;width:100%!important;gap:8px!important;}
+}
+
+/* Server-rendered customer tabs keep native form submission. */
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body #patient-tab-nav.customer-profile-tabs .patient-tab-button{font:600 14px/1.4 system-ui,sans-serif!important;min-height:44px!important;border-radius:9px!important;padding:10px 16px!important;color:#4d5951!important;background:#fff!important;border:1px solid #dce2dc!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body #patient-tab-nav.customer-profile-tabs .patient-tab-button.is-active{background:#292c2a!important;color:#fff!important;border-color:#292c2a!important;}
+
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.app-review-card,.app-referral-list,.app-record-card,.billing-invoice-card,.ferrari-row,.points-admin-card,.patient-profile-single) :is(p,small,time){font-size:13px!important;line-height:1.55!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.app-review-card,.app-referral-list,.ferrari-row,.billing-invoice-card) strong{font-size:15px!important;}
+html[data-clinic-design="calm"][data-clinic-design][data-clinic-design] body.admin-body :is(.ferrari-edit,.billing-secondary,.patient-command-actions a,.patient-result-actions a,.patient-result-actions button){min-height:44px!important;box-sizing:border-box!important;font-size:14px!important;border-radius:9px!important;}
