@@ -37,6 +37,25 @@ def _email_staff_name(staff):
     return name
 
 
+
+def _email_staff_label(staff):
+    """Doctor-specific heading, with neutral fallback if the gender is unknown."""
+    name = (staff.display_name or '').strip().casefold()
+    role = (staff.role or '').strip().casefold()
+    female = name.startswith('frau ') or name.startswith('dr. frau ')
+    male = name.startswith('herr ') or name.startswith('dr. herr ') or 'qamar hameed' in name
+    if role == 'doctor':
+        if female:
+            return 'Behandelnde Ärztin'
+        if male:
+            return 'Behandelnder Arzt'
+        return 'Ärztliche Behandlung'
+    if female:
+        return 'Behandlerin'
+    if male:
+        return 'Behandler'
+    return 'Behandelnde Person'
+
 def _send_html_mail(subject, text_body, html_body, recipients, reply_to=None):
     message = EmailMultiAlternatives(
         subject=subject,
@@ -56,6 +75,7 @@ def _booking_email_context(appointment):
         'appointment': appointment,
         'local_start': local_start,
         'staff_email_name': _email_staff_name(appointment.staff),
+        'staff_email_label': _email_staff_label(appointment.staff),
         'staff_image_url': _staff_image_url(appointment),
         'website_url': 'https://a-esthetic.de',
         'admin_url': f'{base_url}/verwaltung/#termine',
@@ -85,7 +105,7 @@ def send_customer_booking_email(appointment):
         f'Behandlung: {appointment.service.name}\n'
         f'Datum: {local_start:%d.%m.%Y}\n'
         f'Uhrzeit: {local_start:%H:%M}\n'
-        f'Behandelnde/r Arzt/Ärztin: {staff_email_name}\n\n'
+        f'{context["staff_email_label"]}: {staff_email_name}\n\n'
         'Kontaktdaten:\n'
         f'A+ Esthetic Frankfurt · {CLINIC_ADDRESS}\n'
         f'Telefon: {CLINIC_PHONE}\n\n'
@@ -182,7 +202,7 @@ def send_customer_appointment_event_email(appointment, event):
         f'Behandlung: {appointment.service.name}\n'
         f'Datum: {local_start:%d.%m.%Y}\n'
         f'Uhrzeit: {local_start:%H:%M}\n'
-        f'Behandler/in: {context["staff_email_name"]}\n\n'
+        f'{context["staff_email_label"]}: {context["staff_email_name"]}\n\n'
         f'A+ Esthetic Frankfurt · {CLINIC_ADDRESS}\n'
         f'Telefon: {CLINIC_PHONE}\n'
         f'WhatsApp: {WHATSAPP_URL}\n'
