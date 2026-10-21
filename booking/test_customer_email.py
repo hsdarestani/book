@@ -4,7 +4,7 @@ from django.template.loader import render_to_string
 from django.test import TestCase
 from django.utils import timezone
 
-from .emails import _email_staff_name
+from .emails import _email_staff_name, _email_staff_label, _booking_email_context
 from .models import Appointment, Customer, Service, StaffMember
 
 
@@ -39,6 +39,27 @@ class CustomerEmailPresentationTests(TestCase):
     def test_doctor_name_is_shortened_for_customer_email(self):
         self.assertEqual(_email_staff_name(self.staff), 'Frau A. Regaei')
 
+    def test_clinician_heading_varies_by_doctor(self):
+        self.assertEqual(_email_staff_label(self.staff), 'Behandelnde Ärztin')
+        male = StaffMember(display_name='Qamar Hameed', role='doctor')
+        self.assertEqual(_email_staff_label(male), 'Behandelnder Arzt')
+        generic = StaffMember(display_name='Neutral Name', role='doctor')
+        self.assertEqual(_email_staff_label(generic), 'Ärztliche Behandlung')
+
+    def test_reminder_email_does_not_break_whatsapp_on_mobile(self):
+        context = {
+            **_booking_email_context(self.appointment),
+            'event': 'reminder_1h',
+            'eyebrow': 'IN EINER STUNDE',
+            'title': 'Wir freuen uns auf Sie',
+            'message': 'Ihr Termin beginnt bald.',
+        }
+        html = render_to_string('booking/email_appointment_event.html', context)
+        self.assertIn('Behandelnde Ärztin', html)
+        self.assertIn('white-space:nowrap', html)
+        self.assertIn('>WhatsApp</a>', html)
+        self.assertNotIn('BEHANDLER/IN', html)
+
     def test_customer_email_hides_status_and_price_and_shows_useful_links(self):
         html = render_to_string(
             'booking/email_booking_confirmation.html',
@@ -46,6 +67,7 @@ class CustomerEmailPresentationTests(TestCase):
                 'appointment': self.appointment,
                 'local_start': timezone.localtime(self.appointment.starts_at),
                 'staff_email_name': 'Frau A. Regaei',
+                'staff_email_label': 'Behandelnde Ärztin',
                 'staff_image_url': 'https://example.com/doctor.jpg',
                 'calendar_url': 'https://book.a-esthetic.de/test.ics',
                 'directions_url': 'https://example.com/directions',
@@ -62,7 +84,7 @@ class CustomerEmailPresentationTests(TestCase):
         )
         self.assertNotIn('>Preis<', html)
         self.assertNotIn('>Status<', html)
-        self.assertIn('Behandelnde/r Arzt/Ärztin', html)
+        self.assertIn('Behandelnde Ärztin', html)
         self.assertIn('Frau A. Regaei', html)
         self.assertIn('Hallo Anna,<br>', html)
         self.assertIn('Zum Kalender hinzufügen', html)
