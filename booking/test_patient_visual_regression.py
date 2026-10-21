@@ -30,7 +30,8 @@ class PatientVisualRegressionTests(SimpleTestCase):
     def test_checkbox_is_normal_size_and_remains_accessible(self):
         tpl = get_template("booking/app_management.html").template.source
         self.assertIn('type="checkbox" name="shared_with_customer"', tpl)
-        self.assertIn('label class="app-share-check"', tpl)
+        self.assertIn('label class="app-share-check patient-studio-share"', tpl)
+        self.assertIn('patient-upload-studio-inline-v2', tpl)
         style = (STATIC / "clinic-patient-finish-v3.css").read_text()
         self.assertIn('label.app-share-check>input[type="checkbox"]', style)
         self.assertIn("width:21px!important;height:21px!important", style)
