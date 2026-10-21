@@ -97,11 +97,11 @@ html[data-admin-page="patients"] .patient-upload-studio .patient-upload-camera b
 html[data-admin-page="patients"] .patient-upload-studio .patient-upload-camera [data-admin-photo-status]{
  color:#81776a!important;font-size:12px!important;line-height:1.4;flex:1 1 160px;
 }
-html[data-admin-page="patients"] .patient-upload-studio label.app-share-check.patient-studio-share{
+html[data-admin-page="patients"] .patient-upload-studio label.app-share-check.app-share-check{
  display:flex!important;align-items:center!important;gap:13px!important;min-height:65px!important;
  padding:13px 14px!important;background:#f8f6f1!important;border:1px solid #e8e3d9!important;border-radius:15px!important;
 }
-html[data-admin-page="patients"] .patient-upload-studio label.app-share-check.patient-studio-share>input[type=checkbox]{
+html[data-admin-page="patients"] .patient-upload-studio label.app-share-check.app-share-check>input[type=checkbox]{
  position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important;
  min-width:1px!important;min-height:1px!important;flex:none!important;
 }
@@ -111,10 +111,10 @@ html[data-admin-page="patients"] .patient-upload-studio .patient-switch-track{
 html[data-admin-page="patients"] .patient-upload-studio .patient-switch-track:after{
  content:"";position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:white;box-shadow:0 2px 5px #0002;transition:transform .18s;
 }
-html[data-admin-page="patients"] .patient-upload-studio .patient-studio-share>input:checked+.patient-switch-track{background:#b98c42}
-html[data-admin-page="patients"] .patient-upload-studio .patient-studio-share>input:checked+.patient-switch-track:after{transform:translateX(18px)}
-html[data-admin-page="patients"] .patient-upload-studio .patient-studio-share:focus-within{outline:2px solid #b98c42;outline-offset:2px}
-html[data-admin-page="patients"] .patient-upload-studio label.app-share-check.patient-studio-share>span.patient-share-text{
+html[data-admin-page="patients"] .patient-upload-studio .app-share-check>input:checked+.patient-switch-track{background:#b98c42}
+html[data-admin-page="patients"] .patient-upload-studio .app-share-check>input:checked+.patient-switch-track:after{transform:translateX(18px)}
+html[data-admin-page="patients"] .patient-upload-studio .app-share-check:focus-within{outline:2px solid #b98c42;outline-offset:2px}
+html[data-admin-page="patients"] .patient-upload-studio label.app-share-check.app-share-check>span.patient-share-text{
  display:grid!important;gap:3px!important;min-width:0!important;padding:0!important;font-size:13px!important;font-weight:700!important;
 }
 html[data-admin-page="patients"] .patient-upload-studio .patient-share-text small{font-size:11px;font-weight:450;color:#7d756a;margin:0;line-height:1.5}
