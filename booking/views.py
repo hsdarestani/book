@@ -579,13 +579,50 @@ def dashboard(request):
         })
         day_cursor += timedelta(days=1)
 
+    # Keep appointment totals visible per clinician even when the currently selected
+    # clinician has no bookings. The calendar itself remains scoped to one doctor.
+    staff_members = list(staff_qs)
+    day_start = timezone.make_aware(
+        datetime.combine(range_start, datetime.min.time()),
+        timezone.get_current_timezone(),
+    )
+    day_end = timezone.make_aware(
+        datetime.combine(range_end, datetime.min.time()),
+        timezone.get_current_timezone(),
+    )
+    count_rows = (
+        Appointment.objects.filter(
+            staff_id__in=[member.pk for member in staff_members],
+            starts_at__lt=day_end,
+            ends_at__gt=day_start,
+        )
+        .exclude(status='cancelled')
+        .values('staff_id')
+        .annotate(total=Count('pk'))
+    )
+    count_by_staff = {row['staff_id']: row['total'] for row in count_rows}
+    for member in staff_members:
+        member.calendar_period_count = count_by_staff.get(member.pk, 0)
+
+    # External imports can contain overlapping confirmed appointments. Do not
+    # silently hide them or delete either patient record: flag the overlap.
+    calendar_overlaps = []
+    known_end = None
+    for item in calendar_appointments:
+        if known_end is not None and item.starts_at < known_end:
+            start_label = timezone.localtime(item.starts_at).strftime('%d.%m. %H:%M')
+            if start_label not in calendar_overlaps:
+                calendar_overlaps.append(start_label)
+        known_end = max(known_end, item.ends_at) if known_end else item.ends_at
+
     context = {
         'doctor_mode': doctor_staff is not None,
         'today_count': appointment_scope.filter(starts_at__date=today).exclude(status='cancelled').count(),
         'new_count': appointment_scope.filter(status='new', starts_at__gte=now).count(),
         'customer_count': customer_scope.count(),
         'staff_count': staff_qs.count(),
-        'staff_members': staff_qs,
+        'staff_members': staff_members,
+        'calendar_overlaps': calendar_overlaps[:5],
         'selected_staff': selected_staff,
         'availability_rows': availability_rows,
         'blocked_periods': blocked,
