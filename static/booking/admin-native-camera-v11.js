@@ -64,6 +64,8 @@
     if (!input || !file) return false;
     try {
       const transfer = new DataTransfer();
+      // Taking another photo must append, never erase images already chosen.
+      for (const existing of Array.from(input.files || [])) transfer.items.add(existing);
       transfer.items.add(file);
       input.files = transfer.files;
       input.dispatchEvent(new Event('change', { bubbles: true }));
