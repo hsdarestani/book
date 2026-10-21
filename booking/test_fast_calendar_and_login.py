@@ -67,6 +67,7 @@ class FastCalendarDayApiTests(TestCase):
             reason='[NOTE][STAFF] Rückruf',
         )
 
+    @override_settings(STORAGES=TEST_STORAGES)
     def test_admin_calendar_exposes_doctor_count_and_import_overlap_warning(self):
         # Imported appointments may overlap without being written through the
         # normal validated booking form. Both must stay discoverable by staff.
