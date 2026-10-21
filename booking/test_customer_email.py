@@ -43,6 +43,8 @@ class CustomerEmailPresentationTests(TestCase):
         self.assertEqual(_email_staff_label(self.staff), 'Behandelnde Ärztin')
         male = StaffMember(display_name='Qamar Hameed', role='doctor')
         self.assertEqual(_email_staff_label(male), 'Behandelnder Arzt')
+        self.assertEqual(_email_staff_label(StaffMember(display_name='Frau Ariane Regaei', role='specialist')), 'Behandelnde Ärztin')
+        self.assertEqual(_email_staff_label(StaffMember(display_name='Qamar Hameed', role='specialist')), 'Behandelnder Arzt')
         generic = StaffMember(display_name='Neutral Name', role='doctor')
         self.assertEqual(_email_staff_label(generic), 'Ärztliche Behandlung')
 
