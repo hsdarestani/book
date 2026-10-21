@@ -86,7 +86,7 @@
 
   // Replace the raw browser file control in the focused Patientenakte with a
   // premium drop/tap surface while preserving the original input and form.
-  document.querySelectorAll('.app-patient-upload input[type="file"]').forEach(input => {
+  document.querySelectorAll('.app-patient-upload:not(.patient-upload-studio) input[type="file"]').forEach(input => {
     if (input.dataset.luxFile) return;
     input.dataset.luxFile = '1';
     const label = input.closest('label');
