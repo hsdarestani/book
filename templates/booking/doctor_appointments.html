@@ -1,5 +1,5 @@
 {% load static %}
-<!doctype html><html lang="de" data-admin-page="calendar"><head><meta charset="utf-8">
+<!doctype html><html data-clinic-navigation="unified" lang="de" data-admin-page="calendar"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Mein Kalender | A+ Esthetic Verwaltung</title>
 <link rel="stylesheet" href="/static/booking/app.css">
@@ -22,7 +22,7 @@ body.sb-admin-body[data-doctor-calendar="1"] .sb-mobile-title {
   pointer-events:auto!important;
 }
 </style>
-</head>
+<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet></head>
 <body class="admin-body sb-admin-body aplus-calendar-page" data-doctor-calendar="1">
 <header class="sb-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
 <strong class="sb-mobile-title">Kalender{% if calendar_view == 'week' %} (Woche){% else %} (Tagesansicht){% endif %}</strong>
