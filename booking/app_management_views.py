@@ -4,6 +4,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
+from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Q
 from django.http import HttpResponseForbidden
@@ -482,6 +483,7 @@ def app_management(request, section='bookings'):
             allowed_tabs = {'overview', 'appointments', 'records', 'points'}
             tab = str(request.GET.get('tab') or '').strip().lower()
             context['customer_tab'] = tab if tab in allowed_tabs else 'overview'
+            context['max_upload_mb'] = max(1, settings.PATIENT_FILE_MAX_BYTES // (1024 * 1024))
             context.update(_patient_context(request))
         elif section == 'wallet':
             data = _api(request, 'customers/', query={'q': query})
