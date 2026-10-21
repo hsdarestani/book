@@ -67,6 +67,33 @@ class FastCalendarDayApiTests(TestCase):
             reason='[NOTE][STAFF] Rückruf',
         )
 
+    def test_admin_calendar_exposes_doctor_count_and_import_overlap_warning(self):
+        # Imported appointments may overlap without being written through the
+        # normal validated booking form. Both must stay discoverable by staff.
+        import_dt = self.starts_at
+        second_customer = Customer.objects.create(
+            first_name='Lisa', last_name='Muster',
+            email='lisa-import@example.invalid', phone='+49000000997')
+        Appointment.objects.create(
+            customer=second_customer, service=self.service, staff=self.staff,
+            starts_at=import_dt, ends_at=import_dt + timedelta(minutes=30),
+            status='confirmed', source='admin', idempotency_key='simplybook-test-overlap')
+        second_staff = StaffMember.objects.create(
+            display_name='Qamar Hameed', role='doctor', active=True)
+        self.client.force_login(self.user)
+        response = self.client.get('/verwaltung/', {
+            'staff': self.staff.pk, 'date': self.day.isoformat(), 'cal_view': 'day'})
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode('utf-8')
+        self.assertIn('2 Termine', content)
+        self.assertIn('0 Termine', content)
+        self.assertIn('Überschneidende Termine', content)
+        self.assertIn('Beide Buchungen bleiben sichtbar', content)
+        api_response = self.client.get('/verwaltung/api/calendar-day/', {
+            'staff': self.staff.pk, 'date': self.day.isoformat()})
+        self.assertEqual(len(api_response.json()['appointments']), 2)
+        self.assertTrue(StaffMember.objects.filter(pk=second_staff.pk).exists())
+
     def test_calendar_day_api_requires_staff_login(self):
         response = self.client.get(
             '/verwaltung/api/calendar-day/',
