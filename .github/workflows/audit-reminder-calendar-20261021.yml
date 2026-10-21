@@ -1,0 +1,45 @@
+name: Audit 21 October reminder calendar consistency
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-reminder-calendar-20261021.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Inspect appointment vs calendar read only without patient PII
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c "set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from datetime import date, datetime, time, timedelta
+            from django.db.models import Count
+            from django.utils import timezone
+            from booking.models import Appointment, StaffMember
+            day=date(2026,10,21)
+            tz=timezone.get_current_timezone()
+            start=timezone.make_aware(datetime.combine(day,time.min),tz)
+            end=start+timedelta(days=1)
+            rows=list(Appointment.objects.filter(starts_at__lt=end, ends_at__gt=start).select_related('staff','service').order_by('starts_at','pk'))
+            print('AUDIT_DATE 2026-10-21')
+            print('TOTAL_APPOINTMENTS',len(rows),'ACTIVE',sum(x.status in ('new','confirmed') for x in rows),'REMINDER_SENT',sum(bool(x.reminder_1h_sent_at) for x in rows))
+            for item in rows:
+                local=timezone.localtime(item.starts_at,tz)
+                if (local.hour in (15,16,17)) or ('botox' in item.service.name.casefold()):
+                    key='simplybook' if (item.idempotency_key or '').startswith('simplybook-') else ('idempotent' if item.idempotency_key else 'direct')
+                    print('ROW', 'time',local.strftime('%H:%M'),'service',item.service.slug,'staff',item.staff.display_name,'staff_active',item.staff.active,'status',item.status,'source',item.source,'keytype',key,'reminder_sent',bool(item.reminder_1h_sent_at),'created_day',timezone.localtime(item.created_at).date().isoformat())
+            print('STAFF',[(s.pk,s.display_name,s.active) for s in StaffMember.objects.order_by('pk')])
+            print('REMINDER_WINDOW_16',sum(x.status in ('new','confirmed') and timezone.localtime(x.starts_at,tz).hour==16 for x in rows))
+            PY"
