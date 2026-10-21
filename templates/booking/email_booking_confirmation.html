@@ -73,7 +73,7 @@
                   <td style="padding:15px 16px;border-bottom:1px solid #ece6dc;font-size:13px;font-weight:700;color:#28241f;">{{ local_start|date:"H:i" }} Uhr</td>
                 </tr>
                 <tr>
-                  <td style="padding:15px 16px;{% if is_admin %}border-bottom:1px solid #ece6dc;{% endif %}color:#7c7469;font-size:12px;">{% if is_admin %}Behandler{% else %}Behandelnde/r Arzt/Ärztin{% endif %}</td>
+                  <td style="padding:15px 16px;{% if is_admin %}border-bottom:1px solid #ece6dc;{% endif %}color:#7c7469;font-size:12px;">{{ staff_email_label }}</td>
                   <td style="padding:15px 16px;{% if is_admin %}border-bottom:1px solid #ece6dc;{% endif %}font-size:13px;font-weight:700;color:#28241f;">{% if is_admin %}{{ appointment.staff.display_name }}{% else %}{{ staff_email_name }}{% endif %}</td>
                 </tr>
                 {% if is_admin %}
