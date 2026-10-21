@@ -121,7 +121,15 @@
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">{{ section_title }}</strong><span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div><aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav app-focused-nav"><div class="app-nav-label">A+ MANAGEMENT</div><a href="/verwaltung/dashboard/"><span>⌂</span>Dashboard</a><a href="/verwaltung/kalender/"><span>▣</span>Kalender</a><a href="/verwaltung/app/patients/" class="{% if section == 'patients' %}is-active{% endif %}"><span>▤</span>Patientenakten</a><a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}"><span>◆</span>A+ Punkte</a><a href="/verwaltung/app/reviews/" class="{% if section == 'reviews' %}is-active{% endif %}"><span>★</span>Google Bewertungen</a><a href="/verwaltung/app/referrals/" class="{% if section == 'referrals' %}is-active{% endif %}"><span>↗</span>Empfehlungen</a><a href="/verwaltung/app/hero/" class="{% if section == 'hero' %}is-active{% endif %}"><span>▧</span>Startseitenbilder</a><a href="/verwaltung/app/invoices/" class="{% if section == 'invoices' %}is-active{% endif %}"><span>▧</span>Rechnungen</a><a href="/verwaltung/mehr/"><span>⋯</span>Mehr</a><div class="app-nav-spacer"></div><a href="/verwaltung/logout/"><span>↪</span>Abmelden</a></nav></aside>
 <main class="admin-shell sb-admin-shell app-management-shell">{% include "booking/_clinic_web_header_v3.html" %}
-<div class="app-page-heading"><div class="eyebrow">A+ ESTHETIC</div><h1>{{ section_title }}</h1><p>{{ section_subtitle }}</p></div>{% if error %}<div class="admin-notice is-error">{{ error }}{% if needs_reauth %}<br>Bitte Verwaltung erneut aus der A+ App öffnen.{% endif %}</div>{% endif %}{% if notice %}<div class="admin-notice">Änderung wurde gespeichert.</div>{% endif %}
+<div class="app-page-heading"><div class="eyebrow">A+ ESTHETIC</div><h1>{{ section_title }}</h1><p>{{ section_subtitle }}</p></div>{% if error %}<div class="admin-notice is-error">{{ error }}{% if needs_reauth %}<br>Bitte Verwaltung erneut aus der A+ App öffnen.{% endif %}</div>{% endif %}{% if notice %}<div class="admin-notice {% if notice == 'max_files' or notice == 'file_size' or notice == 'file_type' or notice == 'empty' or notice == 'type_error' %}is-error{% endif %}">
+  {% if notice == 'max_files' %}Maximal 12 Dateien pro Eintrag sind erlaubt.
+  {% elif notice == 'file_size' %}Eine Datei ist zu groß oder leer.
+  {% elif notice == 'file_type' %}Dieser Dateityp ist nicht erlaubt.
+  {% elif notice == 'empty' %}Bitte eine Datei auswählen oder eine Notiz eintragen.
+  {% elif notice == 'type_error' %}Bitte einen gültigen Akteneintragstyp wählen.
+  {% elif notice == 'added-shared' %}Dateien wurden gespeichert und für den Patienten freigegeben.
+  {% elif notice == 'added' %}Dateien wurden sicher gespeichert.
+  {% else %}Änderung wurde gespeichert.{% endif %}</div>{% endif %}
 {% if not error %}
 {% if section == 'patients' %}
   {% if selected_customer %}
