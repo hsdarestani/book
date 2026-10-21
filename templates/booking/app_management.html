@@ -116,7 +116,268 @@
 }
 </style>
 {% endif %}
-{% if section == 'patients' %}<link rel="stylesheet" href="{% static 'booking/patient-upload-studio-v1.css' %}?v=20261021-1">{% endif %}</head>
+{% if section == 'patients' %}<style id="patient-upload-studio-inline-v2">/* Scoped premium uploader: no calendar or other admin page styles. */
+html[data-admin-page="patients"] .app-patient-upload.patient-upload-studio{
+ --ap-ink:#211f1c;--ap-mute:#77736d;--ap-gold:#caa45e;
+ display:grid!important;gap:17px!important;max-width:100%;color:var(--ap-ink);
+}
+html[data-admin-page="patients"] .app-upload-panel:has(.patient-upload-studio){
+ background:#fff!important;border:1px solid #eae5db!important;border-radius:24px!important;
+ box-shadow:0 12px 40px rgba(36,29,17,.055)!important;overflow:visible!important;
+}
+html[data-admin-page="patients"] .app-upload-panel:has(.patient-upload-studio)>.panel-head{
+ margin-bottom:19px!important;padding-bottom:17px!important;border-bottom:1px solid #f1ede5;
+}
+html[data-admin-page="patients"] .app-upload-panel:has(.patient-upload-studio)>.panel-head h2{
+ font:750 clamp(22px,3vw,29px)/1.2 system-ui,-apple-system,"Segoe UI",sans-serif!important;
+ letter-spacing:-.035em!important;color:#25221e!important;
+}
+html[data-admin-page="patients"] .app-upload-panel:has(.patient-upload-studio)>.panel-head p{
+ font:400 13px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif!important;color:#807971!important;margin-top:5px!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-studio-fields{display:grid;gap:15px!important}
+html[data-admin-page="patients"] .patient-upload-studio .patient-studio-fields .app-form-grid{gap:12px!important}
+html[data-admin-page="patients"] .patient-upload-studio label.patient-studio-field{
+ display:grid!important;gap:7px!important;color:#51493e!important;font-size:13px!important;font-weight:700!important;letter-spacing:0!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio label.patient-studio-field input,
+html[data-admin-page="patients"] .patient-upload-studio label.patient-studio-field select,
+html[data-admin-page="patients"] .patient-upload-studio label.patient-studio-field textarea{
+ border:1px solid #e5e1d8!important;border-radius:13px!important;background:#fcfbf8!important;
+ box-shadow:none!important;color:#28241f!important;font-size:15px!important;min-height:50px!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio label.patient-studio-field textarea{
+ padding:14px!important;min-height:94px!important;line-height:1.5!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio label.patient-studio-field :is(input,select,textarea):focus-visible{
+ outline:2px solid #d3ae67!important;outline-offset:2px!important;background:#fff!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-section-title{
+ display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-section-title strong{font-size:14px;font-weight:760}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-section-title small{font-size:12px;color:#77736d}
+html[data-admin-page="patients"] .patient-upload-studio label.patient-upload-drop{
+ position:relative!important;display:flex!important;min-height:155px!important;align-items:center!important;justify-content:center!important;
+ flex-direction:column!important;gap:6px!important;padding:22px 16px!important;box-sizing:border-box!important;
+ border:1.5px dashed #d6c5a4!important;border-radius:18px!important;background:#faf8f3!important;
+ color:#2b261e!important;text-align:center!important;cursor:pointer!important;transition:background .16s,border-color .16s;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-drop:is(:hover,.is-drag-over,:focus-within){
+ border-color:#a98240!important;background:#fff8e8!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-drop input[type=file]{
+ position:absolute!important;inset:0!important;width:100%!important;height:100%!important;opacity:0!important;cursor:pointer!important;z-index:2!important;
+ margin:0!important;padding:0!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-plus{
+ display:grid;place-items:center;width:46px;height:46px;border-radius:15px;background:#e9d19b;color:#342717;
+ font-size:27px;line-height:1;font-weight:400;margin-bottom:3px;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-drop-title{font-size:15px;font-weight:760;line-height:1.4}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-drop-hint{font-size:12px;color:#79736a;line-height:1.45}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-count{
+ font-size:12px;color:#79736a;line-height:1.45;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-list{
+ list-style:none;margin:0;padding:0;display:grid;gap:9px;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-list[hidden],
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-error[hidden]{display:none!important}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-item{
+ display:grid;grid-template-columns:54px minmax(0,1fr) 38px;gap:11px;align-items:center;
+ border:1px solid #e9e4db;background:#fff;border-radius:14px;padding:8px;min-width:0;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-thumb{
+ width:54px;height:54px;display:grid;place-items:center;overflow:hidden;border-radius:11px;
+ background:#f4eee3;color:#8b6d36;font-size:10px;font-weight:800;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-thumb img{width:100%;height:100%;object-fit:cover}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-info{min-width:0;display:grid;gap:3px}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-info strong{
+ font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-info small{font-size:11px;color:#827b70;margin:0}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-remove{
+ width:36px;min-width:36px;height:36px;min-height:36px;border:1px solid #eee8df;border-radius:10px;
+ background:#faf9f6;color:#6b6256;cursor:pointer;font-size:22px;line-height:1;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-error{
+ border-radius:11px;background:#fff2ee;border:1px solid #eac6bb;padding:10px 12px;font-size:12px;line-height:1.45;color:#a13e24;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-camera.native-admin-photo{
+ display:flex!important;gap:10px!important;align-items:center!important;flex-wrap:wrap!important;margin:0!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-camera button{
+ border:1px solid #d4c6a9!important;border-radius:12px!important;min-height:42px!important;padding:10px 15px!important;
+ background:#fff!important;color:#463720!important;font-size:13px!important;font-weight:720!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-upload-camera [data-admin-photo-status]{
+ color:#81776a!important;font-size:12px!important;line-height:1.4;flex:1 1 160px;
+}
+html[data-admin-page="patients"] .patient-upload-studio label.app-share-check.patient-studio-share{
+ display:flex!important;align-items:center!important;gap:13px!important;min-height:65px!important;
+ padding:13px 14px!important;background:#f8f6f1!important;border:1px solid #e8e3d9!important;border-radius:15px!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio label.app-share-check.patient-studio-share>input[type=checkbox]{
+ position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important;
+ min-width:1px!important;min-height:1px!important;flex:none!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-switch-track{
+ display:block!important;flex:0 0 44px!important;width:44px;height:26px;border-radius:999px;background:#d9d3c8;position:relative;transition:background .18s;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-switch-track:after{
+ content:"";position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:white;box-shadow:0 2px 5px #0002;transition:transform .18s;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-studio-share>input:checked+.patient-switch-track{background:#b98c42}
+html[data-admin-page="patients"] .patient-upload-studio .patient-studio-share>input:checked+.patient-switch-track:after{transform:translateX(18px)}
+html[data-admin-page="patients"] .patient-upload-studio .patient-studio-share:focus-within{outline:2px solid #b98c42;outline-offset:2px}
+html[data-admin-page="patients"] .patient-upload-studio label.app-share-check.patient-studio-share>span.patient-share-text{
+ display:grid!important;gap:3px!important;min-width:0!important;padding:0!important;font-size:13px!important;font-weight:700!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio .patient-share-text small{font-size:11px;font-weight:450;color:#7d756a;margin:0;line-height:1.5}
+html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-save[type=submit]{
+ display:flex!important;align-items:center!important;justify-content:center!important;min-height:55px!important;width:100%!important;
+ background:#25231f!important;border:1px solid #25231f!important;border-radius:15px!important;
+ color:#fff!important;font-size:15px!important;font-weight:740!important;letter-spacing:0!important;
+ box-shadow:0 8px 17px rgba(25,22,18,.12)!important;margin:0!important;
+}
+html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-save[type=submit]:disabled{opacity:.65!important;cursor:wait!important}
+@media(max-width:760px){
+ html[data-admin-page="patients"] .app-upload-panel:has(.patient-upload-studio){
+  margin:12px 12px 0!important;padding:23px 18px!important;border-radius:22px!important;
+ }
+ html[data-admin-page="patients"] .patient-upload-studio .patient-studio-fields .app-form-grid{grid-template-columns:1fr!important}
+ html[data-admin-page="patients"] .patient-upload-studio{gap:15px!important}
+ html[data-admin-page="patients"] .patient-upload-studio label.patient-upload-drop{min-height:148px!important}
+}
+
+
+/* Self-contained mobile override: avoids browser cache/MIME failures on newly added assets. */
+.app-patient-layout[data-customer-panel="records"] .app-upload-panel{
+  min-width:0!important;box-sizing:border-box!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio label.patient-upload-drop{
+  border:1.5px dashed #cbb68b!important;background:linear-gradient(165deg,#fcfaf6,#f7f0e4)!important;
+  border-radius:18px!important;min-height:148px!important;box-sizing:border-box!important;
+  display:flex!important;flex-flow:column nowrap!important;align-items:center!important;justify-content:center!important;
+  position:relative!important;gap:6px!important;padding:18px 12px!important;overflow:hidden!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-upload-section-title{
+ display:grid!important;grid-template-columns:1fr!important;gap:4px!important;min-width:0!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-upload-section-title strong{
+ display:block!important;line-height:1.3!important;font-size:14px!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-upload-section-title small{
+ display:block!important;color:#817669!important;font-size:12px!important;line-height:1.45!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio label.patient-upload-drop input[type="file"]{
+ position:absolute!important;inset:0!important;display:block!important;
+ width:100%!important;height:100%!important;min-height:0!important;
+ padding:0!important;margin:0!important;border:0!important;opacity:0!important;z-index:5!important;
+ cursor:pointer!important;box-shadow:none!important;background:transparent!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-upload-drop-title{
+ display:block!important;max-width:100%!important;font:760 15px/1.4 system-ui,sans-serif!important;color:#312a1f!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-upload-drop-hint{
+ display:block!important;max-width:100%!important;color:#807366!important;font:450 12px/1.5 system-ui,sans-serif!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio label.app-share-check.patient-studio-share{
+ position:relative!important;box-sizing:border-box!important;display:flex!important;flex-direction:row!important;
+ justify-content:flex-start!important;align-items:center!important;gap:13px!important;overflow:visible!important;
+ padding:13px 14px!important;min-height:70px!important;border:1px solid #e6dfd4!important;
+ border-radius:15px!important;background:#faf8f4!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio label.app-share-check.patient-studio-share>input[type="checkbox"]{
+ all:unset!important;position:absolute!important;opacity:0!important;pointer-events:none!important;
+ width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;
+ max-width:1px!important;max-height:1px!important;display:block!important;flex:none!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-studio-share>.patient-switch-track{
+ display:inline-block!important;box-sizing:border-box!important;flex:0 0 46px!important;
+ width:46px!important;min-width:46px!important;height:28px!important;min-height:28px!important;
+ padding:0!important;margin:0!important;position:relative!important;align-self:center!important;
+ background:#dcd5ca!important;border-radius:100px!important;border:1px solid #c7bdb0!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-studio-share>.patient-switch-track::after{
+ content:""!important;position:absolute!important;width:20px!important;height:20px!important;
+ top:3px!important;left:3px!important;background:#fff!important;border-radius:50%!important;
+ box-shadow:0 2px 5px rgba(20,15,8,.16)!important;transform:none;transition:transform .18s;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-studio-share>input:checked+.patient-switch-track{
+ background:#ba934f!important;border-color:#ba934f!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-studio-share>input:checked+.patient-switch-track::after{
+ transform:translateX(18px)!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-studio-share>.patient-share-text{
+ display:grid!important;gap:3px!important;flex:1!important;min-width:0!important;padding:0!important;
+ text-align:left!important;white-space:normal!important;font:680 13px/1.4 system-ui,sans-serif!important;color:#322b22!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-studio-share>.patient-share-text small{
+ display:block!important;margin:0!important;font:450 11px/1.5 system-ui,sans-serif!important;color:#786e63!important;
+}
+.app-patient-layout[data-customer-panel="records"] .app-record-timeline .app-record-card{
+ border:1px solid #e9e3da!important;border-radius:19px!important;padding:18px!important;background:#fff!important;
+ box-shadow:0 6px 16px rgba(24,18,11,.035)!important;min-width:0!important;
+}
+.app-patient-layout[data-customer-panel="records"] .app-record-timeline .app-record-card .app-record-head{
+ display:flex!important;flex-direction:column-reverse!important;gap:7px!important;align-items:flex-start!important;min-width:0!important;
+}
+.app-patient-layout[data-customer-panel="records"] .app-record-timeline .app-record-card .app-record-head>div{
+ display:grid!important;gap:6px!important;min-width:0!important;width:100%!important;
+}
+.app-patient-layout[data-customer-panel="records"] .app-record-timeline .app-record-card .app-record-head strong{
+ overflow-wrap:anywhere!important;word-break:normal!important;font:680 16px/1.4 system-ui,sans-serif!important;
+}
+.app-patient-layout[data-customer-panel="records"] .app-record-timeline .app-record-card .app-record-footer{
+ display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:9px!important;min-width:0!important;
+}
+.app-patient-layout[data-customer-panel="records"] .app-record-timeline .app-record-card .app-record-footer .share-action,
+.app-patient-layout[data-customer-panel="records"] .app-record-timeline .app-record-card .app-record-footer>a{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ padding:9px 12px!important;border-radius:11px!important;border:1px solid #e1d5c2!important;
+ background:#fbf8f1!important;color:#665028!important;text-decoration:none!important;
+ font:700 12px/1.4 system-ui,sans-serif!important;min-height:37px!important;box-sizing:border-box!important;
+}
+.app-patient-layout[data-customer-panel="records"] .app-record-timeline .app-record-card p{
+ white-space:pre-line!important;overflow-wrap:anywhere!important;line-height:1.65!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-goae-panel{
+ box-sizing:border-box!important;padding:0!important;background:#fff!important;overflow:hidden!important;
+ border:1px solid #e6e0d6!important;border-radius:20px!important;box-shadow:0 8px 24px rgba(38,28,17,.05)!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-goae-details{display:block!important;width:100%!important;min-width:0!important}
+.app-patient-layout[data-customer-panel="records"] .patient-goae-details>summary{
+ box-sizing:border-box!important;display:flex!important;justify-content:space-between!important;align-items:center!important;gap:12px!important;
+ cursor:pointer!important;list-style:none!important;padding:20px 19px!important;background:#fff!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-goae-details>summary::-webkit-details-marker{display:none!important}
+.app-patient-layout[data-customer-panel="records"] .patient-goae-details>summary>span:first-child{
+ display:grid!important;gap:5px!important;min-width:0!important;flex:1!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-goae-details>summary strong{
+ display:block!important;color:#28231d!important;font:720 16px/1.3 system-ui,sans-serif!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-goae-details>summary small{
+ display:block!important;color:#867b6e!important;font:450 12px/1.55 system-ui,sans-serif!important;
+ overflow-wrap:anywhere!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-goae-details>summary .goae-details-arrow{
+ display:grid!important;place-items:center!important;width:35px!important;height:35px!important;flex:0 0 35px!important;
+ border-radius:12px!important;background:#f6f2e9!important;font-size:23px!important;color:#977234!important;
+}
+.app-patient-layout[data-customer-panel="records"] .patient-goae-details[open] .goae-details-arrow{transform:rotate(180deg)}
+.app-patient-layout[data-customer-panel="records"] .patient-goae-details .goae-details-body{padding:3px 19px 20px!important;border-top:1px solid #eee8dc!important;min-width:0}
+@media(max-width:760px){
+ .app-patient-layout[data-customer-panel="records"]{display:flex!important;flex-direction:column!important;gap:14px!important;min-width:0!important;margin:0!important}
+ .app-patient-layout[data-customer-panel="records"]>.app-core-panel{width:calc(100% - 24px)!important;margin:0 12px!important;max-width:calc(100% - 24px)!important}
+ .app-patient-layout[data-customer-panel="records"] .patient-goae-panel{width:calc(100% - 24px)!important;margin:0 12px!important}
+ .app-patient-layout[data-customer-panel="records"] .patient-upload-studio .patient-studio-fields .app-form-grid{display:grid!important;grid-template-columns:1fr!important}
+}
+</style>{% endif %}</head>
 <body class="admin-body sb-admin-body app-management-body">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">{{ section_title }}</strong><span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div><aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav app-focused-nav"><div class="app-nav-label">A+ MANAGEMENT</div><a href="/verwaltung/dashboard/"><span>⌂</span>Dashboard</a><a href="/verwaltung/kalender/"><span>▣</span>Kalender</a><a href="/verwaltung/app/patients/" class="{% if section == 'patients' %}is-active{% endif %}"><span>▤</span>Patientenakten</a><a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}"><span>◆</span>A+ Punkte</a><a href="/verwaltung/app/reviews/" class="{% if section == 'reviews' %}is-active{% endif %}"><span>★</span>Google Bewertungen</a><a href="/verwaltung/app/referrals/" class="{% if section == 'referrals' %}is-active{% endif %}"><span>↗</span>Empfehlungen</a><a href="/verwaltung/app/hero/" class="{% if section == 'hero' %}is-active{% endif %}"><span>▧</span>Startseitenbilder</a><a href="/verwaltung/app/invoices/" class="{% if section == 'invoices' %}is-active{% endif %}"><span>▧</span>Rechnungen</a><a href="/verwaltung/mehr/"><span>⋯</span>Mehr</a><div class="app-nav-spacer"></div><a href="/verwaltung/logout/"><span>↪</span>Abmelden</a></nav></aside>
@@ -223,7 +484,7 @@
         <label class="patient-studio-field">Notiz (optional)
           <textarea name="note" rows="4" maxlength="6000" placeholder="Zusätzliche Informationen …"></textarea>
         </label>
-        <label class="app-share-check" data-patient-studio-share>
+        <label class="app-share-check patient-studio-share" data-patient-studio-share>
           <input type="checkbox" name="shared_with_customer">
           <i class="patient-switch-track" aria-hidden="true"></i>
           <span class="patient-share-text">Für Patienten sichtbar<small>Der Patient kann diese Dateien in der A+ App sehen.</small></span>
