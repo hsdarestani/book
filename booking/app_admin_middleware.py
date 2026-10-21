@@ -376,6 +376,13 @@ class APlusAdminNavigationMiddleware:
                 html = html.replace(theme.group(0), '', 1)
                 html = html.replace('</head>', theme.group(0) + '</head>', 1)
 
+        # Shared navigation is isolated from calendar contents and comes after
+        # the old SSO theme, just like the opt-in management stylesheet.
+        navigation = re.search(r'<link[^>]+data-clinic-navigation-sheet[^>]*>', html)
+        if navigation:
+            html = html.replace(navigation.group(0), '', 1)
+            html = html.replace('</head>', navigation.group(0) + '</head>', 1)
+
         response.content = html.encode(response.charset or 'utf-8')
         if response.has_header('Content-Length'):
             response['Content-Length'] = str(len(response.content))

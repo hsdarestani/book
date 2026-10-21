@@ -35,6 +35,7 @@ class ManagementThemeIsolationTests(TestCase):
                     self.assertEqual(response.status_code, 200)
                     self.assertNotContains(response, 'clinic-management.css')
                     self.assertNotContains(response, 'data-clinic-design="calm"')
+                    self.assertContains(response, 'clinic-navigation.css')
 
     @patch('booking.app_management_views._api', return_value={'ok': True})
     def test_theme_is_last_stylesheet_after_sso_and_non_sso_assets(self, api):
@@ -55,4 +56,6 @@ class ManagementThemeIsolationTests(TestCase):
                     self.assertIn('data-clinic-design="calm"', source)
                     head = source.split('</head>')[0]
                     self.assertEqual(head.count('data-clinic-design-sheet'), 1)
-                    self.assertGreater(head.index('data-clinic-design-sheet'), head.rfind('<link'))
+                    self.assertEqual(head.count('data-clinic-navigation-sheet'), 1)
+                    self.assertGreater(head.index('data-clinic-navigation-sheet'), head.rfind('<link'))
+                    self.assertGreater(head.index('data-clinic-navigation-sheet'), head.index('data-clinic-design-sheet'))
