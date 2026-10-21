@@ -1,0 +1,47 @@
+name: Diagnose private preview renderer
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnose-file-preview.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify renderer without exporting document content
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c "set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            import hashlib, io
+            from PIL import Image
+            from django.contrib.auth import get_user_model
+            from django.test import RequestFactory
+            from booking.models import PatientRecord
+            from booking.record_previews import pdf_page_count
+            from booking.record_views import record_preview, record_view
+            from booking.views import _patient_file_path
+            target='ddb7d790b2b4d375e116d26d0a3301bcdacb5e2e5181bb44c02f58b8c0917041'
+            record=next(row for row in PatientRecord.objects.filter(mime_type='application/pdf').iterator() if hashlib.sha256(str(row.public_id).encode()).hexdigest()==target)
+            print('PDF_PAGES',pdf_page_count(_patient_file_path(record.stored_name)))
+            request=RequestFactory().get('/private-preview-diagnostic/')
+            request.user=get_user_model().objects.filter(is_superuser=True,is_active=True).first()
+            request.session={}
+            preview=record_preview(request,record.customer_id,record.public_id)
+            print('PREVIEW_STATUS',preview.status_code,'PREVIEW_STATE',preview.get('X-Preview-State'))
+            assert preview.status_code==200 and preview.get('X-Preview-State')=='ready'
+            with Image.open(io.BytesIO(preview.content)) as image:
+                print('PREVIEW_DIMENSIONS',image.size,'HAS_NONWHITE_PIXELS',image.convert('L').getextrema()[0]<240)
+            viewer=record_view(request,record.customer_id,record.public_id)
+            print('VIEWER_STATUS',viewer.status_code,'HAS_PAGE_IMAGE',b'data-preview-image' in viewer.content)
+            assert viewer.status_code==200 and b'data-preview-image' in viewer.content
+            PY"
