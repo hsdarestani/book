@@ -252,9 +252,15 @@ def patient_record_file(request, customer_id, record_id):
     path = _patient_file_path(record.stored_name)
     if not path.exists() or not path.is_file():
         raise Http404('Datei nicht gefunden')
+    from .record_previews import content_type
+    mime = content_type(record, path)
+    # Android/iOS WebViews do not reliably open native PDF tabs. Old PDF links
+    # enter the same authenticated viewer as the new record cards.
+    if mime == 'application/pdf' and request.GET.get('download') != '1' and request.GET.get('raw') != '1':
+        return redirect('booking:patient_record_view', customer_id=customer_id, record_id=record_id)
     response = FileResponse(
         path.open('rb'),
-        content_type=record.mime_type or 'application/octet-stream',
+        content_type=mime,
         as_attachment=request.GET.get('download') == '1',
         filename=record.original_name or path.name,
     )

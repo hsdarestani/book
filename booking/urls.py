@@ -1,5 +1,5 @@
 from django.urls import path
-from . import doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, referral_relay, views
+from . import record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
@@ -28,6 +28,8 @@ urlpatterns = [
     path('verwaltung/logout/', auth_views.admin_logout, name='admin_logout'),
     path('verwaltung/patienten/<int:customer_id>/', patient_routes.canonical_patient_file, name='patient_file'),
     path('verwaltung/patienten/<int:customer_id>/datei/<uuid:record_id>/', views.patient_record_file, name='patient_record_file'),
+    path('verwaltung/patienten/<int:customer_id>/datei/<uuid:record_id>/ansicht/', record_views.record_view, name='patient_record_view'),
+    path('verwaltung/patienten/<int:customer_id>/datei/<uuid:record_id>/vorschau/', record_views.record_preview, name='patient_record_preview'),
     path('verwaltung/patienten/<int:customer_id>/shared/add/', patient_portal.staff_add_record, name='patient_shared_add'),
     path('verwaltung/patienten/<int:customer_id>/shared/<uuid:record_id>/toggle/', patient_portal.staff_toggle_share, name='patient_shared_toggle'),
     path('api/health/', api.health, name='health'),
