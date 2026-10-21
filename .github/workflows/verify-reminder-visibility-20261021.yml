@@ -1,0 +1,38 @@
+name: Verify appointment visibility and reminder identity
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-reminder-visibility-20261021.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Audit app appointment against doctor-specific day query without PII
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c "set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from datetime import datetime, date, time, timedelta
+            from django.utils import timezone
+            from booking.models import Appointment,StaffMember
+            from booking.calendar_admin_api import _day_bounds
+            d=date(2026,10,21)
+            start,end=_day_bounds(d)
+            q=Appointment.objects.filter(starts_at__lt=end,ends_at__gt=start).exclude(status='cancelled')
+            for staff in StaffMember.objects.filter(active=True).order_by('pk'):
+                rows=q.filter(staff=staff)
+                print('CALENDAR_DOCTOR',staff.display_name,'total',rows.count(),'at_16',rows.filter(starts_at__hour=14).count() if False else sum(timezone.localtime(x.starts_at).strftime('%H:%M')=='16:00' for x in rows))
+            for x in q.filter(service__slug='botox-neupatient'):
+                print('TARGET', 'local_time',timezone.localtime(x.starts_at).strftime('%H:%M'),'doctor',x.staff.display_name,'status',x.status,'customer_is_ashkan',('ashkan' in x.customer.full_name.casefold()),'customer_is_test_name',any(z in (x.customer.full_name or '').casefold() for z in ('test','demo','muster')),'customer_email_is_internal',x.customer.email.casefold().endswith('@a-esthetic.de'),'idempotent',bool(x.idempotency_key),'reminder_set',bool(x.reminder_1h_sent_at),'created_day',timezone.localtime(x.created_at).date())
+            PY"
