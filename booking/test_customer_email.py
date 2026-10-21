@@ -49,6 +49,10 @@ class CustomerEmailPresentationTests(TestCase):
         self.assertEqual(_email_staff_label(generic), 'Ärztliche Behandlung')
 
     def test_reminder_email_does_not_break_whatsapp_on_mobile(self):
+        self.assertEqual(
+            _booking_email_context(self.appointment)['whatsapp_url'],
+            'https://wa.me/491729907936',
+        )
         context = {
             **_booking_email_context(self.appointment),
             'event': 'reminder_1h',
