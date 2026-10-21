@@ -26,6 +26,17 @@ def normalize_name(value):
 
 
 def find_customer(*, email="", phone="", first_name="", last_name=""):
+    # SimplyBook occasionally omits a client's contact details from bookings.
+    # The importer gives each such source identity a stable synthetic address.
+    # Reuse that exact address on later syncs instead of inserting a new
+    # anonymous customer at every ten-minute reconciliation. Never use this
+    # placeholder for cross-person email matching.
+    raw_email = str(email or "").strip().lower()
+    if raw_email.startswith(("simplybook-client-", "simplybook-booking-")) and raw_email.endswith("@invalid.local"):
+        existing = Customer.objects.filter(email__iexact=raw_email).order_by("pk").first()
+        if existing is not None:
+            return existing
+
     normalized_email = normalize_email(email)
     if normalized_email:
         match = Customer.objects.filter(email__iexact=normalized_email).order_by("pk").first()
