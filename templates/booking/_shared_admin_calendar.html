@@ -1,3 +1,12 @@
+<style id="aesthetic-calendar-visibility-v1">
+.sb-calendar-panel .doctor-switcher .doctor-pill{display:inline-flex!important;align-items:center!important;gap:7px!important;flex-wrap:wrap!important;max-width:100%;min-width:0}
+.sb-calendar-panel .doctor-switcher .sb-doctor-booking-count{display:inline-block!important;flex:none!important;font:700 11px/1.2 system-ui,sans-serif!important;color:#876326!important;background:#fbf0d4!important;border:1px solid #eee0bb!important;padding:5px 8px!important;border-radius:999px!important;white-space:nowrap!important}
+.sb-calendar-panel .doctor-switcher .doctor-pill.is-active .sb-doctor-booking-count{background:#f3dc9f!important;color:#4d361b!important}
+.sb-calendar-panel .sb-calendar-doctor-hint{margin:9px 4px 13px!important;font:500 12px/1.55 system-ui,sans-serif!important;color:#766d61!important}
+.sb-calendar-panel .sb-calendar-doctor-hint strong{color:#3a3024!important;font-weight:740}
+.sb-calendar-panel .sb-calendar-overlap-warning{display:flex!important;flex-direction:column!important;gap:5px!important;margin:11px 2px!important;padding:12px 14px!important;border-radius:12px!important;background:#fff5e8!important;border:1px solid #e5bf8f!important;color:#72512d!important;font:500 12px/1.6 system-ui,sans-serif!important}
+.sb-calendar-panel .sb-calendar-overlap-warning strong{font:750 13px/1.3 system-ui,sans-serif!important;color:#805123!important}
+</style>
   <section class="admin-panel sb-calendar-panel" id="kalender">
     <div class="sb-calendar-head">
       <div class="sb-calendar-heading">
@@ -11,9 +20,14 @@
 
     <div class="doctor-switcher sb-provider-switcher" role="navigation" aria-label="Behandler wählen">
       {% for member in staff_members %}
-      <a href="{% if doctor_mode %}?date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender{% else %}/verwaltung/?staff={{ member.pk }}&date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender{% endif %}" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b>{{ member.display_name }}</b></a>
+      <a href="{% if doctor_mode %}?date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender{% else %}/verwaltung/?staff={{ member.pk }}&date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender{% endif %}" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b>{{ member.display_name }}</b><small class="sb-doctor-booking-count">{% if member.calendar_period_count == 1 %}1 Termin{% else %}{{ member.calendar_period_count }} Termine{% endif %}</small></a>
       {% endfor %}
     </div>
+
+    <p class="sb-calendar-doctor-hint">Im Kalender werden die Termine von <strong>{{ selected_staff.display_name }}</strong> angezeigt. Für andere Behandler bitte oben wechseln.</p>
+    {% if calendar_overlaps %}
+    <div class="sb-calendar-overlap-warning" role="status"><strong>Überschneidende Termine</strong><span>Für diesen Behandler liegen mehrere Buchungen im selben Zeitraum: {{ calendar_overlaps|join:", " }}. Beide Buchungen bleiben sichtbar und müssen separat geprüft werden.</span></div>
+    {% endif %}
 
     <div class="sb-date-nav">
       <a class="sb-date-arrow" href="?date={{ previous_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" aria-label="Zurück">‹</a>
