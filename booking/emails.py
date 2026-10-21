@@ -44,7 +44,9 @@ def _email_staff_label(staff):
     role = (staff.role or '').strip().casefold()
     female = name.startswith('frau ') or name.startswith('dr. frau ')
     male = name.startswith('herr ') or name.startswith('dr. herr ') or 'qamar hameed' in name
-    if role == 'doctor':
+    # These two known clinic physicians must receive the correct title even
+    # if an older staff import retained the default 'specialist' role.
+    if role == 'doctor' or 'ariane regaei' in name or 'qamar hameed' in name:
         if female:
             return 'Behandelnde Ärztin'
         if male:
