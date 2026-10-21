@@ -1,16 +1,16 @@
 {% load static %}
 <!doctype html>
-<html lang="de" data-admin-page="dashboard">
+<html data-clinic-design="calm" lang="de" data-admin-page="dashboard">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="color-scheme" content="light">
   <title>Dashboard | A+ Esthetic Verwaltung</title>
   <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
   <link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}">
   <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
   <link rel="stylesheet" href="{% static 'booking/admin-dashboard-v11.css' %}"><link rel="stylesheet" href="{% static 'booking/admin-app-inset-v5.css' %}?v=20260912-v20"><link rel="stylesheet" href="{% static 'booking/admin-scroll-recovery-v9.css' %}?v=20260911-scroll-v11">
-  <link rel="stylesheet" href="{% static 'booking/admin-wait-ux-v16.css' %}?v=20260914"><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"></head>
+  <link rel="stylesheet" href="{% static 'booking/admin-wait-ux-v16.css' %}?v=20260914"><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-calm1" data-clinic-design-sheet></head>
 <body class="admin-body sb-admin-body app-management-body aplus-command-body">
 <header class="sb-mobile-bar app-mobile-bar">
   <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
@@ -39,7 +39,7 @@
 
   <section class="command-hero">
     <div class="command-hero-orbit"></div>
-    <div class="command-hero-copy"><span>A+ ESTHETIC · PRAXISMANAGEMENT</span><h1>Alles im Blick.<br>Jeden Tag.</h1><p>Patientenakten, neue Formulare und kommende Termine. Klar organisiert an einem Ort.</p></div>
+    <div class="command-hero-copy"><span>A+ ESTHETIC · PRAXISMANAGEMENT</span><h1>Praxisübersicht</h1><p>Patientenakten, neue Formulare und kommende Termine. Klar organisiert an einem Ort.</p></div>
     <div class="command-stats"><article><b>{{ today_count }}</b><span>HEUTE</span></article><article class="stat-explain" title="Alle zukünftigen, nicht stornierten Termine ab jetzt"><b>{{ upcoming_count }}</b><span>BEVORSTEHEND</span><small>ab jetzt · ohne Stornos</small></article><article title="Exakte Dubletten werden nur in der Statistik zusammengefasst. Kein Kundendatensatz wird gelöscht."><b>{{ patient_count }}</b><span>PATIENTEN</span>{% if duplicate_patient_count %}<small>{{ duplicate_patient_count }} Dublette{% if duplicate_patient_count != 1 %}n{% endif %} nicht doppelt gezählt</small>{% endif %}</article></div>
   </section>
 
@@ -48,7 +48,7 @@
   {% if saved %}<div class="admin-notice">Änderung gespeichert.</div>{% endif %}
 
   <section class="command-search-panel">
-    <div><span>PATIENT FINDER</span><h2>Patient suchen</h2><p>Name, Nachname, E-Mail oder Telefonnummer.</p></div>
+    <div><span>PATIENTENSUCHE</span><h2>Patient suchen</h2><p>Name, Nachname, E-Mail oder Telefonnummer.</p></div>
     <form method="get"><input type="search" name="q" value="{{ query }}" placeholder="z. B. Müller, Sophie, +49 …" autocomplete="off"><button type="submit">Suchen</button></form>
   </section>
 

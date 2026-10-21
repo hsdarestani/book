@@ -368,6 +368,14 @@ class APlusAdminNavigationMiddleware:
             html = html.replace('</body>', self.DOCTOR_NAV_GUARD + '</body>', 1)
             response['Cache-Control'] = 'private, no-store, max-age=0'
 
+        # The opt-in management theme follows legacy SSO styles. Calendar
+        # templates never opt in and retain their original asset order.
+        if 'data-clinic-design="calm"' in html:
+            theme = re.search(r'<link[^>]+data-clinic-design-sheet[^>]*>', html)
+            if theme:
+                html = html.replace(theme.group(0), '', 1)
+                html = html.replace('</head>', theme.group(0) + '</head>', 1)
+
         response.content = html.encode(response.charset or 'utf-8')
         if response.has_header('Content-Length'):
             response['Content-Length'] = str(len(response.content))

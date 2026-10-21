@@ -1,9 +1,9 @@
 {% load static %}
 <!doctype html>
-<html lang="de" data-admin-page="more">
+<html data-clinic-design="calm" lang="de" data-admin-page="more">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="color-scheme" content="light">
   <title>Mehr | A+ Esthetic Verwaltung</title>
   <link rel="stylesheet" href="{% static 'booking/admin.css' %}">
@@ -14,7 +14,7 @@
 border:1px solid #cdb890;border-radius:12px;background:#fffaf1;text-decoration:none;color:#71532b;
 font-size:13px;font-weight:750;white-space:normal}
 @media(max-width:620px){.campaign-content-actions{width:100%}.hero-content-link{flex:1}}
-</style><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"></head>
+</style><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-calm1" data-clinic-design-sheet></head>
 <body class="admin-body sb-admin-body app-management-body aplus-command-body ferrari-more">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">Mehr</strong><span class="sb-icon-button app-management-dot">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div>
@@ -22,7 +22,7 @@ font-size:13px;font-weight:750;white-space:normal}
 <main class="admin-shell sb-admin-shell app-management-shell command-shell">
 {% include "booking/_clinic_web_header_v3.html" %}
 
-<section class="ferrari-page-hero"><div><span>A+ ESTHETIC · CONTROL</span><h1>Mehr</h1><p>Kampagnen, Kommunikation und Systemeinstellungen – reduziert auf das Wesentliche.</p></div></section>
+<section class="ferrari-page-hero"><div><span>A+ ESTHETIC · VERWALTUNG</span><h1>Verwaltung</h1><p>Kampagnen, Nachrichten und Einstellungen verwalten.</p></div></section>
 {% if error %}<div class="admin-notice is-error">{{ error }}</div>{% endif %}
 {% if saved %}<div class="admin-notice">Änderung gespeichert.</div>{% endif %}
 

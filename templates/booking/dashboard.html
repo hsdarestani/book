@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="de" {% if doctor_mode %}data-doctor-role="1"{% else %}data-admin-page="calendar"{% endif %}>
+<html {% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}data-clinic-design="calm"{% endif %} lang="de" {% if doctor_mode %}data-doctor-role="1"{% else %}data-admin-page="calendar"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="/static/booking/clinic-calendar-topbar-v1.css?v=20261020-header4">
   <script defer src="/static/booking/clinic-header-v3.js?v=20261020-header4"></script>
   <script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-header4"></script>{% endif %}
-</head>
+{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-calm1" data-clinic-design-sheet>{% endif %}</head>
 <body class="admin-body sb-admin-body" {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
 
 <header class="sb-mobile-bar">

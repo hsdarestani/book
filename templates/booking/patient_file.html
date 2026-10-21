@@ -1,15 +1,15 @@
 {% load static %}
 <!doctype html>
-<html lang="de" {% if doctor_mode %}data-doctor-role="1"{% endif %}>
+<html data-clinic-design="calm" lang="de" {% if doctor_mode %}data-doctor-role="1"{% endif %}>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>{{ customer.full_name }} · Patientenakte | A+Esthetic</title>
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/app.css{% else %}{% static 'booking/app.css' %}{% endif %}">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
   {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% endif %}
-<link rel="stylesheet" href="/static/booking/clinic-patient-polish-v1.css?v=20261020-1"><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"></head>
+<link rel="stylesheet" href="/static/booking/clinic-patient-polish-v1.css?v=20261020-1"><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-calm1" data-clinic-design-sheet></head>
 <body class="admin-body patient-file-body">
 <main class="admin-shell patient-file-shell">
   <header class="admin-topbar patient-file-topbar">
