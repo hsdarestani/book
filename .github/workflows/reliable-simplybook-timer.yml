@@ -1,0 +1,95 @@
+name: Ensure reliable production SimplyBook sync timer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/reliable-simplybook-timer.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aesthetic-simplybook-timer-install
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    env:
+      SIMPLYBOOK_COMPANY_LOGIN: ${{ secrets.SIMPLYBOOK_COMPANY_LOGIN }}
+      SIMPLYBOOK_USER_LOGIN: ${{ secrets.SIMPLYBOOK_USER_LOGIN }}
+      SIMPLYBOOK_USER_PASSWORD: ${{ secrets.SIMPLYBOOK_USER_PASSWORD }}
+      SIMPLYBOOK_API_USER_KEY: ${{ secrets.SIMPLYBOOK_API_USER_KEY }}
+    steps:
+      - name: Configure independent ten-minute SimplyBook sync on production
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 20m
+          envs: SIMPLYBOOK_COMPANY_LOGIN,SIMPLYBOOK_USER_LOGIN,SIMPLYBOOK_USER_PASSWORD,SIMPLYBOOK_API_USER_KEY
+          script: |
+            set -euo pipefail
+            test -x /opt/aesthetic-book/venv/bin/python
+            test -f /opt/aesthetic-book/app/manage.py
+            test -r /etc/aesthetic-book.env
+            : "${SIMPLYBOOK_COMPANY_LOGIN:?Missing SimplyBook company}"
+            : "${SIMPLYBOOK_USER_LOGIN:?Missing SimplyBook user}"
+            if [ -z "${SIMPLYBOOK_USER_PASSWORD:-}" ] && [ -z "${SIMPLYBOOK_API_USER_KEY:-}" ]; then
+              echo "Missing SimplyBook authentication credentials"; exit 1
+            fi
+            umask 077
+            python3 - <<'PY'
+            import os, shlex
+            target = "/etc/aesthetic-simplybook-credentials.env"
+            temp = target + ".tmp"
+            names = ("SIMPLYBOOK_COMPANY_LOGIN", "SIMPLYBOOK_USER_LOGIN",
+                     "SIMPLYBOOK_USER_PASSWORD", "SIMPLYBOOK_API_USER_KEY")
+            with open(temp, "w", encoding="utf-8") as stream:
+                for name in names:
+                    stream.write("export " + name + "=" + shlex.quote(os.environ.get(name, "")) + "\n")
+            os.chmod(temp, 0o600)
+            os.replace(temp, target)
+            PY
+            cat > /usr/local/sbin/aesthetic-simplybook-sync <<'SCRIPT'
+            #!/usr/bin/env bash
+            set -euo pipefail
+            source /etc/aesthetic-simplybook-credentials.env
+            cd /opt/aesthetic-book/app
+            exec /usr/bin/flock -w 1200 /var/lock/aesthetic-simplybook-sync.lock /usr/sbin/runuser -u aestheticbook --preserve-environment -- /bin/bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec /opt/aesthetic-book/venv/bin/python manage.py sync_simplybook_continuous'
+            SCRIPT
+            chmod 0700 /usr/local/sbin/aesthetic-simplybook-sync
+            cat > /etc/systemd/system/aesthetic-simplybook-sync.service <<'SERVICE'
+            [Unit]
+            Description=Synchronize SimplyBook to A+ Esthetic production
+            After=network-online.target
+            Wants=network-online.target
+            [Service]
+            Type=oneshot
+            ExecStart=/usr/local/sbin/aesthetic-simplybook-sync
+            TimeoutStartSec=25min
+            UMask=0077
+            NoNewPrivileges=true
+            SERVICE
+            cat > /etc/systemd/system/aesthetic-simplybook-sync.timer <<'TIMER'
+            [Unit]
+            Description=Run SimplyBook sync every ten minutes on the server
+            [Timer]
+            OnCalendar=*-*-* *:00,10,20,30,40,50:00
+            Persistent=true
+            AccuracySec=30s
+            RandomizedDelaySec=0
+            Unit=aesthetic-simplybook-sync.service
+            [Install]
+            WantedBy=timers.target
+            TIMER
+            systemctl daemon-reload
+            systemctl enable --now aesthetic-simplybook-sync.timer
+            systemctl start aesthetic-simplybook-sync.service
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            systemctl list-timers aesthetic-simplybook-sync.timer --no-pager
+            journalctl -u aesthetic-simplybook-sync.service -n 15 --no-pager --output=cat
