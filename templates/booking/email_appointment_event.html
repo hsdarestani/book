@@ -20,12 +20,12 @@
 <td style="width:50%;vertical-align:top"><div style="font-size:10px;color:#8d867c">DATUM</div><strong style="display:block;margin-top:5px">{{ local_start|date:"d.m.Y" }}</strong></td>
 <td style="width:50%;vertical-align:top"><div style="font-size:10px;color:#8d867c">UHRZEIT</div><strong style="display:block;margin-top:5px">{{ local_start|date:"H:i" }} Uhr</strong></td>
 </tr></table>
-<div style="margin-top:17px"><div style="font-size:10px;color:#8d867c">BEHANDLER/IN</div><strong style="display:block;margin-top:5px">{{ staff_email_name }}</strong></div>
+<div style="margin-top:17px"><div style="font-size:10px;color:#8d867c">{{ staff_email_label }}</div><strong style="display:block;margin-top:5px">{{ staff_email_name }}</strong></div>
 </td></tr></table>
 {% if event != "cancelled" %}
 <p style="text-align:center;margin:24px 0 8px"><a href="{{ calendar_url }}" style="display:inline-block;background:#25221d;color:#fff;text-decoration:none;border-radius:12px;padding:13px 18px;font-weight:750">Zum Kalender hinzufügen</a></p>
 {% endif %}
-<p style="text-align:center;margin:12px 0 0"><a href="{{ directions_url }}" style="color:#9b7423;text-decoration:none;font-weight:700">Wegbeschreibung</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="{{ whatsapp_url }}" style="color:#9b7423;text-decoration:none;font-weight:700">WhatsApp</a></p>
+<table role="presentation" align="center" cellspacing="0" cellpadding="0" style="margin:14px auto 0;width:100%;max-width:440px"><tr><td align="center" style="padding:6px 5px"><a href="{{ directions_url }}" style="display:inline-block;white-space:nowrap;color:#9b7423;text-decoration:none;font-weight:700;font-size:13px;line-height:1.5">Wegbeschreibung</a></td></tr><tr><td align="center" style="padding:6px 5px"><a href="{{ whatsapp_url }}" style="display:inline-block;white-space:nowrap;color:#9b7423;text-decoration:none;font-weight:700;font-size:13px;line-height:1.5">WhatsApp</a></td></tr></table>
 </td></tr>
 <tr><td style="background:#29251f;color:#d8d1c5;padding:24px 34px;text-align:center;font-size:12px;line-height:1.65">
 A+ Esthetic Frankfurt · {{ clinic_address }}<br>{{ clinic_phone }}
