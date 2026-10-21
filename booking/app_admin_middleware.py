@@ -263,7 +263,7 @@ class APlusAdminNavigationMiddleware:
             # Customer IDs are additionally checked in the view and file
             # endpoint. Do not allow shared app/patient API routes here.
             own_patient_route = bool(re.fullmatch(
-                r'/verwaltung/patienten/[0-9]+/(?:datei/[0-9a-fA-F-]{36}/)?',
+                r'/verwaltung/patienten/[0-9]+/(?:datei/[0-9a-fA-F-]{36}/(?:(?:ansicht|vorschau)/)?)?',
                 request.path,
             ))
             if request.path.startswith('/admin/') or (
@@ -284,6 +284,11 @@ class APlusAdminNavigationMiddleware:
         if not request.path.startswith('/verwaltung/'):
             return response
         if response.status_code != 200 or 'text/html' not in response.get('Content-Type', ''):
+            return response
+
+        # The file viewer has its own compact same-tab controls. Injecting the
+        # legacy patient drawer here would overlay them inside mobile WebViews.
+        if request.resolver_match and request.resolver_match.url_name == 'patient_record_view':
             return response
 
         # View-only local staff still get the visual marker even without A+ SSO.

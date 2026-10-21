@@ -1,3 +1,4 @@
+from .record_previews import file_kind
 import base64
 import json
 from urllib.error import HTTPError, URLError
@@ -228,6 +229,7 @@ def _patient_context(request):
         for record in record_qs:
             metadata = record.metadata if isinstance(record.metadata, dict) else {}
             patient_source = record.source in patient_portal.APP_SHARED_SOURCES
+            preview_kind = file_kind(record)
             records.append({
                 'id': str(record.public_id),
                 'customer_id': record.customer_id,
@@ -236,6 +238,9 @@ def _patient_context(request):
                 'title': record.title,
                 'note': record.note,
                 'has_file': record.has_file,
+                'preview_kind': preview_kind,
+                'preview_label': {'pdf': 'PDF', 'image': 'BILD', 'text': 'TEXT', 'document': 'DATEI'}[preview_kind],
+                'file_size': record.file_size,
                 'original_name': record.original_name,
                 'source_label': 'Patient' if patient_source else 'Praxis',
                 'shared': patient_source or metadata.get('shared_with_customer') is True,

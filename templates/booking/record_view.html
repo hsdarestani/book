@@ -1,0 +1,34 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>{{ record.title }} | Dateivorschau</title>
+  <link rel="stylesheet" href="{% static 'booking/record-view.css' %}?v=20261021-1">
+  <script defer src="{% static 'booking/record-view.js' %}?v=20261021-1"></script>
+</head>
+<body class="record-view-body">
+  <header class="record-view-bar">
+    <a class="record-back" href="{{ back_url }}">‹ Zur Patientenakte</a>
+    <span>Dateivorschau</span>
+    {% if available %}<a href="{{ file_url }}?download=1" download class="record-download">Herunterladen</a>{% endif %}
+  </header>
+  <main class="record-view-shell">
+    <div class="record-view-heading"><h1>{{ record.title }}</h1><p>{{ record.original_name }} · {{ record.file_size|filesizeformat }}</p></div>
+    {% if preview_error %}<div class="record-view-message" role="status">{{ preview_error }}</div>
+    {% elif kind == 'pdf' or kind == 'image' %}
+      <nav class="record-view-tools" aria-label="Dateiansicht">
+        {% if kind == 'pdf' %}<div class="record-page-controls">{% if previous_page %}<a href="?page={{ previous_page }}" aria-label="Vorherige Seite">‹ Zurück</a>{% else %}<span aria-disabled="true">‹ Zurück</span>{% endif %}<strong>Seite {{ page_number }} von {{ page_count }}</strong>{% if next_page %}<a href="?page={{ next_page }}" aria-label="Nächste Seite">Weiter ›</a>{% else %}<span aria-disabled="true">Weiter ›</span>{% endif %}</div>{% endif %}
+        <button type="button" data-preview-zoom aria-pressed="false">Vergrößern</button>
+      </nav>
+      <div class="record-page-stage" data-preview-stage>
+        <img src="{{ preview_url }}?page={{ page_number }}&amp;size=page" alt="{% if kind == 'pdf' %}Seite {{ page_number }}{% else %}Bildvorschau{% endif %}: {{ record.title }}" class="record-page-image" data-preview-image>
+      </div>
+      <p class="record-view-image-error" data-preview-error hidden>Die Vorschau konnte nicht geladen werden. Bitte versuche es erneut oder lade die Originaldatei herunter.</p>
+    {% elif kind == 'text' %}<pre class="record-text-preview">{{ text_preview }}</pre>
+    {% else %}<section class="record-view-message"><strong>{{ record.original_name }}</strong><p>Für dieses Dateiformat ist keine direkte Vorschau verfügbar. Lade die Datei herunter, um sie mit einer passenden Anwendung zu öffnen.</p></section>{% endif %}
+  </main>
+</body>
+</html>
