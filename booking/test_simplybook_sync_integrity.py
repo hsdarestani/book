@@ -75,10 +75,10 @@ class SimplyBookReliableSyncTests(TestCase):
 
     @patch("booking.management.commands.simplybook_import.rpc")
     def test_missing_source_service_rolls_back_every_change(self, rpc):
-        def missing_event(method, params, *args, **kwargs):
+        def missing_event(url, method, params, *args, **kwargs):
             if method == "getEventList":
                 return []
-            return self.response(method, params, *args, **kwargs)
+            return self.response(url, method, params, *args, **kwargs)
         rpc.side_effect = missing_event
         with patch.dict(os.environ, self.environment):
             with self.assertRaises(CommandError):
