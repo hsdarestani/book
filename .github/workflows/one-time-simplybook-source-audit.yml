@@ -136,6 +136,13 @@ jobs:
             except Exception as exc:
              aud["source_relationship_check"]="failed"
              aud["source_relationship_error_type"]=type(exc).__name__
+            # Compare synthetic email counts: repeated creation used to produce orphan clones.
+            counts=Counter(x.email for x in anon if x.email.startswith("simplybook-booking-"))
+            aud["synthetic_booking_distinct_email_keys"]=len(counts)
+            aud["synthetic_booking_clone_group_sizes"]=sorted(counts.values(),reverse=True)[:12]
+            aud["synthetic_booking_extra_clones"]=sum(max(0,count-1) for count in counts.values())
+            aud["anonymous_created_by_day_counts"]=dict(sorted(Counter(x.created_at.strftime("%Y-%m-%d") for x in anon).items()))
+            aud["anonymous_last_created_day"]=max((x.created_at.strftime("%Y-%m-%d") for x in anon),default=None)
             print("SIMPLYBOOK_ANON_AUDIT="+json.dumps(aud,sort_keys=True))
             
             PY
