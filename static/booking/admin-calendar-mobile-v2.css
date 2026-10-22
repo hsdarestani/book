@@ -1,5 +1,5 @@
 /* Calendar-only mobile recovery. Keep all other administration pages unchanged.
-   Canonical clock: 08:00–20:00 (same as booking/views.py and calendar_admin_api.py). */
+   Canonical clock: 10:00–20:00 (same as booking/views.py and calendar_admin_api.py). */
 
 .sb-calendar-pro .sb-time-axis {
   position:relative!important;
@@ -13,6 +13,9 @@
   right:0!important;
   transform:translateY(-50%)!important;
   pointer-events:none!important;
+}
+.sb-calendar-pro .sb-time-axis span:last-child {
+  transform:translateY(-100%)!important; /* keep the 20:00 label within the track */
 }
 .sb-calendar-pro .sb-calendar-shell.is-week > .sb-time-axis {
   position:sticky!important;
@@ -36,7 +39,7 @@
   /* A native iOS WebView can draw its status-bar clock on top of the page.
      Do not add a second inset in normal browser tabs or Android WebViews. */
   html[data-clinic-navigation][data-clinic-navigation] body.sb-admin-body:has(.sb-calendar-panel) {
-    --calendar-status-gap:env(safe-area-inset-top,0px);
+    --calendar-status-gap:0px; /* Android already reserves the native status bar above the WebView. */
     padding-top:calc(64px + var(--calendar-status-gap))!important;
   }
   html[data-clinic-navigation][data-clinic-navigation] body.sb-admin-body.sb-calendar-ios-inset:has(.sb-calendar-panel) {

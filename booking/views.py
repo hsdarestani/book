@@ -1,7 +1,7 @@
 import logging
 import mimetypes
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 
 from django.conf import settings
@@ -22,7 +22,7 @@ from .notifications import appointment_snapshot, notify_admin_changed, notify_ad
 
 logger = logging.getLogger(__name__)
 
-CALENDAR_START_HOUR = 8
+CALENDAR_START_HOUR = 10
 CALENDAR_END_HOUR = 20
 
 
@@ -547,24 +547,29 @@ def dashboard(request):
     day_names = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     calendar_days = []
     day_cursor = range_start
+    tz = timezone.get_current_timezone()
     while day_cursor < range_end:
+        visible_start = timezone.make_aware(datetime.combine(day_cursor, time(CALENDAR_START_HOUR)), tz)
+        visible_end = timezone.make_aware(datetime.combine(day_cursor, time(CALENDAR_END_HOUR)), tz)
         working_segments = []
         for working in hour_map.get(day_cursor.weekday(), []):
             start = timezone.make_aware(datetime.combine(day_cursor, working.start_time), timezone.get_current_timezone())
             end = timezone.make_aware(datetime.combine(day_cursor, working.end_time), timezone.get_current_timezone())
+            if end <= visible_start or start >= visible_end:
+                continue
             top, height = _calendar_position(start, end)
             working_segments.append({'top': top, 'height': height, 'label': f'{working.start_time:%H:%M}–{working.end_time:%H:%M}'})
 
         appointments_for_day = []
         for item in calendar_appointments:
-            if timezone.localtime(item.starts_at).date() != day_cursor:
+            if item.ends_at <= visible_start or item.starts_at >= visible_end:
                 continue
             top, height = _calendar_position(item.starts_at, item.ends_at)
             appointments_for_day.append({'item': item, 'top': top, 'height': height})
 
         blocks_for_day = []
         for block in calendar_blocks:
-            if timezone.localtime(block.starts_at).date() != day_cursor:
+            if block.ends_at <= visible_start or block.starts_at >= visible_end:
                 continue
             top, height = _calendar_position(block.starts_at, block.ends_at)
             blocks_for_day.append({

@@ -97,8 +97,8 @@ class FastCalendarDayApiTests(TestCase):
 
     @override_settings(STORAGES=TEST_STORAGES)
     def test_op_calendar_geometry_matches_fast_api_and_server_render(self):
-        # Regression: fast navigation used an 08:00 origin while the initial
-        # HTML and tick labels used 10:00, visually moving a 10:00 OP to 11:40.
+        # The calendar must hide 08:00–10:00 while keeping the initial HTML,
+        # API geometry, and fast client navigation aligned at 10:00.
         from .views import _calendar_position
         from .calendar_admin_api import _position
 
@@ -114,8 +114,8 @@ class FastCalendarDayApiTests(TestCase):
         operation = next(block for block in api['blocks'] if block['id'] == op.pk)
         self.assertEqual(operation['start'], '10:00')
         self.assertEqual(operation['end'], '20:00')
-        self.assertAlmostEqual(operation['top'], 100 / 6, places=3)
-        self.assertAlmostEqual(operation['height'], 500 / 6, places=3)
+        self.assertEqual(operation['top'], 0)
+        self.assertEqual(operation['height'], 100)
         self.assertEqual(
             _calendar_position(op.starts_at, op.ends_at),
             _position(op.starts_at, op.ends_at),
@@ -125,12 +125,50 @@ class FastCalendarDayApiTests(TestCase):
         })
         self.assertEqual(page.status_code, 200)
         html = page.content.decode('utf-8')
-        self.assertIn('08:00', html)
-        self.assertIn('20:00', html)
+        time_axis = html.split('class="sb-time-axis">', 1)[1].split('</div>', 1)[0]
+        self.assertIn('>10:00</span>', time_axis)
+        self.assertIn('>20:00</span>', time_axis)
+        self.assertNotIn('>08:00</span>', time_axis)
+        self.assertIn('admin-calendar-mobile-v2.css', html)
         self.assertIn(
             f'top:{operation["top"]}%;height:{operation["height"]}%;',
             html,
         )
+
+    @override_settings(STORAGES=TEST_STORAGES)
+    def test_hidden_early_hours_are_excluded_but_spanning_block_is_clipped(self):
+        from .views import _calendar_position
+        tz = timezone.get_current_timezone()
+        at = lambda hour, minute=0: timezone.make_aware(
+            datetime.combine(self.day, time(hour, minute)), tz
+        )
+        early = BlockedPeriod.objects.create(
+            staff=self.staff, starts_at=at(8), ends_at=at(9),
+            reason='[NOTE][STAFF] Frühe Notiz',
+        )
+        spanning = BlockedPeriod.objects.create(
+            staff=self.staff, starts_at=at(9, 30), ends_at=at(10, 30),
+            reason='[BLOCKNOTE][STAFF] Vorbereitung',
+        )
+        self.client.force_login(self.user)
+        api = self.client.get('/verwaltung/api/calendar-day/', {
+            'staff': self.staff.pk, 'date': self.day.isoformat(),
+        }).json()
+        ids = {item['id'] for item in api['blocks']}
+        self.assertNotIn(early.pk, ids)
+        self.assertIn(spanning.pk, ids)
+        segment = next(item for item in api['blocks'] if item['id'] == spanning.pk)
+        self.assertEqual(segment['top'], 0)
+        self.assertEqual(segment['height'], 5)
+        self.assertEqual(_calendar_position(at(9, 30), at(10, 30)), (0, 5))
+        response = self.client.get('/verwaltung/kalender/', {
+            'staff': self.staff.pk, 'date': self.day.isoformat(),
+        })
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode('utf-8')
+        calendar_section = html.split('id="kalender"', 1)[1].split('id="termine"', 1)[0]
+        self.assertIn('Vorbereitung', calendar_section)
+        self.assertNotIn('Frühe Notiz', calendar_section)
 
     def test_calendar_day_api_requires_staff_login(self):
         response = self.client.get(
