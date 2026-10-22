@@ -10,8 +10,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from booking.customer_identity import find_customer
-from booking.models import Appointment, Customer, DailyAvailabilityOverride, Service, StaffMember
+from booking.customer_identity import find_customer, normalize_email, normalize_name, normalize_phone
+from booking.models import Appointment, Customer, DailyAvailabilityOverride, Service, StaffMember, SimplyBookClientLink
 
 LOGIN_URL = 'https://user-api.simplybook.me/login'
 ADMIN_URL = 'https://user-api.simplybook.me/admin'
@@ -93,6 +93,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--backup', default='')
+        parser.add_argument('--strict', action='store_true', help='Rollback all writes if any source booking cannot be imported.')
 
     def handle(self, *args, **options):
         company = (os.environ.get('SIMPLYBOOK_COMPANY_LOGIN') or '').strip()
@@ -163,7 +164,7 @@ class Command(BaseCommand):
             except OSError: pass
             self.stdout.write(f'Raw SimplyBook backup written: {target}')
 
-        summary = {'source_clients':len(clients_raw),'source_bookings':len(bookings_raw),'source_services':len(services_raw),'source_providers':len(providers_raw),'customers_created':0,'customers_matched':0,'services_created':0,'services_updated':0,'appointments_created':0,'appointments_updated':0,'daily_schedules_written':0,'skipped_bookings':0}
+        summary = {'source_clients':len(clients_raw),'source_bookings':len(bookings_raw),'source_services':len(services_raw),'source_providers':len(providers_raw),'customers_created':0,'customers_matched':0,'client_links_created':0,'identity_conflicts':0,'synthetic_customers_created':0,'synthetic_customers_reused':0,'missing_source_client_ids':0,'services_created':0,'services_updated':0,'appointments_created':0,'appointments_updated':0,'daily_schedules_written':0,'skipped_bookings':0}
 
         with transaction.atomic():
             archive_provider,_ = StaffMember.objects.get_or_create(display_name=f'A+ Esthetic (SimplyBook #{provider_external_id})',defaults={'role':'team','bio':'Importierter SimplyBook-Bestand. Nicht für neue Online-Buchungen verwenden.','active':True,'sort_order':9000})
@@ -192,18 +193,49 @@ class Command(BaseCommand):
                 if not isinstance(row,dict): continue
                 external_id=str(row.get('id') or '').strip()
                 if not external_id: continue
-                source_email=str(row.get('email') or '').strip().lower(); valid_email='@' in source_email and len(source_email)<=254
-                email=source_email if valid_email else f'simplybook-client-{external_id}@invalid.local'
-                first_name,last_name=split_name(row.get('name')); phone=str(row.get('phone') or '').strip()[:40]
-                customer=find_customer(email=email,phone=phone,first_name=first_name,last_name=last_name)
-                if customer:
-                    summary['customers_matched']+=1; changed=[]
-                    if not customer.first_name and first_name: customer.first_name=first_name; changed.append('first_name')
-                    if not customer.last_name and last_name: customer.last_name=last_name; changed.append('last_name')
-                    if not customer.phone and phone: customer.phone=phone; changed.append('phone')
-                    if changed: customer.save(update_fields=changed+['updated_at'])
+                source_email=str(row.get('email') or '').strip().lower()
+                email=source_email if normalize_email(source_email) and len(source_email)<=254 else f'simplybook-client-{external_id}@invalid.local'
+                first_name,last_name=split_name(row.get('name'))
+                phone=str(row.get('phone') or '').strip()[:40]
+                link=SimplyBookClientLink.objects.select_related('customer').filter(external_client_id=external_id).first()
+                customer=link.customer if link else None
+                if customer is None:
+                    # Shared email is not proof of the same person (families
+                    # and reception contact accounts occur in source data).
+                    candidate=find_customer(email=email,phone=phone,first_name=first_name,last_name=last_name)
+                    same_name=bool(candidate and normalize_name(candidate.first_name)==normalize_name(first_name)
+                                   and normalize_name(candidate.last_name)==normalize_name(last_name))
+                    same_contact=bool(candidate and (
+                        (normalize_email(email) and normalize_email(candidate.email)==normalize_email(email))
+                        or (normalize_phone(phone) and normalize_phone(candidate.phone)==normalize_phone(phone))
+                    ))
+                    if candidate and same_name and same_contact:
+                        customer=candidate
+                    else:
+                        if candidate:
+                            summary['identity_conflicts']+=1
+                        customer=Customer.objects.create(
+                            first_name=first_name,last_name=last_name,phone=phone,email=email
+                        )
+                        summary['customers_created']+=1
+                    SimplyBookClientLink.objects.create(external_client_id=external_id,customer=customer)
+                    summary['client_links_created']+=1
                 else:
-                    customer=Customer.objects.create(first_name=first_name,last_name=last_name,phone=phone,email=email); summary['customers_created']+=1
+                    summary['customers_matched']+=1
+                # Preserve staff-entered data and previously linked contacts.
+                # Import fills missing fields only, never overwrites a different
+                # phone/name for a patient who may have been edited locally.
+                changed=[]
+                if not customer.first_name and first_name:
+                    customer.first_name=first_name; changed.append('first_name')
+                if not customer.last_name and last_name:
+                    customer.last_name=last_name; changed.append('last_name')
+                if not customer.phone and phone:
+                    customer.phone=phone; changed.append('phone')
+                if not normalize_email(customer.email) and normalize_email(email):
+                    customer.email=email; changed.append('email')
+                if changed:
+                    customer.save(update_fields=changed+['updated_at'])
                 customer_map[external_id]=customer
 
             counts={}
@@ -216,14 +248,33 @@ class Command(BaseCommand):
                 service=service_map.get(event_id); starts_at=parse_source_datetime(row.get('start_date'),source_tz); ends_at=parse_source_datetime(row.get('end_date'),source_tz)
                 if not service or not starts_at or not booking_id: summary['skipped_bookings']+=1; continue
                 if not ends_at or ends_at<=starts_at: ends_at=starts_at+timedelta(minutes=max(5,safe_int(row.get('event_duration'),service.duration_minutes)))
-                customer=customer_map.get(client_id)
+                customer=customer_map.get(client_id) if client_id else None
                 if not customer:
-                    source_email=str(row.get('client_email') or '').strip().lower(); valid_email='@' in source_email and len(source_email)<=254
-                    email=source_email if valid_email else f'simplybook-booking-{booking_id}@invalid.local'
-                    first_name,last_name=split_name(row.get('client')); phone=str(row.get('client_phone') or '')[:40]
-                    customer=find_customer(email=email,phone=phone,first_name=first_name,last_name=last_name)
+                    if client_id:
+                        summary['missing_source_client_ids']+=1
+                    source_email=str(row.get('client_email') or '').strip().lower()
+                    email=source_email if normalize_email(source_email) and len(source_email)<=254 else f'simplybook-booking-{booking_id}@invalid.local'
+                    first_name,last_name=split_name(row.get('client'))
+                    phone=str(row.get('client_phone') or '').strip()[:40]
+                    # The imported appointment's current customer is the
+                    # strongest existing reference for a missing client ID.
+                    # Do not shuffle the appointment to an older orphan row.
+                    previous=Appointment.objects.select_related('customer').filter(
+                        idempotency_key=f'simplybook-{booking_id}'
+                    ).first()
+                    customer=None
+                    if previous and previous.customer.email.lower()==email.lower():
+                        customer=previous.customer
                     if not customer:
-                        customer=Customer.objects.create(first_name=first_name,last_name=last_name,phone=phone,email=email); summary['customers_created']+=1
+                        customer=find_customer(email=email,phone=phone,first_name=first_name,last_name=last_name)
+                    if customer:
+                        summary['synthetic_customers_reused']+=1
+                    else:
+                        customer=Customer.objects.create(
+                            first_name=first_name,last_name=last_name,phone=phone,email=email
+                        )
+                        summary['customers_created']+=1
+                        summary['synthetic_customers_created']+=1
                     customer_map[client_id or f'booking:{booking_id}']=customer
                 text_parts=[]
                 for value in (row.get('text'),row.get('comment')):
@@ -249,6 +300,8 @@ class Command(BaseCommand):
                         'closed':closed,'start_time_1':None if closed else start_time,'end_time_1':None if closed else end_time,
                         'start_time_2':None,'end_time_2':None})
                     summary['daily_schedules_written']+=1
+            if options.get('strict') and (summary['skipped_bookings'] or summary['missing_source_client_ids']):
+                raise CommandError('Incomplete SimplyBook source import: rollback requested (missing bookings or client IDs).')
             if options.get('dry_run'): transaction.set_rollback(True)
 
         prefix='SIMPLYBOOK_DRY_RUN_JSON=' if options.get('dry_run') else 'SIMPLYBOOK_IMPORT_JSON='

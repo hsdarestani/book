@@ -44,7 +44,8 @@ class Command(BaseCommand):
             }
             state.save(update_fields=["baseline_completed_at", "metadata"])
 
-        call_command("simplybook_import")
+        # Import is transactional: never silently accept an incomplete source mirror.
+        call_command("simplybook_import", strict=True)
         call_command("fix_simplybook_owner")
         call_command("sync_simplybook_notes")
         # Keep duplicate rows intact. SimplyBook import already resolves exact identities via find_customer.
@@ -96,6 +97,10 @@ class Command(BaseCommand):
 
             current_state = appointment_snapshot(item)
             if current_state == previous or item.starts_at <= now:
+                continue
+            # A corrected source client link is a data reconciliation, not an
+            # appointment change. Do not send an erroneous reschedule email.
+            if {k:v for k,v in current_state.items() if k != "customer_id"} == {k:v for k,v in previous.items() if k != "customer_id"}:
                 continue
 
             if (

@@ -240,3 +240,20 @@ class WhatsAppTemplate(models.Model):
         text = self.body
         for key, value in values.items(): text = text.replace('{' + key + '}', value)
         return ' '.join(text.split())
+
+
+
+class SimplyBookClientLink(models.Model):
+    """Stable source-client identity without trusting shared emails/phone numbers.
+
+    Several independent SimplyBook clients can share one contact address. The
+    source client ID, not an email or phone, is the canonical sync identity.
+    """
+    external_client_id = models.CharField(max_length=80, unique=True)
+    customer = models.ForeignKey(
+        Customer, on_delete=models.PROTECT, related_name='simplybook_client_links',
+    )
+
+    class Meta:
+        verbose_name = 'SimplyBook-Kundenverknüpfung'
+        verbose_name_plural = 'SimplyBook-Kundenverknüpfungen'
