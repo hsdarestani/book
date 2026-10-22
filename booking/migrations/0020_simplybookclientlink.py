@@ -11,7 +11,6 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('external_client_id', models.CharField(max_length=80, unique=True)),
-                ('last_seen_at', models.DateTimeField(auto_now=True)),
                 ('customer', models.ForeignKey(
                     on_delete=django.db.models.deletion.PROTECT,
                     related_name='simplybook_client_links', to='booking.customer'
