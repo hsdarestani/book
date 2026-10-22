@@ -1,0 +1,83 @@
+name: Temporary protected SimplyBook production cleanup
+on:
+  push:
+    branches: [audit/esthetic-simplybook-production-repair-20261022]
+permissions:
+  contents: read
+jobs:
+  backup-sync-cleanup-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Backup database and safely clean only verified synthetic orphans
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 40m
+          script: |
+            set -euo pipefail
+            TARGET=b0c823e2602f52f9b765ff659b0db8d8883ab662
+            APP=/opt/aesthetic-book/app
+            for attempt in $(seq 1 120); do
+              ACTUAL="$(git -C "$APP" rev-parse HEAD 2>/dev/null || true)"
+              if [ "$ACTUAL" = "$TARGET" ]; then break; fi
+              sleep 10
+            done
+            test "$(git -C "$APP" rev-parse HEAD)" = "$TARGET"
+            TEMP="$(mktemp /root/simplybook-safe-repair.XXXXXX)"
+            cat > "$TEMP" <<'BASH'
+            set -euo pipefail
+            APP_DIR=/opt/aesthetic-book/app
+            PY=/opt/aesthetic-book/venv/bin/python
+            ENV_FILE=/etc/aesthetic-book.env
+            CREDENTIALS=/etc/aesthetic-simplybook-credentials.env
+            BACKUP_DIR=/opt/aesthetic-book/private/db-backups
+            test -x "$PY"
+            test -f "$CREDENTIALS"
+            source "$CREDENTIALS"
+            export SIMPLYBOOK_COMPANY_LOGIN SIMPLYBOOK_USER_LOGIN SIMPLYBOOK_USER_PASSWORD SIMPLYBOOK_API_USER_KEY
+            install -d -m 0750 -o root -g aestheticbook "$BACKUP_DIR"
+            BACKUP="$BACKUP_DIR/esthetic-simplybook-precleanup-$(date -u +%Y%m%dT%H%M%SZ).dump"
+            umask 0077
+            runuser -u postgres -- pg_dump -Fc -d aestheticbook > "$BACKUP"
+            chown root:aestheticbook "$BACKUP"
+            chmod 0640 "$BACKUP"
+            test "$(stat -c '%s' "$BACKUP")" -gt 1024
+            pg_restore --list "$BACKUP" > /tmp/simplybook-pgrestore-list.$$
+            grep -Fq 'TABLE DATA public booking_customer' /tmp/simplybook-pgrestore-list.$$
+            grep -Fq 'TABLE DATA public booking_appointment' /tmp/simplybook-pgrestore-list.$$
+            rm -f /tmp/simplybook-pgrestore-list.$$
+            echo "BACKUP_VERIFIED=true"
+            echo "BACKUP_BYTES=$(stat -c '%s' "$BACKUP")"
+            echo "BACKUP_SHA256=$(sha256sum "$BACKUP" | awk '{print $1}')"
+            
+            runuser -u aestheticbook --preserve-environment -- bash -c \
+              "set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$PY' manage.py sync_simplybook_continuous"
+            
+            DRY="$(runuser -u aestheticbook --preserve-environment -- bash -c \
+              "set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$PY' manage.py cleanup_simplybook_orphans")"
+            echo "$DRY"
+            LINE="$(printf '%s\n' "$DRY" | grep '^SIMPLYBOOK_ORPHANS_JSON=' | tail -n1)"
+            test -n "$LINE"
+            DRY_REPORT="$(printf '%s\n' "$LINE" | sed 's/^SIMPLYBOOK_ORPHANS_JSON=//')"
+            export DRY_REPORT
+            python3 - <<'PY'
+            import os,json
+            report=json.loads(os.environ['DRY_REPORT'])
+            if report['placeholder_groups'] != 3 or report['source_appointment_keepers'] != 3 or report['safe_orphan_candidates'] != 672:
+                raise SystemExit('Unexpected cleanup candidate counts; refusing deletion.')
+            print('SAFE_CLEANUP_PRECONDITIONS=true')
+            PY
+            
+            runuser -u aestheticbook --preserve-environment -- bash -c \
+              "set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$PY' manage.py cleanup_simplybook_orphans --apply --backup-file '$BACKUP'"
+            
+            runuser -u aestheticbook --preserve-environment -- bash -c \
+              "set -a; source '$ENV_FILE'; set +a; cd '$APP_DIR'; '$PY' manage.py shell -c 'import json; from booking.models import Customer,Appointment,SimplyBookClientLink,PatientRecord; a=Customer.objects.filter(first_name=\"SimplyBook\",last_name=\"Kunde\",email__startswith=\"simplybook-booking-\"); results={\"customers_total\":Customer.objects.count(),\"imported_appointment_count\":Appointment.objects.filter(idempotency_key__startswith=\"simplybook-\").count(),\"source_client_links\":SimplyBookClientLink.objects.count(),\"synthetic_placeholders_remaining\":a.count(),\"patient_records\":PatientRecord.objects.count()}; print(\"SYNC_REPAIR_VERIFIED=\"+json.dumps(results,sort_keys=True))'"
+            
+            BASH
+            chmod 0700 "$TEMP"
+            trap 'rm -f "$TEMP"' EXIT
+            flock -w 1200 /var/lock/aesthetic-simplybook-sync.lock bash "$TEMP"
