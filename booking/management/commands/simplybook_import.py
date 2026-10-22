@@ -164,7 +164,7 @@ class Command(BaseCommand):
             except OSError: pass
             self.stdout.write(f'Raw SimplyBook backup written: {target}')
 
-        summary = {'source_clients':len(clients_raw),'source_bookings':len(bookings_raw),'source_services':len(services_raw),'source_providers':len(providers_raw),'customers_created':0,'customers_matched':0,'client_links_created':0,'identity_conflicts':0,'synthetic_customers_created':0,'synthetic_customers_reused':0,'missing_source_client_ids':0,'services_created':0,'services_updated':0,'appointments_created':0,'appointments_updated':0,'daily_schedules_written':0,'skipped_bookings':0}
+        summary = {'source_link_profiles_updated':0,'source_clients':len(clients_raw),'source_bookings':len(bookings_raw),'source_services':len(services_raw),'source_providers':len(providers_raw),'customers_created':0,'customers_matched':0,'client_links_created':0,'identity_conflicts':0,'synthetic_customers_created':0,'synthetic_customers_reused':0,'missing_source_client_ids':0,'services_created':0,'services_updated':0,'appointments_created':0,'appointments_updated':0,'daily_schedules_written':0,'skipped_bookings':0}
 
         with transaction.atomic():
             archive_provider,_ = StaffMember.objects.get_or_create(display_name=f'A+ Esthetic (SimplyBook #{provider_external_id})',defaults={'role':'team','bio':'Importierter SimplyBook-Bestand. Nicht für neue Online-Buchungen verwenden.','active':True,'sort_order':9000})
@@ -197,6 +197,11 @@ class Command(BaseCommand):
                 email=source_email if normalize_email(source_email) and len(source_email)<=254 else f'simplybook-client-{external_id}@invalid.local'
                 first_name,last_name=split_name(row.get('name'))
                 phone=str(row.get('phone') or '').strip()[:40]
+                source_profile={
+                    'source_name':str(row.get('name') or '').strip()[:160],
+                    'source_email':str(row.get('email') or '').strip().lower()[:254],
+                    'source_phone':phone,
+                }
                 link=SimplyBookClientLink.objects.select_related('customer').filter(external_client_id=external_id).first()
                 customer=link.customer if link else None
                 if customer is None:
@@ -218,10 +223,24 @@ class Command(BaseCommand):
                             first_name=first_name,last_name=last_name,phone=phone,email=email
                         )
                         summary['customers_created']+=1
-                    SimplyBookClientLink.objects.create(external_client_id=external_id,customer=customer)
+                    SimplyBookClientLink.objects.create(
+                        external_client_id=external_id,customer=customer,**source_profile
+                    )
                     summary['client_links_created']+=1
                 else:
                     summary['customers_matched']+=1
+                    # Preserve the complete source-side contact fields per ID,
+                    # even when multiple source IDs belong to the same local
+                    # profile. Never replace a different locally entered phone.
+                    profile_changed=[
+                        key for key,value in source_profile.items()
+                        if getattr(link,key) != value
+                    ]
+                    if profile_changed:
+                        for key in profile_changed:
+                            setattr(link,key,source_profile[key])
+                        link.save(update_fields=profile_changed)
+                        summary['source_link_profiles_updated']+=1
                 # Preserve staff-entered data and previously linked contacts.
                 # Import fills missing fields only, never overwrites a different
                 # phone/name for a patient who may have been edited locally.

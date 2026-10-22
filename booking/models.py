@@ -250,6 +250,9 @@ class SimplyBookClientLink(models.Model):
     source client ID, not an email or phone, is the canonical sync identity.
     """
     external_client_id = models.CharField(max_length=80, unique=True)
+    source_name = models.CharField(max_length=160, blank=True, default='')
+    source_email = models.CharField(max_length=254, blank=True, default='')
+    source_phone = models.CharField(max_length=40, blank=True, default='')
     customer = models.ForeignKey(
         Customer, on_delete=models.PROTECT, related_name='simplybook_client_links',
     )

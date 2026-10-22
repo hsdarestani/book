@@ -70,6 +70,14 @@ class SimplyBookReliableSyncTests(TestCase):
             call_command("simplybook_import", strict=True, stdout=io.StringIO())
         self.assertEqual(Customer.objects.count(), 3)
         self.assertEqual(SimplyBookClientLink.objects.count(), 2)
+        self.assertEqual(
+            set(SimplyBookClientLink.objects.values_list("source_phone", flat=True)),
+            {"+491701112222","+491701113333"},
+        )
+        self.assertEqual(
+            set(SimplyBookClientLink.objects.values_list("source_email", flat=True)),
+            {"shared@example.com"},
+        )
         self.assertEqual(initial, list(Appointment.objects.order_by("idempotency_key").values_list("customer_id", flat=True)))
         self.assertEqual(Customer.objects.filter(email="simplybook-booking-503@invalid.local").count(), 1)
 
