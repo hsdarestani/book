@@ -14,7 +14,7 @@ from django.db import transaction
 from booking.models import Appointment, Customer
 
 
-_SYNTHETIC = re.compile(r'^simplybook-booking-([0-9]+)@invalid\\.local$', re.IGNORECASE)
+_SYNTHETIC = re.compile(r'^simplybook-booking-([0-9]+)@invalid\.local$', re.IGNORECASE)
 
 
 def candidate_groups():
