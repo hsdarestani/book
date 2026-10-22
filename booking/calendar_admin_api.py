@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import re
 
 from django.contrib.admin.views.decorators import staff_member_required
@@ -13,7 +13,7 @@ from .models import Appointment, BlockedPeriod, DailyAvailabilityOverride, Staff
 from .services import effective_working_ranges
 
 
-CALENDAR_START_MINUTE = 8 * 60
+CALENDAR_START_MINUTE = 10 * 60
 CALENDAR_END_MINUTE = 20 * 60
 CALENDAR_TOTAL_MINUTES = CALENDAR_END_MINUTE - CALENDAR_START_MINUTE
 
@@ -164,7 +164,11 @@ def calendar_day(request):
     if doctor and doctor.pk != staff.pk:
         return _private_json({'ok': False, 'error': 'doctor_staff_forbidden'}, status=403)
 
-    start, end = _day_bounds(day)
+    # Return only the visible 10:00–20:00 timeline, matching initial HTML.
+    # An item spanning 10:00 is clipped by _position, never drawn at 08:00.
+    tz = timezone.get_current_timezone()
+    start = timezone.make_aware(datetime.combine(day, time(10)), tz)
+    end = timezone.make_aware(datetime.combine(day, time(20)), tz)
     appointments = (
         Appointment.objects.filter(
             staff=staff,
