@@ -53,7 +53,7 @@ class Command(BaseCommand):
             protected=0
             source_keepers=0
             for email, customers in groups.items():
-                booking_id=_SYNTHET.fullmatch(email).group(1)
+                booking_id=_SYNTHETIC.fullmatch(email).group(1)
                 keeper_ids=set(Appointment.objects.filter(
                     idempotency_key=f'simplybook-{booking_id}'
                 ).values_list('customer_id', flat=True))
@@ -77,7 +77,7 @@ class Command(BaseCommand):
                         protected+=1
                         continue
                     # Re-evaluate the source keeper inside the lock.
-                    booking_id=_SYNTHET.fullmatch(item.email.lower()).group(1)
+                    booking_id=_SYNTHETIC.fullmatch(item.email.lower()).group(1)
                     if not Appointment.objects.filter(
                         idempotency_key=f'simplybook-{booking_id}'
                     ).exclude(customer=item).exists():
