@@ -95,6 +95,42 @@ class FastCalendarDayApiTests(TestCase):
         self.assertEqual(len(api_response.json()['appointments']), 2)
         self.assertTrue(StaffMember.objects.filter(pk=second_staff.pk).exists())
 
+    def test_op_calendar_geometry_matches_fast_api_and_server_render(self):
+        # Regression: fast navigation used an 08:00 origin while the initial
+        # HTML and tick labels used 10:00, visually moving a 10:00 OP to 11:40.
+        from .views import _calendar_position
+        from .calendar_admin_api import _position
+
+        op = BlockedPeriod.objects.create(
+            staff=self.staff, starts_at=self.starts_at,
+            ends_at=self.starts_at + timedelta(hours=10),
+            reason='[BLOCKNOTE][STAFF] OP',
+        )
+        self.client.force_login(self.user)
+        api = self.client.get('/verwaltung/api/calendar-day/', {
+            'staff': self.staff.pk, 'date': self.day.isoformat(),
+        }).json()
+        operation = next(block for block in api['blocks'] if block['id'] == op.pk)
+        self.assertEqual(operation['start'], '10:00')
+        self.assertEqual(operation['end'], '20:00')
+        self.assertAlmostEqual(operation['top'], 100 / 6, places=3)
+        self.assertAlmostEqual(operation['height'], 500 / 6, places=3)
+        self.assertEqual(
+            _calendar_position(op.starts_at, op.ends_at),
+            _position(op.starts_at, op.ends_at),
+        )
+        page = self.client.get('/verwaltung/kalender/', {
+            'staff': self.staff.pk, 'date': self.day.isoformat(),
+        })
+        self.assertEqual(page.status_code, 200)
+        html = page.content.decode('utf-8')
+        self.assertIn('08:00', html)
+        self.assertIn('20:00', html)
+        self.assertIn(
+            f'top:{operation["top"]}%;height:{operation["height"]}%;',
+            html,
+        )
+
     def test_calendar_day_api_requires_staff_login(self):
         response = self.client.get(
             '/verwaltung/api/calendar-day/',

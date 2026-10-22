@@ -1,7 +1,7 @@
 (() => {
   const AVAILABILITY_API = '/verwaltung/api/day-availability/';
   const CALENDAR_DAY_API = '/verwaltung/api/calendar-day/';
-  const CAL_START = 10 * 60;
+  const CAL_START = 8 * 60;
   const CAL_END = 20 * 60;
   const CAL_TOTAL = CAL_END - CAL_START;
   const dayCache = new Map();
@@ -568,24 +568,38 @@
   }
 
   function positionTimeAxis() {
-    if (window.innerWidth > 760) return;
+    // Derive the axis from the actual track, not hard-coded pixels. Both the
+    // HTML and the fast day API use 08:00–20:00, including after day switching.
     const axis = document.querySelector('.sb-time-axis');
-    if (!axis) return;
+    const track = document.querySelector('.sb-calendar-day .sb-day-track');
+    if (!axis || !track) return;
+    const top = track.getBoundingClientRect().top - axis.getBoundingClientRect().top;
+    const height = track.getBoundingClientRect().height;
+    const hourCount = CAL_TOTAL / 60;
     [...axis.querySelectorAll('span')].forEach((label, index) => {
-      label.style.top = `${45 + (index * 120)}px`;
+      label.style.setProperty('top', `${top + (index / hourCount) * height}px`, 'important');
     });
+  }
+
+  function protectNativeStatusBar() {
+    const ua = navigator.userAgent || '';
+    const ios = /iPhone|iPad|iPod/.test(ua);
+    const webview = /AppleWebKit/.test(ua) && !new RegExp('Safari/').test(ua);
+    const standalone = Boolean(navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches;
+    document.body.classList.toggle('sb-calendar-ios-inset', ios && (webview || standalone));
   }
 
   function layoutAppointments() {
     document.querySelectorAll('.sb-day-track').forEach((track) => {
-      const events = [...track.querySelectorAll('.sb-calendar-event')].map((node) => {
-        const top = Number.parseFloat(node.style.top) || 0;
-        const height = Number.parseFloat(node.style.height) || 0;
-        node.style.left = '';
-        node.style.right = '';
-        node.style.width = '';
-        return { node, top, bottom: top + height, col: 0 };
-      }).sort((a, b) => a.top - b.top || a.bottom - b.bottom);
+      // Blocks and notes must participate too: a long OP block must not
+      // conceal an overlapping appointment or another calendar item.
+      const events = [...track.querySelectorAll('.sb-calendar-event, .sb-calendar-block')]
+        .map((node) => {
+          const top = Number.parseFloat(node.style.top) || 0;
+          const height = Number.parseFloat(node.style.height) || 0;
+          ['left', 'right', 'width', 'max-width'].forEach((key) => node.style.removeProperty(key));
+          return { node, top, bottom: top + height, col: 0 };
+        }).sort((a, b) => a.top - b.top || b.bottom - a.bottom);
 
       let cluster = [];
       let clusterEnd = -1;
@@ -600,11 +614,16 @@
         });
         const cols = Math.max(1, colEnds.length);
         cluster.forEach((event) => {
-          const gap = 2;
-          const width = 100 / cols;
-          event.node.style.left = `calc(${event.col * width}% + ${gap}px)`;
-          event.node.style.right = 'auto';
-          event.node.style.width = `calc(${width}% - ${gap * 2}px)`;
+          if (cols > 1) {
+            const gap = 3;
+            const width = 100 / cols;
+            // Inline !important wins over old mobile "left:6px !important"
+            // and makes every simultaneous event individually accessible.
+            event.node.style.setProperty('left', `calc(${event.col * width}% + ${gap}px)`, 'important');
+            event.node.style.setProperty('right', 'auto', 'important');
+            event.node.style.setProperty('width', `calc(${width}% - ${gap * 2}px)`, 'important');
+            event.node.style.setProperty('max-width', 'none', 'important');
+          }
           event.node.classList.toggle('is-overlap-layout', cols > 1);
         });
         cluster = [];
@@ -642,7 +661,16 @@
   async function init() {
     if (!onCalendarPage()) return;
     document.body.classList.add('sb-calendar-pro');
+    protectNativeStatusBar();
     positionTimeAxis();
+    window.addEventListener('load', positionTimeAxis, { once: true });
+    if (window.ResizeObserver) {
+      const observer = new ResizeObserver(positionTimeAxis);
+      const track = document.querySelector('.sb-day-track');
+      const head = document.querySelector('.sb-day-head');
+      if (track) observer.observe(track);
+      if (head) observer.observe(head);
+    }
     layoutAppointments();
     installFastDayNavigation();
     installFastStaffSwitching();
