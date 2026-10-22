@@ -1,0 +1,48 @@
+name: One-time final local SimplyBook integrity check
+on:
+  push:
+    branches: [audit/esthetic-simplybook-production-repair-20261022]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate persisted source contacts and bookings read only
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            TARGET=b11c52816e398b4baa3009c21f8767bd4500525c
+            for attempt in $(seq 1 120); do
+              if [ "$(git -C /opt/aesthetic-book/app rev-parse HEAD 2>/dev/null || true)" = "$TARGET" ]; then break; fi
+              sleep 10
+            done
+            test "$(git -C /opt/aesthetic-book/app rev-parse HEAD)" = "$TARGET"
+            AUDIT_CODE="$(cat <<'PY'
+            import json
+            from booking.models import Customer,Appointment,PatientRecord,SimplyBookClientLink,ExternalSyncState
+            from booking.customer_identity import normalize_phone,normalize_email,duplicate_customer_groups
+            from booking.management.commands.cleanup_simplybook_orphans import candidate_groups
+            rows=list(Customer.objects.only("first_name","last_name","phone","email"))
+            anonymous=[x for x in rows if x.first_name=="SimplyBook" and x.last_name=="Kunde" and not x.phone and x.email.startswith("simplybook-booking-") and x.email.endswith("@invalid.local")]
+            links=list(SimplyBookClientLink.objects.values("external_client_id","source_phone","source_email","source_name"))
+            profiles=[x for x in rows if x not in anonymous]
+            state=ExternalSyncState.objects.filter(source="simplybook").first()
+            counts={"customer_rows":len(rows),"identifiable_profiles":len(profiles),"contact_groups":len(duplicate_customer_groups(profiles)),"distinct_profile_phones":len({normalize_phone(x.phone) for x in profiles if normalize_phone(x.phone)}),"source_client_links":len(links),"distinct_stored_source_phones":len({normalize_phone(x["source_phone"]) for x in links if normalize_phone(x["source_phone"])}),"distinct_stored_source_emails":len({normalize_email(x["source_email"]) for x in links if normalize_email(x["source_email"])}),"source_links_with_names":sum(bool(x["source_name"]) for x in links),"source_links_with_emails":sum(bool(x["source_email"]) for x in links),"source_bookings_in_db":Appointment.objects.filter(idempotency_key__startswith="simplybook-").count(),"patient_records_preserved":PatientRecord.objects.count(),"anonymous_bookings_kept":len(anonymous),"orphan_placeholders_remaining":sum(max(0,len(g)-1) for g in candidate_groups().values()),"notes_last_status":(state.metadata or {}).get("last_notes_status") if state else None,"booking_last_success_recorded":bool(state and state.last_success_at)}
+            print("SIMPLYBOOK_FINAL_LOCAL_AUDIT="+json.dumps(counts,sort_keys=True))
+            assert counts["source_client_links"]==926 and counts["source_bookings_in_db"]==1157
+            assert counts["distinct_stored_source_phones"]==503 and counts["distinct_stored_source_emails"]==473
+            assert counts["anonymous_bookings_kept"]==3 and counts["orphan_placeholders_remaining"]==0
+            
+            PY
+            )"
+            export AUDIT_CODE
+            runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; cd /opt/aesthetic-book/app; /opt/aesthetic-book/venv/bin/python manage.py shell -c "$AUDIT_CODE"'
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            echo "SIMPLYBOOK_TIMER_ACTIVE=true"
