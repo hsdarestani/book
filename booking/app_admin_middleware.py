@@ -352,13 +352,26 @@ class APlusAdminNavigationMiddleware:
                 if end >= 0:
                     html = html[:start] + html[end + len('</div>'):]
 
-        # Duration is operationally important when staff create/edit a reservation.
-        # Only labels are enriched; calendar geometry/colours are deliberately untouched.
-        for service in Service.objects.filter(active=True).only('pk', 'name', 'duration_minutes'):
-            name = escape(service.name)
-            label = f'{name} · {service.duration_minutes} Min.'
-            html = html.replace(f'<option value="{service.pk}">{name}</option>', f'<option value="{service.pk}">{label}</option>')
-            html = html.replace(f'<option value="{service.pk}" selected>{name}</option>', f'<option value="{service.pk}" selected>{label}</option>')
+        # Avoid DB access on pages without service options; for pages with
+        # options, a single regex pass replaces one full HTML scan per service.
+        if '<option value="' in html:
+            service_labels = {
+                str(service.pk): (escape(service.name), service.duration_minutes)
+                for service in Service.objects.filter(active=True).only('pk', 'name', 'duration_minutes')
+            }
+            if service_labels:
+                pattern = re.compile(r'<option value="(\d+)"( selected)?>([^<]*)</option>')
+
+                def add_service_duration(match):
+                    service = service_labels.get(match.group(1))
+                    if service is None or match.group(3) != service[0]:
+                        return match.group(0)
+                    return (
+                        f'<option value="{match.group(1)}"{match.group(2) or ""}>'
+                        f'{service[0]} · {service[1]} Min.</option>'
+                    )
+
+                html = pattern.sub(add_service_duration, html)
 
         if is_aplus and 'data-aplus-ferrari-v17' not in html and '</head>' in html:
             html = html.replace('</head>', self.FINAL_FERRARI_ASSETS + '</head>', 1)
