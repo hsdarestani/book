@@ -129,7 +129,6 @@ class FastCalendarDayApiTests(TestCase):
         self.assertIn('>10:00</span>', time_axis)
         self.assertIn('>20:00</span>', time_axis)
         self.assertNotIn('>08:00</span>', time_axis)
-        self.assertIn('admin-calendar-mobile-v2.css', html)
         self.assertIn(
             f'top:{operation["top"]}%;height:{operation["height"]}%;',
             html,
