@@ -61,6 +61,32 @@ jobs:
                     not any(normalize_phone(item.phone) for item in group) for group in groups
                 ),
             }
+            # Further classify records with incomplete contact details. Aggregate only.
+            from booking.models import Appointment
+            with_phone = [row for row in rows if normalize_phone(row.phone)]
+            with_email = [row for row in rows if normalize_email(row.email)]
+            both = [row for row in rows if normalize_phone(row.phone) and normalize_email(row.email)]
+            neither = [row for row in rows if not normalize_phone(row.phone) and not normalize_email(row.email)]
+            normalized_names = [
+                (normalize_name(row.first_name), normalize_name(row.last_name))
+                for row in neither
+            ]
+            name_counts = Counter(normalized_names)
+            booked_ids = set(Appointment.objects.values_list('customer_id', flat=True).distinct())
+            summary.update({
+                'rows_with_phone_and_email': len(both),
+                'rows_with_phone_only': len(with_phone) - len(both),
+                'rows_with_email_only': len(with_email) - len(both),
+                'rows_without_phone_and_email': len(neither),
+                'no_contact_distinct_normalized_names': len(name_counts),
+                'no_contact_name_duplicates': sum(count - 1 for count in name_counts.values()),
+                'no_contact_blank_names': name_counts.get(('', ''), 0),
+                'no_contact_synthetic_invalid_local_email': sum(
+                    str(row.email or '').lower().endswith('@invalid.local') for row in neither
+                ),
+                'no_contact_with_any_appointment': sum(row.pk in booked_ids for row in neither),
+                'no_contact_without_appointments': sum(row.pk not in booked_ids for row in neither),
+            })
             print('PATIENT_AUDIT_SUMMARY=' + json.dumps(summary, sort_keys=True))
             PY
             )"
