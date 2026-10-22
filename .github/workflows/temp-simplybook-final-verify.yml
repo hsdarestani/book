@@ -18,8 +18,16 @@ jobs:
           command_timeout: 5m
           script: |
             set -euo pipefail
+            TARGET=e20a98567051e73b9146761a41e9e0a1261a2615
+            APP=/opt/aesthetic-book/app
+            for attempt in $(seq 1 120); do
+              if [ "$(git -C "$APP" rev-parse HEAD 2>/dev/null || true)" = "$TARGET" ]; then break; fi
+              sleep 10
+            done
+            test "$(git -C "$APP" rev-parse HEAD)" = "$TARGET"
             source /etc/aesthetic-simplybook-credentials.env
             export SIMPLYBOOK_COMPANY_LOGIN SIMPLYBOOK_USER_LOGIN SIMPLYBOOK_USER_PASSWORD SIMPLYBOOK_API_USER_KEY
+            flock -w 1200 /var/lock/aesthetic-simplybook-sync.lock runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; cd /opt/aesthetic-book/app; /opt/aesthetic-book/venv/bin/python manage.py sync_simplybook_continuous'
             VERIFY_CODE="$(cat <<'PY'
             import json, os
             from booking.models import Customer, Appointment, SimplyBookClientLink, ExternalSyncState
@@ -52,8 +60,28 @@ jobs:
              if cid and cid not in links:missing_client_link+=1
             state=ExternalSyncState.objects.filter(source="simplybook").first()
             summary={"source_client_ids":len(clients),"linked_client_ids":len(links),"source_bookings":len(bookings),"synced_local_bookings":len(appts),"source_bookings_missing_local":missing_appointment,"source_booking_wrong_customer_link":mismatch,"missing_source_client_links":missing_client_link,"customer_rows":len(customer_rows),"identifiable_profile_rows":len(actual),"distinct_normalized_phones":len({normalize_phone(x.phone) for x in actual if normalize_phone(x.phone)}),"distinct_real_emails":len({normalize_email(x.email) for x in actual if normalize_email(x.email)}),"contact_groups":len(duplicate_customer_groups(actual)),"retained_anonymous_profiles":len(anonymous),"remaining_orphan_candidates":sum(max(0,len(g)-1) for g in candidate_groups().values()),"last_successful_sync_recorded":bool(state and state.last_success_at)}
+            snapshot_records={
+              row["external_client_id"]:row
+              for row in SimplyBookClientLink.objects.values(
+                "external_client_id","source_name","source_email","source_phone"
+              )
+            }
+            source_profile_mismatches=0
+            for cid,record in source_clients.items():
+              snap=snapshot_records.get(cid)
+              if not snap or (
+                snap["source_name"] != str(record.get("name") or "").strip()[:160]
+                or snap["source_email"] != str(record.get("email") or "").strip().lower()[:254]
+                or snap["source_phone"] != str(record.get("phone") or "").strip()[:40]
+              ):
+                source_profile_mismatches+=1
+            summary["source_contact_snapshots_mismatched"]=source_profile_mismatches
+            summary["distinct_source_phone_snapshots"]=len({
+              normalize_phone(row["source_phone"])
+              for row in snapshot_records.values() if normalize_phone(row["source_phone"])
+            })
             print("SIMPLYBOOK_FINAL_VERIFICATION="+json.dumps(summary,sort_keys=True))
-            if summary["source_bookings_missing_local"] or summary["source_booking_wrong_customer_link"] or summary["missing_source_client_links"] or summary["remaining_orphan_candidates"]:
+            if summary["source_bookings_missing_local"] or summary["source_booking_wrong_customer_link"] or summary["missing_source_client_links"] or summary["remaining_orphan_candidates"] or summary["source_contact_snapshots_mismatched"]:
              raise SystemExit("Integrity verification failed")
             
             PY
