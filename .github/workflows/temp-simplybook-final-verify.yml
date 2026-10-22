@@ -60,6 +60,7 @@ jobs:
              if cid and cid not in links:missing_client_link+=1
             state=ExternalSyncState.objects.filter(source="simplybook").first()
             summary={"source_client_ids":len(clients),"linked_client_ids":len(links),"source_bookings":len(bookings),"synced_local_bookings":len(appts),"source_bookings_missing_local":missing_appointment,"source_booking_wrong_customer_link":mismatch,"missing_source_client_links":missing_client_link,"customer_rows":len(customer_rows),"identifiable_profile_rows":len(actual),"distinct_normalized_phones":len({normalize_phone(x.phone) for x in actual if normalize_phone(x.phone)}),"distinct_real_emails":len({normalize_email(x.email) for x in actual if normalize_email(x.email)}),"contact_groups":len(duplicate_customer_groups(actual)),"retained_anonymous_profiles":len(anonymous),"remaining_orphan_candidates":sum(max(0,len(g)-1) for g in candidate_groups().values()),"last_successful_sync_recorded":bool(state and state.last_success_at)}
+            source_clients={str(item.get("id")):item for item in clients if isinstance(item,dict)}
             snapshot_records={
               row["external_client_id"]:row
               for row in SimplyBookClientLink.objects.values(
