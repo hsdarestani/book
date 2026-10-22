@@ -38,12 +38,15 @@
     addStylesheet('/static/booking/admin-simply.css', 'data-admin-simply');
     addStylesheet('/static/booking/admin-fixes.css', 'data-admin-fixes');
     addStylesheet('/static/booking/admin-calendar-plus.css?v=20260923-v19', 'data-admin-calendar-plus');
+    if (document.querySelector('.sb-calendar-panel')) {
+      addStylesheet('/static/booking/admin-calendar-mobile-v2.css?v=20261022-v2', 'data-admin-calendar-mobile-v2');
+    }
   }
 
   function loadCalendarPlus() {
     if (document.querySelector('script[data-admin-calendar-plus]')) return;
     const script = document.createElement('script');
-    script.src = '/static/booking/admin-calendar-plus.js?v=20261020-doctor-role';
+    script.src = '/static/booking/admin-calendar-plus.js?v=20261022-timeline-v2';
     script.defer = true;
     script.setAttribute('data-admin-calendar-plus', '1');
     document.head.appendChild(script);
