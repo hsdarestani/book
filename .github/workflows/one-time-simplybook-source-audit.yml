@@ -138,7 +138,7 @@ jobs:
              aud["source_relationship_error_type"]=type(exc).__name__
             print("SIMPLYBOOK_ANON_AUDIT="+json.dumps(aud,sort_keys=True))
             
-                        PY
+            PY
             )"
             export AUDIT_CODE
             runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; cd /opt/aesthetic-book/app; /opt/aesthetic-book/venv/bin/python manage.py shell -c "$AUDIT_CODE"'
