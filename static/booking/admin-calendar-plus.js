@@ -584,7 +584,7 @@
   function protectNativeStatusBar() {
     const ua = navigator.userAgent || '';
     const ios = /iPhone|iPad|iPod/.test(ua);
-    const webview = /AppleWebKit/.test(ua) && !/Safari\\/[\\d.]+/.test(ua);
+    const webview = /AppleWebKit/.test(ua) && !new RegExp('Safari/').test(ua);
     const standalone = Boolean(navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches;
     document.body.classList.toggle('sb-calendar-ios-inset', ios && (webview || standalone));
   }
