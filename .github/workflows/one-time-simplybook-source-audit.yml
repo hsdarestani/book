@@ -95,7 +95,48 @@ jobs:
              except Exception as e:
               aud["source_check"]="failed"
               aud["source_error_type"]=type(e).__name__
-            print("SIMPLYBOOK_ANON_AUDIT="+json.dumps(aud,sort_keys=True))
+            # Verify referential integrity: raw booking -> SimplyBook client list -> local appointment.
+try:
+ if aud.get("source_check")=="ok" and 'bookings' not in locals():
+  bookings=rpc(ADMIN_URL,"getBookings",[{"date_from":"2000-01-01","date_to":"2035-12-31","booking_type":"all","order":"date_start_asc"}],headers=headers,timeout=90) or []
+  bmap={str(x.get("id")):x for x in bookings if isinstance(x,dict) and x.get("id") is not None}
+  aud["source_booking_total"]=len(bookings)
+ if aud.get("source_check")=="ok":
+  fallback_ids=[x.email[len("simplybook-booking-"):-len("@invalid.local")] for x in anon if pfx(x)=="simplybook-booking" and x.email.endswith("@invalid.local")]
+  selected=[bmap[x] for x in fallback_ids if x in bmap]
+  selected_ref=Counter()
+  source_names_with_id=0
+  source_client_contact_with_id=0
+  external_ids=set()
+  for row in selected:
+   cid=str(row.get("client_id") or "").strip()
+   selected_ref["client_id_present" if cid else "client_id_empty"]+=1
+   if cid and cid in cmap:
+    selected_ref["client_id_found_in_getClientList"]+=1
+    profile=cmap[cid]
+    if str(profile.get("name") or "").strip():source_names_with_id+=1
+    if normalize_phone(profile.get("phone")) or normalize_email(profile.get("email")):source_client_contact_with_id+=1
+   elif cid:
+    selected_ref["client_id_not_in_getClientList"]+=1
+   bid=str(row.get("id") or "").strip()
+   if bid:external_ids.add("simplybook-"+bid)
+  associated=list(Appointment.objects.filter(idempotency_key__in=external_ids).values_list("idempotency_key","customer__email"))
+  counter=Counter()
+  for key,em in associated:
+   if em.startswith("simplybook-booking-") and em.endswith("@invalid.local"):counter["appointment_still_using_synthetic_fallback"]+=1
+   else:counter["appointment_using_different_customer"]+=1
+  aud["placeholder_source_client_links"]=dict(selected_ref)
+  aud["placeholder_source_client_has_name"]=source_names_with_id
+  aud["placeholder_source_client_has_contact"]=source_client_contact_with_id
+  aud["corresponding_local_appointments_found"]=len(associated)
+  aud["local_appointment_customer_categories"]=dict(counter)
+  aud["source_booking_rows_without_client_id"]=sum(not str(x.get("client_id") or "").strip() for x in bookings if isinstance(x,dict))
+  aud["source_booking_rows_client_id_not_in_client_list"]=sum(bool(str(x.get("client_id") or "").strip()) and str(x.get("client_id") or "").strip() not in cmap for x in bookings if isinstance(x,dict))
+  aud["source_booking_rows_client_id_in_client_list"]=sum(str(x.get("client_id") or "").strip() in cmap for x in bookings if isinstance(x,dict))
+except Exception as exc:
+ aud["source_relationship_check"]="failed"
+ aud["source_relationship_error_type"]=type(exc).__name__
+print("SIMPLYBOOK_ANON_AUDIT="+json.dumps(aud,sort_keys=True))
             
             PY
             )"
