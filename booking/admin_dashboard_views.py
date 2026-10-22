@@ -10,7 +10,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from . import app_management_views
-from .customer_identity import duplicate_customer_count, grouped_customers_for_display, unique_customer_count
+from .customer_identity import duplicate_customer_groups, grouped_customers_for_display
 from .models import Appointment, Customer, WhatsAppTemplate
 
 
@@ -29,11 +29,11 @@ def _wa_phone(value):
     return digits
 
 
-def _customer_actions(customer):
+def _customer_actions(customer, templates=None):
     phone = _wa_phone(customer.phone)
     templates = []
     if phone:
-        for item in WhatsAppTemplate.objects.filter(active=True):
+        for item in (templates if templates is not None else WhatsAppTemplate.objects.filter(active=True)):
             text = item.render_for(customer)
             templates.append({
                 'id': item.pk,
@@ -118,8 +118,10 @@ def admin_dashboard(request):
 
     query = str(request.GET.get('q') or '').strip()
     all_customers = list(Customer.objects.order_by('last_name', 'first_name', 'pk'))
+    customer_groups = duplicate_customer_groups(all_customers)
     customers = grouped_customers_for_display(all_customers, query=query)
     customers = customers[:80 if query else 12]
+    active_templates = list(WhatsAppTemplate.objects.filter(active=True))
 
     now = timezone.now()
     next_appointment = Appointment.objects.select_related('customer', 'service', 'staff').filter(
@@ -135,27 +137,21 @@ def admin_dashboard(request):
             .order_by('starts_at', 'customer__last_name', 'customer__first_name')
         )
 
-    banners = []
-    banners_error = ''
-    if request.session.get('aplus_app_admin'):
-        try:
-            banners = app_management_views._api(request, 'dashboard-banners/').get('banners', [])
-        except (PermissionError, RuntimeError) as exc:
-            banners_error = str(exc)
-
+    # Dashboard does not render banners; only the campaign editor in Mehr does.
+    # Avoid waiting up to 20 seconds on an unused remote API during navigation.
     return render(request, 'booking/admin_dashboard_lambo.html', {
         'query': query,
         'customers': customers,
-        'customer_actions': {customer.pk: _customer_actions(customer) for customer in customers},
+        'customer_actions': {customer.pk: _customer_actions(customer, active_templates) for customer in customers},
         'next_day': next_day,
         'next_day_appointments': next_day_appointments,
         'today_count': Appointment.objects.filter(starts_at__date=timezone.localdate()).exclude(status='cancelled').count(),
         'upcoming_count': Appointment.objects.filter(starts_at__gte=now).exclude(status='cancelled').count(),
-        'patient_count': unique_customer_count(Customer.objects.all()),
-        'duplicate_patient_count': duplicate_customer_count(Customer.objects.all()),
-        'banners': banners,
-        'banners_error': banners_error,
-        'templates': WhatsAppTemplate.objects.all(),
+        'patient_count': len(customer_groups),
+        'duplicate_patient_count': sum(len(group) - 1 for group in customer_groups),
+        'banners': [],
+        'banners_error': '',
+        'templates': active_templates,
         'view_only': view_only,
         'error': error,
         'saved': request.GET.get('saved') or '',
