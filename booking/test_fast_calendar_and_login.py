@@ -95,6 +95,7 @@ class FastCalendarDayApiTests(TestCase):
         self.assertEqual(len(api_response.json()['appointments']), 2)
         self.assertTrue(StaffMember.objects.filter(pk=second_staff.pk).exists())
 
+    @override_settings(STORAGES=TEST_STORAGES)
     def test_op_calendar_geometry_matches_fast_api_and_server_render(self):
         # Regression: fast navigation used an 08:00 origin while the initial
         # HTML and tick labels used 10:00, visually moving a 10:00 OP to 11:40.
