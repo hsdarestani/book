@@ -1,4 +1,5 @@
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -47,7 +48,22 @@ class Command(BaseCommand):
         # Import is transactional: never silently accept an incomplete source mirror.
         call_command("simplybook_import", strict=True)
         call_command("fix_simplybook_owner")
-        call_command("sync_simplybook_notes")
+        notes_status = "ok"
+        try:
+            call_command("sync_simplybook_notes")
+        except CommandError as exc:
+            # SimplyBook's notes API is independently rate limited. A
+            # temporary 403 "Too many attempts" must not invalidate a
+            # successful, transactionally complete bookings+clients sync.
+            # Never mask authentication errors, bad payloads or other faults.
+            message = str(exc).lower()
+            if "too many attempts" in message or "http 429" in message:
+                notes_status = "rate_limited"
+                self.stderr.write(self.style.WARNING(
+                    "SimplyBook calendar notes rate limited; leave previous notes intact and retry next interval."
+                ))
+            else:
+                raise
         # Keep duplicate rows intact. SimplyBook import already resolves exact identities via find_customer.
         # Automatic merge/delete here can move historical bookings across source identities.
 
@@ -64,6 +80,8 @@ class Command(BaseCommand):
                 **(state.metadata or {}),
                 "baseline_mode": "first_import",
                 "baseline_count": len(after),
+                "last_notes_status": notes_status,
+                "last_notes_success_at": (timezone.now().isoformat() if notes_status == "ok" else state.metadata.get("last_notes_success_at")),
             }
             state.save(
                 update_fields=[
@@ -123,6 +141,8 @@ class Command(BaseCommand):
             "last_created": created,
             "last_changed": changed,
             "last_cancelled": cancelled,
+            "last_notes_status": notes_status,
+            "last_notes_success_at": (timezone.now().isoformat() if notes_status == "ok" else state.metadata.get("last_notes_success_at")),
         }
         state.save(update_fields=["last_success_at", "metadata"])
 
