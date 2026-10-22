@@ -1,0 +1,103 @@
+# Temporary read-only source audit. Do not merge. Logs contain aggregated counts only.
+name: One-time SimplyBook source audit
+on:
+  push:
+    branches: [audit/esthetic-simplybook-source-20261022]
+permissions:
+  contents: read
+jobs:
+  read-only-comparison:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare anonymized patient stats with SimplyBook
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            source /etc/aesthetic-simplybook-credentials.env
+            export SIMPLYBOOK_COMPANY_LOGIN SIMPLYBOOK_USER_LOGIN SIMPLYBOOK_USER_PASSWORD SIMPLYBOOK_API_USER_KEY
+            AUDIT_CODE="$(cat <<'PY'
+            from collections import Counter, defaultdict
+            import json
+            from django.utils import timezone
+            from booking.customer_identity import normalize_email, normalize_phone, normalize_name
+            from booking.models import Customer, Appointment, ExternalSyncState
+            from booking.management.commands.simplybook_import import rpc, LOGIN_URL, ADMIN_URL
+            import os
+            all_rows = list(Customer.objects.all().only("pk","first_name","last_name","email","phone","created_at","updated_at"))
+            anon = [x for x in all_rows if not normalize_phone(x.phone) and not normalize_email(x.email)]
+            pfx=lambda x: ("simplybook-client" if x.email.startswith("simplybook-client-") else "simplybook-booking" if x.email.startswith("simplybook-booking-") else "legacy" if x.email.startswith("legacy-") else "other")
+            kind_count = Counter(pfx(x) for x in anon)
+            name_count = Counter((normalize_name(x.first_name),normalize_name(x.last_name)) for x in anon)
+            booked = set(Appointment.objects.values_list("customer_id", flat=True).distinct())
+            source_booked = set(Appointment.objects.filter(idempotency_key__startswith="simplybook-").values_list("customer_id", flat=True).distinct())
+            aud = {
+             "total_rows":len(all_rows), "no_real_email_or_phone":len(anon),
+             "placeholder_kinds":dict(kind_count),
+             "all_placeholder_names_identical":len(name_count)==1,
+             "name_is_import_default":len(name_count)==1 and ("simplybook","kunde") in name_count,
+             "associated_with_any_appointment":sum(x.pk in booked for x in anon),
+             "associated_with_simplybook_appointment":sum(x.pk in source_booked for x in anon),
+             "unbooked_rows":sum(x.pk not in booked for x in anon),
+            }
+            try:
+             state=ExternalSyncState.objects.filter(source="simplybook").first()
+             aud["sync_last_success"]=state.last_success_at.isoformat() if state and state.last_success_at else None
+            except Exception:
+             aud["sync_last_success"]="unavailable"
+            company=os.environ.get("SIMPLYBOOK_COMPANY_LOGIN","")
+            user=os.environ.get("SIMPLYBOOK_USER_LOGIN","")
+            credential=os.environ.get("SIMPLYBOOK_API_USER_KEY") or os.environ.get("SIMPLYBOOK_USER_PASSWORD","")
+            if not (company and user and credential):
+             aud["source_check"]="credentials_unavailable"
+            else:
+             try:
+              token=rpc(LOGIN_URL,"getUserToken",[company,user,credential],timeout=30)
+              if not token: raise ValueError("empty_token")
+              headers={"X-Company-Login":company,"X-User-Token":token}
+              clients=rpc(ADMIN_URL,"getClientList",["",None],headers=headers,timeout=90) or []
+              if not isinstance(clients,list): raise TypeError("invalid_clients_shape")
+              cmap={str(x.get("id")):x for x in clients if isinstance(x,dict) and x.get("id") is not None}
+              ids=[str(x.email[len("simplybook-client-"):-len("@invalid.local")]) for x in anon if pfx(x)=="simplybook-client" and x.email.endswith("@invalid.local")]
+              live=[cmap.get(x) for x in ids if x in cmap]
+              missing_count=sum(x not in cmap for x in ids)
+              fresh_contact=sum(bool(str(x.get("phone") or "").strip()) or bool(normalize_email(x.get("email"))) for x in live)
+              fresh_name=sum(bool(str(x.get("name") or "").strip()) for x in live)
+              alt_fields=Counter()
+              if clients:
+               candidate=next((x for x in clients if isinstance(x,dict)),{})
+               aud["source_client_keys"] = sorted(str(k) for k in candidate.keys())[:40]
+              for x in live:
+               for k,v in x.items():
+                if k not in {"id","name","phone","email"} and any(t in str(k).lower() for t in ("name","phone","email","mobile","contact","tel","first","last")) and str(v or "").strip():
+                 alt_fields[str(k)]+=1
+              aud.update({"source_check":"ok","source_client_total":len(clients),"placeholder_clients_present_live":len(live),"placeholder_clients_missing_live":missing_count,"live_has_usable_name_for_placeholder":fresh_name,"live_has_real_contact_for_placeholder":fresh_contact,"alternate_contact_field_counts":dict(alt_fields),
+               "source_clients_missing_name":sum(not str(x.get("name") or "").strip() for x in clients if isinstance(x,dict)),
+               "source_clients_missing_email_phone":sum(not normalize_email(x.get("email")) and not normalize_phone(x.get("phone")) for x in clients if isinstance(x,dict)),
+               "source_clients_missing_all_three":sum(not str(x.get("name") or "").strip() and not normalize_email(x.get("email")) and not normalize_phone(x.get("phone")) for x in clients if isinstance(x,dict))
+              })
+              # Compare booking origin for synthetic booking placeholders (no personal identifiers printed).
+              bs=[x for x in anon if pfx(x)=="simplybook-booking" and x.email.endswith("@invalid.local")]
+              if bs:
+               bookings=rpc(ADMIN_URL,"getBookings",[{"date_from":"2000-01-01","date_to":"2035-12-31","booking_type":"all","order":"date_start_asc"}],headers=headers,timeout=90) or []
+               bmap={str(x.get("id")):x for x in bookings if isinstance(x,dict) and x.get("id") is not None}
+               bids=[x.email[len("simplybook-booking-"):-len("@invalid.local")] for x in bs]
+               found=[bmap[id] for id in bids if id in bmap]
+               aud.update({"source_booking_total":len(bookings),"placeholder_booking_fallback_present_live":len(found),
+                "placeholder_booking_fallback_missing_live":sum(id not in bmap for id in bids),
+                "live_booking_fallback_has_name":sum(bool(str(x.get("client") or "").strip()) for x in found),
+                "live_booking_fallback_has_contact":sum(bool(str(x.get("client_phone") or "").strip()) or bool(normalize_email(x.get("client_email"))) for x in found)})
+             except Exception as e:
+              aud["source_check"]="failed"
+              aud["source_error_type"]=type(e).__name__
+            print("SIMPLYBOOK_ANON_AUDIT="+json.dumps(aud,sort_keys=True))
+            
+            PY
+            )"
+            export AUDIT_CODE
+            runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; cd /opt/aesthetic-book/app; /opt/aesthetic-book/venv/bin/python manage.py shell -c "$AUDIT_CODE"'
