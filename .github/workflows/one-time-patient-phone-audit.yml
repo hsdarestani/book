@@ -1,0 +1,68 @@
+# Temporary aggregate-only audit. No patient identifiers are printed.
+name: One-time patient phone count audit
+
+on:
+  push:
+    branches:
+      - audit/esthetic-phones-20261022
+
+permissions:
+  contents: read
+
+jobs:
+  counts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query production aggregate counts (read only)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+            test -x /opt/aesthetic-book/venv/bin/python
+            test -f /etc/aesthetic-book.env
+            AUDIT_CODE="$(cat <<'PY'
+            from collections import Counter, defaultdict
+            import json
+            from booking.models import Customer
+            from booking.customer_identity import (
+                duplicate_customer_groups, normalize_phone, normalize_email, normalize_name
+            )
+            rows = list(Customer.objects.all().only('pk', 'phone', 'email', 'first_name', 'last_name'))
+            all_phones = [normalize_phone(row.phone) for row in rows]
+            phones = [phone for phone in all_phones if phone]
+            frequency = Counter(phones)
+            emails = [normalize_email(row.email) for row in rows]
+            named_phone = defaultdict(set)
+            for row in rows:
+                phone = normalize_phone(row.phone)
+                if phone:
+                    named_phone[phone].add((
+                        normalize_name(row.first_name), normalize_name(row.last_name)
+                    ))
+            groups = duplicate_customer_groups(rows)
+            summary = {
+                'total_patient_rows': len(rows),
+                'dashboard_unique_groups': len(groups),
+                'dashboard_extra_duplicate_rows': len(rows) - len(groups),
+                'rows_with_valid_normalized_phone': len(phones),
+                'rows_without_valid_normalized_phone': len(rows) - len(phones),
+                'distinct_normalized_phone_numbers': len(frequency),
+                'numbers_used_by_multiple_rows': sum(count > 1 for count in frequency.values()),
+                'rows_using_repeated_number': sum(count for count in frequency.values() if count > 1),
+                'numbers_linked_to_multiple_distinct_names': sum(len(names) > 1 for names in named_phone.values()),
+                'distinct_valid_emails': len({email for email in emails if email}),
+                'rows_without_valid_email': sum(not email for email in emails),
+                'unique_groups_without_phone': sum(
+                    not any(normalize_phone(item.phone) for item in group) for group in groups
+                ),
+            }
+            print('PATIENT_AUDIT_SUMMARY=' + json.dumps(summary, sort_keys=True))
+            PY
+            )"
+            export AUDIT_CODE
+            runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; cd /opt/aesthetic-book/app; /opt/aesthetic-book/venv/bin/python manage.py shell -c "$AUDIT_CODE"'
