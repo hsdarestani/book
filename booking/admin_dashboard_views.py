@@ -128,6 +128,8 @@ def admin_dashboard(request):
         and not customer.phone.strip()
     )]
     customer_groups = duplicate_customer_groups(identified_customers)
+    contact_group_count = len(customer_groups)
+    anonymous_booking_count = len(all_customers) - len(identified_customers)
     customers = grouped_customers_for_display(identified_customers, query=query)
     customers = customers[:80 if query else 12]
     active_templates = list(WhatsAppTemplate.objects.filter(active=True))
@@ -156,7 +158,10 @@ def admin_dashboard(request):
         'next_day_appointments': next_day_appointments,
         'today_count': Appointment.objects.filter(starts_at__date=timezone.localdate()).exclude(status='cancelled').count(),
         'upcoming_count': Appointment.objects.filter(starts_at__gte=now).exclude(status='cancelled').count(),
-        'patient_count': len(customer_groups),
+        # Display profile rows, not an unverified number of actual people.
+        'patient_count': len(identified_customers),
+        'contact_group_count': contact_group_count,
+        'anonymous_booking_count': anonymous_booking_count,
         'duplicate_patient_count': sum(len(group) - 1 for group in customer_groups),
         'banners': [],
         'banners_error': '',
