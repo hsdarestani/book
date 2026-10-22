@@ -25,7 +25,7 @@ class SimplyBookReliableSyncTests(TestCase):
         }
         self.start = timezone.now() + timedelta(days=6)
 
-    def response(self, method, params, *args, **kwargs):
+    def response(self, url, method, params, *args, **kwargs):
         if method == "getUserToken":
             return "fake-token"
         if method == "getCompanyTimezoneOffset":
