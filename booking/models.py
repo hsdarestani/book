@@ -253,7 +253,6 @@ class SimplyBookClientLink(models.Model):
     customer = models.ForeignKey(
         Customer, on_delete=models.PROTECT, related_name='simplybook_client_links',
     )
-    last_seen_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'SimplyBook-Kundenverknüpfung'
