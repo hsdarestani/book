@@ -169,6 +169,18 @@ class FastCalendarDayApiTests(TestCase):
         self.assertIn('Vorbereitung', calendar_section)
         self.assertNotIn('Frühe Notiz', calendar_section)
 
+    def test_mobile_add_button_stays_at_bottom_right_not_above_timeline(self):
+        from pathlib import Path
+        css = (
+            Path(__file__).resolve().parent.parent / 'static' /
+            'booking' / 'admin-calendar-mobile-v2.css'
+        ).read_text(encoding='utf-8')
+        self.assertIn('position:fixed!important;', css)
+        self.assertIn('inset:auto 16px max(18px,env(safe-area-inset-bottom,0px)) auto!important;', css)
+        self.assertIn('bottom:calc(100% + 10px)!important;', css)
+        self.assertNotIn('Move the add control into its own compact toolbar', css)
+        self.assertNotIn('content:"Hinzufügen"', css)
+
     def test_calendar_day_api_requires_staff_login(self):
         response = self.client.get(
             '/verwaltung/api/calendar-day/',
