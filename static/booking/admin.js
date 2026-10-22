@@ -39,7 +39,7 @@
     addStylesheet('/static/booking/admin-fixes.css', 'data-admin-fixes');
     addStylesheet('/static/booking/admin-calendar-plus.css?v=20260923-v19', 'data-admin-calendar-plus');
     if (document.querySelector('.sb-calendar-panel')) {
-      addStylesheet('/static/booking/admin-calendar-mobile-v2.css?v=20261022-v3', 'data-admin-calendar-mobile-v2');
+      addStylesheet('/static/booking/admin-calendar-mobile-v2.css?v=20261022-v4', 'data-admin-calendar-mobile-v2');
     }
   }
 
