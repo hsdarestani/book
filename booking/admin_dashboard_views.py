@@ -118,8 +118,17 @@ def admin_dashboard(request):
 
     query = str(request.GET.get('q') or '').strip()
     all_customers = list(Customer.objects.order_by('last_name', 'first_name', 'pk'))
-    customer_groups = duplicate_customer_groups(all_customers)
-    customers = grouped_customers_for_display(all_customers, query=query)
+    # Synthetic SimplyBook booking placeholders are not confirmed patients.
+    # Exclude them from the visible customer counter/search even when historical
+    # orphans are still pending a conservative cleanup.
+    identified_customers = [customer for customer in all_customers if not (
+        customer.first_name == 'SimplyBook' and customer.last_name == 'Kunde'
+        and customer.email.lower().startswith('simplybook-booking-')
+        and customer.email.lower().endswith('@invalid.local')
+        and not customer.phone.strip()
+    )]
+    customer_groups = duplicate_customer_groups(identified_customers)
+    customers = grouped_customers_for_display(identified_customers, query=query)
     customers = customers[:80 if query else 12]
     active_templates = list(WhatsAppTemplate.objects.filter(active=True))
 
