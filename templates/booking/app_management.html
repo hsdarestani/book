@@ -377,13 +377,13 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
  .app-patient-layout[data-customer-panel=records] .patient-goae-panel{width:calc(100% - 24px)!important;margin:0 12px!important}
  .app-patient-layout[data-customer-panel=records] .patient-upload-studio .patient-studio-fields .app-form-grid{display:grid!important;grid-template-columns:1fr!important}
 }
-</style>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet><link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/record-view.css?v=20261021-1"><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261023-mobilefix1"></head>
+</style>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet><link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/record-view.css?v=20261021-1"><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261023-workspace-v3"></head>
 <body class="admin-body sb-admin-body app-management-body">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">{{ section_title }}</strong><span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div><aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav app-focused-nav"><div class="app-nav-label">A+ MANAGEMENT</div><a href="/verwaltung/dashboard/"><span>⌂</span>Dashboard</a><a href="/verwaltung/kalender/"><span>▣</span>Kalender</a><a href="/verwaltung/app/patients/" class="{% if section == 'patients' %}is-active{% endif %}"><span>▤</span>Patientenakten</a><a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}"><span>◆</span>A+ Punkte</a><a href="/verwaltung/app/reviews/" class="{% if section == 'reviews' %}is-active{% endif %}"><span>★</span>Google Bewertungen</a><a href="/verwaltung/app/referrals/" class="{% if section == 'referrals' %}is-active{% endif %}"><span>↗</span>Empfehlungen</a><a href="/verwaltung/app/hero/" class="{% if section == 'hero' %}is-active{% endif %}"><span>▧</span>Startseitenbilder</a><a href="/verwaltung/app/invoices/" class="{% if section == 'invoices' %}is-active{% endif %}"><span>▧</span>Rechnungen</a><a href="/verwaltung/mehr/"><span>⋯</span>Mehr</a><div class="app-nav-spacer"></div><a href="/verwaltung/logout/"><span>↪</span>Abmelden</a></nav></aside>
 {% include "booking/_premium_sidebar.html" with active=section %}
 <main class="admin-shell sb-admin-shell app-management-shell">{% include "booking/_clinic_web_header_v3.html" %}
-<div class="app-page-heading"><div class="eyebrow">A+ ESTHETIC</div><h1>{{ section_title }}</h1><p>{{ section_subtitle }}</p></div>{% if error %}<div class="admin-notice is-error">{{ error }}{% if needs_reauth %}<br>Bitte Verwaltung erneut aus der A+ App öffnen.{% endif %}</div>{% endif %}{% if notice %}<div class="admin-notice {% if notice == 'max_files' or notice == 'file_size' or notice == 'file_type' or notice == 'empty' or notice == 'type_error' %}is-error{% endif %}">
+{% if section != 'invoices' %}<div class="app-page-heading"><div class="eyebrow">A+ ESTHETIC</div><h1>{{ section_title }}</h1><p>{{ section_subtitle }}</p></div>{% endif %}{% if error %}<div class="admin-notice is-error">{{ error }}{% if needs_reauth %}<br>Bitte Verwaltung erneut aus der A+ App öffnen.{% endif %}</div>{% endif %}{% if notice %}<div class="admin-notice {% if notice == 'max_files' or notice == 'file_size' or notice == 'file_type' or notice == 'empty' or notice == 'type_error' %}is-error{% endif %}">
   {% if notice == 'max_files' %}Maximal 12 Dateien pro Eintrag sind erlaubt.
   {% elif notice == 'file_size' %}Eine Datei ist zu groß oder leer.
   {% elif notice == 'file_type' %}Dieser Dateityp ist nicht erlaubt.
@@ -530,8 +530,8 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
 <section class="billing-command">
   <div class="billing-command-copy">
     <span>A+ ESTHETIC · RECHNUNGEN</span>
-    <h2>Rechnungen direkt in der Verwaltung.</h2>
-    <p>Entwürfe, ausgestellte Rechnungen, GOÄ und Abrechnungsdaten an einem Ort. Alle Angaben stammen aus der zentralen Rechnungsdatenbank.</p>
+    <h2>Rechnungen verwalten</h2>
+    <p>Entwürfe erstellen, Preise pflegen und ausgestellte Rechnungen verwalten.</p>
   </div>
   <div class="billing-command-state {% if data.settings.ready_for_issue %}is-ready{% endif %}">
     {% if data.settings.ready_for_issue %}Bereit{% else %}Steuerdaten fehlen{% endif %}
@@ -591,6 +591,7 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
 
   <section class="admin-panel app-core-panel billing-settings-panel">
     <div class="panel-head"><div><div class="eyebrow">RECHNUNGSDATEN</div><h2>Steuer & Bank</h2><p>Diese Daten erscheinen auf der Rechnung.</p></div></div>
+    <details class="premium-settings-disclosure"><summary><span><strong>Steuer- und Bankdaten bearbeiten</strong><small>{% if data.settings.ready_for_issue %}Vollständig eingerichtet{% else %}Angaben vervollständigen{% endif %}</small></span><span aria-hidden="true">+</span></summary><div class="premium-disclosure-inner">
     <form method="post" class="billing-form">{% csrf_token %}
       <input type="hidden" name="action" value="billing_settings">
       <input type="hidden" name="company_name" value="{{ data.settings.company_name }}">
@@ -612,6 +613,7 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
       <label>Nächste laufende Nummer<input type="number" min="1" name="next_sequence" value="{{ data.settings.next_sequence }}" required></label>
       <button class="billing-secondary" type="submit">Rechnungsdaten speichern</button>
     </form>
+    </div></details>
   </section>
 </div>
 
@@ -629,7 +631,7 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
     </label>
     <output data-clinic-service-count aria-live="polite"></output>
   </div>
-  <div class="billing-service-list" data-clinic-service-list>
+  <details class="premium-catalog-disclosure" data-premium-catalog><summary><span><strong>Behandlungskatalog öffnen</strong><small>Alle Leistungen ansehen und Preise bearbeiten</small></span><span aria-hidden="true">+</span></summary><div class="billing-service-list" data-clinic-service-list>
     {% for service in data.services %}
     <details class="billing-service-card clinic-service-card" data-clinic-service-card data-clinic-service-name="{{ service.name|lower }} {{ service.slug|lower }}">
       <summary class="billing-service-head">
@@ -649,6 +651,7 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
     </details>
     {% empty %}<div class="empty">Keine Behandlungen gefunden.</div>{% endfor %}
   </div>
+  </details>
   <p class="clinic-service-empty" data-clinic-service-empty hidden>Keine passende Behandlung gefunden.</p>
 </section>
 
@@ -750,4 +753,4 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
 <section class="admin-panel app-core-panel"><div class="panel-head"><div><div class="eyebrow">EMPFEHLUNGEN</div><h2>Freunde eingeladen</h2><p>Erfolgreiche Einladungen und automatisch vergebene Punkte.</p></div></div><div class="referral-admin-list">{% for item in data.referrals %}<article><div><strong>{{ item.customer }}</strong><span>{{ item.email }} · {{ item.code }}</span></div><div><b>{{ item.status_label }}</b>{% if item.reward_coins %}<small>+{{ item.reward_coins }} Punkte</small>{% endif %}</div></article>{% empty %}<div class="empty">Noch keine Empfehlungen.</div>{% endfor %}</div></section>
 {% endif %}
 {% endif %}
-</main><script>(()=>{const d=document.querySelector('[data-drawer]'),b=document.querySelector('[data-drawer-backdrop]');const c=()=>{d?.classList.remove('is-open');b?.classList.remove('is-open');d?.setAttribute('aria-hidden','true')};document.querySelectorAll('[data-drawer-open]').forEach(x=>x.onclick=()=>{d?.classList.add('is-open');b?.classList.add('is-open');d?.setAttribute('aria-hidden','false')});b?.addEventListener('click',c);document.querySelectorAll('[data-point]').forEach(x=>x.onclick=()=>{const i=x.closest('form')?.querySelector('[name=point_delta]');if(i){i.value=x.dataset.point;i.focus()}})})();</script>{% if section == 'hero' %}<script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20261017-nav-v3"></script>{% endif %}<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20261020-patient-tabs5"></script><script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260923-v19"></script><script defer src="{% static 'booking/admin-native-camera-v11.js' %}?v=20261006-v12"></script>{% if section == 'patients' %}<script defer src="{% static 'booking/patient-upload-studio-v1.js' %}?v=20261021-1"></script>{% endif %}<script defer src="{% static 'booking/app-billing-v2.js' %}?v=20261006-v2"></script><script defer src="{% static 'booking/medical-form-push-v1.js' %}?v=20261020"></script><script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-desktop1"></script><script defer src="/static/booking/clinic-header-v3.js?v=20261021-mobile2"></script><script defer src="/static/booking/clinic-readable-ui-v1.js?v=20261020-readable1"></script></body></html>
+</main><script>(()=>{document.addEventListener('input',event=>{if(event.target?.matches?.('[data-clinic-service-search]')&&event.target.value.trim()){const catalog=document.querySelector('[data-premium-catalog]');if(catalog)catalog.open=true;}});})();</script><script>(()=>{const d=document.querySelector('[data-drawer]'),b=document.querySelector('[data-drawer-backdrop]');const c=()=>{d?.classList.remove('is-open');b?.classList.remove('is-open');d?.setAttribute('aria-hidden','true')};document.querySelectorAll('[data-drawer-open]').forEach(x=>x.onclick=()=>{d?.classList.add('is-open');b?.classList.add('is-open');d?.setAttribute('aria-hidden','false')});b?.addEventListener('click',c);document.querySelectorAll('[data-point]').forEach(x=>x.onclick=()=>{const i=x.closest('form')?.querySelector('[name=point_delta]');if(i){i.value=x.dataset.point;i.focus()}})})();</script>{% if section == 'hero' %}<script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20261017-nav-v3"></script>{% endif %}<script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script><script defer src="{% static 'booking/admin-wait-ux-v16.js' %}?v=20261020-patient-tabs5"></script><script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260923-v19"></script><script defer src="{% static 'booking/admin-native-camera-v11.js' %}?v=20261006-v12"></script>{% if section == 'patients' %}<script defer src="{% static 'booking/patient-upload-studio-v1.js' %}?v=20261021-1"></script>{% endif %}<script defer src="{% static 'booking/app-billing-v2.js' %}?v=20261006-v2"></script><script defer src="{% static 'booking/medical-form-push-v1.js' %}?v=20261020"></script><script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-desktop1"></script><script defer src="/static/booking/clinic-header-v3.js?v=20261021-mobile2"></script><script defer src="/static/booking/clinic-readable-ui-v1.js?v=20261020-readable1"></script></body></html>
