@@ -152,7 +152,7 @@ class PremiumManagementDesignTests(SimpleTestCase):
         self.assertIn('id="premium-dashboard-title"', template)
         self.assertIn('class="signature-hero-emblem"', template)
         self.assertIn('clinic-premium-dashboard-v3.css?v=20261024-signature1', template)
-        self.assertIn('class="signature-stats"', template)
+        self.assertIn('class="command-stats premium-stats signature-stats"', template)
         for value in ("{{ today_count }}", "{{ upcoming_count }}", "{{ patient_count }}",
                       "{{ contact_group_count }}", "{{ anonymous_booking_count }}"):
             self.assertIn(value, template)
