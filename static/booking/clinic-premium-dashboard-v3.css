@@ -1,0 +1,388 @@
+/*
+ A+ Esthetic Signature Dashboard v3
+ Scoped to dashboard only. Layout, real values and GET forms remain server-backed.
+ The premium theme and navigation sheets are loaded before this final layer.
+*/
+html[data-clinic-design="premium"][data-admin-page="dashboard"]{
+ --signature-forest:#13251f;
+ --signature-forest-2:#213831;
+ --signature-gold:#ccab70;
+ --signature-gold-dark:#957340;
+ --signature-ink:#1d2822;
+ --signature-muted:#68736c;
+ --signature-paper:#fffcf8;
+ --signature-edge:#e6dfd3;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body {
+ background:#f7f5f0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .premium-welcome.signature-hero{
+ position:relative!important;isolation:isolate!important;display:flex!important;align-items:center!important;
+ overflow:hidden!important;min-height:216px!important;padding:34px 43px!important;
+ background:radial-gradient(ellipse at 92% 8%,#466353a8,transparent 41%),
+            radial-gradient(ellipse at 56% 130%,#54705b55,transparent 54%),
+            linear-gradient(118deg,#10211b,#253a31 63%,#14231d)!important;
+ border:1px solid #415448!important;border-radius:23px!important;
+ box-shadow:0 22px 42px #10231b24,inset 0 1px 0 #ffffff1e!important;
+ margin:0 0 18px!important;color:#fff9ef!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .premium-welcome.signature-hero::after{
+ content:""!important;position:absolute!important;pointer-events:none!important;z-index:0!important;
+ width:410px!important;height:410px!important;right:-6%!important;top:-240px!important;
+ background:none!important;border:1px solid #d3b47b7a!important;border-radius:50%!important;
+ box-shadow:0 0 0 105px #b3925913,0 0 0 107px #c9a87535,0 0 0 205px #d1a97109!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero::before{
+ content:"";position:absolute;z-index:0;pointer-events:none;
+ width:620px;height:620px;right:-220px;bottom:-510px;border:1px solid #d4b37555;border-radius:50%;
+ transform:rotate(23deg);
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero-content{
+ position:relative;z-index:1;max-width:670px;min-width:0;padding-right:15px;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero .premium-overline{
+ display:block!important;color:#e7c991!important;font-size:11px!important;
+ letter-spacing:.19em!important;font-weight:780!important;margin:0 0 10px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero h1{
+ font:500 clamp(38px,3.8vw,58px)/1.07 Georgia,"Times New Roman",serif!important;
+ margin:6px 0 17px!important;letter-spacing:-.055em!important;
+ color:#fff9ec!important;-webkit-text-fill-color:#fff9ec!important;text-shadow:0 2px 20px #0002;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero p{
+ color:#e4e5d9!important;-webkit-text-fill-color:#e4e5d9!important;
+ font-size:15px!important;line-height:1.58!important;max-width:515px!important;letter-spacing:.01em;
+ margin:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero-emblem{
+ position:relative;z-index:1;flex:0 0 132px;width:132px;height:132px;
+ margin:0 13px 0 auto;display:flex;flex-direction:column;justify-content:center;align-items:center;
+ border:1.5px solid #e4c68a;border-radius:50%;color:#efd49a;
+ background:radial-gradient(circle at 60% 20%,#a18c4940,#15231e 65%);
+ box-shadow:0 0 0 5px #e1b97612,0 12px 34px #0000002e,inset 0 0 15px #e1bc6c17;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero-emblem span{
+ font:500 48px/1 Georgia,serif;letter-spacing:-.07em;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero-emblem small{
+ font:680 9px/1.5 system-ui,sans-serif;letter-spacing:.25em;margin-left:5px;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stats{
+ display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ align-items:stretch!important;gap:13px!important;margin:0 0 17px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stats article.signature-stat{
+ box-sizing:border-box!important;display:block!important;position:relative!important;
+ min-height:132px!important;min-width:0!important;margin:0!important;padding:0!important;
+ background:linear-gradient(145deg,#fff,#fbf8f3)!important;
+ border:1px solid #e7e1d7!important;border-radius:18px!important;
+ box-shadow:0 7px 17px #332b1c09,inset 0 1px 0 #fff!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stats article.signature-stat::before,
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stats article.signature-stat::after{
+ display:none!important;content:none!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-link{
+ box-sizing:border-box!important;display:grid!important;
+ grid-template-columns:52px minmax(0,1fr) 16px!important;
+ align-items:center!important;gap:14px!important;height:100%!important;min-height:132px!important;
+ padding:20px!important;border-radius:18px!important;
+ color:#243128!important;text-decoration:none!important;
+ transition:box-shadow .2s ease,transform .2s ease,background .2s ease;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-link:hover{
+ background:#fdf8ee!important;transform:translateY(-2px);box-shadow:0 12px 24px #3c33201a;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-icon{
+ display:grid!important;place-items:center!important;width:52px!important;height:52px!important;
+ box-sizing:border-box!important;border-radius:15px!important;
+ background:linear-gradient(140deg,#fbf4e6,#ebd6b0)!important;color:#9c7435!important;
+ border:1px solid #e7d4b4!important;box-shadow:inset 0 1px 0 #fff8;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-icon svg{
+ display:block;width:27px;height:27px;stroke:currentColor;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-body{
+ box-sizing:border-box!important;display:flex!important;flex-direction:column!important;
+ min-width:0!important;align-items:flex-start!important;gap:3px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-body .signature-stat-label{
+ color:#836339!important;font:770 11px/1.4 system-ui,sans-serif!important;letter-spacing:.1em!important;
+ order:0!important;display:block!important;margin:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-body b{
+ color:#1a251f!important;font:570 37px/1.1 Georgia,serif!important;
+ order:1!important;margin:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-body small{
+ order:2!important;display:block!important;color:#71766c!important;
+ font:400 12px/1.45 system-ui,sans-serif!important;margin:0!important;overflow-wrap:anywhere!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-chevron{
+ display:block!important;color:#9c7a42!important;font:400 25px/1 Georgia,serif!important;
+ align-self:center;justify-self:end;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel{
+ position:relative!important;isolation:isolate!important;overflow:hidden!important;
+ display:grid!important;grid-template-columns:minmax(220px,.7fr) minmax(290px,1.3fr)!important;
+ align-items:center!important;gap:22px!important;
+ padding:26px 29px!important;margin:0 0 17px!important;
+ border:1px solid #3d584a!important;border-radius:21px!important;
+ background:radial-gradient(ellipse at 95% 5%,#3b5846,#172d25 59%,#12251f 100%)!important;
+ box-shadow:0 15px 30px #162d221d,inset 0 1px 0 #ffffff18!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel::after{
+ content:"";position:absolute;z-index:-1;pointer-events:none;
+ width:330px;height:330px;top:-230px;right:-30px;border-radius:50%;
+ border:1px solid #dcbd825c;box-shadow:0 0 0 66px #caa9710b;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel>div>span{
+ color:#ecd09d!important;font-size:11px!important;font-weight:780!important;letter-spacing:.17em!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel h2{
+ color:#fff9ef!important;-webkit-text-fill-color:#fff9ef!important;
+ font:500 32px/1.18 Georgia,serif!important;margin:4px 0 7px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel p{
+ color:#e1e5db!important;-webkit-text-fill-color:#e1e5db!important;
+ font-size:13px!important;line-height:1.5!important;margin:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel form{
+ display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;
+ gap:9px!important;align-items:stretch!important;min-width:0!important;width:100%!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-search-label{
+ position:absolute!important;clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important;
+ height:1px!important;width:1px!important;overflow:hidden!important;white-space:nowrap!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-search-field{
+ display:flex!important;align-items:center!important;gap:9px!important;min-width:0!important;
+ border:1px solid #dfdbd1!important;border-radius:13px!important;
+ background:#fff!important;padding:0 13px!important;color:#917345!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-search-field svg{
+ display:block;flex:0 0 22px;width:22px;height:22px;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel .signature-search-field input{
+ box-sizing:border-box!important;flex:1!important;min-width:0!important;
+ width:100%!important;min-height:53px!important;
+ padding:8px 0!important;border:0!important;background:transparent!important;
+ box-shadow:none!important;font-size:14px!important;color:#23322a!important;outline-offset:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel button[type=submit]{
+ box-sizing:border-box!important;min-height:55px!important;border-radius:13px!important;
+ border:1px solid #ddc391!important;padding:0 22px!important;
+ background:linear-gradient(145deg,#e8d5aa,#b88f50)!important;color:#241f17!important;
+ font-size:14px!important;font-weight:800!important;box-shadow:inset 0 1px 0 #fff9,0 7px 15px #101a154d!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-grid-two{
+ display:grid!important;grid-template-columns:minmax(0,1.35fr) minmax(300px,.85fr)!important;
+ align-items:start!important;gap:17px!important;margin:0 0 20px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-panel{
+ border:1px solid #e6e0d7!important;background:#fffdfa!important;border-radius:20px!important;
+ padding:25px 26px!important;box-shadow:0 8px 26px #38281b09!important;min-width:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-section-head{
+ margin-bottom:14px!important;align-items:flex-start!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-section-head>div>span{
+ font-size:11px!important;color:#8b673a!important;letter-spacing:.14em!important;font-weight:780!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-section-head h2{
+ font:540 clamp(23px,2.3vw,31px)/1.17 Georgia,serif!important;
+ letter-spacing:-.04em!important;color:#222c25!important;margin:6px 0 0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-section-head>a{
+ font-size:13px!important;color:#9d793e!important;font-weight:760!important;padding:6px 1px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .next-day-row{
+ display:grid!important;grid-template-columns:72px minmax(0,1fr) 14px!important;
+ align-items:center!important;gap:14px!important;padding:16px 4px!important;
+ background:transparent!important;border-bottom:1px solid #e9e2d7!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .next-day-row time{
+ font:560 21px/1.25 Georgia,serif!important;letter-spacing:-.03em!important;
+ color:#9b7948!important;border-right:1px solid #ddd3c1;padding-right:8px;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .next-day-row strong{
+ font-size:14px!important;font-weight:740!important;color:#293029!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .next-day-row span{
+ display:block;font-size:12px!important;color:#6a7169!important;line-height:1.5!important;margin:4px 0 0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .next-day-row>b{
+ color:#a48248!important;font-weight:400!important;font-size:20px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid{
+ display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ gap:9px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid>a{
+ display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;
+ position:relative!important;gap:11px!important;min-height:65px!important;
+ padding:10px 12px!important;border:1px solid #ebe3d8!important;border-radius:13px!important;
+ background:linear-gradient(110deg,#fcf9f4,#f8f4ec)!important;box-shadow:none!important;
+ color:#252d26!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid>a b{
+ display:grid!important;place-items:center!important;flex:0 0 38px!important;
+ width:38px!important;height:38px!important;border-radius:11px!important;
+ background:linear-gradient(140deg,#f5ead5,#e8d4ad)!important;color:#9e743a!important;
+ font-size:21px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid>a span{
+ min-width:0!important;font-size:13px!important;line-height:1.3!important;
+ font-weight:720!important;color:#252e27!important;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid>a::after{
+ content:"›";font:400 20px/1 Georgia,serif;color:#9e7d47;
+ margin-left:auto;flex:0 0 auto;
+}
+html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid>a:last-child{
+ grid-column:1/-1!important;
+}
+@media (max-width:1380px) and (min-width:981px){
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stats{gap:10px!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-link{
+  grid-template-columns:44px minmax(0,1fr) 10px!important;gap:10px!important;padding:13px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-icon{width:44px!important;height:44px!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-grid-two{
+  grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr)!important;
+ }
+}
+@media (max-width:980px){
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero-emblem{width:101px;height:101px;flex-basis:101px;margin:0}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero-emblem span{font-size:39px}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel{grid-template-columns:1fr!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-grid-two{grid-template-columns:1fr!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat:nth-child(3){grid-column:1/-1!important}
+}
+@media (max-width:760px){
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .premium-welcome.signature-hero{
+  min-height:0!important;padding:28px 24px!important;margin:0 0 13px!important;
+  border-radius:20px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero-content{
+  padding:0!important;width:100%!important;max-width:100%!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero .premium-overline{
+  font-size:10px!important;letter-spacing:.14em!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero h1{
+  font-size:clamp(35px,8.1vw,47px)!important;line-height:1.1!important;
+  margin:8px 0 14px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero p{
+  font-size:13px!important;line-height:1.56!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero-emblem{
+  display:none!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stats{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important;margin:0 0 13px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stats article.signature-stat{
+  min-height:120px!important;border-radius:15px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-link{
+  min-height:120px!important;display:grid!important;
+  grid-template-columns:38px minmax(0,1fr)!important;
+  grid-template-rows:auto 1fr!important;gap:7px!important;
+  align-items:start!important;padding:14px 11px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-icon{
+  width:38px!important;height:38px!important;border-radius:11px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-icon svg{width:22px;height:22px}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-body{
+  grid-column:1/-1;grid-row:2;gap:3px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-body .signature-stat-label{
+  font-size:10px!important;letter-spacing:.065em!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-body b{
+  font-size:30px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-body small{
+  font-size:11px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-chevron{
+  grid-column:2;grid-row:1;justify-self:end;font-size:22px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat:nth-child(3) .signature-stat-link{
+  min-height:97px!important;display:grid!important;
+  grid-template-columns:46px minmax(0,1fr) 15px!important;
+  grid-template-rows:auto!important;gap:12px!important;padding:12px 14px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat:nth-child(3) .signature-stat-icon{
+  width:46px!important;height:46px!important;grid-column:1!important;grid-row:1!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat:nth-child(3) .signature-stat-body{
+  grid-column:2!important;grid-row:1!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat:nth-child(3) .signature-stat-chevron{
+  grid-column:3!important;grid-row:1!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel{
+  grid-template-columns:1fr!important;padding:21px 19px!important;gap:15px!important;
+  border-radius:18px!important;margin:0 0 13px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel h2{font-size:28px!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel form{
+  display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:7px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-search-field{
+  min-width:0!important;padding:0 9px!important;gap:6px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-search-field svg{width:19px;height:19px;flex-basis:19px}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel .signature-search-field input{
+  min-height:50px!important;font-size:14px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel button[type=submit]{
+  min-height:51px!important;padding:0 13px!important;font-size:13px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-grid-two{gap:12px!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-panel{
+  padding:20px 18px!important;border-radius:18px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-section-head h2{
+  font-size:26px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .next-day-row{
+  grid-template-columns:60px minmax(0,1fr) 12px!important;gap:10px!important;padding:15px 0!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .next-day-row time{
+  font-size:19px!important;padding-right:6px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .next-day-row strong{
+  font-size:14px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .next-day-row span{
+  font-size:12px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid>a{
+  min-height:61px!important;padding:8px 9px!important;gap:8px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid>a b{
+  width:34px!important;height:34px!important;flex-basis:34px!important;font-size:19px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid>a span{
+  font-size:12px!important;
+ }
+}
+@media(max-width:365px){
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-hero h1{font-size:34px!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-link{padding:12px 9px!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-body .signature-stat-label{font-size:9px!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-search-panel form{grid-template-columns:minmax(0,1fr) auto!important}
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .shortcut-grid>a{padding:8px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .signature-stat-link{transition:none!important}
+}
