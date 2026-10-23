@@ -145,3 +145,39 @@ class PremiumManagementDesignTests(SimpleTestCase):
         self.assertIn('.app-patient-layout[data-customer-panel=records] .patient-goae-panel', component_rules)
         self.assertNotIn('width:calc(100% - 24px)', component_rules)
         self.assertNotIn('margin:0 12px', component_rules)
+
+    def test_signature_dashboard_uses_live_values_and_actionable_links(self):
+        template = get_template("booking/admin_dashboard_lambo.html").template.source
+        self.assertIn('class="premium-welcome signature-hero"', template)
+        self.assertIn('id="premium-dashboard-title"', template)
+        self.assertIn('class="signature-hero-emblem"', template)
+        self.assertIn('clinic-premium-dashboard-v3.css?v=20261024-signature1', template)
+        self.assertIn('class="signature-stats"', template)
+        for value in ("{{ today_count }}", "{{ upcoming_count }}", "{{ patient_count }}",
+                      "{{ contact_group_count }}", "{{ anonymous_booking_count }}"):
+            self.assertIn(value, template)
+        self.assertIn('href="/verwaltung/kalender/" class="signature-stat-link"', template)
+        self.assertIn('href="/verwaltung/app/patients/" class="signature-stat-link"', template)
+        self.assertIn('role="search"', template)
+        self.assertIn('name="q" value="{{ query }}"', template)
+        self.assertIn('next_day_appointments', template)
+        self.assertIn('class="shortcut-grid"', template)
+
+    def test_signature_dashboard_styles_are_scoped_responsive_and_not_decorative_only(self):
+        css = (ROOT / "static" / "booking" / "clinic-premium-dashboard-v3.css").read_text(encoding="utf-8")
+        self.assertIn('html[data-clinic-design="premium"][data-admin-page="dashboard"]', css)
+        self.assertIn('--signature-forest', css)
+        self.assertIn('.signature-hero-emblem', css)
+        self.assertIn('.signature-stat-link:hover', css)
+        self.assertIn('.signature-search-field input', css)
+        self.assertIn('.shortcut-grid>a:last-child', css)
+        self.assertIn('@media (max-width:760px)', css)
+        self.assertIn('@media(max-width:365px)', css)
+        self.assertIn('prefers-reduced-motion', css)
+        self.assertNotIn('overflow-x:hidden!important', css)
+
+    def test_signature_dashboard_loads_after_other_premium_styles(self):
+        template = get_template("booking/admin_dashboard_lambo.html").template.source
+        self.assertLess(template.index('clinic-premium-all-v2.css'), template.index('clinic-premium-dashboard-v3.css'))
+        middleware = (ROOT / "booking" / "app_admin_middleware.py").read_text(encoding="utf-8")
+        self.assertIn('(?:v1|all-v2|dashboard-v3)', middleware)
