@@ -1169,3 +1169,104 @@ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .
    flex-wrap:wrap!important;
  }
 }
+
+
+/*
+ * Mobile management alignment, 2026-10-24.
+ * One outer gutter. Cards must fill the padded shell rather than subtracting
+ * another 24px / adding inner margins. Do NOT change calendar geometry or
+ * doctor-specific scheduling screens.
+ */
+@media (max-width:980px) {
+  html[data-clinic-design="premium"]:not([data-admin-page="calendar"]):not([data-doctor-role])
+  body.admin-body main.admin-shell.sb-admin-shell.app-management-shell {
+    box-sizing:border-box!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin-left:0!important;
+    margin-right:0!important;
+    padding-left:max(20px,env(safe-area-inset-left))!important;
+    padding-right:max(20px,env(safe-area-inset-right))!important;
+  }
+
+  /* Only real top-level content surfaces: don't resize dialogs, dropdowns,
+     form controls, calendar time grid or any fixed-position element. */
+  html[data-clinic-design="premium"]:not([data-admin-page="calendar"]):not([data-doctor-role])
+  body.admin-body main.app-management-shell > :is(
+    .admin-panel,.app-core-panel,.premium-welcome,.premium-stats,.app-page-heading,.premium-customer-panel,
+    .app-patient-toolbar,.patient-command-card,.customer-profile-tabs,
+    .patient-overview-grid,.patient-profile-single,.patient-appointments-panel,.app-patient-identity,.app-priority-grid,
+    .app-patient-layout,.command-search-panel,.command-grid-two,.command-results,
+    .billing-command,.billing-stat-grid,.billing-layout,.billing-services-panel,
+    .billing-invoices-panel,.ferrari-page-hero,.ferrari-setting-links,
+    .ferrari-section,.points-admin-hero,.points-search-card,.points-admin-card,
+    .points-history-panel,.hero-admin-grid,.admin-notice
+  ) {
+    box-sizing:border-box!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin-left:0!important;
+    margin-right:0!important;
+  }
+
+  html[data-clinic-design="premium"][data-admin-page="patients"]
+  body.admin-body main.app-management-shell .app-patient-layout,
+  html[data-clinic-design="premium"][data-admin-page="patients"]
+  body.admin-body main.app-management-shell .patient-profile-single {
+    box-sizing:border-box!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin-left:0!important;
+    margin-right:0!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="patients"]
+  body.admin-body main.app-management-shell .app-patient-layout > :is(.app-core-panel,.patient-goae-panel),
+  html[data-clinic-design="premium"][data-admin-page="patients"]
+  body.admin-body main.app-management-shell .patient-profile-single > :is(.app-core-panel,.patient-profile-panel,.patient-points-panel) {
+    box-sizing:border-box!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin-left:0!important;
+    margin-right:0!important;
+  }
+  html[data-clinic-design="premium"]:not([data-admin-page="calendar"])
+  body.admin-body main.app-management-shell :is(
+    .command-grid-two,.billing-layout,.app-patient-layout,.patient-profile-single,
+    .hero-admin-grid,.ferrari-setting-links,.ferrari-section,.points-card-grid
+  ) > * {
+    box-sizing:border-box!important;
+    min-width:0!important;
+  }
+}
+@media (max-width:760px) {
+  html[data-clinic-design="premium"]:not([data-admin-page="calendar"]):not([data-doctor-role])
+  body.admin-body main.admin-shell.sb-admin-shell.app-management-shell {
+    padding-left:max(14px,env(safe-area-inset-left))!important;
+    padding-right:max(14px,env(safe-area-inset-right))!important;
+  }
+  /* Every Akte panel shares the exact same left and right edge as the
+     customer identity and tabs. No double gutter within the records layout. */
+  html[data-clinic-design="premium"][data-admin-page="patients"]
+  body.admin-body main.app-management-shell .app-patient-layout[data-customer-panel=records] {
+    width:100%!important;
+    max-width:100%!important;
+    margin-left:0!important;
+    margin-right:0!important;
+    padding-left:0!important;
+    padding-right:0!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="patients"]
+  body.admin-body main.app-management-shell .app-patient-layout[data-customer-panel=records] > .app-core-panel,
+  html[data-clinic-design="premium"][data-admin-page="patients"]
+  body.admin-body main.app-management-shell .app-patient-layout[data-customer-panel=records] .patient-goae-panel {
+    box-sizing:border-box!important;
+    width:100%!important;
+    max-width:100%!important;
+    margin-left:0!important;
+    margin-right:0!important;
+  }
+}
