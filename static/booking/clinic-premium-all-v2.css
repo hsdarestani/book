@@ -312,3 +312,183 @@ html[data-clinic-design="premium"][data-doctor-role] body.admin-body main.admin-
 @media(prefers-reduced-motion:reduce){
  html[data-clinic-design="premium"] .ferrari-setting-links a{transition:none!important}
 }
+
+
+/* Premium mobile navigation & contrast hotfix (2026-10-23).
+   Old unified-nav styles forcibly set display:flex!important even at phone
+   widths. This high-specificity responsive rule explicitly wins that cascade. */
+html[data-clinic-design="premium"] body.admin-body .billing-command,
+html[data-clinic-design="premium"] body.admin-body .billing-command .billing-command-copy{
+  color:#29241e!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-command .billing-command-copy h2{
+  color:#29241e!important;
+  -webkit-text-fill-color:#29241e!important;
+  text-shadow:none!important;
+  opacity:1!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-command .billing-command-copy p{
+  color:#6f655b!important;
+  -webkit-text-fill-color:#6f655b!important;
+  opacity:1!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-command .billing-command-copy>span{
+  color:#92703b!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-command .billing-command-state{
+  color:#fff8f1!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-command .billing-command-state.is-ready{
+  color:#e8f5e9!important;
+}
+@media(min-width:1101px){
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"] body.admin-body
+ .clinic-header-v3 .clinic-header-nav{
+   display:none!important;
+ }
+}
+@media(max-width:980px){
+ /* Only the dedicated mobile bar and drawer may be visible on phones. */
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body .clinic-header-v3,
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body main.admin-shell>.clinic-header-v3,
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body .sb-admin-shell>.clinic-header-v3{
+   display:none!important;
+   visibility:hidden!important;
+   height:0!important;
+   min-height:0!important;
+   margin:0!important;
+   padding:0!important;
+   overflow:hidden!important;
+   pointer-events:none!important;
+ }
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body:has(>.sb-mobile-bar){
+   padding-top:64px!important;
+ }
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body>.sb-mobile-bar{
+   display:grid!important;
+   grid-template-columns:44px minmax(0,1fr) 44px!important;
+   align-items:center!important;
+   position:fixed!important;
+   inset:0 0 auto!important;
+   z-index:90!important;
+   height:64px!important;
+   min-height:64px!important;
+   padding:0 max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left))!important;
+   background:#fffcf7!important;
+   color:#2a2722!important;
+   border-bottom:1px solid #e5dbcf!important;
+   box-shadow:0 3px 17px rgba(47,35,23,.07)!important;
+   opacity:1!important;
+ }
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body>.sb-mobile-bar .sb-mobile-title{
+   color:#29251f!important;
+   -webkit-text-fill-color:#29251f!important;
+   text-shadow:none!important;
+   font-size:15px!important;
+   font-weight:730!important;
+   line-height:1.3!important;
+   letter-spacing:-.02em!important;
+   text-align:center!important;
+   opacity:1!important;
+   visibility:visible!important;
+   display:block!important;
+   overflow:hidden!important;
+   text-overflow:ellipsis!important;
+   white-space:nowrap!important;
+ }
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body>.sb-mobile-bar .sb-icon-button{
+   width:44px!important;
+   height:44px!important;
+   min-width:44px!important;
+   min-height:44px!important;
+   display:inline-flex!important;
+   align-items:center!important;
+   justify-content:center!important;
+   background:#f5efe5!important;
+   color:#4b3d2b!important;
+   border:1px solid #e7ded1!important;
+   border-radius:12px!important;
+   box-shadow:none!important;
+   opacity:1!important;
+   visibility:visible!important;
+ }
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body>.sb-mobile-bar .app-management-dot{
+   font-size:14px!important;
+   color:#7f5d2f!important;
+   -webkit-text-fill-color:#7f5d2f!important;
+ }
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body main.admin-shell{
+   box-sizing:border-box!important;
+   margin:0 auto!important;
+   width:100%!important;
+   max-width:100%!important;
+   padding-top:16px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .billing-command{
+   display:flex!important;
+   flex-direction:column!important;
+   align-items:flex-start!important;
+   gap:15px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .billing-command .billing-command-copy h2{
+   font-size:clamp(29px,7.7vw,38px)!important;
+   line-height:1.11!important;
+   max-width:100%!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .billing-command .billing-command-state{
+   align-self:flex-start!important;
+   white-space:normal!important;
+   max-width:100%!important;
+   font-size:11px!important;
+   line-height:1.35!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-welcome{
+   min-height:0!important;
+   padding:23px 20px!important;
+   margin-bottom:13px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-welcome h1{
+   font-size:clamp(32px,8.5vw,43px)!important;
+   line-height:1.09!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats{
+   grid-template-columns:repeat(2,minmax(0,1fr))!important;
+   gap:10px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article{
+   min-width:0!important;
+   min-height:112px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article:nth-child(3){
+   grid-column:1/-1!important;
+   min-height:95px!important;
+   padding:17px 16px 17px 73px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article:nth-child(3):before{
+   top:25px!important;
+   left:18px!important;
+   width:39px!important;
+   height:39px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article:nth-child(3):after{
+   top:25px!important;
+   left:29px!important;
+   font-size:23px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article:nth-child(3) small{
+   font-size:12px!important;
+   line-height:1.45!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body :is(.billing-stat-grid,.premium-stats){
+   max-width:100%!important;
+ }
+}
