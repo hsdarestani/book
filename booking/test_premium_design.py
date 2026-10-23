@@ -181,3 +181,60 @@ class PremiumManagementDesignTests(SimpleTestCase):
         self.assertLess(template.index('clinic-premium-all-v2.css'), template.index('clinic-premium-dashboard-v3.css'))
         middleware = (ROOT / "booking" / "app_admin_middleware.py").read_text(encoding="utf-8")
         self.assertIn('(?:v1|all-v2|dashboard-v3)', middleware)
+
+    def test_signature_secondary_surfaces_share_theme(self):
+        stylesheet = "/static/booking/clinic-signature-surfaces-v1.css?v=20261024-signature-all1"
+        for name in ("app_management.html", "app_wallet_management.html",
+                     "admin_more.html", "dashboard.html"):
+            with self.subTest(template=name):
+                source = get_template(f"booking/{name}").template.source
+                self.assertEqual(source.count(stylesheet), 1)
+                self.assertLess(source.index("clinic-premium-all-v2.css"), source.index(stylesheet))
+        calendar = get_template("booking/dashboard.html").template.source
+        self.assertIn("{% if not doctor_mode %}<link", calendar)
+        self.assertIn("clinic-signature-surfaces-v1.css", calendar)
+
+    def test_signature_secondary_css_scoped_and_safe_for_calendar_geometry(self):
+        css = (ROOT / "static" / "booking" / "clinic-signature-surfaces-v1.css").read_text(encoding="utf-8")
+        for page in ("patients", "reviews", "referrals", "hero",
+                     "invoices", "wallet", "more", "calendar"):
+            self.assertIn(f'[data-admin-page="{page}"]', css)
+        for selector in (".premium-list-heading", ".patient-command-card",
+                         ".patient-tab-button.is-active", ".patient-mini-stat",
+                         ".review-admin-card", ".referral-admin-list",
+                         ".billing-stat-grid", ".points-admin-card",
+                         ".ferrari-setting-links", ".sb-calendar-heading"):
+            self.assertIn(selector, css)
+        self.assertIn("@media(max-width:760px)", css)
+        self.assertIn(":focus-visible", css)
+        self.assertNotIn("sb-calendar-block", css)
+        self.assertNotIn("sb-calendar-event", css)
+        self.assertNotIn("sb-working-segment", css)
+        self.assertNotIn("data-doctor-role=\"1\"", css)
+        self.assertNotIn("overflow-x:hidden", css)
+        self.assertNotIn("pointer-events:none!important", css)
+
+    def test_signature_patient_lookup_and_controls_preserved(self):
+        source = get_template("booking/app_management.html").template.source
+        for fragment in ('name="q" value="{{ query }}"',
+                         'data-customer-list', 'data-customer-link',
+                         'data-customer-panel="overview"', 'data-customer-panel="records"',
+                         'data-customer-panel="points"', 'data-customer-tab="appointments"',
+                         'name="action" value="patient_salutation"',
+                         'name="action" value="patient_upload"',
+                         'data-admin-native-photo', 'name="shared_with_customer"',
+                         'name="action" value="review_verify"',
+                         'name="action" value="billing_settings"'):
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, source)
+        wallet = get_template("booking/app_wallet_management.html").template.source
+        self.assertIn('data-wallet-scan-open', wallet)
+        self.assertIn('name="action" value="points_adjust"', wallet)
+        self.assertIn('name="q" value="{{ query }}"', wallet)
+        more = get_template("booking/admin_more.html").template.source
+        self.assertIn('name="action" value="banner_save"', more)
+        self.assertIn('name="action" value="template_save"', more)
+
+    def test_signature_styles_are_repositioned_after_legacy_navigation(self):
+        middleware = (ROOT / "booking" / "app_admin_middleware.py").read_text(encoding="utf-8")
+        self.assertIn("(?:v1|all-v2|dashboard-v3|signature-surfaces-v1)", middleware)
