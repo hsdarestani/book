@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="/static/booking/clinic-calendar-topbar-v1.css?v=20261020-header4">
   <script defer src="/static/booking/clinic-header-v3.js?v=20261021-mobile2"></script>
   <script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-header4"></script>{% endif %}
-{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261023-all2"></head>
+{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261023-mobilefix1"></head>
 <body class="admin-body sb-admin-body" {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
 
 <header class="sb-mobile-bar">
