@@ -492,3 +492,459 @@ html[data-clinic-design="premium"] body.admin-body .billing-command .billing-com
    max-width:100%!important;
  }
 }
+
+
+/* A+ ESTHETIC WORKSPACE / EXPERIENCE V3
+   One cohesive hierarchy: dark graphite wayfinding, champagne accents, clear type.
+   Scoped to practice management so patient data and appointment geometry never change. */
+html[data-clinic-design="premium"]{
+  --workspace-night:#222a28;
+  --workspace-night-2:#18211f;
+  --workspace-gold:#c5a16a;
+  --workspace-gold-soft:#f0e0c4;
+  --workspace-ink:#232724;
+  --workspace-paper:#ffffff;
+  --workspace-muted:#646b67;
+  --workspace-line:#e8e3d9;
+  --workspace-bg:#f5f3ef;
+}
+html[data-clinic-design="premium"] body.admin-body{
+  background:var(--workspace-bg)!important;
+  color:var(--workspace-ink)!important;
+  font-size:15px!important;
+  line-height:1.5!important;
+  -webkit-font-smoothing:antialiased;
+}
+@media(min-width:1101px){
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar{
+   width:252px!important;
+   background:linear-gradient(180deg,#242b29 0%,#1b2422 80%,#171e1c 100%)!important;
+   color:#f5f0e7!important;
+   padding:29px 16px 18px!important;
+   border-right:1px solid rgba(238,219,190,.16)!important;
+   box-shadow:10px 0 34px rgba(20,25,22,.11)!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar .premium-sidebar-brand{
+   margin:0 11px 36px!important;gap:13px!important;color:#fffaf0!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-brand img{
+   background:#faf2e5!important;border-radius:13px!important;
+   width:44px!important;height:44px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-brand strong{
+   color:#fef9ef!important;font-size:18px!important;font-weight:750!important;letter-spacing:-.035em!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-brand small{
+   color:#c8ae85!important;font-size:9px!important;letter-spacing:.12em!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-nav{gap:5px!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-nav>a{
+   min-height:47px!important;padding:11px 14px!important;border-radius:11px!important;
+   color:#d9ded9!important;font-size:14px!important;font-weight:580!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-nav>a>span{
+   color:#ceb589!important;font-size:20px!important;width:24px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-nav>a:hover{
+   background:#ffffff13!important;transform:none!important;color:#fff!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-nav>a[aria-current="page"]{
+   background:linear-gradient(110deg,#e3c89d,#cda66c)!important;
+   color:#24251f!important;font-weight:800!important;
+   box-shadow:inset 0 0 0 1px #f2d8a5,0 5px 15px #0002!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-nav>a[aria-current="page"]>span{color:#493923!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-rule{
+   background:#ffffff20!important;margin:15px 10px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-footer{
+   background:linear-gradient(145deg,#3a3f37,#2b342f)!important;
+   border:1px solid #ffffff16!important;color:#e6c796!important;
+   box-shadow:none!important;min-height:104px!important;margin-top:auto!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-footer span{color:#d2b587!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-sidebar-footer p{color:#f1d7ab!important;font-size:17px!important}
+ html[data-clinic-design="premium"] body.admin-body main.admin-shell{
+   width:calc(100% - 252px)!important;
+   max-width:none!important;
+   min-width:0!important;
+   margin:0 0 0 252px!important;
+   padding:24px clamp(28px,3.1vw,58px) 80px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="dashboard"] body.admin-body .command-shell{
+   max-width:none!important;
+ }
+}
+/* Replace the redundant second logo/navigation with a compact utility toolbar. */
+.premium-utility-context{display:none}
+@media(min-width:1101px){
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body .clinic-header-v3,
+ html[data-admin-page="calendar"][data-clinic-design="premium"] body.admin-body .sb-admin-shell>.clinic-header-v3{
+   min-height:57px!important;height:57px!important;
+   padding:0 5px 0 3px!important;
+   margin-bottom:20px!important;background:transparent!important;
+   border:0!important;border-radius:0!important;box-shadow:none!important;
+   justify-content:flex-end!important;gap:10px!important;
+ }
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body .clinic-header-v3 .clinic-header-brand{
+   display:none!important;
+ }
+ html[data-clinic-navigation][data-clinic-navigation][data-clinic-design="premium"]
+ body.admin-body .clinic-header-v3 .clinic-header-nav{display:none!important}
+ html[data-clinic-design="premium"] body.admin-body .clinic-header-v3 .premium-utility-context{
+   display:grid!important;gap:1px!important;margin-right:auto!important;
+   color:#262b28!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-utility-context span{
+   color:#8d7454!important;font-size:10px!important;letter-spacing:.13em!important;font-weight:750!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-utility-context strong{
+   font-size:17px!important;font-weight:760!important;letter-spacing:-.025em!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .clinic-header-v3 .clinic-header-actions{
+   margin-left:auto!important;gap:9px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .clinic-header-v3 .clinic-header-actions :is(summary,button,a){
+   min-height:39px!important;border-radius:11px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .clinic-header-v3 .clinic-header-more>summary{
+   background:#fff!important;border:1px solid #dfdbd0!important;color:#333832!important;
+ }
+}
+/* Hierarchy and type: one hero, not multiple giant empty banners. */
+html[data-clinic-design="premium"] body.admin-body .premium-welcome,
+html[data-clinic-design="premium"] body.admin-body .app-page-heading{
+  background:radial-gradient(ellipse at 80% 18%,#414743 0%,transparent 45%),
+             linear-gradient(118deg,#222c29 0%,#26322f 65%,#19211f 100%)!important;
+  border:1px solid #34433d!important;
+  box-shadow:0 20px 35px rgba(23,34,30,.12)!important;
+  padding:clamp(25px,3vw,41px) clamp(25px,3.2vw,45px)!important;
+  min-height:160px!important;
+  margin-bottom:20px!important;
+  border-radius:22px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-welcome:after,
+html[data-clinic-design="premium"] body.admin-body .app-page-heading:after{
+  border-color:#d9bd8138!important;
+  box-shadow:0 0 0 45px #d9bd8107,0 0 0 90px #d9bd8107!important;
+  right:3%!important;top:-195px!important;
+}
+html[data-clinic-design="premium"] body.admin-body :is(.premium-welcome,.app-page-heading) :is(.premium-overline,.eyebrow){
+  color:#e3c38f!important;font-size:10px!important;font-weight:850!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-welcome h1,
+html[data-clinic-design="premium"] body.admin-body .app-page-heading h1{
+  color:#fffaf0!important;font:500 clamp(36px,4vw,54px)/1.06 Georgia,serif!important;
+  letter-spacing:-.055em!important;margin:10px 0!important;
+  -webkit-text-fill-color:#fffaf0!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-welcome p,
+html[data-clinic-design="premium"] body.admin-body .app-page-heading p{
+  color:#d6d8d0!important;-webkit-text-fill-color:#d6d8d0!important;
+  font-size:14px!important;max-width:690px!important;line-height:1.55!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-welcome{min-height:190px!important}
+html[data-clinic-design="premium"] body.admin-body .premium-stats{
+  gap:15px!important;margin-bottom:20px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-stats article{
+  min-height:132px!important;border-radius:17px!important;border-color:#e5e1d9!important;
+  padding:22px 20px 20px 82px!important;box-shadow:0 4px 15px #22292007!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-stats article span{
+  color:#86704e!important;font-size:11px!important;letter-spacing:.07em!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-stats article b{
+  color:#222923!important;font-size:39px!important;line-height:1.05!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-stats article small{
+  color:#636b63!important;font-size:12px!important;line-height:1.5!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-stats article:before{background:#f5ebda!important}
+html[data-clinic-design="premium"] body.admin-body .command-grid-two{
+  grid-template-columns:minmax(0,1.55fr) minmax(315px,.65fr)!important;
+  gap:18px!important;margin-bottom:20px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .command-search-panel{
+  background:#fff!important;padding:23px 27px!important;
+  border:1px solid #e3e1da!important;border-radius:19px!important;gap:30px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .command-section-head h2,
+html[data-clinic-design="premium"] body.admin-body .command-search-panel h2,
+html[data-clinic-design="premium"] body.admin-body .premium-list-heading h2{
+  font-size:25px!important;font-weight:750!important;letter-spacing:-.045em!important;
+}
+html[data-clinic-design="premium"] body.admin-body .command-search-panel p,
+html[data-clinic-design="premium"] body.admin-body .command-section-head p,
+html[data-clinic-design="premium"] body.admin-body .premium-list-heading p{
+  font-size:13px!important;color:#686e65!important;
+}
+html[data-clinic-design="premium"] body.admin-body .next-day-row{
+  grid-template-columns:78px minmax(0,1fr) 20px!important;
+  padding:15px 7px!important;gap:14px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .next-day-row time{font-size:17px!important}
+html[data-clinic-design="premium"] body.admin-body .next-day-row strong{font-size:15px!important}
+html[data-clinic-design="premium"] body.admin-body .next-day-row span{
+  font-size:12px!important;white-space:normal!important;line-height:1.55!important;
+}
+html[data-clinic-design="premium"] body.admin-body .shortcut-grid a{
+  background:#f8f6f1!important;border-color:#e9e3d9!important;
+  min-height:102px!important;padding:17px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .shortcut-grid a span{font-size:14px!important}
+html[data-clinic-design="premium"] body.admin-body .command-panel,
+html[data-clinic-design="premium"] body.admin-body .premium-customer-panel{
+  border:1px solid #e5e0d6!important;border-radius:19px!important;box-shadow:0 6px 20px #20271f08!important;
+}
+/* Patient index: make names, contacts and counters useful at a glance. */
+html[data-clinic-design="premium"] body.admin-body .premium-customer-panel{
+  padding:25px 27px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-table-heading{
+  font-size:11px!important;letter-spacing:.1em!important;
+  padding:14px 18px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-patient-list>a{
+  min-height:87px!important;padding:17px 18px!important;
+  border-bottom:1px solid #eae7e1!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-person strong{
+  font-size:15px!important;font-weight:730!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-contact{
+  font-size:13px!important;line-height:1.55!important;color:#555f58!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-patient-metric{
+  color:#252b26!important;font-size:18px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-list-count{
+  background:#f0e5d3!important;color:#70572e!important;font-size:12px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .patient-command-card{min-height:120px!important}
+html[data-clinic-design="premium"] body.admin-body .patient-command-card h2{font-size:32px!important}
+html[data-clinic-design="premium"] body.admin-body .patient-profile-panel,
+html[data-clinic-design="premium"] body.admin-body .patient-points-panel{
+  border-radius:17px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .patient-profile-panel :is(p,small,label),
+html[data-clinic-design="premium"] body.admin-body .patient-points-panel :is(p,small,label){
+  font-size:13px!important;
+}
+/* Invoicing: one clear heading, invoice first, administrative setup on request. */
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .app-page-heading{
+  display:none!important;
+}
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .billing-command{
+  min-height:155px!important;
+  padding:30px 34px!important;
+  background:linear-gradient(114deg,#27322e 0%,#35433e 75%,#27312f 100%)!important;
+  border-color:#374b43!important;box-shadow:0 18px 34px #1e28211c!important;
+}
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .billing-command:after{
+  content:"";right:0;top:-110px;bottom:auto;
+  height:300px;width:300px;border:1px solid #c3a36b35;border-radius:50%;
+  background:transparent!important;box-shadow:0 0 0 50px #c3a36b0a!important;
+}
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .billing-command .billing-command-copy>span{
+  font-size:11px!important;color:#e2c18e!important;
+}
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .billing-command .billing-command-copy h2{
+  color:#fff9ef!important;-webkit-text-fill-color:#fff9ef!important;
+  font:500 clamp(35px,4vw,52px)/1.08 Georgia,serif!important;margin:8px 0 11px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .billing-command .billing-command-copy p{
+  color:#d0d9d2!important;-webkit-text-fill-color:#d0d9d2!important;font-size:14px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-stat-grid{gap:14px!important;margin-bottom:20px!important}
+html[data-clinic-design="premium"] body.admin-body .billing-stat-grid article{
+  padding:19px 22px!important;border-radius:15px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-stat-grid article span{
+  font-size:11px!important;letter-spacing:.08em!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-stat-grid article strong{
+  font-size:31px!important;margin-top:9px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-layout{
+  grid-template-columns:minmax(0,1.25fr) minmax(290px,.75fr)!important;
+  align-items:start!important;gap:18px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-create-panel,
+html[data-clinic-design="premium"] body.admin-body .billing-settings-panel{
+  padding:25px 28px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-form label,
+html[data-clinic-design="premium"] body.admin-body .billing-field>label,
+html[data-clinic-design="premium"] body.admin-body .billing-service-card label{
+  font-size:13px!important;color:#414943!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-form{gap:16px!important}
+html[data-clinic-design="premium"] body.admin-body .billing-form :is(input,select,button){
+  font-size:14px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-picker-trigger{
+  min-height:62px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-picker-copy :is(strong,small){
+  font-size:13px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-create-panel .billing-primary{
+  min-height:52px!important;font-size:14px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-settings-disclosure,
+html[data-clinic-design="premium"] body.admin-body .premium-catalog-disclosure{
+  border:1px solid #e6dfd3!important;border-radius:14px!important;
+  background:#fcfaf6!important;overflow:hidden!important;
+}
+html[data-clinic-design="premium"] body.admin-body :is(.premium-settings-disclosure,.premium-catalog-disclosure)>summary{
+  list-style:none!important;display:flex!important;align-items:center!important;justify-content:space-between!important;
+  gap:12px!important;padding:18px 19px!important;cursor:pointer!important;
+  color:#30382f!important;font-size:14px!important;
+}
+html[data-clinic-design="premium"] body.admin-body :is(.premium-settings-disclosure,.premium-catalog-disclosure)>summary::-webkit-details-marker{display:none!important}
+html[data-clinic-design="premium"] body.admin-body :is(.premium-settings-disclosure,.premium-catalog-disclosure)>summary>span:first-child{display:grid!important;gap:3px!important}
+html[data-clinic-design="premium"] body.admin-body :is(.premium-settings-disclosure,.premium-catalog-disclosure)>summary strong{font-size:14px!important}
+html[data-clinic-design="premium"] body.admin-body :is(.premium-settings-disclosure,.premium-catalog-disclosure)>summary small{font-size:12px!important;color:#767f76!important;font-weight:400!important}
+html[data-clinic-design="premium"] body.admin-body :is(.premium-settings-disclosure,.premium-catalog-disclosure)>summary>span:last-child{
+  display:grid!important;place-items:center!important;flex:0 0 30px!important;height:30px!important;
+  color:#8f6a32!important;background:#f1e6d4!important;border-radius:50%!important;font-size:23px!important;
+}
+html[data-clinic-design="premium"] body.admin-body :is(.premium-settings-disclosure,.premium-catalog-disclosure)[open]>summary>span:last-child{
+  transform:rotate(45deg);
+}
+html[data-clinic-design="premium"] body.admin-body .premium-disclosure-inner{
+  border-top:1px solid #e6dfd3!important;padding:20px!important;background:#fff!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-services-panel{
+  padding:25px 28px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-catalog-disclosure{
+  margin:17px 0 0!important;
+}
+html[data-clinic-design="premium"] body.admin-body .premium-catalog-disclosure>.billing-service-list{
+  border-top:1px solid #e6dfd3!important;padding:16px!important;
+  background:#fff!important;
+}
+html[data-clinic-design="premium"] body.admin-body .clinic-service-toolbar label{
+  font-size:13px!important;
+}
+html[data-clinic-design="premium"] body.admin-body .billing-service-head strong{font-size:14px!important}
+html[data-clinic-design="premium"] body.admin-body .billing-service-head small{font-size:12px!important}
+html[data-clinic-design="premium"] body.admin-body .clinic-service-status{font-size:11px!important}
+html[data-clinic-design="premium"] body.admin-body .billing-invoice-card :is(strong,small){font-size:13px!important}
+/* Calendar: neutralize the overpowering gold block without changing coordinates
+   or its meaning. All blocking/saving remains handled by Django. */
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-panel{
+  padding:24px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-heading h2{
+  font:500 32px/1.12 Georgia,serif!important;letter-spacing:-.045em!important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-block.is-blocked,
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-block.is-blocked-note{
+  background:repeating-linear-gradient(-45deg,#eae6dd 0 24px,#e6e2d9 24px 48px)!important;
+  border:1px solid #d1c6b6!important;border-left:4px solid #9e8e74!important;
+  color:#554b3c!important;box-shadow:inset 0 0 0 1px #ffffff78!important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-block strong{
+  font-size:13px!important;color:#443e33!important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-block small{
+  font-size:11px!important;color:#655e51!important;opacity:1!important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-working-segment{
+  background:#f9f3e6!important;border-color:#e4dac9!important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-working-segment span{
+  color:#69583d!important;background:#fff8e9!important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-event{
+  background:#354b43!important;color:#fff!important;border-left:3px solid #c0a06e!important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-time-axis span{
+  font-size:12px!important;color:#716d65!important;
+}
+@media(max-width:1380px) and (min-width:981px){
+ html[data-clinic-design="premium"] body.admin-body .command-grid-two{
+   grid-template-columns:minmax(0,1.2fr) minmax(295px,.8fr)!important;
+ }
+}
+@media(max-width:1100px){
+ html[data-clinic-design="premium"] body.admin-body .billing-layout{
+   grid-template-columns:1fr!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .command-grid-two{
+   grid-template-columns:1fr!important;
+ }
+}
+@media(max-width:980px){
+ html[data-clinic-design="premium"] body.admin-body .premium-welcome,
+ html[data-clinic-design="premium"] body.admin-body .app-page-heading{padding:24px 22px!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-welcome h1,
+ html[data-clinic-design="premium"] body.admin-body .app-page-heading h1{
+   font-size:clamp(34px,7vw,48px)!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .clinic-header-v3 .premium-utility-context{display:none!important}
+}
+@media(max-width:760px){
+ html[data-clinic-design="premium"] body.admin-body .premium-welcome,
+ html[data-clinic-design="premium"] body.admin-body .app-page-heading{
+   min-height:144px!important;padding:24px 21px!important;margin:0 0 14px!important;
+   border-radius:17px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-welcome{min-height:165px!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-welcome h1,
+ html[data-clinic-design="premium"] body.admin-body .app-page-heading h1{
+   font-size:clamp(32px,8.5vw,42px)!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-welcome p,
+ html[data-clinic-design="premium"] body.admin-body .app-page-heading p{font-size:13px!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-stats{
+   grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article{
+   padding:39px 12px 13px!important;min-height:111px!important;border-radius:13px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article span{font-size:10px!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article b{font-size:30px!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article small{font-size:11px!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article:nth-child(3){
+   padding:17px 15px 17px 73px!important;min-height:93px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .command-search-panel,
+ html[data-clinic-design="premium"] body.admin-body .command-panel,
+ html[data-clinic-design="premium"] body.admin-body .premium-customer-panel{
+   padding:19px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .command-grid-two{gap:12px!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-patient-list>a{
+   padding:16px!important;min-height:116px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-person strong{font-size:14px!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-contact{font-size:12px!important}
+ html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .billing-command{
+   padding:25px 21px!important;min-height:138px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .billing-command .billing-command-copy h2{
+   font-size:clamp(31px,8vw,43px)!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .billing-stat-grid{gap:9px!important}
+ html[data-clinic-design="premium"] body.admin-body .billing-stat-grid article{
+   padding:15px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .billing-stat-grid article strong{font-size:25px!important}
+ html[data-clinic-design="premium"] body.admin-body .billing-create-panel,
+ html[data-clinic-design="premium"] body.admin-body .billing-settings-panel,
+ html[data-clinic-design="premium"] body.admin-body .billing-services-panel{padding:18px!important}
+ html[data-clinic-design="premium"] body.admin-body .billing-form :is(input,select,button){font-size:16px!important}
+ html[data-clinic-design="premium"] body.admin-body .billing-two{grid-template-columns:1fr!important}
+ html[data-clinic-design="premium"] body.admin-body .premium-catalog-disclosure>.billing-service-list{
+   grid-template-columns:1fr!important;padding:11px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-panel{
+   padding:10px!important;
+ }
+}
