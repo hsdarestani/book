@@ -89,9 +89,7 @@ class PremiumManagementDesignTests(SimpleTestCase):
         for filename in paths:
             with self.subTest(template=filename):
                 src = get_template(f"booking/{filename}").template.source
-                expected = ("clinic-premium-all-v2.css?v=20261023-records-v4"
-                            if filename == "app_management.html"
-                            else "clinic-premium-all-v2.css?v=20261023-workspace-v3")
+                expected = "clinic-premium-all-v2.css?v=20261024-gutters1"
                 self.assertIn(expected, src)
 
     def test_desktop_workspace_has_single_brand_and_legible_hero(self):
@@ -123,3 +121,27 @@ class PremiumManagementDesignTests(SimpleTestCase):
         source = get_template("booking/_clinic_web_header_v3.html").template.source
         self.assertIn('class="premium-utility-context"', source)
         self.assertIn("section_title|default", source)
+
+    def test_mobile_management_gutters_are_single_source_of_truth(self):
+        css = (ROOT / "static" / "booking" / "clinic-premium-all-v2.css").read_text(encoding="utf-8")
+        mobile = css.split("Mobile management alignment, 2026-10-24", 1)[1]
+        self.assertIn('not([data-admin-page="calendar"])', mobile)
+        self.assertIn('not([data-doctor-role])', mobile)
+        self.assertIn('main.admin-shell.sb-admin-shell.app-management-shell', mobile)
+        self.assertIn('padding-left:max(14px,env(safe-area-inset-left))!important;', mobile)
+        self.assertIn('padding-right:max(14px,env(safe-area-inset-right))!important;', mobile)
+        self.assertIn('main.app-management-shell > :is(', mobile)
+        self.assertIn('.app-patient-layout[data-customer-panel=records] > .app-core-panel', mobile)
+        self.assertIn('.app-patient-layout[data-customer-panel=records] .patient-goae-panel', mobile)
+        self.assertNotIn('width:calc(100% - 24px)', mobile)
+        self.assertNotIn('margin:0 12px', mobile)
+        self.assertNotIn('overflow-x:hidden', mobile)
+        self.assertNotIn('transform:none', mobile)
+
+    def test_records_markup_no_longer_introduces_double_mobile_insets(self):
+        source = get_template("booking/app_management.html").template.source
+        component_rules = source.split('id="patient-upload-studio-inline-v2"', 1)[1].split('</style>', 1)[0]
+        self.assertIn('.app-patient-layout[data-customer-panel=records]>.app-core-panel', component_rules)
+        self.assertIn('.app-patient-layout[data-customer-panel=records] .patient-goae-panel', component_rules)
+        self.assertNotIn('width:calc(100% - 24px)', component_rules)
+        self.assertNotIn('margin:0 12px', component_rules)
