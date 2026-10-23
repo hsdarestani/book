@@ -1,0 +1,19 @@
+{% load static %}
+<aside class="premium-sidebar" aria-label="Praxisnavigation">
+  <a class="premium-sidebar-brand" href="/verwaltung/dashboard/">
+    <img src="{% static 'booking/logo.png' %}" alt="" width="46" height="46">
+    <span><strong>A+ Esthetic</strong><small>PRAXISMANAGEMENT</small></span>
+  </a>
+  <nav class="premium-sidebar-nav" aria-label="Verwaltungsbereiche">
+    <a href="/verwaltung/dashboard/" {% if section != 'patients' %}aria-current="page"{% endif %}><span aria-hidden="true">⌂</span>Dashboard</a>
+    <a href="/verwaltung/kalender/"><span aria-hidden="true">▦</span>Kalender</a>
+    <a href="/verwaltung/app/patients/" {% if section == 'patients' %}aria-current="page"{% endif %}><span aria-hidden="true">♙</span>Kunden</a>
+    <a href="/verwaltung/app/wallet/"><span aria-hidden="true">◇</span>A+ Punkte</a>
+    <a href="/verwaltung/app/reviews/"><span aria-hidden="true">☆</span>Bewertungen</a>
+    <a href="/verwaltung/app/invoices/"><span aria-hidden="true">▤</span>Rechnungen</a>
+    <div class="premium-sidebar-rule" aria-hidden="true"></div>
+    <a href="/verwaltung/mehr/"><span aria-hidden="true">☷</span>Weitere Bereiche</a>
+    <a href="/verwaltung/mehr/#settings"><span aria-hidden="true">⚙</span>Einstellungen</a>
+  </nav>
+  <div class="premium-sidebar-footer"><span>A+ ESTHETIC</span><p>Mit Sorgfalt für jedes Detail.</p></div>
+</aside>
