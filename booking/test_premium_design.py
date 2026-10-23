@@ -66,3 +66,27 @@ class PremiumManagementDesignTests(SimpleTestCase):
         self.assertIn("max-width:760px", css)
         self.assertIn("prefers-reduced-motion", css)
         self.assertNotIn("display:none!important}.sb-calendar-grid", css)
+
+    def test_mobile_navigation_hides_desktop_header_and_preserves_contrast(self):
+        css = (ROOT / "static" / "booking" / "clinic-premium-all-v2.css").read_text(encoding="utf-8")
+        self.assertIn("@media(max-width:980px)", css)
+        self.assertIn('body.admin-body .clinic-header-v3,', css)
+        self.assertIn("display:none!important;", css)
+        self.assertIn('body.admin-body>.sb-mobile-bar{', css)
+        self.assertIn("background:#fffcf7!important;", css)
+        self.assertIn(".sb-mobile-title{", css)
+        self.assertIn("-webkit-text-fill-color:#29251f!important;", css)
+        self.assertIn(".billing-command .billing-command-copy h2{", css)
+        self.assertIn("-webkit-text-fill-color:#29241e!important;", css)
+        self.assertIn("grid-template-columns:repeat(2,minmax(0,1fr))!important;", css)
+
+    def test_mobile_premium_css_cache_key_on_all_admin_screens(self):
+        paths = (
+            "admin_dashboard_lambo.html", "app_management.html",
+            "admin_more.html", "dashboard.html",
+            "doctor_appointments.html", "app_wallet_management.html",
+        )
+        for filename in paths:
+            with self.subTest(template=filename):
+                src = get_template(f"booking/{filename}").template.source
+                self.assertIn("clinic-premium-all-v2.css?v=20261023-mobilefix1", src)
