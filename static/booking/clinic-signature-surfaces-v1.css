@@ -1,0 +1,371 @@
+/*
+ A+ ESTHETIC / SIGNATURE SURFACES v1
+ Continuation of the dashboard's emerald / champagne design system.
+ Layout is scoped to management surfaces and leaves appointments / modal geometry intact.
+*/
+html[data-clinic-design="premium"]:not([data-admin-page="dashboard"]){
+ --signature-night:#14271f;
+ --signature-forest:#1c382e;
+ --signature-gold:#d5b57a;
+ --signature-gold-deep:#977541;
+ --signature-ink:#243027;
+ --signature-muted:#72796f;
+ --signature-ivory:#fffdf9;
+ --signature-stroke:#e5dfd4;
+ --signature-shadow:0 12px 30px rgba(35,44,34,.075);
+}
+html[data-clinic-design="premium"]:not([data-admin-page="dashboard"]):not([data-doctor-role]) body.admin-body {
+ background:#f7f5f0!important;color:#243027!important;
+}
+/* Unified emerald hero for secondary management routes. */
+html[data-clinic-design="premium"]:is([data-admin-page="patients"],[data-admin-page="reviews"],[data-admin-page="referrals"],[data-admin-page="hero"],[data-admin-page="more"],[data-admin-page="wallet"])
+body.admin-body :is(.app-page-heading,.ferrari-page-hero,.points-admin-hero){
+ position:relative!important;isolation:isolate!important;overflow:hidden!important;
+ background:radial-gradient(ellipse at 90% 4%,#52745b77,transparent 42%),linear-gradient(118deg,#10231c,#294237 70%,#182c24)!important;
+ color:#fffaf0!important;border:1px solid #405649!important;border-radius:22px!important;
+ box-shadow:0 19px 38px #132b211c,inset 0 1px 0 #ffffff14!important;
+ padding:clamp(23px,3vw,38px)!important;margin:0 0 18px!important;min-height:152px!important;
+}
+html[data-clinic-design="premium"]:is([data-admin-page="patients"],[data-admin-page="reviews"],[data-admin-page="referrals"],[data-admin-page="hero"],[data-admin-page="more"],[data-admin-page="wallet"])
+body.admin-body :is(.app-page-heading,.ferrari-page-hero,.points-admin-hero)::after{
+ content:""!important;pointer-events:none!important;z-index:0!important;
+ position:absolute!important;width:360px!important;height:360px!important;right:-55px!important;top:-220px!important;
+ border:1px solid #d2ad6c5c!important;border-radius:50%!important;background:none!important;
+ box-shadow:0 0 0 64px #d4b16e0d,0 0 0 125px #d4b16e08!important;
+}
+html[data-clinic-design="premium"] body.admin-body :is(.app-page-heading,.ferrari-page-hero,.points-admin-hero)>:is(div,h1,p,span,button){
+ position:relative;z-index:1;
+}
+html[data-clinic-design="premium"]:is([data-admin-page="patients"],[data-admin-page="reviews"],[data-admin-page="referrals"],[data-admin-page="hero"],[data-admin-page="more"],[data-admin-page="wallet"])
+body.admin-body :is(.app-page-heading,.ferrari-page-hero,.points-admin-hero) :is(.eyebrow,div>span){
+ color:#e7c58b!important;letter-spacing:.15em!important;font-size:10px!important;font-weight:760!important;
+}
+html[data-clinic-design="premium"]:is([data-admin-page="patients"],[data-admin-page="reviews"],[data-admin-page="referrals"],[data-admin-page="hero"],[data-admin-page="more"],[data-admin-page="wallet"])
+body.admin-body :is(.app-page-heading,.ferrari-page-hero,.points-admin-hero) h1{
+ color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important;
+ font:500 clamp(35px,3.8vw,51px)/1.07 Georgia,serif!important;letter-spacing:-.05em!important;margin:9px 0 12px!important;
+}
+html[data-clinic-design="premium"]:is([data-admin-page="patients"],[data-admin-page="reviews"],[data-admin-page="referrals"],[data-admin-page="hero"],[data-admin-page="more"],[data-admin-page="wallet"])
+body.admin-body :is(.app-page-heading,.ferrari-page-hero,.points-admin-hero) p{
+ color:#e0e5db!important;-webkit-text-fill-color:#e0e5db!important;line-height:1.55!important;font-size:14px!important;
+}
+/* Titles and cards share the dashboard's more restrained editorial hierarchy. */
+html[data-clinic-design="premium"]:not([data-admin-page="dashboard"]) body.admin-body
+ :is(.admin-panel,.app-core-panel,.premium-customer-panel,.points-results,.points-history-panel,.points-search-card,.ferrari-section,.ferrari-setting-links,.hero-admin-card){
+ border-color:var(--signature-stroke)!important;
+ border-radius:18px!important;background-color:var(--signature-ivory)!important;
+ box-shadow:var(--signature-shadow)!important;
+}
+html[data-clinic-design="premium"]:not([data-admin-page="dashboard"]) body.admin-body
+ :is(.panel-head,.points-results-head,.points-history-head,.ferrari-section-head) h2{
+ color:var(--signature-ink)!important;font:580 clamp(23px,2.4vw,31px)/1.14 Georgia,serif!important;
+ letter-spacing:-.04em!important;
+}
+html[data-clinic-design="premium"]:not([data-admin-page="dashboard"]) body.admin-body
+ :is(.panel-head,.points-results-head,.points-history-head,.ferrari-section-head) p{
+ color:#69746c!important;font-size:13px!important;line-height:1.55!important;
+}
+html[data-clinic-design="premium"]:not([data-admin-page="dashboard"]) body.admin-body
+ :is(.panel-head,.points-results-head,.points-history-head,.ferrari-section-head) .eyebrow{
+ color:#96733e!important;letter-spacing:.15em!important;font-size:10px!important;font-weight:760!important;
+}
+/* Customer index: a branded editorial panel + dense, genuinely scannable rows. */
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-customer-panel{
+ overflow:hidden!important;padding:0 0 17px!important;
+ background:#fffdf9!important;border-radius:21px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-customer-panel .premium-list-heading{
+ position:relative!important;overflow:hidden!important;isolation:isolate!important;
+ display:flex!important;align-items:center!important;justify-content:space-between!important;
+ flex-wrap:wrap!important;gap:17px!important;padding:28px 29px!important;
+ background:radial-gradient(circle at 95% 8%,#4a6958ad,transparent 43%),linear-gradient(114deg,#132a21,#2d4439)!important;
+ border:0!important;margin:0 0 18px!important;min-height:142px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-list-heading::after{
+ content:"";position:absolute;right:-65px;top:-155px;width:290px;height:290px;z-index:0;
+ border:1px solid #e3c18763;border-radius:50%;box-shadow:0 0 0 70px #c6a66a0b;pointer-events:none;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-list-heading>*{position:relative;z-index:1}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-list-heading .eyebrow{
+ color:#e4c28a!important;font-size:11px!important;letter-spacing:.16em!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-list-heading h2{
+ color:#fff9f0!important;-webkit-text-fill-color:#fff9f0!important;
+ font:500 clamp(32px,3.4vw,47px)/1.08 Georgia,serif!important;margin:7px 0 9px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-list-heading p{
+ color:#e0e5db!important;-webkit-text-fill-color:#e0e5db!important;
+ font-size:13px!important;line-height:1.5!important;margin:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-list-heading .premium-list-count{
+ flex:0 0 auto!important;background:#e8d3a8!important;color:#3c3529!important;
+ border:1px solid #f4e1bd!important;border-radius:999px!important;
+ padding:11px 15px!important;font-size:12px!important;font-weight:760!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-customer-panel .app-search{
+ margin:0 23px 13px!important;max-width:calc(100% - 46px)!important;
+ border:1px solid #e3d9c8!important;border-radius:14px!important;
+ background:#f6f3ed!important;padding:7px!important;box-shadow:none!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-customer-panel .app-search input[type=search]{
+ min-height:46px!important;font-size:15px!important;color:#223229!important;background:#fff!important;
+ border:1px solid #e6dfd3!important;border-radius:11px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-customer-panel .app-search button{
+ min-height:46px!important;font-size:13px!important;font-weight:760!important;
+ background:linear-gradient(135deg,#e5d09f,#bd9554)!important;color:#2b2518!important;
+ border:1px solid #c3a16c!important;border-radius:11px!important;padding:8px 17px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-table-heading{
+ margin:0 23px 4px!important;padding:12px 13px!important;
+ font-size:10px!important;letter-spacing:.13em!important;color:#8b795b!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-patient-list{
+ margin:0 23px!important;display:grid!important;gap:7px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-patient-list>a{
+ min-width:0!important;min-height:80px!important;padding:12px 15px!important;
+ border:1px solid #e9e3d7!important;border-radius:13px!important;
+ background:linear-gradient(120deg,#fff,#fcfaf5)!important;
+ box-shadow:0 3px 10px #262e2110!important;
+ transition:border-color .15s ease,background .15s ease;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-patient-list>a:hover{
+ background:#f8f2e7!important;border-color:#c9aa74!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-patient-list .app-avatar{
+ background:linear-gradient(135deg,#2c4034,#15231d)!important;color:#e9c992!important;
+ border:1px solid #52664f!important;border-radius:13px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-person strong{
+ font-size:15px!important;color:#222e26!important;font-weight:750!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-contact{
+ color:#69766b!important;font-size:12px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-patient-metric{
+ color:#24352b!important;font-size:18px!important;font-weight:750!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-patient-chevron{
+ color:#9c783e!important;font-size:23px!important;
+}
+/* Profile: dark green identity card, unmistakable active tabs, same live forms. */
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card{
+ background:radial-gradient(ellipse at 95% 8%,#60776166,transparent 43%),linear-gradient(113deg,#172d23,#294237)!important;
+ color:#fff9f0!important;border:1px solid #3f5a47!important;border-radius:20px!important;
+ box-shadow:0 15px 32px #13271f1f!important;overflow:hidden!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card .patient-command-avatar{
+ background:linear-gradient(140deg,#e3c48c,#9f7739)!important;color:#2d2a21!important;
+ box-shadow:0 6px 18px #091a1233!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card .patient-command-copy span{
+ color:#e6c68d!important;font-size:10px!important;letter-spacing:.14em!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card .patient-command-copy h2{
+ color:#fff9f0!important;-webkit-text-fill-color:#fff9f0!important;
+ font:540 clamp(27px,3vw,41px)/1.08 Georgia,serif!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card .patient-command-copy p{
+ color:#e1e5db!important;-webkit-text-fill-color:#e1e5db!important;overflow-wrap:anywhere!important;
+ font-size:12px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-actions a{
+ background:#f7f0e3!important;color:#5c472b!important;
+ border:1px solid #d5b582!important;border-radius:11px!important;
+ font-size:12px!important;font-weight:760!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-linked-badge{
+ background:#e9c88d!important;color:#342d22!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body #patient-tab-nav.customer-profile-tabs{
+ background:#f1ece2!important;border:1px solid #e3d9c7!important;
+ box-shadow:0 5px 16px #362a1c0a!important;border-radius:14px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body #patient-tab-nav .patient-tab-button{
+ color:#49564c!important;font-weight:700!important;border-radius:11px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body #patient-tab-nav .patient-tab-button.is-active{
+ background:linear-gradient(115deg,#283e32,#13251f)!important;color:#faecd1!important;
+ box-shadow:0 5px 12px #25382b2b!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-mini-stat{
+ background:linear-gradient(135deg,#fffdf9,#f7f3e9)!important;
+ border:1px solid #e9e0d3!important;border-radius:14px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-mini-stat span{
+ color:#957442!important;font-weight:780!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-mini-stat strong{
+ color:#20352a!important;font:540 32px/1.05 Georgia,serif!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body :is(.patient-profile-panel,.patient-points-panel,.patient-appointments-panel,.app-timeline-panel,.patient-goae-panel){
+ background:#fffdfa!important;border:1px solid #e8e1d5!important;border-radius:18px!important;
+ box-shadow:var(--signature-shadow)!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ :is(.patient-inline-form,.point-adjust-form) button[type=submit]{
+ color:#f9edd6!important;background:linear-gradient(120deg,#213b2f,#13261f)!important;
+ border:1px solid #45604a!important;border-radius:12px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .wa-template-list a{
+ background:#faf7ef!important;border:1px solid #e7dbc7!important;border-radius:12px!important;
+}
+/* Invoice and finance: elegant numbers and actions, no altered calculation controls. */
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .billing-stat-grid article{
+ background:linear-gradient(135deg,#fffdf8,#f4eee2)!important;border-color:#e2d7c5!important;
+ box-shadow:0 9px 20px #2d311d0b!important;
+}
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .billing-stat-grid article strong{
+ color:#1e3529!important;font:540 clamp(24px,2.5vw,35px)/1.05 Georgia,serif!important;
+}
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body
+ :is(.billing-create-panel,.billing-settings-panel,.billing-services-panel,.billing-invoices-panel){
+ background:#fffdfa!important;border:1px solid #e8e0d2!important;
+}
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body
+ :is(.billing-primary,.billing-form button[type=submit]){
+ background:linear-gradient(120deg,#213c30,#15281f)!important;color:#fff6e6!important;
+ border:1px solid #45604a!important;border-radius:12px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="invoices"] body.admin-body .billing-service-card{
+ border-color:#e8decc!important;background:#faf7f1!important;border-radius:13px!important;
+}
+/* Reviews/referrals share a deliberate dense card component. */
+html[data-clinic-design="premium"]:is([data-admin-page="reviews"],[data-admin-page="referrals"]) body.admin-body
+ :is(.review-admin-card,.referral-admin-list article){
+ background:linear-gradient(110deg,#fffefa,#f8f5ed)!important;
+ border:1px solid #e8dfd1!important;border-radius:14px!important;
+ box-shadow:0 5px 16px #273a2910!important;padding:17px!important;
+}
+html[data-clinic-design="premium"]:is([data-admin-page="reviews"],[data-admin-page="referrals"]) body.admin-body
+ :is(.review-admin-card>div strong,.referral-admin-list article strong){
+ color:#263c2d!important;font-size:15px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="reviews"] body.admin-body .review-admin-card form button{
+ background:#1c382b!important;color:#fff6e4!important;border-radius:10px!important;
+}
+/* Wallet: signature header, useful search, readable point balances. */
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-admin-hero [data-wallet-scan-open]{
+ border-radius:12px!important;background:#e5ca93!important;color:#2c261d!important;
+ border:1px solid #edd8ad!important;min-height:45px!important;font-weight:740!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card{
+ background:radial-gradient(circle at 85% 10%,#44604b90,transparent 49%),linear-gradient(115deg,#152a22,#294439)!important;
+ border:1px solid #3c5946!important;border-radius:19px!important;box-shadow:0 14px 26px #182d211a!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card :is(h2,div>span){
+ color:#fff5e3!important;-webkit-text-fill-color:#fff5e3!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card p{
+ color:#d9e1d8!important;-webkit-text-fill-color:#d9e1d8!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card form button{
+ background:#d8bb85!important;color:#30271a!important;border-radius:11px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-admin-card{
+ background:#fffdfa!important;border:1px solid #e4ddcf!important;
+ border-radius:17px!important;box-shadow:var(--signature-shadow)!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-avatar{
+ background:linear-gradient(145deg,#243e30,#14271f)!important;color:#ebcd93!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-balance b{
+ color:#233d2e!important;font:530 32px/1 Georgia,serif!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-save{
+ background:linear-gradient(120deg,#213b2f,#16271f)!important;color:#fff6e7!important;
+ border-radius:11px!important;
+}
+/* More/settings and marketing screens: don't touch modal positioning. */
+html[data-clinic-design="premium"][data-admin-page="more"] body.admin-body .ferrari-setting-links a{
+ background:#fffdf9!important;border:1px solid #e5dac7!important;
+ box-shadow:0 6px 16px #2833250c!important;border-radius:13px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="more"] body.admin-body .ferrari-setting-links a:hover{
+ border-color:#c5a36a!important;background:#faf4e8!important;
+}
+html[data-clinic-design="premium"][data-admin-page="more"] body.admin-body .ferrari-section{
+ background:#fffdfa!important;border:1px solid #e6dfd4!important;border-radius:18px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="more"] body.admin-body .ferrari-primary{
+ background:linear-gradient(120deg,#294337,#142a20)!important;color:#fff7e8!important;
+ border:1px solid #42614d!important;border-radius:11px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="more"] body.admin-body .ferrari-row{
+ background:#faf8f3!important;border:1px solid #e8e0d6!important;border-radius:12px!important;
+}
+/* Calendar chrome only. Slot sizes, blocked events and positioning untouched. */
+html[data-clinic-design="premium"][data-admin-page="calendar"]:not([data-doctor-role]) body.admin-body
+ :is(.admin-hero,.sb-calendar-panel>.sb-calendar-heading){
+ color:#25392b!important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"]:not([data-doctor-role]) body.admin-body
+ .sb-calendar-panel{
+ border-color:#e5ddce!important;background:#fffdfa!important;border-radius:19px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"]:not([data-doctor-role]) body.admin-body
+ .sb-calendar-heading h2{
+ color:#1e382a!important;font:560 clamp(25px,2.4vw,34px)/1.12 Georgia,serif!important;
+}
+html[data-clinic-design="premium"]:not([data-admin-page="dashboard"]) body.admin-body
+ :is(a,button,input,select,textarea,summary):focus-visible{
+ outline:2px solid #b18b50!important;outline-offset:3px!important;
+}
+@media(max-width:760px){
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-customer-panel .premium-list-heading{
+  min-height:0!important;margin:0 0 11px!important;padding:24px 19px!important;gap:13px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-list-heading h2{
+  font-size:clamp(31px,7vw,40px)!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-list-heading .premium-list-count{
+  padding:8px 12px!important;font-size:11px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-customer-panel .app-search{
+  margin:0 12px 12px!important;max-width:calc(100% - 24px)!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-table-heading{
+  display:none!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-patient-list{
+  margin:0 12px!important;gap:8px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-patient-list>a{
+  min-height:0!important;padding:12px 13px!important;gap:7px 10px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-person strong{
+  font-size:14px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-contact{
+  font-size:12px!important;line-height:1.4!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card{
+  padding:15px!important;border-radius:17px!important;min-height:0!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card .patient-command-copy h2{
+  font-size:clamp(27px,6.8vw,36px)!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card .patient-command-copy p{
+  font-size:11px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-overview-grid{
+  gap:9px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-mini-stat{
+  min-height:108px!important;padding:14px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body :is(.patient-profile-panel,.patient-points-panel){
+  padding:18px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-admin-hero{
+  padding:26px 21px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-admin-hero h1{font-size:39px!important}
+ html[data-clinic-design="premium"][data-admin-page="more"] body.admin-body .ferrari-page-hero{
+  padding:25px 21px!important;
+ }
+}
+@media(prefers-reduced-motion:reduce){
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-patient-list>a{transition:none!important}
+}
