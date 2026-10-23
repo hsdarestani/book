@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html data-clinic-navigation="unified" data-clinic-design="calm" lang="de" data-admin-page="dashboard">
+<html data-clinic-navigation="unified" data-clinic-design="premium" lang="de" data-admin-page="dashboard">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}">
   <link rel="stylesheet" href="{% static 'booking/app-management.css' %}">
   <link rel="stylesheet" href="{% static 'booking/admin-dashboard-v11.css' %}"><link rel="stylesheet" href="{% static 'booking/admin-app-inset-v5.css' %}?v=20260912-v20"><link rel="stylesheet" href="{% static 'booking/admin-scroll-recovery-v9.css' %}?v=20260911-scroll-v11">
-  <link rel="stylesheet" href="{% static 'booking/admin-wait-ux-v16.css' %}?v=20260914"><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet><link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet></head>
+  <link rel="stylesheet" href="{% static 'booking/admin-wait-ux-v16.css' %}?v=20260914"><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261020-web2"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet><link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="{% static 'booking/clinic-premium-v1.css' %}?v=20261023-v1"></head>
 <body class="admin-body sb-admin-body app-management-body aplus-command-body">
 <header class="sb-mobile-bar app-mobile-bar">
   <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
@@ -33,14 +33,20 @@
     <a href="/verwaltung/logout/"><span>↪</span>Abmelden</a>
   </nav>
 </aside>
+{% include "booking/_premium_sidebar.html" %}
 
 <main class="admin-shell sb-admin-shell app-management-shell command-shell">
   {% include "booking/_clinic_web_header_v3.html" %}
 
-  <section class="command-hero">
-    <div class="command-hero-orbit"></div>
-    <div class="command-hero-copy"><span>A+ ESTHETIC · PRAXISMANAGEMENT</span><h1>Praxisübersicht</h1><p>Patientenakten, neue Formulare und kommende Termine. Klar organisiert an einem Ort.</p></div>
-    <div class="command-stats"><article><b>{{ today_count }}</b><span>HEUTE</span></article><article class="stat-explain" title="Alle zukünftigen, nicht stornierten Termine ab jetzt"><b>{{ upcoming_count }}</b><span>BEVORSTEHEND</span><small>ab jetzt · ohne Stornos</small></article><article title="Profile mit Kontaktdaten, keine bestätigte Anzahl unterschiedlicher Personen."><b>{{ patient_count }}</b><span>KONTAKTPROFILE</span><small>{{ contact_group_count }} Kontaktgruppen · {{ anonymous_booking_count }} anonyme Buchungen separat</small></article></div>
+  <section class="premium-welcome">
+    <span class="premium-overline">A+ ESTHETIC · PRAXISMANAGEMENT</span>
+    <h1>Praxisübersicht</h1>
+    <p>Alles Wichtige auf einen Blick. Termine, Patientenakten und die nächsten Aufgaben zentral verwalten.</p>
+  </section>
+  <section class="command-stats premium-stats" aria-label="Aktuelle Praxiszahlen">
+    <article><span>TERMINE HEUTE</span><b>{{ today_count }}</b><small>Heute geplant</small></article>
+    <article title="Alle zukünftigen, nicht stornierten Termine ab jetzt"><span>BEVORSTEHEND</span><b>{{ upcoming_count }}</b><small>Ab jetzt · ohne Stornos</small></article>
+    <article title="Kontaktprofile sind nicht gleichbedeutend mit eindeutig identifizierten Personen"><span>KONTAKTPROFILE</span><b>{{ patient_count }}</b><small>{{ contact_group_count }} Kontaktgruppen · {{ anonymous_booking_count }} anonyme Buchungen separat</small></article>
   </section>
 
   {% if view_only %}<div class="command-notice">Dieser Zugang ist <strong>nur zum Ansehen</strong> freigeschaltet. Änderungen und Uploads sind gesperrt.</div>{% endif %}
