@@ -89,4 +89,34 @@ class PremiumManagementDesignTests(SimpleTestCase):
         for filename in paths:
             with self.subTest(template=filename):
                 src = get_template(f"booking/{filename}").template.source
-                self.assertIn("clinic-premium-all-v2.css?v=20261023-mobilefix1", src)
+                self.assertIn("clinic-premium-all-v2.css?v=20261023-workspace-v3", src)
+
+    def test_desktop_workspace_has_single_brand_and_legible_hero(self):
+        css = (ROOT / "static" / "booking" / "clinic-premium-all-v2.css").read_text(encoding="utf-8")
+        self.assertIn("A+ ESTHETIC WORKSPACE / EXPERIENCE V3", css)
+        self.assertIn("premium-sidebar-nav>a", css)
+        self.assertIn("background:linear-gradient(180deg,#242b29", css)
+        self.assertIn("premium-utility-context", css)
+        self.assertIn("clinic-header-v3 .clinic-header-brand", css)
+        self.assertIn("display:none!important", css)
+        self.assertIn(".premium-welcome h1", css)
+        self.assertIn("color:#fffaf0!important", css)
+        self.assertIn(".sb-calendar-block.is-blocked", css)
+
+    def test_invoice_workflow_is_usable_without_wall_of_forms(self):
+        source = get_template("booking/app_management.html").template.source
+        self.assertIn("{% if section != 'invoices' %}", source)
+        self.assertIn("<h2>Rechnungen verwalten</h2>", source)
+        self.assertIn('class="premium-settings-disclosure"', source)
+        self.assertIn('data-premium-catalog', source)
+        self.assertIn('data-clinic-service-list', source)
+        self.assertIn('data-billing-create-form', source)
+        self.assertIn('name="action" value="billing_settings"', source)
+        self.assertIn('name="action" value="billing_service"', source)
+        self.assertIn("catalog.open=true", source)
+        self.assertIn('billing-customer-modal', source)
+
+    def test_one_context_header_for_premium_desktop(self):
+        source = get_template("booking/_clinic_web_header_v3.html").template.source
+        self.assertIn('class="premium-utility-context"', source)
+        self.assertIn("section_title|default", source)
