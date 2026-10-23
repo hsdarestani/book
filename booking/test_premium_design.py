@@ -180,7 +180,7 @@ class PremiumManagementDesignTests(SimpleTestCase):
         template = get_template("booking/admin_dashboard_lambo.html").template.source
         self.assertLess(template.index('clinic-premium-all-v2.css'), template.index('clinic-premium-dashboard-v3.css'))
         middleware = (ROOT / "booking" / "app_admin_middleware.py").read_text(encoding="utf-8")
-        self.assertIn('(?:v1|all-v2|dashboard-v3)', middleware)
+        self.assertIn('(?:v1|all-v2|dashboard-v3|signature-surfaces-v1)', middleware)
 
     def test_signature_secondary_surfaces_share_theme(self):
         stylesheet = "/static/booking/clinic-signature-surfaces-v1.css?v=20261024-signature-all1"
@@ -212,7 +212,7 @@ class PremiumManagementDesignTests(SimpleTestCase):
         self.assertNotIn("sb-working-segment", css)
         self.assertNotIn("data-doctor-role=\"1\"", css)
         self.assertNotIn("overflow-x:hidden", css)
-        self.assertNotIn("pointer-events:none!important", css)
+        self.assertIn("pointer-events:none", css)  # Decorative hero rings do not consume touch events
 
     def test_signature_patient_lookup_and_controls_preserved(self):
         source = get_template("booking/app_management.html").template.source
