@@ -1194,9 +1194,9 @@ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .
      form controls, calendar time grid or any fixed-position element. */
   html[data-clinic-design="premium"]:not([data-admin-page="calendar"]):not([data-doctor-role])
   body.admin-body main.app-management-shell > :is(
-    .premium-welcome,.premium-stats,.app-page-heading,.premium-customer-panel,
+    .admin-panel,.app-core-panel,.premium-welcome,.premium-stats,.app-page-heading,.premium-customer-panel,
     .app-patient-toolbar,.patient-command-card,.customer-profile-tabs,
-    .patient-overview-grid,.patient-profile-single,.patient-appointments-panel,
+    .patient-overview-grid,.patient-profile-single,.patient-appointments-panel,.app-patient-identity,.app-priority-grid,
     .app-patient-layout,.command-search-panel,.command-grid-two,.command-results,
     .billing-command,.billing-stat-grid,.billing-layout,.billing-services-panel,
     .billing-invoices-panel,.ferrari-page-hero,.ferrari-setting-links,
