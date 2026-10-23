@@ -568,19 +568,20 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
         <input type="hidden" name="customer_id" value="{{ selected_customer.id }}">
         <input type="hidden" name="return_to" value="/verwaltung/app/patients/?customer={{ selected_customer.id }}&amp;tab=records">
         <div class="patient-upload-section-title"><strong>Dateien &amp; Fotos</strong><small data-upload-count aria-live="polite">Bis zu 12 Dateien · Fotos, PDF und Dokumente</small></div>
-        <label class="patient-upload-drop" data-upload-drop>
-          <span class="patient-upload-plus" aria-hidden="true">+</span>
-          <span class="patient-upload-drop-title">Dateien auswählen</span>
-          <span class="patient-upload-drop-hint">Mehrere Bilder oder Dokumente gleichzeitig auswählen</span>
-          <input type="file" name="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv" data-patient-file aria-label="Fotos oder Dateien auswählen">
-        </label>
+        <div class="patient-record-actions">
+          <label class="patient-upload-drop" data-upload-drop>
+            <span class="patient-upload-plus" aria-hidden="true">▣</span>
+            <span class="patient-upload-drop-title">Dateien auswählen</span>
+            <input type="file" name="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv" data-patient-file aria-label="Fotos oder Dateien auswählen">
+          </label>
+          <div class="native-admin-photo patient-upload-camera">
+            <button type="button" data-admin-native-photo><span aria-hidden="true">◎</span> Foto aufnehmen</button>
+          </div>
+        </div>
+        <span class="patient-record-camera-status" data-admin-photo-status role="status" aria-live="polite"></span>
         <ul class="patient-upload-list" data-upload-list aria-label="Ausgewählte Dateien" hidden></ul>
         <div class="patient-upload-error" data-upload-error role="alert" hidden></div>
-        <div class="native-admin-photo patient-upload-camera">
-          <button type="button" data-admin-native-photo>Foto aufnehmen</button>
-          <span data-admin-photo-status>Zusätzliche Fotos können auch mit der Kamera aufgenommen werden.</span>
-        </div>
-        <div class="patient-studio-fields">
+                <div class="patient-studio-fields">
           <div class="app-form-grid">
             <label class="patient-studio-field">Typ
               <select name="kind"><option value="document">Dokument</option><option value="photo">Foto</option><option value="form">Formular</option><option value="note">Notiz</option><option value="other">Sonstiges</option></select>
@@ -591,7 +592,7 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
           </div>
         </div>
         <details class="patient-record-options">
-          <summary>Weitere Angaben <small>Terminbezug oder Notiz (optional)</small></summary>
+          <summary class="patient-record-options-trigger"><span class="patient-record-options-copy"><strong>Weitere Angaben</strong><small>Terminbezug oder Notiz</small></span><span class="patient-record-options-chevron" aria-hidden="true">⌄</span></summary>
           <div class="patient-record-options-body">
           <label class="patient-studio-field">Bezug zu Termin (optional)
             <select name="appointment_id"><option value="">Kein Termin ausgewählt</option>{% for appt in patient_appointments %}<option value="{{ appt.id }}">{{ appt.starts_at|date:"d.m.Y H:i" }} · {{ appt.service.name }} ({{ appt.service.duration_minutes }} Min.)</option>{% endfor %}</select>
@@ -611,6 +612,17 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
       </form>
         </div>
       </details>
+      <script>
+      (() => {
+        const composer = document.querySelector('[data-record-composer]');
+        const form = composer?.querySelector('form.patient-upload-studio');
+        const kind = form?.querySelector('select[name="kind"]');
+        const extras = form?.querySelector('details.patient-record-options');
+        if (kind && extras) {
+          kind.addEventListener('change', () => { if (kind.value === 'note') extras.open = true; });
+        }
+      })();
+      </script>
     </section>
     <section class="admin-panel app-core-panel app-timeline-panel {% if not patient_records %}is-empty{% endif %}"><div class="panel-head"><div><h2>Verlauf</h2><p>{{ patient_records|length }} Akteneinträge · chronologisch</p></div></div><div class="app-record-timeline">{% for record in patient_records %}<article class="app-record-item"><div class="app-record-dot"></div><div class="app-record-card"><div class="app-record-head"><div><span class="app-record-source">{{ record.source_label }} · {{ record.kind_label }}</span><strong>{{ record.title }}</strong></div><time>{{ record.created_at|date:"d.m.Y H:i" }}</time></div>{% if record.appointment %}<div class="app-record-appointment">Termin: {{ record.appointment.starts_at|date:"d.m.Y H:i" }} · {{ record.appointment.service.name }}</div>{% endif %}{% if record.note %}<p>{{ record.note }}</p>{% endif %}{% if record.has_file %}<a class="record-card-preview" href="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/ansicht/" aria-label="Vorschau öffnen: {{ record.title }}"><img src="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/vorschau/" alt="Vorschau: {{ record.title }}" loading="lazy" decoding="async"><span><b>{{ record.preview_label }}</b>{{ record.original_name }} · {{ record.file_size|filesizeformat }}</span></a>{% endif %}<div class="app-record-footer"><span class="app-status {% if record.shared %}is-verified{% endif %}">{% if record.shared %}Für Patient sichtbar{% else %}Praxisintern{% endif %}</span>{% if record.has_file %}<span class="app-record-usage" title="Nutzung in der Kunden App">App · 👁 {{ record.open_count }} · ↓ {{ record.download_count }}</span>{% endif %}{% if record.source_label == "Praxis" %}<form method="post" action="/verwaltung/patienten/{{ record.customer_id }}/shared/{{ record.id }}/toggle/" class="app-record-share-form">{% csrf_token %}<input type="hidden" name="return_to" value="/verwaltung/app/patients/?customer={{ selected_customer.id }}"><button type="submit" class="share-action">{% if record.shared %}Nur intern setzen{% else %}Für Patient freigeben{% endif %}</button></form>{% endif %}{% if record.has_file %}<a href="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/ansicht/">Datei öffnen</a>{% endif %}</div></div></article>{% empty %}<div class="empty">Die Patientenakte enthält noch keine Einträge.</div>{% endfor %}</div></section>
     {% include 'booking/_patient_goae_draft.html' %}
