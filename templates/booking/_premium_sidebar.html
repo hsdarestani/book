@@ -5,16 +5,18 @@
     <span><strong>A+ Esthetic</strong><small>PRAXISMANAGEMENT</small></span>
   </a>
   <nav class="premium-sidebar-nav" aria-label="Verwaltungsbereiche">
-    <a href="/verwaltung/dashboard/" {% if section != 'patients' %}aria-current="page"{% endif %}><span aria-hidden="true">⌂</span>Dashboard</a>
-    <a href="/verwaltung/kalender/"><span aria-hidden="true">▦</span>Kalender</a>
-    <a href="/verwaltung/app/patients/" {% if section == 'patients' %}aria-current="page"{% endif %}><span aria-hidden="true">♙</span>Kunden</a>
+    <a href="/verwaltung/dashboard/" {% if active == 'dashboard' %}aria-current="page"{% endif %}><span aria-hidden="true">⌂</span>Dashboard</a>
+    <a href="/verwaltung/kalender/" {% if active == 'calendar' %}aria-current="page"{% endif %}><span aria-hidden="true">▦</span>Kalender</a>
+    <a href="/verwaltung/app/patients/" {% if active == 'patients' %}aria-current="page"{% endif %}><span aria-hidden="true">♙</span>Kunden & Akten</a>
     {% if not view_only %}
-    <a href="/verwaltung/app/wallet/"><span aria-hidden="true">◇</span>A+ Punkte</a>
-    <a href="/verwaltung/app/reviews/"><span aria-hidden="true">☆</span>Bewertungen</a>
-    <a href="/verwaltung/app/invoices/"><span aria-hidden="true">▤</span>Rechnungen</a>
+    <a href="/verwaltung/app/wallet/" {% if active == 'wallet' %}aria-current="page"{% endif %}><span aria-hidden="true">◇</span>A+ Punkte</a>
+    <a href="/verwaltung/app/reviews/" {% if active == 'reviews' %}aria-current="page"{% endif %}><span aria-hidden="true">☆</span>Bewertungen</a>
+    <a href="/verwaltung/app/invoices/" {% if active == 'invoices' %}aria-current="page"{% endif %}><span aria-hidden="true">▤</span>Rechnungen</a>
     <div class="premium-sidebar-rule" aria-hidden="true"></div>
-    <a href="/verwaltung/mehr/"><span aria-hidden="true">☷</span>Weitere Bereiche</a>
-    <a href="/verwaltung/mehr/"><span aria-hidden="true">⚙</span>Einstellungen</a>
+    <a href="/verwaltung/app/referrals/" {% if active == 'referrals' %}aria-current="page"{% endif %}><span aria-hidden="true">♧</span>Empfehlungen</a>
+    <a href="/verwaltung/app/hero/" {% if active == 'hero' %}aria-current="page"{% endif %}><span aria-hidden="true">▧</span>Startseitenbilder</a>
+    <a href="/verwaltung/mehr/" {% if active == 'more' %}aria-current="page"{% endif %}><span aria-hidden="true">☷</span>Weitere Bereiche</a>
+    <a href="/verwaltung/einstellungen/" {% if active == 'settings' %}aria-current="page"{% endif %}><span aria-hidden="true">⚙</span>Einstellungen</a>
     {% endif %}
   </nav>
   <div class="premium-sidebar-footer"><span>A+ ESTHETIC</span><p>Mit Sorgfalt für jedes Detail.</p></div>

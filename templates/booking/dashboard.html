@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html data-clinic-navigation="unified" {% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}data-clinic-design="calm"{% endif %} lang="de" {% if doctor_mode %}data-doctor-role="1"{% else %}data-admin-page="calendar"{% endif %}>
+<html data-clinic-navigation="unified" data-clinic-design="premium" lang="de" data-admin-page="calendar" {% if doctor_mode %}data-doctor-role="1"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="/static/booking/clinic-calendar-topbar-v1.css?v=20261020-header4">
   <script defer src="/static/booking/clinic-header-v3.js?v=20261021-mobile2"></script>
   <script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-header4"></script>{% endif %}
-{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet></head>
+{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="{% static 'booking/clinic-premium-v1.css' %}?v=20261023-all2"><link rel="stylesheet" href="{% static 'booking/clinic-premium-all-v2.css' %}?v=20261023-all2"></head>
 <body class="admin-body sb-admin-body" {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
 
 <header class="sb-mobile-bar">
@@ -56,6 +56,7 @@
   {% if not doctor_mode %}<a href="#behandlungen">Dienstleistungsansicht</a>{% endif %}
 </div>
 
+{% if not doctor_mode %}{% include "booking/_premium_sidebar.html" with active='calendar' %}{% endif %}
 <main class="admin-shell sb-admin-shell">
   {% if doctor_mode %}
   <header class="admin-topbar sb-desktop-topbar">
