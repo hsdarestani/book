@@ -15,6 +15,7 @@ class PremiumManagementDesignTests(SimpleTestCase):
             "admin_more.html",
             "dashboard.html",
             "doctor_appointments.html",
+            "app_wallet_management.html",
         )
         for filename in paths:
             with self.subTest(template=filename):
@@ -40,6 +41,17 @@ class PremiumManagementDesignTests(SimpleTestCase):
             with self.subTest(route=route):
                 self.assertIn(route, source)
         self.assertIn("{% if not view_only %}", source)
+
+    def test_new_skin_uses_manifest_independent_static_links(self):
+        templates = ("admin_dashboard_lambo.html", "app_management.html",
+                     "admin_more.html", "dashboard.html",
+                     "doctor_appointments.html", "app_wallet_management.html")
+        for filename in templates:
+            with self.subTest(filename=filename):
+                source = get_template(f"booking/{filename}").template.source
+                self.assertNotIn("{% static 'booking/clinic-premium", source)
+                self.assertEqual(source.count("clinic-premium-all-v2.css"), 1)
+
 
     def test_no_new_admin_navigation_for_doctor(self):
         doctor = get_template("booking/doctor_appointments.html").template.source
