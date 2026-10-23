@@ -377,7 +377,7 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
  .app-patient-layout[data-customer-panel=records] .patient-goae-panel{width:calc(100% - 24px)!important;margin:0 12px!important}
  .app-patient-layout[data-customer-panel=records] .patient-upload-studio .patient-studio-fields .app-form-grid{display:grid!important;grid-template-columns:1fr!important}
 }
-</style>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet><link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/record-view.css?v=20261021-1"><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261023-workspace-v3"></head>
+</style>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet><link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/record-view.css?v=20261021-1"><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261023-records-v4"></head>
 <body class="admin-body sb-admin-body app-management-body">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">{{ section_title }}</strong><span class="sb-icon-button app-management-dot" aria-hidden="true">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div><aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav app-focused-nav"><div class="app-nav-label">A+ MANAGEMENT</div><a href="/verwaltung/dashboard/"><span>⌂</span>Dashboard</a><a href="/verwaltung/kalender/"><span>▣</span>Kalender</a><a href="/verwaltung/app/patients/" class="{% if section == 'patients' %}is-active{% endif %}"><span>▤</span>Patientenakten</a><a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}"><span>◆</span>A+ Punkte</a><a href="/verwaltung/app/reviews/" class="{% if section == 'reviews' %}is-active{% endif %}"><span>★</span>Google Bewertungen</a><a href="/verwaltung/app/referrals/" class="{% if section == 'referrals' %}is-active{% endif %}"><span>↗</span>Empfehlungen</a><a href="/verwaltung/app/hero/" class="{% if section == 'hero' %}is-active{% endif %}"><span>▧</span>Startseitenbilder</a><a href="/verwaltung/app/invoices/" class="{% if section == 'invoices' %}is-active{% endif %}"><span>▧</span>Rechnungen</a><a href="/verwaltung/mehr/"><span>⋯</span>Mehr</a><div class="app-nav-spacer"></div><a href="/verwaltung/logout/"><span>↪</span>Abmelden</a></nav></aside>
@@ -450,25 +450,18 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
   {% if customer_tab == 'records' %}
   <div class="app-patient-layout" data-customer-panel="records">
     <section class="admin-panel app-core-panel app-upload-panel" id="akte">
-      <div class="panel-head"><div><h2>Neuer Akteneintrag</h2><p>Fotos, Dokumente und Notizen sicher in der Patientenakte ablegen.</p></div></div>
+      <details class="patient-entry-composer" data-record-composer {% if error %}open{% endif %}>
+        <summary class="patient-entry-trigger">
+          <span class="patient-entry-trigger-icon" aria-hidden="true">+</span>
+          <span><strong>Neuen Akteneintrag hinzufügen</strong><small>Foto, Dokument oder Notiz erfassen</small></span>
+          <span class="patient-entry-trigger-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="patient-entry-form-area">
       <form method="post" enctype="multipart/form-data" class="app-patient-upload patient-upload-studio" data-max-file-mb="{{ max_upload_mb }}">
         {% csrf_token %}
         <input type="hidden" name="action" value="patient_upload">
         <input type="hidden" name="customer_id" value="{{ selected_customer.id }}">
         <input type="hidden" name="return_to" value="/verwaltung/app/patients/?customer={{ selected_customer.id }}&amp;tab=records">
-        <div class="patient-studio-fields">
-          <div class="app-form-grid">
-            <label class="patient-studio-field">Typ
-              <select name="kind"><option value="document">Dokument</option><option value="photo">Foto</option><option value="form">Formular</option><option value="note">Notiz</option><option value="other">Sonstiges</option></select>
-            </label>
-            <label class="patient-studio-field">Titel
-              <input type="text" name="title" maxlength="180" placeholder="z. B. Laborbericht">
-            </label>
-          </div>
-          <label class="patient-studio-field">Bezug zu Termin (optional)
-            <select name="appointment_id"><option value="">Kein Termin ausgewählt</option>{% for appt in patient_appointments %}<option value="{{ appt.id }}">{{ appt.starts_at|date:"d.m.Y H:i" }} · {{ appt.service.name }} ({{ appt.service.duration_minutes }} Min.)</option>{% endfor %}</select>
-          </label>
-        </div>
         <div class="patient-upload-section-title"><strong>Dateien &amp; Fotos</strong><small data-upload-count aria-live="polite">Bis zu 12 Dateien · Fotos, PDF und Dokumente</small></div>
         <label class="patient-upload-drop" data-upload-drop>
           <span class="patient-upload-plus" aria-hidden="true">+</span>
@@ -482,9 +475,28 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
           <button type="button" data-admin-native-photo>Foto aufnehmen</button>
           <span data-admin-photo-status>Zusätzliche Fotos können auch mit der Kamera aufgenommen werden.</span>
         </div>
+        <div class="patient-studio-fields">
+          <div class="app-form-grid">
+            <label class="patient-studio-field">Typ
+              <select name="kind"><option value="document">Dokument</option><option value="photo">Foto</option><option value="form">Formular</option><option value="note">Notiz</option><option value="other">Sonstiges</option></select>
+            </label>
+            <label class="patient-studio-field">Titel
+              <input type="text" name="title" maxlength="180" placeholder="z. B. Laborbericht">
+            </label>
+          </div>
+        </div>
+        <details class="patient-record-options">
+          <summary>Weitere Angaben <small>Terminbezug oder Notiz (optional)</small></summary>
+          <div class="patient-record-options-body">
+          <label class="patient-studio-field">Bezug zu Termin (optional)
+            <select name="appointment_id"><option value="">Kein Termin ausgewählt</option>{% for appt in patient_appointments %}<option value="{{ appt.id }}">{{ appt.starts_at|date:"d.m.Y H:i" }} · {{ appt.service.name }} ({{ appt.service.duration_minutes }} Min.)</option>{% endfor %}</select>
+          </label>
         <label class="patient-studio-field">Notiz (optional)
           <textarea name="note" rows="4" maxlength="6000" placeholder="Zusätzliche Informationen …"></textarea>
         </label>
+          </div>
+        </details>
+
         <label class="app-share-check patient-studio-share" data-patient-studio-share>
           <input type="checkbox" name="shared_with_customer">
           <i class="patient-switch-track" aria-hidden="true"></i>
@@ -492,6 +504,8 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
         </label>
         <button type="submit" class="app-primary-btn patient-studio-save" data-upload-submit>In Patientenakte speichern</button>
       </form>
+        </div>
+      </details>
     </section>
     <section class="admin-panel app-core-panel app-timeline-panel"><div class="panel-head"><div><h2>Verlauf</h2><p>{{ patient_records|length }} Akteneinträge · chronologisch</p></div></div><div class="app-record-timeline">{% for record in patient_records %}<article class="app-record-item"><div class="app-record-dot"></div><div class="app-record-card"><div class="app-record-head"><div><span class="app-record-source">{{ record.source_label }} · {{ record.kind_label }}</span><strong>{{ record.title }}</strong></div><time>{{ record.created_at|date:"d.m.Y H:i" }}</time></div>{% if record.appointment %}<div class="app-record-appointment">Termin: {{ record.appointment.starts_at|date:"d.m.Y H:i" }} · {{ record.appointment.service.name }}</div>{% endif %}{% if record.note %}<p>{{ record.note }}</p>{% endif %}{% if record.has_file %}<a class="record-card-preview" href="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/ansicht/" aria-label="Vorschau öffnen: {{ record.title }}"><img src="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/vorschau/" alt="Vorschau: {{ record.title }}" loading="lazy" decoding="async"><span><b>{{ record.preview_label }}</b>{{ record.original_name }} · {{ record.file_size|filesizeformat }}</span></a>{% endif %}<div class="app-record-footer"><span class="app-status {% if record.shared %}is-verified{% endif %}">{% if record.shared %}Für Patient sichtbar{% else %}Praxisintern{% endif %}</span>{% if record.has_file %}<span class="app-record-usage" title="Nutzung in der Kunden App">App · 👁 {{ record.open_count }} · ↓ {{ record.download_count }}</span>{% endif %}{% if record.source_label == "Praxis" %}<form method="post" action="/verwaltung/patienten/{{ record.customer_id }}/shared/{{ record.id }}/toggle/" class="app-record-share-form">{% csrf_token %}<input type="hidden" name="return_to" value="/verwaltung/app/patients/?customer={{ selected_customer.id }}"><button type="submit" class="share-action">{% if record.shared %}Nur intern setzen{% else %}Für Patient freigeben{% endif %}</button></form>{% endif %}{% if record.has_file %}<a href="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/ansicht/">Datei öffnen</a>{% endif %}</div></div></article>{% empty %}<div class="empty">Die Patientenakte enthält noch keine Einträge.</div>{% endfor %}</div></section>
     {% include 'booking/_patient_goae_draft.html' %}

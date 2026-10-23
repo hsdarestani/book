@@ -89,7 +89,10 @@ class PremiumManagementDesignTests(SimpleTestCase):
         for filename in paths:
             with self.subTest(template=filename):
                 src = get_template(f"booking/{filename}").template.source
-                self.assertIn("clinic-premium-all-v2.css?v=20261023-workspace-v3", src)
+                expected = ("clinic-premium-all-v2.css?v=20261023-records-v4"
+                            if filename == "app_management.html"
+                            else "clinic-premium-all-v2.css?v=20261023-workspace-v3")
+                self.assertIn(expected, src)
 
     def test_desktop_workspace_has_single_brand_and_legible_hero(self):
         css = (ROOT / "static" / "booking" / "clinic-premium-all-v2.css").read_text(encoding="utf-8")
