@@ -449,12 +449,117 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
   {% endif %}
   {% if customer_tab == 'records' %}
   <div class="app-patient-layout" data-customer-panel="records">
+    {# Component-critical styles render with this markup, independent of shared CSS cache/order. #}
+    <style id="patient-record-composer-critical-v5">
+      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"] > .app-upload-panel {
+        box-sizing:border-box!important; padding:0!important; margin:0!important;
+        min-height:0!important; overflow:hidden!important; border:1px solid #e5ded3!important;
+        border-radius:17px!important; background:#fff!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .app-upload-panel .patient-entry-composer {
+        display:block!important; width:100%!important; margin:0!important; padding:0!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .app-upload-panel .patient-entry-composer > summary.patient-entry-trigger {
+        box-sizing:border-box!important;display:block!important;list-style:none!important;
+        list-style-type:none!important;cursor:pointer!important;width:100%!important;
+        min-height:72px!important; margin:0!important;padding:13px 16px!important;
+        border:0!important;border-radius:0!important;
+        background:linear-gradient(105deg,#fff,#faf6ee)!important;color:#28302b!important;
+        white-space:normal!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger::marker,
+      html[data-admin-page="patients"] body.admin-body .patient-record-options > summary::marker {
+        content:""!important;font-size:0!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger::-webkit-details-marker,
+      html[data-admin-page="patients"] body.admin-body .patient-record-options > summary::-webkit-details-marker {
+        display:none!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-layout {
+        display:flex!important;align-items:center!important;gap:12px!important;
+        min-width:0!important;min-height:45px!important;width:100%!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-layout > .patient-entry-trigger-icon {
+        box-sizing:border-box!important;width:42px!important;height:42px!important;
+        min-width:42px!important;flex:0 0 42px!important;display:grid!important;
+        place-items:center!important;border-radius:12px!important;
+        background:#25362f!important;color:#fff5e7!important;font:500 26px/1 system-ui,sans-serif!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-copy {
+        box-sizing:border-box!important;display:flex!important;flex:1 1 0!important;
+        flex-direction:column!important;align-items:flex-start!important;
+        gap:4px!important;min-width:0!important;max-width:100%!important;
+        line-height:1.25!important;white-space:normal!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-copy > strong {
+        display:block!important;font:750 15px/1.25 system-ui,sans-serif!important;
+        color:#222923!important;letter-spacing:-.01em!important;margin:0!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-copy > small {
+        display:block!important;font:400 12px/1.35 system-ui,sans-serif!important;
+        color:#736e65!important;margin:0!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-layout > .patient-entry-trigger-chevron {
+        box-sizing:border-box!important;display:grid!important;place-items:center!important;
+        flex:0 0 32px!important;width:32px!important;height:32px!important;
+        border-radius:10px!important;background:#f2e9db!important;
+        color:#8e6938!important;font-size:18px!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .patient-entry-composer[open] .patient-entry-trigger-chevron {
+        transform:rotate(180deg)!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .patient-entry-composer .patient-entry-form-area {
+        box-sizing:border-box!important;padding:15px!important;border-top:1px solid #eae2d5!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty {
+        padding:16px 18px!important;min-height:0!important;
+        border-radius:17px!important;margin:0!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty > .panel-head {
+        display:flex!important;align-items:center!important;justify-content:space-between!important;
+        margin:0 0 9px!important;padding:0!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty .panel-head h2 {
+        font-size:17px!important;line-height:1.2!important;margin:0!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty .panel-head p {
+        font-size:12px!important;margin:3px 0 0!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty .app-record-timeline .empty {
+        box-sizing:border-box!important;padding:12px!important;margin:0!important;
+        text-align:center!important;min-height:0!important;font-size:12px!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"] .patient-goae-panel {
+        box-sizing:border-box!important;margin:0!important;min-height:0!important;
+        border-radius:17px!important;
+      }
+      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"] .patient-goae-details > summary {
+        min-height:64px!important;padding:11px 16px!important;
+      }
+      @media(max-width:760px) {
+        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"]{
+          display:flex!important;flex-direction:column!important;gap:12px!important;
+        }
+        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"] > .app-core-panel,
+        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"] > .patient-goae-panel{
+          width:100%!important;max-width:100%!important;margin:0!important;
+        }
+        html[data-admin-page="patients"] body.admin-body .app-upload-panel .patient-entry-composer > summary.patient-entry-trigger{
+          padding:11px 13px!important;min-height:67px!important;
+        }
+      }
+    </style>
     <section class="admin-panel app-core-panel app-upload-panel" id="akte">
       <details class="patient-entry-composer" data-record-composer {% if error %}open{% endif %}>
-        <summary class="patient-entry-trigger">
-          <span class="patient-entry-trigger-icon" aria-hidden="true">+</span>
-          <span><strong>Neuer Akteneintrag</strong><small>Foto, Dokument oder Notiz erfassen</small></span>
-          <span class="patient-entry-trigger-chevron" aria-hidden="true">⌄</span>
+        <summary class="patient-entry-trigger" style="display:block!important;list-style:none!important;list-style-type:none!important;padding:12px 14px!important;cursor:pointer!important;white-space:normal!important">
+          <span class="patient-entry-trigger-layout" style="display:flex!important;align-items:center!important;gap:12px!important;width:100%!important;min-width:0!important">
+            <span class="patient-entry-trigger-icon" aria-hidden="true" style="display:grid!important;place-items:center!important;flex:0 0 42px!important;width:42px!important;height:42px!important;background:#25362f!important;color:#fff5e7!important;border-radius:12px!important;font-size:26px!important">+</span>
+            <span class="patient-entry-trigger-copy" style="display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:4px!important;min-width:0!important;flex:1!important">
+              <strong style="display:block!important;font-size:15px!important;line-height:1.25!important;color:#222923!important">Neuer Akteneintrag</strong>
+              <small style="display:block!important;font-size:12px!important;line-height:1.35!important;color:#736e65!important">Foto, Dokument oder Notiz erfassen</small>
+            </span>
+            <span class="patient-entry-trigger-chevron" aria-hidden="true" style="display:grid!important;place-items:center!important;flex:0 0 32px!important;width:32px!important;height:32px!important;background:#f2e9db!important;border-radius:10px!important;color:#8e6938!important">⌄</span>
+          </span>
         </summary>
         <div class="patient-entry-form-area">
       <form method="post" enctype="multipart/form-data" class="app-patient-upload patient-upload-studio" data-max-file-mb="{{ max_upload_mb }}">
@@ -507,7 +612,7 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
         </div>
       </details>
     </section>
-    <section class="admin-panel app-core-panel app-timeline-panel"><div class="panel-head"><div><h2>Verlauf</h2><p>{{ patient_records|length }} Akteneinträge · chronologisch</p></div></div><div class="app-record-timeline">{% for record in patient_records %}<article class="app-record-item"><div class="app-record-dot"></div><div class="app-record-card"><div class="app-record-head"><div><span class="app-record-source">{{ record.source_label }} · {{ record.kind_label }}</span><strong>{{ record.title }}</strong></div><time>{{ record.created_at|date:"d.m.Y H:i" }}</time></div>{% if record.appointment %}<div class="app-record-appointment">Termin: {{ record.appointment.starts_at|date:"d.m.Y H:i" }} · {{ record.appointment.service.name }}</div>{% endif %}{% if record.note %}<p>{{ record.note }}</p>{% endif %}{% if record.has_file %}<a class="record-card-preview" href="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/ansicht/" aria-label="Vorschau öffnen: {{ record.title }}"><img src="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/vorschau/" alt="Vorschau: {{ record.title }}" loading="lazy" decoding="async"><span><b>{{ record.preview_label }}</b>{{ record.original_name }} · {{ record.file_size|filesizeformat }}</span></a>{% endif %}<div class="app-record-footer"><span class="app-status {% if record.shared %}is-verified{% endif %}">{% if record.shared %}Für Patient sichtbar{% else %}Praxisintern{% endif %}</span>{% if record.has_file %}<span class="app-record-usage" title="Nutzung in der Kunden App">App · 👁 {{ record.open_count }} · ↓ {{ record.download_count }}</span>{% endif %}{% if record.source_label == "Praxis" %}<form method="post" action="/verwaltung/patienten/{{ record.customer_id }}/shared/{{ record.id }}/toggle/" class="app-record-share-form">{% csrf_token %}<input type="hidden" name="return_to" value="/verwaltung/app/patients/?customer={{ selected_customer.id }}"><button type="submit" class="share-action">{% if record.shared %}Nur intern setzen{% else %}Für Patient freigeben{% endif %}</button></form>{% endif %}{% if record.has_file %}<a href="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/ansicht/">Datei öffnen</a>{% endif %}</div></div></article>{% empty %}<div class="empty">Die Patientenakte enthält noch keine Einträge.</div>{% endfor %}</div></section>
+    <section class="admin-panel app-core-panel app-timeline-panel {% if not patient_records %}is-empty{% endif %}"><div class="panel-head"><div><h2>Verlauf</h2><p>{{ patient_records|length }} Akteneinträge · chronologisch</p></div></div><div class="app-record-timeline">{% for record in patient_records %}<article class="app-record-item"><div class="app-record-dot"></div><div class="app-record-card"><div class="app-record-head"><div><span class="app-record-source">{{ record.source_label }} · {{ record.kind_label }}</span><strong>{{ record.title }}</strong></div><time>{{ record.created_at|date:"d.m.Y H:i" }}</time></div>{% if record.appointment %}<div class="app-record-appointment">Termin: {{ record.appointment.starts_at|date:"d.m.Y H:i" }} · {{ record.appointment.service.name }}</div>{% endif %}{% if record.note %}<p>{{ record.note }}</p>{% endif %}{% if record.has_file %}<a class="record-card-preview" href="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/ansicht/" aria-label="Vorschau öffnen: {{ record.title }}"><img src="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/vorschau/" alt="Vorschau: {{ record.title }}" loading="lazy" decoding="async"><span><b>{{ record.preview_label }}</b>{{ record.original_name }} · {{ record.file_size|filesizeformat }}</span></a>{% endif %}<div class="app-record-footer"><span class="app-status {% if record.shared %}is-verified{% endif %}">{% if record.shared %}Für Patient sichtbar{% else %}Praxisintern{% endif %}</span>{% if record.has_file %}<span class="app-record-usage" title="Nutzung in der Kunden App">App · 👁 {{ record.open_count }} · ↓ {{ record.download_count }}</span>{% endif %}{% if record.source_label == "Praxis" %}<form method="post" action="/verwaltung/patienten/{{ record.customer_id }}/shared/{{ record.id }}/toggle/" class="app-record-share-form">{% csrf_token %}<input type="hidden" name="return_to" value="/verwaltung/app/patients/?customer={{ selected_customer.id }}"><button type="submit" class="share-action">{% if record.shared %}Nur intern setzen{% else %}Für Patient freigeben{% endif %}</button></form>{% endif %}{% if record.has_file %}<a href="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/ansicht/">Datei öffnen</a>{% endif %}</div></div></article>{% empty %}<div class="empty">Die Patientenakte enthält noch keine Einträge.</div>{% endfor %}</div></section>
     {% include 'booking/_patient_goae_draft.html' %}
   </div>
   {% endif %}
