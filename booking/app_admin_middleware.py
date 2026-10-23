@@ -388,7 +388,7 @@ class APlusAdminNavigationMiddleware:
 
         # The opt-in management theme follows legacy SSO styles. Calendar
         # templates never opt in and retain their original asset order.
-        if 'data-clinic-design="calm"' in html:
+        if 'data-clinic-design="calm"' in html or 'data-clinic-design="premium"' in html:
             theme = re.search(r'<link[^>]+data-clinic-design-sheet[^>]*>', html)
             if theme:
                 html = html.replace(theme.group(0), '', 1)
@@ -400,6 +400,19 @@ class APlusAdminNavigationMiddleware:
         if navigation:
             html = html.replace(navigation.group(0), '', 1)
             html = html.replace('</head>', navigation.group(0) + '</head>', 1)
+
+        # A+ premium design must win the CSS cascade after all legacy/SSO
+        # sheets. Asset paths are intentionally literal: unit tests render
+        # templates before collectstatic creates the WhiteNoise manifest.
+        if 'data-clinic-design="premium"' in html:
+            premium_links = re.findall(
+                r'<link[^>]+href="[^"]*/booking/clinic-premium-(?:v1|all-v2)\\.css[^"]*"[^>]*>',
+                html,
+            )
+            for link in premium_links:
+                html = html.replace(link, '', 1)
+            if premium_links and '</head>' in html:
+                html = html.replace('</head>', ''.join(premium_links) + '</head>', 1)
 
         response.content = html.encode(response.charset or 'utf-8')
         if response.has_header('Content-Length'):
