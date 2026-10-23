@@ -451,7 +451,7 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
   <div class="app-patient-layout" data-customer-panel="records">
     {# Component-critical styles render with this markup, independent of shared CSS cache/order. #}
     <style id="patient-record-composer-critical-v5">
-      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"] > .app-upload-panel {
+      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] > .app-upload-panel {
         box-sizing:border-box!important; padding:0!important; margin:0!important;
         min-height:0!important; overflow:hidden!important; border:1px solid #e5ded3!important;
         border-radius:17px!important; background:#fff!important;
@@ -529,19 +529,19 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
         box-sizing:border-box!important;padding:12px!important;margin:0!important;
         text-align:center!important;min-height:0!important;font-size:12px!important;
       }
-      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"] .patient-goae-panel {
+      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] .patient-goae-panel {
         box-sizing:border-box!important;margin:0!important;min-height:0!important;
         border-radius:17px!important;
       }
-      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"] .patient-goae-details > summary {
+      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] .patient-goae-details > summary {
         min-height:64px!important;padding:11px 16px!important;
       }
       @media(max-width:760px) {
-        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"]{
+        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records]{
           display:flex!important;flex-direction:column!important;gap:12px!important;
         }
-        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"] > .app-core-panel,
-        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel="records"] > .patient-goae-panel{
+        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] > .app-core-panel,
+        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] > .patient-goae-panel{
           width:100%!important;max-width:100%!important;margin:0!important;
         }
         html[data-admin-page="patients"] body.admin-body .app-upload-panel .patient-entry-composer > summary.patient-entry-trigger{
