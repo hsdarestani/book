@@ -1,6 +1,7 @@
 {% load static %}
 {# Canonical web header, reused by all non-calendar admin pages. #}
 <header class="admin-topbar sb-desktop-topbar clinic-header-v3" data-clinic-header data-clinic-view-only="{{ view_only|yesno:'1,0' }}">
+  <div class="premium-utility-context" aria-hidden="true"><span>A+ ESTHETIC  /  PRAXISMANAGEMENT</span><strong>{{ section_title|default:"Übersicht" }}</strong></div>
   <a class="clinic-header-brand" href="/verwaltung/dashboard/" aria-label="A+ Esthetic, Dashboard">
     <span class="clinic-header-logo"><img src="{% static 'booking/logo.png' %}" alt="" width="36" height="36" loading="eager"></span>
     <span class="clinic-header-wordmark"><strong>A+ Esthetic</strong><small>PRAXIS MANAGEMENT</small></span>
