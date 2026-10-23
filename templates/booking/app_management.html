@@ -451,104 +451,284 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
   <div class="app-patient-layout" data-customer-panel="records">
     {# Component-critical styles render with this markup, independent of shared CSS cache/order. #}
     <style id="patient-record-composer-critical-v5">
-      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] > .app-upload-panel {
-        box-sizing:border-box!important; padding:0!important; margin:0!important;
-        min-height:0!important; overflow:hidden!important; border:1px solid #e5ded3!important;
-        border-radius:17px!important; background:#fff!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .app-upload-panel .patient-entry-composer {
-        display:block!important; width:100%!important; margin:0!important; padding:0!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .app-upload-panel .patient-entry-composer > summary.patient-entry-trigger {
-        box-sizing:border-box!important;display:block!important;list-style:none!important;
-        list-style-type:none!important;cursor:pointer!important;width:100%!important;
-        min-height:72px!important; margin:0!important;padding:13px 16px!important;
-        border:0!important;border-radius:0!important;
-        background:linear-gradient(105deg,#fff,#faf6ee)!important;color:#28302b!important;
-        white-space:normal!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger::marker,
-      html[data-admin-page="patients"] body.admin-body .patient-record-options > summary::marker {
-        content:""!important;font-size:0!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger::-webkit-details-marker,
-      html[data-admin-page="patients"] body.admin-body .patient-record-options > summary::-webkit-details-marker {
-        display:none!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-layout {
-        display:flex!important;align-items:center!important;gap:12px!important;
-        min-width:0!important;min-height:45px!important;width:100%!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-layout > .patient-entry-trigger-icon {
-        box-sizing:border-box!important;width:42px!important;height:42px!important;
-        min-width:42px!important;flex:0 0 42px!important;display:grid!important;
-        place-items:center!important;border-radius:12px!important;
-        background:#25362f!important;color:#fff5e7!important;font:500 26px/1 system-ui,sans-serif!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-copy {
-        box-sizing:border-box!important;display:flex!important;flex:1 1 0!important;
-        flex-direction:column!important;align-items:flex-start!important;
-        gap:4px!important;min-width:0!important;max-width:100%!important;
-        line-height:1.25!important;white-space:normal!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-copy > strong {
-        display:block!important;font:750 15px/1.25 system-ui,sans-serif!important;
-        color:#222923!important;letter-spacing:-.01em!important;margin:0!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-copy > small {
-        display:block!important;font:400 12px/1.35 system-ui,sans-serif!important;
-        color:#736e65!important;margin:0!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-layout > .patient-entry-trigger-chevron {
-        box-sizing:border-box!important;display:grid!important;place-items:center!important;
-        flex:0 0 32px!important;width:32px!important;height:32px!important;
-        border-radius:10px!important;background:#f2e9db!important;
-        color:#8e6938!important;font-size:18px!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .patient-entry-composer[open] .patient-entry-trigger-chevron {
-        transform:rotate(180deg)!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .patient-entry-composer .patient-entry-form-area {
-        box-sizing:border-box!important;padding:15px!important;border-top:1px solid #eae2d5!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty {
-        padding:16px 18px!important;min-height:0!important;
-        border-radius:17px!important;margin:0!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty > .panel-head {
-        display:flex!important;align-items:center!important;justify-content:space-between!important;
-        margin:0 0 9px!important;padding:0!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty .panel-head h2 {
-        font-size:17px!important;line-height:1.2!important;margin:0!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty .panel-head p {
-        font-size:12px!important;margin:3px 0 0!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty .app-record-timeline .empty {
-        box-sizing:border-box!important;padding:12px!important;margin:0!important;
-        text-align:center!important;min-height:0!important;font-size:12px!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] .patient-goae-panel {
-        box-sizing:border-box!important;margin:0!important;min-height:0!important;
-        border-radius:17px!important;
-      }
-      html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] .patient-goae-details > summary {
-        min-height:64px!important;padding:11px 16px!important;
-      }
-      @media(max-width:760px) {
-        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records]{
-          display:flex!important;flex-direction:column!important;gap:12px!important;
-        }
-        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] > .app-core-panel,
-        html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] > .patient-goae-panel{
-          width:100%!important;max-width:100%!important;margin:0!important;
-        }
-        html[data-admin-page="patients"] body.admin-body .app-upload-panel .patient-entry-composer > summary.patient-entry-trigger{
-          padding:11px 13px!important;min-height:67px!important;
-        }
-      }
-    </style>
+/* Single self-contained patient-record composer; all existing data/POST controls retained. */
+html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] > .app-upload-panel{
+ box-sizing:border-box!important;padding:0!important;margin:0!important;min-height:0!important;
+ overflow:hidden!important;border:1px solid #e5ded3!important;border-radius:16px!important;background:#fff!important;
+}
+html[data-admin-page="patients"] body.admin-body .app-upload-panel .patient-entry-composer{
+ display:block!important;width:100%!important;padding:0!important;margin:0!important;
+}
+html[data-admin-page="patients"] body.admin-body .app-upload-panel .patient-entry-composer > summary.patient-entry-trigger{
+ box-sizing:border-box!important;display:block!important;list-style:none!important;list-style-type:none!important;
+ margin:0!important;width:100%!important;min-height:67px!important;padding:11px 14px!important;
+ background:linear-gradient(105deg,#fff,#faf6ee)!important;border:0!important;border-radius:0!important;
+ white-space:normal!important;cursor:pointer!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-trigger::marker,
+html[data-admin-page="patients"] body.admin-body .patient-record-options-trigger::marker{
+ content:""!important;font-size:0!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-trigger::-webkit-details-marker,
+html[data-admin-page="patients"] body.admin-body .patient-record-options-trigger::-webkit-details-marker{
+ display:none!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-layout{
+ display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;min-width:0!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-layout>.patient-entry-trigger-icon{
+ display:grid!important;place-items:center!important;flex:0 0 42px!important;width:42px!important;height:42px!important;
+ border-radius:12px!important;background:#25362f!important;color:#fff5e7!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-copy{
+ display:flex!important;flex-direction:column!important;align-items:flex-start!important;flex:1!important;
+ gap:3px!important;min-width:0!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-copy>strong{
+ display:block!important;font-size:15px!important;font-weight:750!important;color:#222923!important;line-height:1.24!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-copy>small{
+ display:block!important;font-size:12px!important;line-height:1.3!important;color:#756d63!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-trigger-layout>.patient-entry-trigger-chevron{
+ display:grid!important;place-items:center!important;flex:0 0 32px!important;width:32px!important;height:32px!important;
+ background:#f2e9db!important;border-radius:10px!important;color:#8e6938!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-composer[open] .patient-entry-trigger-chevron{
+ transform:rotate(180deg)!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-composer:not([open])>.patient-entry-form-area{
+ display:none!important;
+}
+html[data-admin-page="patients"] body.admin-body .patient-entry-composer .patient-entry-form-area{
+ box-sizing:border-box!important;padding:14px!important;border-top:1px solid #eae2d5!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer form.patient-upload-studio{
+ display:grid!important;gap:11px!important;align-items:start!important;min-width:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-upload-section-title{
+ display:flex!important;align-items:center!important;justify-content:space-between!important;
+ flex-wrap:wrap!important;gap:3px 10px!important;margin:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-upload-section-title strong{
+ font-size:13px!important;line-height:1.3!important;color:#2f342f!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer [data-upload-count]{
+ font-size:11px!important;line-height:1.35!important;color:#7c786e!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-actions{
+ box-sizing:border-box!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ align-items:stretch!important;gap:9px!important;width:100%!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .app-patient-layout[data-customer-panel=records] .patient-entry-composer .patient-record-actions label.patient-upload-drop{
+ box-sizing:border-box!important;position:relative!important;display:flex!important;
+ flex-direction:row!important;flex-flow:row nowrap!important;align-items:center!important;
+ justify-content:center!important;gap:7px!important;min-width:0!important;width:100%!important;
+ height:50px!important;min-height:50px!important;max-height:50px!important;
+ margin:0!important;padding:9px 11px!important;border:1px solid #d6c9b6!important;
+ border-radius:11px!important;background:#f9f5ed!important;box-shadow:none!important;
+ text-align:center!important;overflow:hidden!important;color:#493c28!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-actions .patient-upload-plus{
+ display:inline-block!important;width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;
+ margin:0!important;padding:0!important;border:0!important;border-radius:0!important;
+ background:transparent!important;color:#97763e!important;font-size:22px!important;line-height:1!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-actions .patient-upload-drop-title{
+ display:block!important;font-size:13px!important;line-height:1.25!important;font-weight:750!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-actions .patient-upload-drop input[type=file]{
+ position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+ opacity:0!important;z-index:5!important;cursor:pointer!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-actions .patient-upload-camera.native-admin-photo{
+ box-sizing:border-box!important;display:block!important;margin:0!important;padding:0!important;
+ width:100%!important;min-width:0!important;height:50px!important;min-height:50px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-actions .patient-upload-camera button[data-admin-native-photo]{
+ box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;
+ width:100%!important;height:50px!important;min-height:50px!important;padding:9px 8px!important;
+ border:1px solid #d6c9b6!important;border-radius:11px!important;background:#fff!important;
+ color:#493c28!important;font-size:13px!important;font-weight:750!important;white-space:nowrap!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-camera-status{
+ display:block!important;font-size:12px!important;line-height:1.4!important;color:#766b5d!important;min-height:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-camera-status:empty{display:none!important}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-studio-fields{display:block!important;margin:0!important;min-width:0!important}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-studio-fields .app-form-grid{
+ display:grid!important;grid-template-columns:minmax(110px,.43fr) minmax(0,.57fr)!important;
+ align-items:end!important;gap:9px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer label.patient-studio-field{
+ display:grid!important;gap:4px!important;font-size:12px!important;line-height:1.4!important;font-weight:680!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer label.patient-studio-field :is(input,select){
+ box-sizing:border-box!important;height:44px!important;min-height:44px!important;
+ width:100%!important;min-width:0!important;padding:9px 10px!important;
+ font-size:14px!important;border-radius:10px!important;background:#fff!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-options{
+ display:block!important;margin:0!important;padding:0!important;border:1px solid #e7e1d6!important;
+ border-radius:11px!important;background:#fdfbf8!important;overflow:hidden!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-options>summary.patient-record-options-trigger{
+ box-sizing:border-box!important;display:flex!important;align-items:center!important;justify-content:space-between!important;
+ gap:10px!important;padding:10px 12px!important;min-height:43px!important;list-style:none!important;list-style-type:none!important;
+ background:#fdfbf8!important;cursor:pointer!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-options-copy{
+ display:flex!important;align-items:baseline!important;flex-wrap:wrap!important;gap:5px 9px!important;
+ min-width:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-options-copy strong{
+ font-size:13px!important;line-height:1.25!important;color:#51493f!important;font-weight:730!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-options-copy small{
+ font-size:11px!important;line-height:1.25!important;font-weight:400!important;color:#797066!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-options-chevron{
+ display:grid!important;place-items:center!important;flex:0 0 25px!important;width:25px!important;
+ color:#90713e!important;font-size:16px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-options[open] .patient-record-options-chevron{
+ transform:rotate(180deg)!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-options:not([open])>.patient-record-options-body{
+ display:none!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-options-body{
+ display:grid!important;gap:10px!important;padding:12px!important;background:#fff!important;
+ border-top:1px solid #e7e1d6!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-record-options textarea{
+ min-height:75px!important;height:75px!important;padding:9px 10px!important;font-size:14px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer label.patient-studio-share{
+ min-height:55px!important;padding:9px 11px!important;border-radius:11px!important;margin:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer .patient-share-text small{
+ font-size:11px!important;line-height:1.3!important;
+}
+html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body
+ .patient-entry-composer button.patient-studio-save[type=submit]{
+ display:flex!important;min-height:49px!important;height:49px!important;
+ border-radius:11px!important;margin:0!important;padding:10px!important;
+ box-shadow:0 6px 20px rgba(23,32,26,.17)!important;
+ font-size:14px!important;
+}
+html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty{
+ padding:16px 18px!important;min-height:0!important;border-radius:16px!important;margin:0!important;
+}
+html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty>.panel-head{
+ display:flex!important;align-items:center!important;justify-content:space-between!important;margin:0 0 9px!important;padding:0!important;
+}
+html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty .panel-head h2{
+ font-size:17px!important;line-height:1.2!important;margin:0!important;
+}
+html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty .panel-head p{
+ font-size:12px!important;margin:3px 0 0!important;
+}
+html[data-admin-page="patients"] body.admin-body .app-timeline-panel.is-empty .app-record-timeline .empty{
+ box-sizing:border-box!important;padding:12px!important;min-height:0!important;font-size:12px!important;margin:0!important;
+}
+html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] .patient-goae-panel{
+ box-sizing:border-box!important;margin:0!important;min-height:0!important;border-radius:16px!important;
+}
+html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records] .patient-goae-details>summary{
+ min-height:64px!important;padding:11px 16px!important;
+}
+@media(max-width:760px){
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records]{
+  display:flex!important;flex-direction:column!important;gap:12px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records]>.app-core-panel,
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .app-patient-layout[data-customer-panel=records]>.patient-goae-panel{
+  width:100%!important;max-width:100%!important;margin:0!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-entry-composer .patient-entry-form-area{
+  padding:12px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-entry-composer button.patient-studio-save[type=submit]{
+  position:sticky!important;bottom:calc(env(safe-area-inset-bottom) + 9px)!important;z-index:7!important;
+ }
+}
+@media(max-width:760px){
+ /* Patient identity remains visible but no longer consumes a quarter screen on the Akte tab. */
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .app-patient-toolbar{
+  margin:4px 0 7px!important;min-height:0!important;padding:0!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .app-patient-toolbar .app-back-link{
+  min-height:36px!important;padding:5px 11px!important;font-size:12px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card{
+  min-height:0!important;padding:12px!important;margin:0 0 9px!important;
+  grid-template-columns:44px minmax(0,1fr)!important;gap:8px!important;border-radius:15px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card .patient-command-avatar{
+  width:44px!important;height:44px!important;min-width:44px!important;border-radius:11px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card h2{
+  font-size:26px!important;line-height:1.05!important;margin:1px 0!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card p{
+  font-size:11px!important;line-height:1.35!important;margin:0!important;overflow-wrap:anywhere!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-actions{
+  grid-column:1/-1!important;display:flex!important;gap:7px!important;margin-top:1px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-actions a{
+  min-height:35px!important;padding:6px 9px!important;font-size:12px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body #patient-tab-nav.customer-profile-tabs{
+  min-height:0!important;padding:3px!important;margin:0 0 11px!important;border-radius:12px!important;gap:2px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body #patient-tab-nav .patient-tab-button{
+  min-height:42px!important;padding:8px 3px!important;font-size:12px!important;
+ }
+}
+@media(max-width:344px){
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-entry-composer .patient-studio-fields .app-form-grid{
+  grid-template-columns:1fr!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-entry-composer .patient-record-actions{
+  gap:6px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-entry-composer .patient-record-actions label.patient-upload-drop,
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-entry-composer .patient-record-actions button{
+  font-size:12px!important;padding:7px!important;
+ }
+}
+</style>
     <section class="admin-panel app-core-panel app-upload-panel" id="akte">
       <details class="patient-entry-composer" data-record-composer {% if error %}open{% endif %}>
         <summary class="patient-entry-trigger" style="display:block!important;list-style:none!important;list-style-type:none!important;padding:12px 14px!important;cursor:pointer!important;white-space:normal!important">
@@ -568,19 +748,20 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
         <input type="hidden" name="customer_id" value="{{ selected_customer.id }}">
         <input type="hidden" name="return_to" value="/verwaltung/app/patients/?customer={{ selected_customer.id }}&amp;tab=records">
         <div class="patient-upload-section-title"><strong>Dateien &amp; Fotos</strong><small data-upload-count aria-live="polite">Bis zu 12 Dateien · Fotos, PDF und Dokumente</small></div>
-        <label class="patient-upload-drop" data-upload-drop>
-          <span class="patient-upload-plus" aria-hidden="true">+</span>
-          <span class="patient-upload-drop-title">Dateien auswählen</span>
-          <span class="patient-upload-drop-hint">Mehrere Bilder oder Dokumente gleichzeitig auswählen</span>
-          <input type="file" name="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv" data-patient-file aria-label="Fotos oder Dateien auswählen">
-        </label>
+        <div class="patient-record-actions">
+          <label class="patient-upload-drop" data-upload-drop>
+            <span class="patient-upload-plus" aria-hidden="true">▣</span>
+            <span class="patient-upload-drop-title">Dateien auswählen</span>
+            <input type="file" name="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv" data-patient-file aria-label="Fotos oder Dateien auswählen">
+          </label>
+          <div class="native-admin-photo patient-upload-camera">
+            <button type="button" data-admin-native-photo><span aria-hidden="true">◎</span> Foto aufnehmen</button>
+          </div>
+        </div>
+        <span class="patient-record-camera-status" data-admin-photo-status role="status" aria-live="polite"></span>
         <ul class="patient-upload-list" data-upload-list aria-label="Ausgewählte Dateien" hidden></ul>
         <div class="patient-upload-error" data-upload-error role="alert" hidden></div>
-        <div class="native-admin-photo patient-upload-camera">
-          <button type="button" data-admin-native-photo>Foto aufnehmen</button>
-          <span data-admin-photo-status>Zusätzliche Fotos können auch mit der Kamera aufgenommen werden.</span>
-        </div>
-        <div class="patient-studio-fields">
+                <div class="patient-studio-fields">
           <div class="app-form-grid">
             <label class="patient-studio-field">Typ
               <select name="kind"><option value="document">Dokument</option><option value="photo">Foto</option><option value="form">Formular</option><option value="note">Notiz</option><option value="other">Sonstiges</option></select>
@@ -591,7 +772,7 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
           </div>
         </div>
         <details class="patient-record-options">
-          <summary>Weitere Angaben <small>Terminbezug oder Notiz (optional)</small></summary>
+          <summary class="patient-record-options-trigger"><span class="patient-record-options-copy"><strong>Weitere Angaben</strong><small>Terminbezug oder Notiz</small></span><span class="patient-record-options-chevron" aria-hidden="true">⌄</span></summary>
           <div class="patient-record-options-body">
           <label class="patient-studio-field">Bezug zu Termin (optional)
             <select name="appointment_id"><option value="">Kein Termin ausgewählt</option>{% for appt in patient_appointments %}<option value="{{ appt.id }}">{{ appt.starts_at|date:"d.m.Y H:i" }} · {{ appt.service.name }} ({{ appt.service.duration_minutes }} Min.)</option>{% endfor %}</select>
@@ -611,6 +792,17 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
       </form>
         </div>
       </details>
+      <script>
+      (() => {
+        const composer = document.querySelector('[data-record-composer]');
+        const form = composer?.querySelector('form.patient-upload-studio');
+        const kind = form?.querySelector('select[name="kind"]');
+        const extras = form?.querySelector('details.patient-record-options');
+        if (kind && extras) {
+          kind.addEventListener('change', () => { if (kind.value === 'note') extras.open = true; });
+        }
+      })();
+      </script>
     </section>
     <section class="admin-panel app-core-panel app-timeline-panel {% if not patient_records %}is-empty{% endif %}"><div class="panel-head"><div><h2>Verlauf</h2><p>{{ patient_records|length }} Akteneinträge · chronologisch</p></div></div><div class="app-record-timeline">{% for record in patient_records %}<article class="app-record-item"><div class="app-record-dot"></div><div class="app-record-card"><div class="app-record-head"><div><span class="app-record-source">{{ record.source_label }} · {{ record.kind_label }}</span><strong>{{ record.title }}</strong></div><time>{{ record.created_at|date:"d.m.Y H:i" }}</time></div>{% if record.appointment %}<div class="app-record-appointment">Termin: {{ record.appointment.starts_at|date:"d.m.Y H:i" }} · {{ record.appointment.service.name }}</div>{% endif %}{% if record.note %}<p>{{ record.note }}</p>{% endif %}{% if record.has_file %}<a class="record-card-preview" href="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/ansicht/" aria-label="Vorschau öffnen: {{ record.title }}"><img src="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/vorschau/" alt="Vorschau: {{ record.title }}" loading="lazy" decoding="async"><span><b>{{ record.preview_label }}</b>{{ record.original_name }} · {{ record.file_size|filesizeformat }}</span></a>{% endif %}<div class="app-record-footer"><span class="app-status {% if record.shared %}is-verified{% endif %}">{% if record.shared %}Für Patient sichtbar{% else %}Praxisintern{% endif %}</span>{% if record.has_file %}<span class="app-record-usage" title="Nutzung in der Kunden App">App · 👁 {{ record.open_count }} · ↓ {{ record.download_count }}</span>{% endif %}{% if record.source_label == "Praxis" %}<form method="post" action="/verwaltung/patienten/{{ record.customer_id }}/shared/{{ record.id }}/toggle/" class="app-record-share-form">{% csrf_token %}<input type="hidden" name="return_to" value="/verwaltung/app/patients/?customer={{ selected_customer.id }}"><button type="submit" class="share-action">{% if record.shared %}Nur intern setzen{% else %}Für Patient freigeben{% endif %}</button></form>{% endif %}{% if record.has_file %}<a href="/verwaltung/patienten/{{ record.customer_id }}/datei/{{ record.id }}/ansicht/">Datei öffnen</a>{% endif %}</div></div></article>{% empty %}<div class="empty">Die Patientenakte enthält noch keine Einträge.</div>{% endfor %}</div></section>
     {% include 'booking/_patient_goae_draft.html' %}

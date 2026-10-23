@@ -70,6 +70,40 @@ class ArchivePickerTemplateTests(SimpleTestCase):
         self.assertIn('name="file" multiple', template)
         self.assertIn('name="shared_with_customer"', template)
 
+    def test_compact_mobile_editor_has_real_file_and_camera_controls(self):
+        source = get_template("booking/app_management.html").template.source
+        section = source.split('<details class="patient-entry-composer"', 1)[1]
+        self.assertIn('class="patient-record-actions"', section)
+        self.assertIn('class="patient-upload-drop" data-upload-drop', section)
+        self.assertIn('name="file" multiple', section)
+        self.assertIn('data-admin-native-photo', section)
+        self.assertIn('data-upload-count', section)
+        self.assertIn('data-upload-list', section)
+        self.assertIn('data-admin-photo-status', section)
+        self.assertIn('class="patient-record-options-trigger"', section)
+        self.assertIn('name="appointment_id"', section)
+        self.assertIn('name="note"', section)
+        self.assertIn('name="kind"', section)
+        self.assertIn('name="title"', section)
+        self.assertIn('name="shared_with_customer"', section)
+        self.assertIn('data-upload-submit', section)
+        self.assertIn('kind.value === \'note\'', section)
+        self.assertEqual(section.split('</form>', 1)[0].count('name="file"'), 1)
+        self.assertLess(section.index('data-upload-drop'), section.index('name="kind"'))
+        self.assertLess(section.index('name="kind"'), section.index('patient-record-options-trigger'))
+
+    def test_mobile_editor_has_two_compact_actions_and_no_large_dropzone(self):
+        source = get_template("booking/app_management.html").template.source
+        css = source.split('id="patient-record-composer-critical-v5">', 1)[1].split('</style>', 1)[0]
+        self.assertIn('grid-template-columns:repeat(2,minmax(0,1fr))', css)
+        self.assertIn('height:50px!important;min-height:50px!important;', css)
+        self.assertIn('.patient-record-actions label.patient-upload-drop', css)
+        self.assertIn('.patient-record-options-trigger::marker', css)
+        self.assertIn('position:sticky!important;', css)
+        self.assertIn('patient-record-camera-status:empty', css)
+        self.assertIn('.patient-entry-composer:not([open])>.patient-entry-form-area', css)
+        self.assertNotIn('min-height:148px', css)
+
     def test_camera_does_not_replace_already_selected_files(self):
         source = (Path(__file__).resolve().parent.parent / "static/booking/admin-native-camera-v11.js").read_text()
         self.assertIn("Array.from(input.files || [])", source)
