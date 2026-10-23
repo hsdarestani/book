@@ -682,6 +682,40 @@ html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-custom
   position:sticky!important;bottom:calc(env(safe-area-inset-bottom) + 9px)!important;z-index:7!important;
  }
 }
+@media(max-width:760px){
+ /* Patient identity remains visible but no longer consumes a quarter screen on the Akte tab. */
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .app-patient-toolbar{
+  margin:4px 0 7px!important;min-height:0!important;padding:0!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .app-patient-toolbar .app-back-link{
+  min-height:36px!important;padding:5px 11px!important;font-size:12px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card{
+  min-height:0!important;padding:12px!important;margin:0 0 9px!important;
+  grid-template-columns:44px minmax(0,1fr)!important;gap:8px!important;border-radius:15px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card .patient-command-avatar{
+  width:44px!important;height:44px!important;min-width:44px!important;border-radius:11px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card h2{
+  font-size:26px!important;line-height:1.05!important;margin:1px 0!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-card p{
+  font-size:11px!important;line-height:1.35!important;margin:0!important;overflow-wrap:anywhere!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-actions{
+  grid-column:1/-1!important;display:flex!important;gap:7px!important;margin-top:1px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-command-actions a{
+  min-height:35px!important;padding:6px 9px!important;font-size:12px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body #patient-tab-nav.customer-profile-tabs{
+  min-height:0!important;padding:3px!important;margin:0 0 11px!important;border-radius:12px!important;gap:2px!important;
+ }
+ html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body #patient-tab-nav .patient-tab-button{
+  min-height:42px!important;padding:8px 3px!important;font-size:12px!important;
+ }
+}
 @media(max-width:344px){
  html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .patient-entry-composer .patient-studio-fields .app-form-grid{
   grid-template-columns:1fr!important;
