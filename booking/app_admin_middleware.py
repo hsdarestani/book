@@ -406,7 +406,7 @@ class APlusAdminNavigationMiddleware:
         # templates before collectstatic creates the WhiteNoise manifest.
         if 'data-clinic-design="premium"' in html:
             premium_links = re.findall(
-                r'<link[^>]+href="[^"]*/booking/clinic-premium-(?:v1|all-v2)\.css[^"]*"[^>]*>',
+                r'<link[^>]+href="[^"]*/booking/clinic-premium-(?:v1|all-v2|dashboard-v3)\.css[^"]*"[^>]*>',
                 html,
             )
             for link in premium_links:
