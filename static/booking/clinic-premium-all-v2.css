@@ -460,8 +460,33 @@ html[data-clinic-design="premium"] body.admin-body .billing-command .billing-com
    font-size:clamp(32px,8.5vw,43px)!important;
    line-height:1.09!important;
  }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats{
+   grid-template-columns:repeat(2,minmax(0,1fr))!important;
+   gap:10px!important;
+ }
  html[data-clinic-design="premium"] body.admin-body .premium-stats article{
    min-width:0!important;
+   min-height:112px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article:nth-child(3){
+   grid-column:1/-1!important;
+   min-height:95px!important;
+   padding:17px 16px 17px 73px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article:nth-child(3):before{
+   top:25px!important;
+   left:18px!important;
+   width:39px!important;
+   height:39px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article:nth-child(3):after{
+   top:25px!important;
+   left:29px!important;
+   font-size:23px!important;
+ }
+ html[data-clinic-design="premium"] body.admin-body .premium-stats article:nth-child(3) small{
+   font-size:12px!important;
+   line-height:1.45!important;
  }
  html[data-clinic-design="premium"] body.admin-body :is(.billing-stat-grid,.premium-stats){
    max-width:100%!important;
