@@ -55,6 +55,21 @@ class ArchivePickerTemplateTests(SimpleTestCase):
         self.assertIn("patient-record-options-body", css)
         self.assertIn("@media(max-width:760px)", css)
 
+    def test_composer_has_fail_safe_layout_even_when_shared_styles_do_not_apply(self):
+        template = get_template("booking/app_management.html").template.source
+        self.assertIn('id="patient-record-composer-critical-v5"', template)
+        self.assertIn('class="patient-entry-trigger-layout"', template)
+        self.assertIn('class="patient-entry-trigger-copy"', template)
+        self.assertIn('patient-entry-trigger::marker', template)
+        self.assertIn('patient-entry-trigger::-webkit-details-marker', template)
+        self.assertIn('style="display:block!important;list-style:none!important;', template)
+        self.assertIn('style="display:flex!important;flex-direction:column!important;', template)
+        self.assertIn('class="admin-panel app-core-panel app-timeline-panel {% if not patient_records %}is-empty{% endif %}"', template)
+        self.assertIn('class="patient-entry-form-area"', template)
+        self.assertIn('data-record-composer', template)
+        self.assertIn('name="file" multiple', template)
+        self.assertIn('name="shared_with_customer"', template)
+
     def test_camera_does_not_replace_already_selected_files(self):
         source = (Path(__file__).resolve().parent.parent / "static/booking/admin-native-camera-v11.js").read_text()
         self.assertIn("Array.from(input.files || [])", source)
