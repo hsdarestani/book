@@ -27,6 +27,34 @@ class ArchivePickerTemplateTests(SimpleTestCase):
         self.assertNotIn('admin-patient-upload-preview-v12.js', template)
         self.assertIn('name="shared_with_customer"', template)
 
+    def test_record_composer_reduces_mobile_scroll_without_changing_backend_fields(self):
+        template = get_template("booking/app_management.html").template.source
+        records = template.split('data-customer-panel="records"', 1)[1]
+        records = records.split('{% else %}', 1)[0] if '{% else %}' in records else records
+        self.assertIn('data-record-composer', records)
+        self.assertIn('class="patient-entry-trigger"', records)
+        self.assertIn('class="patient-record-options"', records)
+        self.assertIn('name="action" value="patient_upload"', records)
+        self.assertIn('name="return_to"', records)
+        self.assertIn('name="appointment_id"', records)
+        self.assertIn('name="note"', records)
+        self.assertIn('data-upload-drop', records)
+        self.assertIn('data-upload-list', records)
+        self.assertIn('data-admin-native-photo', records)
+        self.assertIn('data-upload-submit', records)
+        self.assertIn('name="shared_with_customer"', records)
+        self.assertLess(records.index('data-upload-drop'), records.index('name="kind"'))
+        self.assertLess(records.index('name="kind"'), records.index('class="patient-record-options"'))
+
+    def test_record_editor_is_scoped_to_patient_page_and_small_screen(self):
+        css = (Path(__file__).resolve().parent.parent / "static/booking/clinic-premium-all-v2.css").read_text()
+        self.assertIn("Patient record workspace v4", css)
+        self.assertIn('data-admin-page="patients"', css)
+        self.assertIn("patient-entry-composer", css)
+        self.assertIn("patient-entry-form-area", css)
+        self.assertIn("patient-record-options-body", css)
+        self.assertIn("@media(max-width:760px)", css)
+
     def test_camera_does_not_replace_already_selected_files(self):
         source = (Path(__file__).resolve().parent.parent / "static/booking/admin-native-camera-v11.js").read_text()
         self.assertIn("Array.from(input.files || [])", source)
