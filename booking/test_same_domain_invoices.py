@@ -37,7 +37,7 @@ class SameDomainInvoicesTests(TestCase):
         self.client.force_login(self.staff)
         res = self.client.get(self.url)
         self.assertEqual(res.status_code, 200, res.content[:400])
-        self.assertContains(res, "Rechnungen direkt in der Verwaltung")
+        self.assertContains(res, "Rechnungen verwalten")
         self.assertContains(res, "Rechnung nach GOÄ")
         self.assertContains(res, "/verwaltung/app/invoices/3/pdf/")
         self.assertNotIn("office.a-esthetic.de", res.content.decode("utf-8"))
