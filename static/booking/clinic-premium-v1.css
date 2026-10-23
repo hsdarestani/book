@@ -1,0 +1,289 @@
+/* A+ Esthetic premium practice UI – scoped to opted-in overview and patient finder.
+   Data, URLs, permissions and calendar behavior are unchanged. */
+html[data-clinic-design="premium"]{
+  --premium-ink:#25221e;--premium-soft:#756f67;--premium-gold:#aa7c37;
+  --premium-line:#e7e0d6;--premium-cream:#faf8f4;
+}
+html[data-clinic-design="premium"] body.admin-body{
+  background:radial-gradient(ellipse at 65% 0%,#fffdf9 0%,#f7f4ed 55%,#f2f0ea 100%)!important;
+  color:var(--premium-ink)!important;
+  font:400 15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  min-height:100vh;
+}
+html[data-clinic-design="premium"] body.admin-body main.admin-shell{
+  box-sizing:border-box!important;width:calc(100% - 258px)!important;max-width:1780px!important;
+  margin:0 0 0 258px!important;padding:22px clamp(18px,2.2vw,44px) 70px!important;
+  min-width:0!important;
+}
+html[data-clinic-design="premium"] body.admin-body :is(h1,h2,h3){color:var(--premium-ink)}
+html[data-clinic-design="premium"] body.admin-body :is(a,button,input,summary):focus-visible{outline:3px solid #b88d50!important;outline-offset:3px!important}
+html[data-clinic-design="premium"] body.admin-body button{cursor:pointer}
+html[data-clinic-design="premium"] body.admin-body .premium-sidebar{
+  position:fixed;inset:0 auto 0 0;z-index:24;width:258px;box-sizing:border-box;
+  display:flex;flex-direction:column;padding:28px 17px 20px;
+  background:linear-gradient(158deg,#fff 0%,#fdfbf7 72%,#f6f1e8);
+  border-right:1px solid #eae3d9;box-shadow:12px 0 35px rgba(54,39,19,.025);
+  overflow-y:auto;overscroll-behavior:contain;
+}
+.premium-sidebar-brand{display:flex;align-items:center;gap:12px;margin:0 5px 42px;min-width:0;text-decoration:none!important;color:#211e1a!important}
+.premium-sidebar-brand img{width:46px;height:46px;object-fit:contain;flex:none;border-radius:12px;background:#f7f1e7;padding:4px;box-sizing:border-box}
+.premium-sidebar-brand span{display:grid;gap:2px;min-width:0}
+.premium-sidebar-brand strong{font-size:19px;font-weight:800;letter-spacing:-.05em;white-space:nowrap}
+.premium-sidebar-brand small{font-size:8px;font-weight:700;letter-spacing:.16em;color:#8b7a67}
+.premium-sidebar-nav{display:grid;align-content:start;gap:5px}
+.premium-sidebar-nav>a{min-height:48px;display:flex;align-items:center;gap:12px;padding:7px 13px;box-sizing:border-box;border-radius:12px;
+  text-decoration:none!important;color:#4a4843!important;font-size:14px;font-weight:560;transition:background .18s,transform .18s,color .18s}
+.premium-sidebar-nav>a>span{font-size:21px;line-height:1;width:25px;display:inline-grid;place-items:center;color:#8f7b5c}
+.premium-sidebar-nav>a:hover{background:#f4ece0;transform:translateX(2px)}
+.premium-sidebar-nav>a[aria-current="page"]{background:linear-gradient(105deg,#f8ecdc,#ead1aa);color:#4c3415!important;font-weight:750}
+.premium-sidebar-nav>a[aria-current="page"]>span{color:#8a6020}
+.premium-sidebar-rule{height:1px;background:#e8dfd3;margin:12px 8px}
+.premium-sidebar-footer{margin:auto 5px 0;min-height:122px;display:flex;flex-direction:column;justify-content:end;padding:18px;border-radius:17px;
+  background:radial-gradient(circle at 75% 0%,#efe0c7 0%,transparent 56%),linear-gradient(145deg,#fff8ee,#eddfca);color:#73552e}
+.premium-sidebar-footer span{font-size:10px;font-weight:850;letter-spacing:.19em}
+.premium-sidebar-footer p{font:italic 19px/1.25 Georgia,serif;margin:8px 0 0;max-width:180px}
+html[data-clinic-navigation][data-clinic-design="premium"] body.admin-body .clinic-header-v3{
+  display:flex!important;align-items:center!important;justify-content:flex-end!important;
+  background:rgba(255,255,255,.82)!important;border:1px solid rgba(214,204,188,.68)!important;
+  border-radius:16px!important;height:66px!important;min-height:66px!important;
+  margin-bottom:20px!important;padding:0 18px!important;
+  box-shadow:0 10px 32px rgba(54,39,19,.035)!important;
+}
+html[data-clinic-navigation][data-clinic-design="premium"] body.admin-body .clinic-header-v3 .clinic-header-brand{margin-right:auto!important}
+html[data-clinic-navigation][data-clinic-design="premium"] body.admin-body .clinic-header-v3 .clinic-header-nav{display:none!important}
+html[data-clinic-navigation][data-clinic-design="premium"] body.admin-body .clinic-header-v3 .clinic-header-wordmark strong{font-size:16px!important}
+html[data-clinic-navigation][data-clinic-design="premium"] body.admin-body .clinic-header-v3 .clinic-header-more>summary,
+html[data-clinic-navigation][data-clinic-design="premium"] body.admin-body .clinic-header-v3 .clinic-header-exit{
+  background:#faf6ef!important;border-color:#eadfcf!important;border-radius:11px!important;
+}
+html[data-clinic-design="premium"] .premium-welcome,
+html[data-clinic-design="premium"] .app-page-heading{
+  position:relative;overflow:hidden;isolation:isolate;box-sizing:border-box;
+  min-height:214px;padding:32px clamp(24px,3.5vw,52px);margin-bottom:20px;
+  border:1px solid #f0e5d6;border-radius:26px;
+  background:
+    radial-gradient(ellipse at 84% 10%,rgba(230,207,171,.60),transparent 34%),
+    linear-gradient(114deg,#fffdfa 0%,#fbf6ed 58%,#f2e8db 100%);
+  box-shadow:0 16px 45px rgba(80,53,27,.055);
+}
+html[data-clinic-design="premium"] .premium-welcome:after,
+html[data-clinic-design="premium"] .app-page-heading:after{
+  content:"";position:absolute;z-index:-1;right:-60px;top:-120px;width:390px;height:390px;
+  border:1px solid rgba(158,120,63,.15);border-radius:50%;
+  box-shadow:0 0 0 42px rgba(158,120,63,.03),0 0 0 85px rgba(158,120,63,.025);
+}
+.premium-overline,html[data-clinic-design="premium"] .app-page-heading .eyebrow{
+  display:block;font-size:10px!important;letter-spacing:.21em!important;font-weight:820!important;
+  color:#967039!important;text-transform:uppercase;
+}
+html[data-clinic-design="premium"] .premium-welcome h1,
+html[data-clinic-design="premium"] .app-page-heading h1{
+  margin:11px 0 9px!important;font:500 clamp(36px,4.1vw,61px)/1.03 Georgia,"Times New Roman",serif!important;
+  letter-spacing:-.055em!important;color:#231f1b!important;
+}
+html[data-clinic-design="premium"] .premium-welcome p:not(.premium-overline),
+html[data-clinic-design="premium"] .app-page-heading p{
+  color:#716b62!important;font-size:15px!important;max-width:580px;line-height:1.65!important;margin:0!important;
+}
+html[data-clinic-design="premium"] .premium-stats{
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:15px!important;
+  margin:-3px 0 20px!important;
+}
+html[data-clinic-design="premium"] .premium-stats article{
+  position:relative;display:grid!important;align-content:center!important;box-sizing:border-box;
+  min-width:0;min-height:134px;padding:20px 22px 19px 82px!important;
+  background:rgba(255,255,255,.92)!important;border:1px solid #eee7dc!important;border-radius:19px!important;
+  box-shadow:0 12px 36px rgba(61,41,19,.055)!important;color:#25221e!important;
+}
+.premium-stats article:before{
+  content:"";position:absolute;left:23px;top:25px;width:43px;height:43px;border-radius:13px;
+  background:#f5eade;color:#9c6e26;box-sizing:border-box;
+}
+.premium-stats article:nth-child(1):after{content:"▦"}.premium-stats article:nth-child(2):after{content:"♙"}
+.premium-stats article:nth-child(3):after{content:"◇"}
+.premium-stats article:after{position:absolute;left:34px;top:27px;font-size:26px;color:#9d742f}
+html[data-clinic-design="premium"] .premium-stats article b{font:600 clamp(29px,3vw,42px)/1.05 Georgia,serif!important;color:#211e1a!important}
+html[data-clinic-design="premium"] .premium-stats article span{order:-1;margin-bottom:6px;color:#957444!important;font-size:10px!important;letter-spacing:.1em;font-weight:850!important}
+html[data-clinic-design="premium"] .premium-stats article small{color:#80786e!important;font-size:11px!important;line-height:1.4;letter-spacing:0!important;margin-top:5px}
+html[data-clinic-design="premium"] .command-search-panel,
+html[data-clinic-design="premium"] .command-panel,
+html[data-clinic-design="premium"] .command-results,
+html[data-clinic-design="premium"] .premium-customer-panel{
+  border:1px solid #eae3d8!important;background:#fff!important;border-radius:21px!important;
+  box-shadow:0 12px 38px rgba(53,39,21,.04)!important;box-sizing:border-box;
+}
+html[data-clinic-design="premium"] .command-search-panel{
+  display:grid!important;grid-template-columns:minmax(180px,.7fr) minmax(260px,1.3fr)!important;
+  align-items:center;gap:20px;padding:23px 26px!important;margin:0 0 19px!important;
+}
+html[data-clinic-design="premium"] .command-search-panel>div>span,
+html[data-clinic-design="premium"] .command-section-head>div>span,
+html[data-clinic-design="premium"] .premium-customer-panel .eyebrow{
+  color:#98723a!important;font-size:10px!important;font-weight:850!important;letter-spacing:.14em!important;
+}
+html[data-clinic-design="premium"] .command-search-panel h2,
+html[data-clinic-design="premium"] .command-section-head h2{
+  font:600 24px/1.2 system-ui,sans-serif!important;letter-spacing:-.045em!important;color:#292520!important;
+  margin:5px 0!important;
+}
+html[data-clinic-design="premium"] .command-search-panel p{color:#837b72!important;font-size:12px!important;margin:0}
+html[data-clinic-design="premium"] .command-search-panel form{display:flex!important;gap:9px;min-width:0;flex-wrap:nowrap}
+html[data-clinic-design="premium"] .command-search-panel input,
+html[data-clinic-design="premium"] .premium-customer-panel .app-search input{
+  min-height:49px!important;min-width:0!important;width:100%!important;
+  box-sizing:border-box;background:#fff!important;border:1px solid #ddd8d0!important;
+  border-radius:12px!important;padding:0 15px!important;font-size:14px!important;color:#292520!important;
+}
+html[data-clinic-design="premium"] .command-search-panel button,
+html[data-clinic-design="premium"] .premium-customer-panel .app-search button{
+  min-height:49px!important;flex:none;padding:0 20px!important;
+  border:0!important;border-radius:12px!important;background:#252521!important;color:#fff!important;
+  font-size:14px!important;font-weight:700!important;cursor:pointer;
+}
+html[data-clinic-design="premium"] .command-grid-two{display:grid!important;grid-template-columns:minmax(0,1.18fr) minmax(310px,.82fr)!important;gap:18px!important}
+html[data-clinic-design="premium"] .command-panel{padding:25px!important;min-width:0}
+html[data-clinic-design="premium"] .command-section-head{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:17px}
+html[data-clinic-design="premium"] .command-section-head>a{color:#966b29!important;font-size:12px!important;text-decoration:none;font-weight:750}
+html[data-clinic-design="premium"] .next-day-list{display:grid;gap:0}
+html[data-clinic-design="premium"] .next-day-row{
+  display:grid!important;grid-template-columns:72px minmax(0,1fr) 20px;gap:13px;align-items:center;min-width:0;
+  padding:15px 3px!important;background:#fff!important;border:0!important;border-bottom:1px solid #f0ebe3!important;border-radius:0!important;
+  text-decoration:none!important;transition:background .16s;
+}
+html[data-clinic-design="premium"] .next-day-row:last-child{border-bottom:0!important}
+html[data-clinic-design="premium"] .next-day-row:hover{background:#fcf8f1!important}
+html[data-clinic-design="premium"] .next-day-row time{font:600 17px Georgia,serif!important;color:#a2783b!important}
+html[data-clinic-design="premium"] .next-day-row strong{font-size:14px!important;color:#30271c!important}
+html[data-clinic-design="premium"] .next-day-row span{font-size:12px!important;color:#79716a!important;line-height:1.45!important;margin-top:4px}
+html[data-clinic-design="premium"] .shortcut-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+html[data-clinic-design="premium"] .shortcut-grid a{
+  display:flex!important;flex-direction:column;justify-content:space-between;min-height:109px!important;
+  background:linear-gradient(125deg,#fcfaf7,#f8f3ea)!important;border:1px solid #eee5d8!important;
+  border-radius:15px!important;padding:15px!important;text-decoration:none!important;color:#312a20!important;
+  transition:transform .18s,box-shadow .18s;
+}
+html[data-clinic-design="premium"] .shortcut-grid a:hover{transform:translateY(-2px);box-shadow:0 10px 20px #4f392013!important}
+html[data-clinic-design="premium"] .shortcut-grid b{font-size:24px!important;line-height:1;color:#a37937!important}
+html[data-clinic-design="premium"] .shortcut-grid span{font-size:13px!important;font-weight:750}
+html[data-clinic-design="premium"] .command-results{padding:24px;margin-bottom:20px}
+html[data-clinic-design="premium"] .patient-result-grid{gap:12px}
+html[data-clinic-design="premium"] .patient-result-card{border:1px solid #eee7df!important;border-radius:16px!important;box-shadow:none!important}
+html[data-clinic-design="premium"] .patient-result-copy h3{font:750 15px system-ui,sans-serif!important;margin:3px 0}
+html[data-clinic-design="premium"] .patient-result-copy p{font-size:12px!important}
+html[data-clinic-design="premium"] .patient-result-actions a,
+html[data-clinic-design="premium"] .patient-result-actions button{font-size:12px!important;padding:9px 11px!important}
+html[data-clinic-design="premium"] .app-page-heading{min-height:190px}
+html[data-clinic-design="premium"] .premium-customer-panel{padding:22px 24px 26px!important;margin-bottom:30px}
+html[data-clinic-design="premium"] .premium-customer-panel .premium-list-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+html[data-clinic-design="premium"] .premium-customer-panel .premium-list-heading h2{
+  font:700 23px/1.2 system-ui,sans-serif!important;margin:5px 0!important;letter-spacing:-.04em
+}
+html[data-clinic-design="premium"] .premium-customer-panel .premium-list-heading p{color:#81786d;font-size:13px;margin:0}
+html[data-clinic-design="premium"] .premium-list-count{padding:10px 14px;background:#f7f1e7;border-radius:999px;font-size:12px;font-weight:750;color:#855f2d;white-space:nowrap}
+html[data-clinic-design="premium"] .premium-customer-panel .app-search{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:10px!important;margin:0 0 18px!important}
+html[data-clinic-design="premium"] .premium-customer-panel .app-search label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+html[data-clinic-design="premium"] .premium-reset{font-size:12px;color:#8b6a39;text-decoration:underline;text-underline-offset:3px}
+html[data-clinic-design="premium"] .premium-table-heading{
+  display:grid;grid-template-columns:minmax(190px,1.3fr) minmax(200px,1.4fr) 92px 100px 24px;gap:18px;
+  padding:12px 17px;border-bottom:1px solid #ece6dc;color:#93867a;font-size:10px;
+  font-weight:800;letter-spacing:.13em;text-transform:uppercase;
+}
+html[data-clinic-design="premium"] .premium-patient-list{display:grid;gap:0!important}
+html[data-clinic-design="premium"] .premium-patient-list>a{
+  display:grid!important;grid-template-columns:minmax(190px,1.3fr) minmax(200px,1.4fr) 92px 100px 24px!important;
+  align-items:center!important;gap:18px!important;box-sizing:border-box!important;min-height:85px!important;
+  padding:14px 17px!important;border:0!important;border-bottom:1px solid #f0ebe4!important;border-radius:0!important;
+  background:#fff!important;text-decoration:none!important;color:#27231e!important;box-shadow:none!important;
+  transition:background .18s;
+}
+html[data-clinic-design="premium"] .premium-patient-list>a:hover{background:#fcf8f1!important}
+html[data-clinic-design="premium"] .premium-patient-list>a:focus-visible{position:relative;z-index:1}
+html[data-clinic-design="premium"] .premium-person{display:flex;align-items:center;gap:13px;min-width:0}
+html[data-clinic-design="premium"] .premium-person .app-avatar{
+  display:grid!important;place-items:center!important;flex:0 0 43px!important;width:43px!important;height:43px!important;
+  border-radius:13px!important;background:linear-gradient(140deg,#3e382f,#191915)!important;color:#e5c58c!important;
+  font-size:15px!important;line-height:1!important;
+}
+html[data-clinic-design="premium"] .premium-person strong{display:block!important;font-size:14px!important;line-height:1.35!important;overflow-wrap:anywhere}
+html[data-clinic-design="premium"] .premium-contact{min-width:0;overflow-wrap:anywhere;color:#756f67;font-size:12px;line-height:1.6}
+html[data-clinic-design="premium"] .premium-contact span{display:block}
+html[data-clinic-design="premium"] .premium-patient-list .patient-duplicate-badge{
+  display:inline-block!important;max-width:100%;font-size:11px!important;line-height:1.35!important;margin-top:5px;
+  background:#f7ecdb!important;color:#8c652b!important;padding:4px 8px!important;border-radius:99px!important;
+}
+html[data-clinic-design="premium"] .premium-patient-metric{text-align:center;font-size:17px;font-weight:750;color:#30271f}
+html[data-clinic-design="premium"] .premium-patient-metric small{display:none}
+html[data-clinic-design="premium"] .premium-patient-chevron{text-align:right;font-size:22px;color:#ab8240}
+html[data-clinic-design="premium"] .premium-patient-list .empty{padding:32px 18px;color:#81766b}
+@media(max-width:1350px) and (min-width:1101px){
+  html[data-clinic-design="premium"] .premium-table-heading,
+  html[data-clinic-design="premium"] .premium-patient-list>a{
+    grid-template-columns:minmax(150px,1.2fr) minmax(150px,1.2fr) 63px 64px 16px!important;gap:10px!important
+  }
+  html[data-clinic-design="premium"] .command-grid-two{grid-template-columns:1fr!important}
+}
+@media(max-width:1100px){
+  html[data-clinic-design="premium"] body.admin-body .premium-sidebar{display:none!important}
+  html[data-clinic-design="premium"] body.admin-body main.admin-shell{
+    width:100%!important;max-width:1100px!important;margin:0 auto!important;padding:20px 22px 55px!important
+  }
+  html[data-clinic-navigation][data-clinic-design="premium"] body.admin-body .clinic-header-v3 .clinic-header-nav{display:flex!important}
+}
+@media(max-width:980px){
+  html[data-clinic-design="premium"] body.admin-body main.admin-shell{padding-top:14px!important}
+  html[data-clinic-design="premium"] .command-grid-two{grid-template-columns:1fr!important}
+}
+@media(max-width:760px){
+  html[data-clinic-design="premium"] body.admin-body main.admin-shell{padding:12px 12px 54px!important}
+  html[data-clinic-design="premium"] .premium-welcome,
+  html[data-clinic-design="premium"] .app-page-heading{padding:25px 22px!important;min-height:155px!important;border-radius:21px!important}
+  html[data-clinic-design="premium"] .premium-welcome h1,
+  html[data-clinic-design="premium"] .app-page-heading h1{font-size:clamp(32px,9vw,45px)!important}
+  html[data-clinic-design="premium"] .premium-welcome p:not(.premium-overline),
+  html[data-clinic-design="premium"] .app-page-heading p{font-size:13px!important}
+  html[data-clinic-design="premium"] .premium-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+  html[data-clinic-design="premium"] .premium-stats article{
+    min-height:112px!important;padding:42px 9px 12px!important;border-radius:15px!important
+  }
+  .premium-stats article:before{top:11px;left:10px;width:27px;height:27px;border-radius:9px}
+  .premium-stats article:after{top:9px;left:15px;font-size:18px}
+  html[data-clinic-design="premium"] .premium-stats article b{font-size:27px!important}
+  html[data-clinic-design="premium"] .premium-stats article span{font-size:9px!important;letter-spacing:.02em!important;line-height:1.2}
+  html[data-clinic-design="premium"] .premium-stats article small{font-size:10px!important;overflow-wrap:anywhere}
+  html[data-clinic-design="premium"] .command-search-panel{grid-template-columns:1fr!important;padding:20px!important;gap:13px!important}
+  html[data-clinic-design="premium"] .command-search-panel form{flex-wrap:nowrap!important}
+  html[data-clinic-design="premium"] .command-search-panel button{padding:0 13px!important}
+  html[data-clinic-design="premium"] .command-panel{padding:19px!important}
+  html[data-clinic-design="premium"] .next-day-row{grid-template-columns:57px minmax(0,1fr) 10px!important;gap:8px!important}
+  html[data-clinic-design="premium"] .next-day-row time{font-size:15px!important}
+  html[data-clinic-design="premium"] .next-day-row strong{font-size:13px!important}
+  html[data-clinic-design="premium"] .next-day-row span{font-size:11px!important}
+  html[data-clinic-design="premium"] .shortcut-grid a{min-height:97px!important}
+  html[data-clinic-design="premium"] .premium-customer-panel{padding:16px!important;border-radius:19px!important}
+  html[data-clinic-design="premium"] .premium-table-heading{display:none!important}
+  html[data-clinic-design="premium"] .premium-patient-list{gap:10px!important}
+  html[data-clinic-design="premium"] .premium-patient-list>a{
+    grid-template-columns:minmax(0,1fr) auto auto 18px!important;gap:7px 11px!important;
+    min-height:115px!important;padding:14px!important;border:1px solid #ece6dc!important;
+    border-radius:15px!important;box-shadow:0 6px 18px #34281908!important;
+  }
+  html[data-clinic-design="premium"] .premium-patient-list .premium-person{grid-column:1/4;min-width:0}
+  html[data-clinic-design="premium"] .premium-patient-list .premium-contact{grid-column:1/5;font-size:12px!important;margin-left:56px;margin-top:-12px}
+  html[data-clinic-design="premium"] .premium-patient-list .premium-patient-metric{
+    grid-row:3;font-size:13px!important;white-space:nowrap
+  }
+  html[data-clinic-design="premium"] .premium-patient-list .premium-patient-metric:nth-of-type(3){grid-column:2}
+  html[data-clinic-design="premium"] .premium-patient-metric small{display:inline;color:#8f8172;font-size:11px;font-weight:400;margin-left:4px}
+  html[data-clinic-design="premium"] .premium-patient-chevron{grid-row:1;grid-column:4;align-self:center}
+}
+@media(max-width:390px){
+  html[data-clinic-design="premium"] .premium-stats article{padding-left:7px!important;padding-right:7px!important}
+  html[data-clinic-design="premium"] .premium-stats article b{font-size:23px!important}
+  html[data-clinic-design="premium"] .command-search-panel form{display:grid!important;grid-template-columns:minmax(0,1fr) auto}
+  html[data-clinic-design="premium"] .premium-customer-panel .app-search{grid-template-columns:minmax(0,1fr) auto!important}
+  html[data-clinic-design="premium"] .premium-customer-panel .app-search button{padding:0 12px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .premium-sidebar-nav>a,html[data-clinic-design="premium"] .shortcut-grid a,
+  html[data-clinic-design="premium"] .premium-patient-list>a{transition:none!important}
+}
