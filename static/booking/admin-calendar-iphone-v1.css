@@ -1,0 +1,365 @@
+/* SimplyBook-inspired iPhone calendar experience. Intentionally scoped to
+   the admin/doctor calendar on phone-sized viewports only. */
+@media (max-width: 760px) {
+  html[data-admin-page="calendar"] body.sb-calendar-pro {
+    --sb-iphone-hour: 104px;
+    --sb-iphone-track: 1040px; /* API and server both use 10:00–20:00 */
+    --sb-iphone-ink: #25344b;
+    --sb-iphone-accent: #ee4766;
+    background: #fff !important;
+    overflow-x: clip !important;
+  }
+
+  /* Ferrari's old cloned fixed header obscured the date and duplicated it. */
+  html[data-admin-page="calendar"] body.sb-calendar-pro .ferrari-calendar-sticky {
+    display: none !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro > .sb-mobile-bar {
+    background: #25344b !important;
+    color: #fff !important;
+    border-bottom: 0 !important;
+    box-shadow: 0 2px 9px rgba(22, 33, 51, .10) !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro > .sb-mobile-bar .sb-mobile-title {
+    color: #fff !important;
+    font: 650 16px/1.25 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro > .sb-mobile-bar .sb-icon-button {
+    background: #34445c !important;
+    border: 1px solid #4b5970 !important;
+    color: #fff !important;
+    border-radius: 10px !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-panel {
+    background: #fff !important;
+    color: #243149 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    touch-action: auto !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-head {
+    display: none !important;
+  }
+
+  /* Appointment providers can be swiped horizontally without narrowing cards. */
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-provider-switcher {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 7px !important;
+    padding: 9px 13px !important;
+    max-width: 100vw !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid #e8ebf1 !important;
+    background: #fff !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-provider-switcher::-webkit-scrollbar {display:none}
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-provider-switcher .doctor-pill {
+    flex: 0 0 auto !important;
+    border-radius: 9px !important;
+    border: 1px solid #e3e7ee !important;
+    padding: 6px 10px !important;
+    background: #f8f9fb !important;
+    color: #526176 !important;
+    min-height: 38px !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-provider-switcher .doctor-pill.is-active {
+    background: #eaf0f9 !important;
+    color: #203b62 !important;
+    border-color: #aabbd2 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-provider-switcher .sb-doctor-booking-count {
+    background: #fff !important;
+    border-color: #dce3eb !important;
+    color: #58677b !important;
+  }
+
+  /* Month navigation and fast day selection, like an iPhone scheduling app. */
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-date-nav {
+    display: grid !important;
+    grid-template-columns: 38px minmax(0,1fr) 38px 56px !important;
+    align-items: center !important;
+    gap: 7px !important;
+    min-height: 54px !important;
+    padding: 7px 11px !important;
+    margin: 0 !important;
+    background: #fff !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-date-arrow {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    background: #f2f5f9 !important;
+    border: 0 !important;
+    border-radius: 10px !important;
+    color: #2e405d !important;
+    font: 400 27px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-date-title {
+    min-width: 0 !important;
+    gap: 1px !important;
+    text-align: center !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-date-title > strong,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-date-title > span {
+    display: none !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-month-button {
+    width: 100% !important;
+    min-height: 38px !important;
+    border: 0 !important;
+    border-radius: 9px !important;
+    background: transparent !important;
+    color: #25344b !important;
+    padding: 4px 2px !important;
+    font: 650 15px/1.25 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+    white-space: nowrap !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-today {
+    min-height: 34px !important;
+    padding: 0 5px !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #e24160 !important;
+    font: 650 12px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+    cursor: pointer !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-date-input {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    z-index: -1 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-weekstrip {
+    display: grid !important;
+    grid-template-columns: repeat(7,minmax(0,1fr)) !important;
+    gap: 1px !important;
+    padding: 2px 7px 10px !important;
+    background: #fff !important;
+    border-bottom: 1px solid #e9edf1 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-day {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+    min-height: 59px !important;
+    padding: 4px 1px !important;
+    border: 0 !important;
+    border-radius: 10px !important;
+    background: transparent !important;
+    color: #718094 !important;
+    font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-day > span {
+    font-size: 10px !important;
+    font-weight: 550 !important;
+    line-height: 1 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-day > strong {
+    display: grid !important;
+    place-items: center !important;
+    width: 31px !important;
+    height: 31px !important;
+    border-radius: 50% !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    font-weight: 600 !important;
+    color: #283851 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-day.is-active > strong {
+    background: #ee4766 !important;
+    color: #fff !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-day.is-today:not(.is-active) > strong {
+    box-shadow: inset 0 0 0 1.5px #ee4766 !important;
+    color: #dd3d5c !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-day:focus-visible,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-date-arrow:focus-visible,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-month-button:focus-visible {
+    outline: 2px solid #ee4766 !important;
+    outline-offset: 2px !important;
+  }
+
+  /* One consistent clock: 10:00 to 20:00, 104px/hour, no 1200/1245 conflict. */
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell {
+    display: grid !important;
+    grid-template-columns: 48px minmax(0,1fr) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    margin: 0 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell.is-week {
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell.is-week .sb-calendar-days {
+    min-width: 770px !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-days,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-day {
+    min-height: 0 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-day-head {
+    height: 36px !important;
+    min-height: 36px !important;
+    box-sizing: border-box !important;
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e5eaf1 !important;
+    padding: 0 9px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell.is-day .sb-day-head > span,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell.is-day .sb-day-head > b {
+    display: none !important; /* the day is already in the week strip */
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-day-head:before {
+    content: "10:00 – 20:00";
+    font: 500 10px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+    color: #8290a3 !important;
+    margin-right: auto !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-day-track {
+    position: relative !important;
+    height: var(--sb-iphone-track) !important;
+    min-height: var(--sb-iphone-track) !important;
+    background-color: #fff !important;
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(10% - 1px), #e5eaf1 calc(10% - 1px), #e5eaf1 10%) !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-time-axis {
+    position: relative !important;
+    height: calc(var(--sb-iphone-track) + 36px) !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    background: #f9fbfd !important;
+    border-right: 1px solid #e5eaf1 !important;
+    z-index: 1 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-time-axis span {
+    color: #788699 !important;
+    font: 500 10px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+    text-align: right !important;
+    right: 6px !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-working-segment,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-working-segment-editable {
+    border-radius: 0 !important;
+    box-shadow: inset 3px 0 0 rgba(72,138,123,.28) !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-working-segment span {
+    display: none !important; /* no giant pill floating over appointment cards */
+  }
+
+  /* Events remain at the API's exact top/height percentages. Widths are
+     computed by the collision layout, never by a competing mobile CSS rule. */
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-block {
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 4px 6px !important;
+    margin: 0 !important;
+    border-radius: 5px !important;
+    border-left: 3px solid #6289b4 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    color: #233a57 !important;
+    background: #e0ebfa !important;
+    text-decoration: none !important;
+    line-height: 1.12 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event {
+    z-index: 5 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event strong,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-block strong {
+    display: block !important;
+    font: 650 11px/1.15 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+    color: inherit !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event span,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event small,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-block small {
+    display: block !important;
+    margin-top: 3px !important;
+    font: 450 9px/1.12 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+    color: inherit !important;
+    opacity: .85;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event.is-compact span,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event.is-compact small,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-block.is-compact small {
+    display: none !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-block.is-block,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-block.is-blocked,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-block.is-blocked-note {
+    background: #ebe3d3 !important;
+    border-left-color: #ae8851 !important;
+    color: #655039 !important;
+    z-index: 3 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell .sb-calendar-block.is-note {
+    background: #f9edc8 !important;
+    border-left-color: #d9aa45 !important;
+    color: #6e5226 !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-day-hours-edit {
+    position: relative !important;
+    right: auto !important;
+    top: auto !important;
+    transform: none !important;
+    flex: none !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-fab-wrap .sb-fab {
+    background: #ee4766 !important;
+    color: #fff !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-view-menu {
+    background: #fff !important;
+    border: 1px solid #e4e8f0 !important;
+    color: #263851 !important;
+    border-radius: 13px !important;
+    box-shadow: 0 14px 30px rgba(18,35,61,.14) !important;
+  }
+}
+@media (max-width: 355px) {
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-date-nav {
+    grid-template-columns: 34px minmax(0,1fr) 34px 48px !important;
+    gap: 3px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-month-button {font-size:13px!important}
+}
