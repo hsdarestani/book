@@ -47,6 +47,7 @@
       addStylesheet('/static/booking/admin-calendar-scroll-v5.css?v=20261029-scroll-v5', 'data-admin-calendar-scroll-v5');
       addStylesheet('/static/booking/admin-calendar-date-dock-v6.css?v=20261029-firsthour8', 'data-admin-calendar-dock-v6');
       addStylesheet('/static/booking/admin-calendar-view-modes-v1.css?v=20261029-modes1', 'data-admin-calendar-view-modes-v1');
+      addStylesheet('/static/booking/admin-calendar-horizontal-v2.css?v=20261029-horizontal2', 'data-calendar-horizontal-v2');
     }
   }
 
@@ -59,7 +60,7 @@
     document.head.appendChild(script);
     if (document.querySelector('.sb-calendar-panel')) {
       const iphone = document.createElement('script');
-      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261029-view-modes1';
+      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261029-horizontal2';
       iphone.defer = true;
       iphone.setAttribute('data-admin-calendar-iphone-v1', '1');
       document.head.appendChild(iphone);

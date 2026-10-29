@@ -12,7 +12,7 @@ from django.contrib.staticfiles import finders
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from .models import StaffMember
+from .models import StaffMember, Service
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -63,7 +63,8 @@ class ManagementMobileBrowserTests(TestCase):
                          "admin-calendar-mobile-v2.css", "admin-calendar-iphone-v1.css",
                          "admin-calendar-reference-v2.css", "admin-calendar-sheet-fix-v3.css",
                          "admin-calendar-mobile-finish-v4.css", "admin-calendar-scroll-v5.css",
-                         "admin-calendar-date-dock-v6.css"]
+                         "admin-calendar-date-dock-v6.css","admin-calendar-view-modes-v1.css",
+                         "admin-calendar-horizontal-v2.css"]
             for name in css_names:
                 item = finders.find("booking/"+name)
                 self.assertTrue(item, name)
@@ -78,7 +79,15 @@ class ManagementMobileBrowserTests(TestCase):
         page = context.new_page()
         page.set_content(html, wait_until="domcontentloaded")
         if calendar:
-            page.evaluate("document.body.classList.add('sb-calendar-pro')")
+            # Production's admin.js marks all inactive sections hidden before
+            # user input. Without this, the boot guard in admin-fixes.css
+            # sets pointer-events:none on the entire calendar, invalidating
+            # real touch tests that don't load the full admin.js.
+            page.evaluate("""() => {
+                document.body.classList.add('sb-calendar-pro');
+                document.querySelectorAll('.admin-hero,.metric-grid,main > section.admin-panel:not(#kalender)')
+                  .forEach(el=>el.classList.add('sb-page-hidden'));
+            }""")
         for style in styles:
             page.add_style_tag(content=style)
         if calendar:
@@ -206,6 +215,107 @@ class ManagementMobileBrowserTests(TestCase):
                 self.assertLess(abs(dock.evaluate("el=>el.getBoundingClientRect().top")-fixed_before['y']),2,
                                 "The calendar month/week navigation scrolled off-screen")
                 context.close()
+            finally:
+                browser.close()
+
+    def test_native_horizontal_swipe_on_week_provider_and_service_columns(self):
+        """Real Android touch gestures must scroll columns, not just match CSS text."""
+        from playwright.sync_api import sync_playwright
+        day=timezone.localdate().isoformat()
+        # Guarantee at least 3 columns in provider and service views even
+        # when the base fixture contains only one clinician.
+        for i in range(3):
+            member=StaffMember.objects.create(
+                display_name=f'Horizontal Physician {i}', role='doctor',
+                active=True, sort_order=90+i,
+            )
+            service=Service.objects.create(
+                name=f'Horizontal Service {i}', slug=f'horizontal-service-{i}',
+                active=True, sort_order=90+i,
+            )
+            self.staff.services.add(service)
+        sources=[]
+        for mode in ("week","provider","service"):
+            response=self.client.get("/verwaltung/kalender/",{
+                "date":day,"staff":self.staff.pk,"cal_view":mode,
+            })
+            html,styles=self._html_with_styles(response,calendar=True)
+            sources.append((mode,html,styles))
+        with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,args=["--no-sandbox"])
+            try:
+                for mode,html,styles in sources:
+                    with self.subTest(mode=mode):
+                        context,page=self._page(browser,html,styles,calendar=True)
+                        page.wait_for_timeout(100)
+                        shell=page.locator(".sb-calendar-shell.is-week")
+                        viewport=page.locator(".sb-horizontal-track-viewport")
+                        self.assertEqual(shell.count(),1)
+                        self.assertEqual(viewport.count(),1)
+                        geom=viewport.evaluate("""el=>{
+                            const head=el.querySelector('.sb-day-head');
+                            const track=el.querySelector('.sb-day-track');
+                            const h=head?.getBoundingClientRect();
+                            const t=track?.getBoundingClientRect();
+                            const css=getComputedStyle(el);
+                            return {width:el.clientWidth,
+                                    scrollWidth:el.scrollWidth,
+                                    left:el.scrollLeft,
+                                    touch:css.touchAction,
+                                    overflowX:css.overflowX,
+                                    headTop:h?.top,headBottom:h?.bottom,
+                                    trackTop:t?.top};
+                        }""")
+                        self.assertGreater(geom["scrollWidth"],geom["width"]+90,geom)
+                        self.assertEqual(geom["overflowX"],"auto",geom)
+                        self.assertIn(geom["touch"],("auto","pan-x pan-y","pan-y pan-x"),geom)
+                        self.assertLessEqual(geom["headBottom"],geom["trackTop"]+2,geom)
+                        self.assertLess(geom["headTop"],geom["trackTop"],geom)
+                        # Horizontal wheel should only move the columns,
+                        # leaving the time labels in the fixed first grid cell.
+                        axis_x=page.locator(".sb-calendar-shell.is-week > .sb-time-axis").evaluate(
+                            "el=>el.getBoundingClientRect().left")
+                        # Locate the actual visible calendar cell, not a
+                        # hard-coded screen coordinate (the main viewport may
+                        # scroll the timeline under the fixed month strip).
+                        coords=page.evaluate("""() => {
+                            const main=document.querySelector('main.sb-admin-shell');
+                            const v=document.querySelector('.sb-horizontal-track-viewport');
+                            let r=v.getBoundingClientRect();
+                            if(r.top>475){main.scrollTop +=r.top-475;r=v.getBoundingClientRect();}
+                            const x=r.left+Math.min(r.width*.5,155);
+                            const y=Math.min(innerHeight-100,r.bottom-20,Math.max(r.top+95,480));
+                            const hit=document.elementFromPoint(x,y);
+                            return {x,y,rect:r.toJSON(),inViewport:v.contains(hit),hit:hit?.className,
+                                    mainTop:main.scrollTop,dockBottom:document.querySelector('.sb-reference-date-dock')?.getBoundingClientRect().bottom};
+                        }""")
+                        self.assertTrue(coords["inViewport"],"Swipe point outside scroll owner "+mode+": "+str(coords))
+                        page.mouse.move(coords["x"],coords["y"])
+                        page.mouse.wheel(470,0)
+                        page.wait_for_timeout(220)
+                        self.assertGreater(viewport.evaluate("el=>el.scrollLeft"),65,
+                            "Horizontal wheel did not move "+mode+" at "+str(coords))
+                        axis_after=page.locator(".sb-calendar-shell.is-week > .sb-time-axis").evaluate(
+                            "el=>el.getBoundingClientRect().left")
+                        self.assertLess(abs(axis_after-axis_x),2)
+                        viewport.evaluate("el=>el.scrollLeft=0")
+                        page.wait_for_timeout(80)
+                        # CDP touch on the appointment/working segment, the same
+                        # input that got stuck in the user's Android WebView.
+                        session=context.new_cdp_session(page)
+                        session.send("Input.dispatchTouchEvent",{
+                            "type":"touchStart","touchPoints":[{"x":coords["x"],"y":coords["y"],"id":1}]})
+                        for step in range(1,15):
+                            x=coords["x"]-step*13
+                            session.send("Input.dispatchTouchEvent",{
+                                "type":"touchMove","touchPoints":[{"x":x,"y":coords["y"],"id":1}]})
+                            time.sleep(.012)
+                        session.send("Input.dispatchTouchEvent",{
+                            "type":"touchEnd","touchPoints":[]})
+                        page.wait_for_timeout(250)
+                        self.assertGreater(viewport.evaluate("el=>el.scrollLeft"),50,
+                            "Actual Android finger swipe was blocked in "+mode)
+                        context.close()
             finally:
                 browser.close()
 
