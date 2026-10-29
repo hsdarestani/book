@@ -164,6 +164,22 @@ class FullManagementSurfaceRegressionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'admin-calendar-scroll-v5.css?v=20261029-scroll-v5')
 
+    @patch('booking.app_management_views._api')
+    def test_private_admin_html_is_not_cached_and_has_final_ui_marker(self, api):
+        api.side_effect = self._fake_aplus_api
+        for path in ('/verwaltung/kalender/', '/verwaltung/app/wallet/', '/verwaltung/app/patients/'):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn('no-store', response.get('Cache-Control',''))
+                self.assertIn('private', response.get('Cache-Control',''))
+        calendar = self.client.get('/verwaltung/kalender/')
+        self.assertContains(calendar,'admin-calendar-date-dock-v6.css?v=20261029-dock6')
+        wallet = self.client.get('/verwaltung/app/wallet/')
+        self.assertContains(wallet,'background:linear-gradient(118deg,#10271d')
+        customers = self.client.get('/verwaltung/app/patients/')
+        self.assertContains(customers,'class="premium-customer-panel" aria-label="Kundenverzeichnis" style="width:100%!important')
+
     def test_calendar_add_menu_remains_real_and_accessible(self):
         response = self.client.get('/verwaltung/kalender/', {'staff': self.staff.pk})
         self.assertEqual(response.status_code, 200)
