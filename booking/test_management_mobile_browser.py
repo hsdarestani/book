@@ -110,7 +110,9 @@ class ManagementMobileBrowserTests(TestCase):
                 self.assertEqual(initial['scroll'], 0, initial)
                 self.assertGreaterEqual(initial['trackStart'], initial['dockEnd']-5, initial)
                 self.assertGreaterEqual(initial['firstHour'], initial['dockEnd']-10, initial)
-                self.assertIn('10:00', page.locator('.sb-time-axis').inner_text())
+                self.assertIn('10:00', page.locator('.sb-time-axis').text_content())
+                # Computed geometry above establishes whether its row is
+                # uncovered; inner_text() is unreliable before axis JS styling.
                 dock=page.locator(".sb-reference-date-dock")
                 self.assertEqual(dock.count(),1)
                 self.assertEqual(dock.locator(".sb-iphone-day").count(),7)
