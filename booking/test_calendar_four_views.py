@@ -72,21 +72,30 @@ class CalendarFourViewsTests(TestCase):
         self.assertEqual(len(day.context['calendar_days']),1)
         self.assertEqual(len(week.context['calendar_days']),7)
         self.assertContains(day, 'Eigener Botoxtermin')
-        self.assertNotContains(day, 'Zweiter Arzttermin')
+        self.assertTrue(all(
+            a['item'].staff_id == self.staff_a.pk
+            for c in day.context['calendar_days'] for a in c['appointments']
+        ))
         self.assertContains(week, 'is-week')
         self.assertContains(week, 'Woche')
 
     def test_provider_mode_shows_separate_staff_columns_with_actual_data(self):
         response = self.calendar('provider')
         columns = response.context['calendar_days']
-        self.assertEqual([c['column_label'] for c in columns],
-                         ['Ärztin Eins','Ärztin Zwei'])
-        self.assertEqual([a['item'].staff_id for a in columns[0]['appointments']],
+        by_name = {c['column_label']:c for c in columns}
+        # Production fixture contains additional active doctors. They also
+        # legitimately get columns; only the two test doctors have bookings.
+        self.assertIn('Ärztin Eins',by_name)
+        self.assertIn('Ärztin Zwei',by_name)
+        self.assertEqual([a['item'].staff_id for a in by_name['Ärztin Eins']['appointments']],
                          [self.staff_a.pk,self.staff_a.pk])
-        self.assertEqual([a['item'].staff_id for a in columns[1]['appointments']],
+        self.assertEqual([a['item'].staff_id for a in by_name['Ärztin Zwei']['appointments']],
                          [self.staff_b.pk])
-        self.assertEqual(len(columns[0]['working_segments']),1)
-        self.assertEqual(len(columns[1]['working_segments']),1)
+        for col in columns:
+            self.assertTrue(all(a['item'].staff.display_name == col['column_label']
+                                for a in col['appointments']))
+        self.assertEqual(len(by_name['Ärztin Eins']['working_segments']),1)
+        self.assertEqual(len(by_name['Ärztin Zwei']['working_segments']),1)
         self.assertContains(response,'is-provider is-grouped')
 
     def test_service_mode_shows_real_service_specific_appointments(self):
@@ -98,7 +107,8 @@ class CalendarFourViewsTests(TestCase):
                          [self.botox.pk])
         self.assertEqual([a['item'].service_id for a in columns[1]['appointments']],
                          [self.laser.pk])
-        self.assertNotContains(response,'Zweiter Arzttermin')
+        self.assertTrue(all(a['item'].staff_id == self.staff_a.pk
+                            for col in columns for a in col['appointments']))
         self.assertContains(response,'is-service is-grouped')
 
     def test_all_four_views_are_real_links_with_visible_chooser(self):
