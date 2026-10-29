@@ -22,10 +22,20 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
             "admin-calendar-reference-v2.css",
             "data-admin-calendar-reference-v2",
             "admin-calendar-sheet-fix-v3.css",
-            "20261029-sheet-v3",
+            "admin-calendar-date-dock-v6.css",
+            "20261029-dock6",
             "20261029-reference2",
         ):
             self.assertIn(marker, admin)
+
+    def test_date_controls_are_portaled_outside_scrolling_calendar(self):
+        js = self.source("static/booking/admin-calendar-iphone-v1.js")
+        css = self.source("static/booking/admin-calendar-date-dock-v6.css")
+        self.assertIn("document.body.appendChild(dock)", js)
+        self.assertIn("dock.append(nav,strip)", js)
+        self.assertIn("position:fixed!important", css)
+        self.assertIn("top:64px!important", css)
+        self.assertIn("padding-top:150px!important", css)
 
     def test_race_safe_calendar_navigation_and_initial_edit_hydration(self):
         plus = self.source("static/booking/admin-calendar-plus.js")
