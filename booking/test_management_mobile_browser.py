@@ -62,7 +62,8 @@ class ManagementMobileBrowserTests(TestCase):
             css_names = ["admin-simply.css", "admin-calendar-plus.css",
                          "admin-calendar-mobile-v2.css", "admin-calendar-iphone-v1.css",
                          "admin-calendar-reference-v2.css", "admin-calendar-sheet-fix-v3.css",
-                         "admin-calendar-mobile-finish-v4.css", "admin-calendar-scroll-v5.css"]
+                         "admin-calendar-mobile-finish-v4.css", "admin-calendar-scroll-v5.css",
+                         "admin-calendar-date-dock-v6.css"]
             for name in css_names:
                 item = finders.find("booking/"+name)
                 self.assertTrue(item, name)
@@ -80,6 +81,10 @@ class ManagementMobileBrowserTests(TestCase):
             page.evaluate("document.body.classList.add('sb-calendar-pro')")
         for style in styles:
             page.add_style_tag(content=style)
+        if calendar:
+            page.add_script_tag(content=Path(
+                finders.find("booking/admin-calendar-iphone-v1.js")
+            ).read_text(encoding="utf-8"))
         return context, page
 
     def test_android_swipe_reaches_late_calendar_hours(self):
@@ -94,6 +99,18 @@ class ManagementMobileBrowserTests(TestCase):
             try:
                 context, page = self._page(browser, html, styles, calendar=True)
                 self.assertTrue(page.locator(".sb-calendar-shell.is-day").count())
+                dock=page.locator(".sb-reference-date-dock")
+                self.assertEqual(dock.count(),1)
+                self.assertEqual(dock.locator(".sb-iphone-day").count(),7)
+                fixed_before=dock.evaluate("""node=>({
+                  y:node.getBoundingClientRect().top,
+                  position:getComputedStyle(node).position,
+                  month:node.querySelector('.sb-iphone-month-button')?.textContent
+                })""")
+                self.assertEqual(fixed_before['position'],'fixed', fixed_before)
+                self.assertGreaterEqual(fixed_before['y'],60)
+                self.assertLess(fixed_before['y'],70)
+                self.assertTrue(fixed_before['month'])
                 before = page.evaluate("""() => {
                     const m=document.querySelector('main.sb-admin-shell');
                     return {y:m.scrollTop, height:m.scrollHeight, client:m.clientHeight,
@@ -105,6 +122,9 @@ class ManagementMobileBrowserTests(TestCase):
                 page.mouse.wheel(0, 680)
                 page.wait_for_timeout(200)
                 self.assertGreater(page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop"), 70)
+                self.assertLess(abs(dock.evaluate("el=>el.getBoundingClientRect().top")-fixed_before['y']),2)
+                self.assertTrue(dock.locator(".sb-iphone-month-button").is_visible())
+                self.assertTrue(dock.locator(".sb-iphone-day").first.is_visible())
                 page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop=0")
                 # Touch on an appointment card/time track must not deadlock scrolling.
                 session=context.new_cdp_session(page)
@@ -124,6 +144,8 @@ class ManagementMobileBrowserTests(TestCase):
                     page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop"),
                     60, "Android finger gesture did not move the calendar scrollport"
                 )
+                self.assertLess(abs(dock.evaluate("el=>el.getBoundingClientRect().top")-fixed_before['y']),2,
+                                "The calendar month/week navigation scrolled off-screen")
                 context.close()
             finally:
                 browser.close()
