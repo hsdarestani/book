@@ -11,6 +11,8 @@ on:
       - "booking/test_management_mobile_browser.py"
       - "static/booking/admin-calendar-scroll-v5.css"
       - "static/booking/admin-calendar-date-dock-v6.css"
+      - "static/booking/admin-calendar-horizontal-v2.css"
+      - "templates/booking/_shared_admin_calendar.html"
       - "static/booking/admin-calendar-iphone-v1.js"
       - "templates/booking/dashboard.html"
       - "static/booking/clinic-patient-wallet-finish-v4.css"
