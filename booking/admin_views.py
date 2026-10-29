@@ -304,8 +304,8 @@ def _polish_admin_response(
       <input type="hidden" name="action" value="add_calendar_block">
       <input type="hidden" name="staff_id" value="{escape(staff_value)}">
       <input type="hidden" name="return_view" value="day">
-      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Startdatum und -uhrzeit</small><input type="date" name="block_date" value="{day_value}" required><input type="time" name="block_start" step="900" required></div></label>
-      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Enddatum und -uhrzeit</small><input type="time" name="block_end" step="900" required></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Startdatum und -uhrzeit</small><span class="sb-reference-date-time"><input type="date" name="block_date" value="{day_value}" required><input type="time" name="block_start" step="900" required></span></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Enddatum und -uhrzeit</small><span class="sb-reference-date-time"><span class="sb-reference-end-date" data-block-end-date></span><input type="time" name="block_end" step="900" required></span></div></label>
       <div class="sb-explicit-block-note"><strong>Zeitraum wird blockiert</strong><span>Online-Buchungen sind in diesem Zeitraum nicht möglich.</span></div>
       <div class="sb-sheet-section-title inner">Anwendung der Sperrzeit</div>
       <div class="sb-scope-tabs">
@@ -604,7 +604,8 @@ def dashboard_proxy(request):
         text = (request.POST.get('note_text') or '').strip()[:120]
         scope = request.POST.get('note_scope') or 'all'
         service_id = request.POST.get('note_service_id') or None
-        reason = f'[NOTE]{_scope_prefix(scope, service_id)} {text or "Notiz"}'[:160]
+        prefix = '[BLOCKNOTE]' if request.POST.get('note_blocked') == 'on' else '[NOTE]'
+        reason = f'{prefix}{_scope_prefix(scope, service_id)} {text or "Notiz"}'[:160]
         focus = _create_scoped_periods(
             staff_qs=staff_qs,
             selected_staff=selected_staff,

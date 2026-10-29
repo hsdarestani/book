@@ -7,6 +7,13 @@ on:
       - "static/booking/admin-calendar-plus.js"
       - "static/booking/admin-calendar-iphone-v1.*"
       - "booking/test_iphone_calendar.py"
+      - "booking/test_calendar_sheet_correctness.py"
+      - "booking/admin_views.py"
+      - "booking/doctor_views.py"
+      - "static/booking/admin-ferrari-v17.js"
+      - "static/booking/admin-calendar-sheet-fix-v3.css"
+      - "static/booking/clinic-signature-surfaces-v1.css"
+      - "templates/booking/dashboard.html"
       - "booking/app_admin_middleware.py"
       - "booking/test_full_surface_regression.py"
       - ".github/workflows/iphone-calendar-pr.yml"
@@ -27,6 +34,6 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: Run calendar and mobile regression suite
-        run: python manage.py test booking.test_iphone_calendar booking.test_fast_calendar_and_login booking.test_admin_mobile_flow booking.test_full_surface_regression
+        run: python manage.py test booking.test_iphone_calendar booking.test_calendar_sheet_correctness booking.test_fast_calendar_and_login booking.test_admin_mobile_flow booking.test_full_surface_regression
       - name: Check Django system configuration
         run: python manage.py check

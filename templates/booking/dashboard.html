@@ -8,14 +8,14 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/app.css{% else %}{% static 'booking/app.css' %}{% endif %}">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}?v=20261006-calendar-v20">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
-  <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261020-role-admin"></script>
-  <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20260923-v19"></script>
+  <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261029-sheet-v3"></script>
+  <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20261029-sheet-v3"></script>
   {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% else %}
   <link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header4">
   <link rel="stylesheet" href="/static/booking/clinic-calendar-topbar-v1.css?v=20261020-header4">
   <script defer src="/static/booking/clinic-header-v3.js?v=20261021-mobile2"></script>
   <script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-header4"></script>{% endif %}
-{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261024-gutters1">{% if not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-signature-surfaces-v1.css?v=20261024-signature-all1">{% endif %}</head>
+{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261024-gutters1">{% if not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-signature-surfaces-v1.css?v=20261029-directory-v2">{% endif %}</head>
 <body class="admin-body sb-admin-body" {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
 
 <header class="sb-mobile-bar sb-reference-calendar-bar">
@@ -262,8 +262,8 @@
     <div class="sb-sheet-section-title">Details</div>
     <form method="post" class="sb-sheet-form" id="sb-new-note-form">
       {% csrf_token %}<input type="hidden" name="action" value="add_calendar_note"><input type="hidden" name="staff_id" value="{{ selected_staff.pk }}"><input type="hidden" name="return_date" value="{{ calendar_date|date:'Y-m-d' }}"><input type="hidden" name="return_view" value="{{ calendar_view }}">
-      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Startdatum und -uhrzeit</small><input type="date" name="note_date" value="{{ calendar_date|date:'Y-m-d' }}" required><input type="time" name="note_start" step="900" required></div></label>
-      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Enddatum und -uhrzeit</small><input type="time" name="note_end" step="900" required></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Startdatum und -uhrzeit</small><span class="sb-reference-date-time"><input type="date" name="note_date" value="{{ calendar_date|date:'Y-m-d' }}" required><input type="time" name="note_start" step="900" required></span></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Enddatum und -uhrzeit</small><span class="sb-reference-date-time"><span class="sb-reference-end-date" data-note-end-date></span><input type="time" name="note_end" step="900" required></span></div></label>
       <label class="sb-block-toggle"><div><strong>Zeitraum blockieren</strong><span>Wenn aus, bleibt der Zeitraum online buchbar.</span></div><input type="checkbox" name="note_blocked"><i></i></label>
       <div class="sb-sheet-section-title inner">Anwendung der Notiz</div>
       <div class="sb-scope-tabs">
