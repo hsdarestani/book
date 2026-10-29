@@ -267,11 +267,26 @@ class ManagementMobileBrowserTests(TestCase):
                         # leaving the time labels in the fixed first grid cell.
                         axis_x=page.locator(".sb-calendar-shell.is-week > .sb-time-axis").evaluate(
                             "el=>el.getBoundingClientRect().left")
-                        page.mouse.move(300,610)
+                        # Locate the actual visible calendar cell, not a
+                        # hard-coded screen coordinate (the main viewport may
+                        # scroll the timeline under the fixed month strip).
+                        coords=page.evaluate("""() => {
+                            const main=document.querySelector('main.sb-admin-shell');
+                            const v=document.querySelector('.sb-horizontal-track-viewport');
+                            let r=v.getBoundingClientRect();
+                            if(r.top>475){main.scrollTop +=r.top-475;r=v.getBoundingClientRect();}
+                            const x=r.left+Math.min(r.width*.5,155);
+                            const y=Math.min(innerHeight-100,r.bottom-20,Math.max(r.top+95,480));
+                            const hit=document.elementFromPoint(x,y);
+                            return {x,y,rect:r.toJSON(),inViewport:v.contains(hit),hit:hit?.className,
+                                    mainTop:main.scrollTop,dockBottom:document.querySelector('.sb-reference-date-dock')?.getBoundingClientRect().bottom};
+                        }""")
+                        self.assertTrue(coords["inViewport"],"Swipe point outside scroll owner "+mode+": "+str(coords))
+                        page.mouse.move(coords["x"],coords["y"])
                         page.mouse.wheel(470,0)
-                        page.wait_for_timeout(150)
+                        page.wait_for_timeout(220)
                         self.assertGreater(viewport.evaluate("el=>el.scrollLeft"),65,
-                            "Horizontal wheel did not move "+mode)
+                            "Horizontal wheel did not move "+mode+" at "+str(coords))
                         axis_after=page.locator(".sb-calendar-shell.is-week > .sb-time-axis").evaluate(
                             "el=>el.getBoundingClientRect().left")
                         self.assertLess(abs(axis_after-axis_x),2)
@@ -281,10 +296,11 @@ class ManagementMobileBrowserTests(TestCase):
                         # input that got stuck in the user's Android WebView.
                         session=context.new_cdp_session(page)
                         session.send("Input.dispatchTouchEvent",{
-                            "type":"touchStart","touchPoints":[{"x":327,"y":615,"id":1}]})
-                        for x in range(311,95,-18):
+                            "type":"touchStart","touchPoints":[{"x":coords["x"],"y":coords["y"],"id":1}]})
+                        for step in range(1,15):
+                            x=coords["x"]-step*13
                             session.send("Input.dispatchTouchEvent",{
-                                "type":"touchMove","touchPoints":[{"x":x,"y":615,"id":1}]})
+                                "type":"touchMove","touchPoints":[{"x":x,"y":coords["y"],"id":1}]})
                             time.sleep(.012)
                         session.send("Input.dispatchTouchEvent",{
                             "type":"touchEnd","touchPoints":[]})
