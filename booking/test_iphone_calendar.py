@@ -30,7 +30,7 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
 
     def test_date_controls_are_portaled_outside_scrolling_calendar(self):
         js = self.source("static/booking/admin-calendar-iphone-v1.js")
-        css = self.source("static/booking/admin-calendar-date-dock-v6.css")
+        css = self.source("static/booking/admin-calendar-date-dock-v7.css")
         self.assertIn("document.body.appendChild(dock)", js)
         self.assertIn("dock.append(nav,strip)", js)
         self.assertIn("position:fixed!important", css)
