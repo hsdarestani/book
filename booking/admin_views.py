@@ -297,9 +297,9 @@ def _polish_admin_response(
     block_modal = f"""
 <div class="sb-modal" data-modal="block" aria-hidden="true">
   <div class="sb-modal-card sb-form-sheet">
-    <div class="sb-sheet-head"><button type="button" data-close-modal>×</button><strong>Zeitraum blockieren</strong><span></span></div>
+    <div class="sb-sheet-head"><button type="button" data-close-modal>×</button><strong>Zeitraum blockieren</strong><button type="submit" form="sb-add-block-form" class="sb-reference-header-save">Speichern</button></div>
     <div class="sb-sheet-section-title">Details</div>
-    <form method="post" class="sb-sheet-form" data-calendar-block-form>
+    <form method="post" class="sb-sheet-form" id="sb-add-block-form" data-calendar-block-form>
       <input type="hidden" name="csrfmiddlewaretoken" value="{escape(csrf_value)}">
       <input type="hidden" name="action" value="add_calendar_block">
       <input type="hidden" name="staff_id" value="{escape(staff_value)}">
@@ -324,9 +324,9 @@ def _polish_admin_response(
     edit_block_modal = f"""
 <div class="sb-modal" data-modal="calendar-item-edit" aria-hidden="true">
   <div class="sb-modal-card sb-form-sheet">
-    <div class="sb-sheet-head"><button type="button" data-close-modal>×</button><strong data-edit-block-title>Sperrzeit bearbeiten</strong><span></span></div>
+    <div class="sb-sheet-head"><button type="button" data-close-modal>×</button><strong data-edit-block-title>Sperrzeit bearbeiten</strong><button type="submit" form="sb-edit-block-form" name="action" value="edit_calendar_item" class="sb-reference-header-save">Speichern</button></div>
     <div class="sb-sheet-section-title">Details</div>
-    <form method="post" class="sb-sheet-form" data-calendar-item-edit-form>
+    <form method="post" class="sb-sheet-form" id="sb-edit-block-form" data-calendar-item-edit-form>
       <input type="hidden" name="csrfmiddlewaretoken" value="{escape(csrf_value)}">
       <input type="hidden" name="block_id">
       <input type="hidden" name="staff_id" value="{escape(staff_value)}">
@@ -354,9 +354,9 @@ def _polish_admin_response(
     edit_appointment_modal = f"""
 <div class="sb-modal" data-modal="appointment-edit" aria-hidden="true">
   <div class="sb-modal-card sb-form-sheet">
-    <div class="sb-sheet-head"><button type="button" data-close-modal>×</button><strong>Termin bearbeiten</strong><span></span></div>
+    <div class="sb-sheet-head"><button type="button" data-close-modal>×</button><strong>Termin bearbeiten</strong><button type="submit" form="sb-edit-appointment-form" name="action" value="edit_appointment" class="sb-reference-header-save">Speichern</button></div>
     <div class="sb-sheet-section-title">Buchungsinformationen</div>
-    <form method="post" class="sb-sheet-form" data-appointment-edit-form>
+    <form method="post" class="sb-sheet-form" id="sb-edit-appointment-form" data-appointment-edit-form>
       <input type="hidden" name="csrfmiddlewaretoken" value="{escape(csrf_value)}">
       <input type="hidden" name="appointment_id">
       <input type="hidden" name="return_view" value="{escape(calendar_view)}">
