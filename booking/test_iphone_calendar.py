@@ -23,7 +23,7 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
             "data-admin-calendar-reference-v2",
             "admin-calendar-sheet-fix-v3.css",
             "admin-calendar-date-dock-v6.css",
-            "20261029-dock6",
+            "20261029-firstpaint7",
             "20261029-reference2",
         ):
             self.assertIn(marker, admin)
@@ -31,11 +31,29 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
     def test_date_controls_are_portaled_outside_scrolling_calendar(self):
         js = self.source("static/booking/admin-calendar-iphone-v1.js")
         css = self.source("static/booking/admin-calendar-date-dock-v6.css")
-        self.assertIn("document.body.appendChild(dock)", js)
-        self.assertIn("dock.append(nav,strip)", js)
+        self.assertIn("const dock=document.querySelector('[data-reference-date-dock]')", js)
+        self.assertIn("dock.replaceChildren(nav,strip)", js)
         self.assertIn("position:fixed!important", css)
         self.assertIn("top:64px!important", css)
         self.assertIn("padding-top:150px!important", css)
+
+    def test_calendar_is_final_style_from_first_html_frame(self):
+        template=self.source("templates/booking/dashboard.html")
+        script=self.source("static/booking/admin-calendar-iphone-v1.js")
+        for marker in (
+            'sb-calendar-pro sb-calendar-booting',
+            'data-reference-date-dock',
+            'sb-reference-date-preview',
+            'calendar_strip_days',
+            'admin-calendar-reference-v2.css',
+            'admin-calendar-date-dock-v6.css',
+            "history.scrollRestoration='manual'",
+        ):
+            self.assertIn(marker,template)
+        self.assertIn('resetOnInitialOpen()',script)
+        self.assertIn("main.scrollTop=0",script)
+        self.assertIn("'pageshow'",script)
+        self.assertIn("document.body.classList.remove('sb-calendar-booting')",script)
 
     def test_race_safe_calendar_navigation_and_initial_edit_hydration(self):
         plus = self.source("static/booking/admin-calendar-plus.js")
