@@ -604,7 +604,8 @@ def dashboard_proxy(request):
         text = (request.POST.get('note_text') or '').strip()[:120]
         scope = request.POST.get('note_scope') or 'all'
         service_id = request.POST.get('note_service_id') or None
-        reason = f'[NOTE]{_scope_prefix(scope, service_id)} {text or "Notiz"}'[:160]
+        prefix = '[BLOCKNOTE]' if request.POST.get('note_blocked') == 'on' else '[NOTE]'
+        reason = f'{prefix}{_scope_prefix(scope, service_id)} {text or "Notiz"}'[:160]
         focus = _create_scoped_periods(
             staff_qs=staff_qs,
             selected_staff=selected_staff,
