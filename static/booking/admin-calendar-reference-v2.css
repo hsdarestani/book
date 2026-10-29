@@ -511,3 +511,50 @@
     padding-top:calc(64px + var(--calendar-status-gap,0px))!important;
   }
 }
+
+/* Clinic-wide premium selectors had been silently restoring beige, green and
+   a padded rounded card. These exact overrides make calendar-only UI independent. */
+@media (max-width:760px) {
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-panel {
+    padding:0!important;margin:0!important;width:100%!important;max-width:100%!important;
+    border:0!important;border-radius:0!important;background:#fff!important;box-shadow:none!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-working-segment,
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-working-segment-editable {
+    background:transparent!important;box-shadow:none!important;border:0!important;border-radius:0!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-working-segment span {
+    display:none!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-block,
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-block.is-blocked,
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-block.is-blocked-note,
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-block.is-note {
+    background:#ffd17b!important;background-image:none!important;
+    border:1px solid #eab55b!important;border-left:2px solid #eab55b!important;
+    border-radius:0!important;color:#42403c!important;box-shadow:none!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-block > strong,
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-block > small {
+    color:#42403c!important;text-align:center!important;
+    font:650 11px/1.15 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-block > small {
+    font-size:10px!important;font-weight:450!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-event {
+    background:#13b3d3!important;background-image:none!important;
+    border:1px solid #10a7c9!important;border-left:3px solid #0b98b9!important;
+    color:#fff!important;border-radius:0!important;box-shadow:none!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-event :is(strong,span,small) {
+    color:#fff!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-time-axis span {
+    color:#8b929b!important;font-size:11px!important;
+  }
+  html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-fab-wrap .sb-fab {
+    background:#10b7d8!important;color:#fff!important;
+    border:0!important;border-radius:50%!important;
+  }
+}
