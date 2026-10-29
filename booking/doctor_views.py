@@ -322,7 +322,7 @@ def doctor_appointments(request):
     if day < today - timedelta(days=730) or day > today + timedelta(days=730):
         return HttpResponseForbidden('Datum außerhalb des zulässigen Bereichs.')
     cal_view = str(params.get('cal_view') or params.get('return_view') or 'day')
-    if cal_view not in {'day', 'week'}:
+    if cal_view not in {'day', 'week', 'provider', 'service'}:
         cal_view = 'day'
     section = str(request.GET.get('section') or request.POST.get('section') or 'calendar')
     if section not in {'dashboard', 'calendar', 'bookings', 'customers', 'settings', 'information'}:

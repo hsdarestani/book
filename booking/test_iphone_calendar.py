@@ -23,7 +23,7 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
             "data-admin-calendar-reference-v2",
             "admin-calendar-sheet-fix-v3.css",
             "admin-calendar-date-dock-v6.css",
-            "20261029-firstpaint7",
+            "20261029-view-modes1",
             "20261029-reference2",
         ):
             self.assertIn(marker, admin)
@@ -129,6 +129,19 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         css = self.source("static/booking/clinic-signature-surfaces-v1.css")
         self.assertIn('html[data-clinic-design="premium"] body.admin-body .premium-customer-panel .premium-list-heading', css)
         self.assertIn('html[data-clinic-design="premium"] body.admin-body .premium-patient-list', css)
+
+    def test_all_four_real_mode_links_are_exposed(self):
+        template=self.source("templates/booking/dashboard.html")
+        views=self.source("booking/views.py")
+        javascript=self.source("static/booking/admin-calendar-iphone-v1.js")
+        for mode in ("day","week","provider","service"):
+            self.assertIn("cal_view="+mode,template)
+        self.assertIn("Dienstleister-Ansicht",template)
+        self.assertIn("Dienstleistungsansicht",template)
+        self.assertIn("sb-reference-mode-chevron",template)
+        self.assertIn("admin-calendar-view-modes-v1.css",template)
+        self.assertIn("viewMode()",javascript)
+        self.assertIn("'provider', 'service'",views)
 
     def test_note_form_save_and_mobile_calendar_modes(self):
         dashboard = self.source("templates/booking/dashboard.html")

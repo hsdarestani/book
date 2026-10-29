@@ -52,7 +52,7 @@ class DoctorPrivateCalendarTests(TestCase):
         self.assertIn("document.querySelector('.sb-calendar-panel')", loader)
         self.assertIn("document.body.dataset.doctorCalendar==='1'", iphone)
 
-        for mode in ('day', 'week'):
+        for mode in ('day', 'week', 'provider', 'service'):
             with self.subTest(mode=mode):
                 response = self.client.get('/verwaltung/arzt/', {
                     'date': self.day.isoformat(),
@@ -72,10 +72,13 @@ class DoctorPrivateCalendarTests(TestCase):
                     'data-fab-actions',
                     'data-open-note',
                     'data-open-block',
-                    'admin.js?v=20261029-firstpaint-v7',
+                    'admin.js?v=20261029-view-modes1',
                 ):
                     self.assertContains(response, marker)
                 self.assertContains(response, 'Meine Patientin')
+                if mode in ('provider','service'):
+                    self.assertContains(response, 'is-grouped')
+                    self.assertEqual(response.content.decode('utf-8').count('class="sb-calendar-day '), 1)
                 self.assertNotContains(response, 'Fremde Patientin')
                 self.assertNotContains(response, 'Andere Ärztin')
                 self.assertContains(response, 'data-doctor-staff-id="' + str(self.doctor.pk) + '"')

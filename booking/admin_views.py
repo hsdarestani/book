@@ -62,7 +62,7 @@ def _clean_reason(reason):
 
 
 def _calendar_url(*, day, view='day', staff_id=None, notice=None, focus_block=None, focus_appointment=None):
-    params = [f'date={day.isoformat()}', f'cal_view={view if view in {"day", "week"} else "day"}']
+    params = [f'date={day.isoformat()}', f'cal_view={view if view in {"day", "week", "provider", "service"} else "day"}']
     if staff_id:
         params.append(f'staff={staff_id}')
     if notice:

@@ -10,7 +10,9 @@
   const dateFormat = new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'long',year:'numeric'});
   const longWeekday = new Intl.DateTimeFormat('de-DE',{weekday:'long'});
   const names = ['Mo','Di','Mi','Do','Fr','Sa','So'];
-  const isWeek = () => new URLSearchParams(location.search).get('cal_view') === 'week';
+  const viewMode = () => new URLSearchParams(location.search).get('cal_view') || 'day';
+  const isWeek = () => viewMode() === 'week';
+  const isGrouped = () => ['provider','service'].includes(viewMode());
   let strip, picker, monthButton, providerSheet;
   let selectedDate = '', visibleMonday = '', navigating = false, filterOpener = null;
 
@@ -39,7 +41,7 @@
   function currentDate() {
     return new URLSearchParams(location.search).get('date') || iso(new Date());
   }
-  function urlFor(value, mode = isWeek() ? 'week' : 'day') {
+  function urlFor(value, mode = viewMode()) {
     const params = new URLSearchParams(location.search);
     params.set('date',value);
     params.set('cal_view',mode);
@@ -132,6 +134,8 @@
           history.pushState({calendarDate:value},'',location.pathname+'?'+params+'#kalender');
           renderStrip();
           scrollWeekTo(value);
+        } else if (isGrouped()) {
+          location.assign(urlFor(value,viewMode()));
         } else navigateToDay(value);
       });
       strip.appendChild(button);
@@ -139,7 +143,7 @@
   }
   async function navigateToDay(value) {
     if (!parse(value)||navigating||value===selectedDate) return;
-    if (isWeek()) {location.assign(urlFor(value,'day'));return;}
+    if (isWeek() || isGrouped()) {location.assign(urlFor(value,viewMode()));return;}
     navigating=true;
     try {
       if (typeof window.aplusCalendarNavigate==='function') {
@@ -332,7 +336,7 @@
     title.appendChild(picker);
     picker.addEventListener('change',()=>{
       if(!parse(picker.value))return;
-      if(isWeek())location.assign(urlFor(picker.value,'week'));
+      if(isWeek() || isGrouped())location.assign(urlFor(picker.value,viewMode()));
       else navigateToDay(picker.value);
     });
     strip=document.createElement('nav');
@@ -389,7 +393,7 @@
       let pointerStart=null;
       shell.addEventListener('touchstart',event=>{
         const target=event.target;
-        if(isWeek()||event.touches.length!==1||
+        if(isWeek()||isGrouped()||event.touches.length!==1||
           target.closest('a,input,select,textarea,.sb-event-menu,.sb-day-hours-edit,.sb-fab')) {
           pointerStart=null;return;
         }
