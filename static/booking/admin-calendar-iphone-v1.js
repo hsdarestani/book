@@ -327,7 +327,9 @@
     const dock=document.createElement('div');
     dock.className='sb-reference-date-dock';
     dock.setAttribute('data-reference-date-dock','');
-    nav.insertAdjacentElement('beforebegin',dock);
+    // Place the dock directly on body. Position:fixed inside a transformed
+    // ancestor may instead be fixed to that ancestor and scroll away on iOS.
+    document.body.appendChild(dock);
     dock.append(nav,strip);
     renderStrip();
     renderHead(selectedDate);
