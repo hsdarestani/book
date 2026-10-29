@@ -558,3 +558,38 @@
     border:0!important;border-radius:50%!important;
   }
 }
+
+@media (max-width:760px) {
+  /* The server's inline enhancement hid this toggle, even though its POST
+     handler already supports note_blocked. The reference exposes it. */
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-modal.is-open[data-modal="note"] .sb-block-toggle {
+    display:flex!important;align-items:center!important;justify-content:space-between!important;
+    min-height:90px!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-modal.is-open[data-modal="note"] .sb-block-toggle i {
+    flex:none!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-modal.is-open[data-modal="note"] .sb-block-toggle strong {
+    font-size:14px!important;
+  }
+  /* The original POST forms remain intact; their primary submit is now
+     available from the top app bar, not duplicated after all fields. */
+  html[data-admin-page="calendar"] .sb-modal.is-open[data-modal="block"] .sb-sheet-save,
+  html[data-admin-page="calendar"] .sb-modal.is-open[data-modal="appointment-edit"] .sb-edit-actions > .sb-sheet-save,
+  html[data-admin-page="calendar"] .sb-modal.is-open[data-modal="calendar-item-edit"] .sb-edit-actions > .sb-sheet-save {
+    display:none!important;
+  }
+  html[data-admin-page="calendar"] .sb-modal.is-open .sb-sheet-head .sb-reference-header-save {
+    display:flex!important;align-items:center!important;justify-content:flex-end!important;
+    width:100%!important;height:45px!important;white-space:nowrap!important;
+    color:#fff!important;font-size:15px!important;
+  }
+  html[data-admin-page="calendar"] .sb-modal.is-open .sb-edit-actions {
+    padding:14px 18px!important;margin:0!important;
+  }
+  html[data-admin-page="calendar"] .sb-modal.is-open .sb-edit-actions .sb-danger-submit {
+    width:100%!important;min-height:53px!important;background:#fff6f5!important;
+    color:#a4524b!important;border:1px solid #e7c9c6!important;
+    border-radius:6px!important;font-size:13px!important;
+  }
+}
