@@ -695,6 +695,11 @@
 
     await initEditableAvailability();
     layoutAppointments();
+    // Hydrate the initial server-rendered cards with their real edit handlers.
+    // Do not push history; the calendar is already on this date.
+    if (currentCalendarView() === 'day' && selectedStaff()) {
+      navigateToDay(currentCalendarDate(), { updateHistory: false }).catch(() => {});
+    }
     window.addEventListener('resize', () => {
       positionTimeAxis();
       layoutAppointments();
