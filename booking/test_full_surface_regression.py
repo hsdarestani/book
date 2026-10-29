@@ -1,3 +1,4 @@
+from pathlib import Path
 from datetime import date, time
 from unittest.mock import patch
 
@@ -119,6 +120,37 @@ class FullManagementSurfaceRegressionTests(TestCase):
                 self.assertContains(response, 'data-drawer-open')
                 self.assertContains(response, 'data-drawer')
                 self.assertContains(response, 'admin-app-inset-v5.css?v=20260912-v20')
+
+    @patch('booking.app_management_views._api')
+    def test_patient_wallet_green_finish_is_server_rendered_and_reload_safe(self, api):
+        api.side_effect = self._fake_aplus_api
+        finish = 'clinic-patient-wallet-finish-v4.css?v=20261029-finish-v4'
+        for path in ('/verwaltung/app/patients/', '/verwaltung/app/wallet/'):
+            with self.subTest(path=path):
+                for attempt in range(2):  # first render and hard-reload equivalent
+                    response = self.client.get(path)
+                    self.assertEqual(response.status_code, 200)
+                    body = response.content.decode('utf-8')
+                    self.assertEqual(body.count(finish), 1)
+                    self.assertLess(body.index('clinic-signature-surfaces-v1.css'), body.index(finish))
+        for path in ('/verwaltung/app/reviews/', '/verwaltung/app/referrals/'):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertNotContains(response, finish)
+
+    def test_calendar_add_menu_remains_real_and_accessible(self):
+        response = self.client.get('/verwaltung/kalender/', {'staff': self.staff.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-fab-wrap')
+        self.assertContains(response, 'data-fab-actions')
+        self.assertContains(response, 'data-fab')
+        script = (Path(__file__).resolve().parent.parent /
+                  'static/booking/admin.js').read_text(encoding='utf-8')
+        for marker in ('admin-calendar-mobile-finish-v4.css',
+                       "fab.setAttribute('aria-expanded'",
+                       "event.key === 'Escape'"):
+            self.assertIn(marker, script)
 
     @patch('booking.app_management_views._api')
     def test_points_history_renders_only_points_not_money(self, api):

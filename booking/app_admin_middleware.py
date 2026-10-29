@@ -428,6 +428,24 @@ class APlusAdminNavigationMiddleware:
             if premium_links and '</head>' in html:
                 html = html.replace('</head>', ''.join(premium_links) + '</head>', 1)
 
+        # Apply the signed-off emerald management finish last, after legacy,
+        # navigation and premium CSS. A versioned server-rendered stylesheet
+        # survives hard reloads and does not depend on transient JS state.
+        if (
+            is_aplus
+            and request.path.startswith(('/verwaltung/app/patients/', '/verwaltung/app/wallet/'))
+            and 'data-clinic-design="premium"' in html
+            and 'data-clinic-mobile-finish-v4' not in html
+            and '</head>' in html
+        ):
+            html = html.replace(
+                '</head>',
+                '<link rel="stylesheet" '
+                'href="/static/booking/clinic-patient-wallet-finish-v4.css?v=20261029-finish-v4" '
+                'data-clinic-mobile-finish-v4></head>',
+                1,
+            )
+
         response.content = html.encode(response.charset or 'utf-8')
         if response.has_header('Content-Length'):
             response['Content-Length'] = str(len(response.content))

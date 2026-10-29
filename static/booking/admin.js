@@ -43,6 +43,7 @@
       addStylesheet('/static/booking/admin-calendar-iphone-v1.css?v=20261029-v1', 'data-admin-calendar-iphone-v1');
       addStylesheet('/static/booking/admin-calendar-reference-v2.css?v=20261029-reference2', 'data-admin-calendar-reference-v2');
       addStylesheet('/static/booking/admin-calendar-sheet-fix-v3.css?v=20261029-v3', 'data-admin-calendar-sheet-fix-v3');
+      addStylesheet('/static/booking/admin-calendar-mobile-finish-v4.css?v=20261029-finish-v4', 'data-admin-calendar-mobile-finish-v4');
     }
   }
 
@@ -347,12 +348,30 @@
     const fab = document.querySelector('[data-fab]');
     const actions = document.querySelector('[data-fab-actions]');
     if (!fab || !actions) return;
-    fab.addEventListener('click', () => {
+    if (!actions.id) actions.id = 'sb-fab-actions';
+    fab.setAttribute('aria-controls', actions.id);
+    fab.setAttribute('aria-expanded', 'false');
+    const close = () => {
+      actions.hidden = true;
+      fab.classList.remove('is-open');
+      fab.setAttribute('aria-expanded', 'false');
+      fab.setAttribute('aria-label', 'Hinzufügen');
+    };
+    fab.addEventListener('click', (event) => {
+      event.stopPropagation();
       const opening = actions.hidden;
       actions.hidden = !opening;
       fab.classList.toggle('is-open', opening);
+      fab.setAttribute('aria-expanded', String(opening));
+      fab.setAttribute('aria-label', opening ? 'Menü schließen' : 'Hinzufügen');
     });
-    actions.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => { actions.hidden = true; fab.classList.remove('is-open'); }));
+    actions.querySelectorAll('button').forEach((button) => button.addEventListener('click', close));
+    document.addEventListener('click', (event) => {
+      if (!actions.hidden && !event.target.closest('[data-fab-wrap]')) close();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !actions.hidden) { close(); fab.focus({preventScroll:true}); }
+    });
   }
 
   function bookingForm() { return document.querySelector('[data-modal="booking"] form'); }
