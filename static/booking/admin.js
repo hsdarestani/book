@@ -45,7 +45,7 @@
       addStylesheet('/static/booking/admin-calendar-sheet-fix-v3.css?v=20261029-v3', 'data-admin-calendar-sheet-fix-v3');
       addStylesheet('/static/booking/admin-calendar-mobile-finish-v4.css?v=20261029-finish-v4', 'data-admin-calendar-mobile-finish-v4');
       addStylesheet('/static/booking/admin-calendar-scroll-v5.css?v=20261029-scroll-v5', 'data-admin-calendar-scroll-v5');
-      addStylesheet('/static/booking/admin-calendar-date-dock-v6.css?v=20261029-firstpaint7', 'data-admin-calendar-dock-v6');
+      addStylesheet('/static/booking/admin-calendar-date-dock-v6.css?v=20261029-firsthour8', 'data-admin-calendar-dock-v6');
     }
   }
 
