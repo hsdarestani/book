@@ -344,6 +344,20 @@ class APlusAdminNavigationMiddleware:
                 )
 
         if is_aplus and not is_calendar:
+            # Dashboard templates are also used for bookings and customers.
+            # Replace the entire mobile calendar bar on those pages: relying
+            # on the old exact three-dot button no longer works after the
+            # reference-based iPhone calendar header redesign.
+            html = re.sub(
+                r'<header class="sb-mobile-bar sb-reference-calendar-bar">.*?</header>',
+                '<header class="sb-mobile-bar">'
+                '<button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>'
+                '<strong class="sb-mobile-title">Verwaltung</strong>'
+                '<span class="sb-icon-button" aria-hidden="true"></span></header>',
+                html,
+                count=1,
+                flags=re.S,
+            )
             html = html.replace('<button type="button" class="sb-icon-button" data-view-menu-open aria-label="Ansicht ändern">⋯</button>', '<span class="sb-icon-button" aria-hidden="true"></span>')
             html = html.replace('<button type="button" class="sb-subtle-button" data-view-menu-open>Ansicht ▾</button>', '')
             start = html.find('<div class="sb-view-menu" data-view-menu')

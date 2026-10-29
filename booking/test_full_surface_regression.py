@@ -153,6 +153,9 @@ class FullManagementSurfaceRegressionTests(TestCase):
             response = self.client.get(path, {'staff': self.staff.pk})
             self.assertEqual(response.status_code, 200)
             self.assertNotContains(response, 'data-view-menu-open')
+            self.assertNotContains(response, 'data-iphone-date-open')
+            self.assertNotContains(response, 'data-iphone-filter-open')
+            self.assertNotContains(response, 'sb-reference-calendar-bar')
             self.assertContains(response, 'admin-scroll-recovery-v9.css')
 
     def test_view_only_access_blocks_all_admin_writes(self):
