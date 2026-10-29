@@ -476,3 +476,37 @@
     font-size:14px!important;font-weight:650!important;pointer-events:none!important;
   }
 }
+
+
+/* The unified clinic navigation applies unusually high-specificity white
+   header rules. Override that exact cascade instead of relying on source order. */
+@media (max-width:760px) {
+  html[data-clinic-navigation][data-clinic-navigation][data-admin-page="calendar"][data-clinic-design="premium"]
+  body.admin-body.sb-calendar-pro > .sb-mobile-bar.sb-reference-calendar-bar {
+    background:#26394e!important;color:#fff!important;border:0!important;
+    border-bottom:0!important;box-shadow:none!important;
+    display:grid!important;grid-template-columns:38px minmax(0,1fr) 36px 36px!important;
+    height:64px!important;min-height:64px!important;
+    width:100%!important;box-sizing:border-box!important;
+    padding:0 13px!important;
+    top:0!important;position:fixed!important;
+  }
+  html[data-clinic-navigation][data-clinic-navigation][data-admin-page="calendar"][data-clinic-design="premium"]
+  body.admin-body.sb-calendar-pro > .sb-mobile-bar.sb-reference-calendar-bar .sb-mobile-title.sb-reference-mode-button {
+    display:flex!important;align-items:center!important;justify-content:flex-start!important;
+    background:transparent!important;border:0!important;color:#fff!important;
+    text-align:left!important;font:650 15px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    padding:0!important;height:46px!important;
+  }
+  html[data-clinic-navigation][data-clinic-navigation][data-admin-page="calendar"][data-clinic-design="premium"]
+  body.admin-body.sb-calendar-pro > .sb-mobile-bar.sb-reference-calendar-bar .sb-icon-button {
+    display:grid!important;place-items:center!important;
+    width:36px!important;height:38px!important;min-width:36px!important;min-height:38px!important;
+    padding:0!important;border:0!important;border-radius:0!important;
+    background:transparent!important;color:#edf2f7!important;box-shadow:none!important;
+  }
+  html[data-clinic-navigation][data-clinic-navigation][data-admin-page="calendar"]
+  body.sb-admin-body.sb-calendar-pro {
+    padding-top:calc(64px + var(--calendar-status-gap,0px))!important;
+  }
+}
