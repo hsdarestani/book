@@ -80,7 +80,7 @@
     });
   }
   function scrollWeekTo(value) {
-    const shell = document.querySelector('.sb-calendar-shell.is-week');
+    const shell = document.querySelector('.sb-calendar-shell.is-week > .sb-horizontal-track-viewport');
     const days = shell?.querySelectorAll('.sb-calendar-day');
     if (!shell || !days?.length) return;
     const monday = mondayOf(value);
@@ -411,7 +411,12 @@
       },{passive:true});
       shell.addEventListener('touchcancel',()=>{pointerStart=null;},{passive:true});
     }
-    if(isWeek())requestAnimationFrame(()=>scrollWeekTo(selectedDate));
+    // Week opens with Monday in view. Only explicit weekday taps
+    // move horizontally; avoid unexpectedly jumping to the weekend.
+    if(isWeek()){
+      const viewport=document.querySelector('.sb-horizontal-track-viewport');
+      if(viewport)viewport.scrollLeft=0;
+    }
     localizedDates();
     initTimeDefaults();
     const blockToggle=document.querySelector('[data-modal="note"] input[name="note_blocked"]');
