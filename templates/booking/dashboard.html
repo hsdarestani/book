@@ -8,15 +8,14 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/app.css{% else %}{% static 'booking/app.css' %}{% endif %}">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}?v=20261006-calendar-v20">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
-  <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261029-sheet-v3"></script>
+  <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261029-firstpaint-v7"></script>
   <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20261029-sheet-v3"></script>
   {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% else %}
   <link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header4">
   <link rel="stylesheet" href="/static/booking/clinic-calendar-topbar-v1.css?v=20261020-header4">
   <script defer src="/static/booking/clinic-header-v3.js?v=20261021-mobile2"></script>
   <script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-header4"></script>{% endif %}
-{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261024-gutters1">{% if not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-signature-surfaces-v1.css?v=20261029-directory-v2">{% endif %}<link rel="stylesheet" href="/static/booking/admin-calendar-scroll-v5.css?v=20261029-scroll-v5" data-admin-calendar-scroll-v5><link rel="stylesheet" href="/static/booking/admin-calendar-date-dock-v6.css?v=20261029-dock6" data-admin-calendar-dock-v6>
-<link rel="stylesheet" href="/static/booking/admin-time.css" data-admin-time-picker>
+{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261024-gutters1">{% if not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-signature-surfaces-v1.css?v=20261029-directory-v2">{% endif %}<link rel="stylesheet" href="/static/booking/admin-calendar-scroll-v5.css?v=20261029-scroll-v5" data-admin-calendar-scroll-v5><link rel="stylesheet" href="/static/booking/admin-time.css" data-admin-time-picker>
 <link rel="stylesheet" href="/static/booking/admin-simply.css" data-admin-simply>
 <link rel="stylesheet" href="/static/booking/admin-fixes.css" data-admin-fixes>
 <link rel="stylesheet" href="/static/booking/admin-calendar-plus.css?v=20260923-v19" data-admin-calendar-plus>
@@ -25,6 +24,7 @@
 <link rel="stylesheet" href="/static/booking/admin-calendar-reference-v2.css?v=20261029-reference2" data-admin-calendar-reference-v2>
 <link rel="stylesheet" href="/static/booking/admin-calendar-sheet-fix-v3.css?v=20261029-v3" data-admin-calendar-sheet-fix-v3>
 <link rel="stylesheet" href="/static/booking/admin-calendar-mobile-finish-v4.css?v=20261029-finish-v4" data-admin-calendar-mobile-finish-v4>
+<link rel="stylesheet" href="/static/booking/admin-calendar-date-dock-v6.css?v=20261029-dock6" data-admin-calendar-dock-v6>
 <script>try{history.scrollRestoration='manual'}catch(_e){}</script>
 </head>
 <body class="admin-body sb-admin-body sb-calendar-pro sb-calendar-booting" {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
