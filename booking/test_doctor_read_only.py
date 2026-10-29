@@ -39,6 +39,65 @@ class DoctorPrivateCalendarTests(TestCase):
     def post_calendar(self, **values):
         return self.client.post('/verwaltung/arzt/', {'date': self.day.isoformat(), **values})
 
+    def test_qamar_uses_latest_shared_iphone_calendar_in_day_and_week_modes(self):
+        from pathlib import Path
+        base = Path(__file__).resolve().parent.parent / 'static' / 'booking'
+        loader = (base / 'admin.js').read_text(encoding='utf-8')
+        iphone = (base / 'admin-calendar-iphone-v1.js').read_text(encoding='utf-8')
+        for asset in ('admin-calendar-iphone-v1.css',
+                      'admin-calendar-reference-v2.css',
+                      'admin-calendar-sheet-fix-v3.css',
+                      'admin-calendar-mobile-finish-v4.css'):
+            self.assertIn(asset, loader)
+        self.assertIn("document.querySelector('.sb-calendar-panel')", loader)
+        self.assertIn("document.body.dataset.doctorCalendar==='1'", iphone)
+
+        for mode in ('day', 'week'):
+            with self.subTest(mode=mode):
+                response = self.client.get('/verwaltung/arzt/', {
+                    'date': self.day.isoformat(),
+                    'section': 'calendar',
+                    'cal_view': mode,
+                    # A doctor may supply a foreign staff query but must
+                    # never change the server-selected clinician scope.
+                    'staff': str(self.other.pk),
+                })
+                self.assertEqual(response.status_code, 200)
+                for marker in (
+                    'sb-reference-calendar-bar',
+                    'sb-reference-mode-button',
+                    'data-iphone-date-open',
+                    'data-iphone-filter-open',
+                    'data-doctor-calendar="1"',
+                    'data-fab-actions',
+                    'data-open-note',
+                    'data-open-block',
+                    'admin.js?v=20261029-sheet-v3',
+                ):
+                    self.assertContains(response, marker)
+                self.assertContains(response, 'Meine Patientin')
+                self.assertNotContains(response, 'Fremde Patientin')
+                self.assertNotContains(response, 'Andere Ärztin')
+                self.assertContains(response, 'data-doctor-staff-id="' + str(self.doctor.pk) + '"')
+
+    def test_qamar_fast_swipe_api_remains_scoped_to_own_appointments(self):
+        from urllib.parse import urlencode
+        day = self.day.isoformat()
+        for member, code in ((self.doctor, 200), (self.other, 403)):
+            with self.subTest(staff=member.pk):
+                response = self.client.get('/verwaltung/api/calendar-day/?' + urlencode({
+                    'date': day, 'staff': member.pk,
+                }))
+                self.assertEqual(response.status_code, code)
+                if code == 200:
+                    payload = response.json()
+                    self.assertEqual(payload['staff_id'], self.doctor.pk)
+                    self.assertTrue(all(
+                        item['staff_id'] == self.doctor.pk
+                        for item in payload['appointments']
+                    ))
+                    self.assertNotIn('Fremde Patientin', response.content.decode('utf-8'))
+
     def test_only_own_day_and_month_appointments_are_visible(self):
         response = self.client.get('/verwaltung/arzt/', {'date': self.day.isoformat()})
         self.assertEqual(response.status_code, 200)
