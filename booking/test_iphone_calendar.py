@@ -23,7 +23,7 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
             "data-admin-calendar-reference-v2",
             "admin-calendar-sheet-fix-v3.css",
             "admin-calendar-date-dock-v6.css",
-            "20261029-view-modes1",
+            "20261029-horizontal2",
             "20261029-reference2",
         ):
             self.assertIn(marker, admin)
@@ -88,7 +88,7 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         self.assertIn("shell.addEventListener('touchstart'", iphone)
         self.assertIn("shell.addEventListener('touchend'", iphone)
         self.assertIn("scrollWeekTo(value)", iphone)
-        self.assertIn("scrollWeekTo(selectedDate)", iphone)
+        self.assertIn("if(viewport)viewport.scrollLeft=0", iphone)
         self.assertIn("Kalendertag auswählen", iphone)
         self.assertIn("picker.type='date'", iphone)
 
@@ -142,6 +142,17 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         self.assertIn("admin-calendar-view-modes-v1.css",template)
         self.assertIn("viewMode()",javascript)
         self.assertIn("'provider', 'service'",views)
+
+    def test_three_multi_column_views_share_one_native_horizontal_viewport(self):
+        template=self.source("templates/booking/_shared_admin_calendar.html")
+        style=self.source("static/booking/admin-calendar-horizontal-v2.css")
+        script=self.source("static/booking/admin-calendar-iphone-v1.js")
+        self.assertIn('class="sb-horizontal-track-viewport"',template)
+        self.assertIn("calendar_view != 'day'",template)
+        self.assertIn("overflow-x:auto!important",style)
+        self.assertIn("touch-action:auto!important",style)
+        self.assertIn("grid-template-columns:62px minmax(0,1fr)",style)
+        self.assertIn("document.querySelector('.sb-calendar-shell.is-week > .sb-horizontal-track-viewport')",script)
 
     def test_note_form_save_and_mobile_calendar_modes(self):
         dashboard = self.source("templates/booking/dashboard.html")
