@@ -6,6 +6,7 @@
   const CAL_TOTAL = CAL_END - CAL_START;
   const dayCache = new Map();
   const pendingDays = new Map();
+  let latestNavigationToken = 0;
 
   function onCalendarPage() {
     return window.location.pathname.includes('/verwaltung/kalender/')
@@ -455,6 +456,7 @@
     }
 
     document.querySelector('.sb-calendar-panel')?.setAttribute('aria-busy', 'false');
+    window.dispatchEvent(new CustomEvent('aplus:calendar-day-changed', { detail: { date: data.date, staffId: data.staff_id } }));
     prefetchNeighbors(String(data.staff_id), data.date);
   }
 
@@ -470,18 +472,23 @@
     if (currentCalendarView() !== 'day') return false;
     const staffId = selectedStaff();
     if (!staffId || !parseIsoDate(dateValue)) return false;
+    const token = ++latestNavigationToken;
     const panel = document.querySelector('.sb-calendar-panel');
     panel?.setAttribute('aria-busy', 'true');
     try {
       const data = await loadCalendarDay(staffId, dateValue);
+      if (token !== latestNavigationToken) return true; // superseded swipe/tap
       renderCalendarDay(data, { updateHistory });
       return true;
     } catch (error) {
+      if (token !== latestNavigationToken) return true;
       console.warn('Fast calendar navigation failed:', error);
       panel?.setAttribute('aria-busy', 'false');
       return false;
     }
   }
+  // Shared navigation entrypoint for the iPhone week strip and native date picker.
+  window.aplusCalendarNavigate = navigateToDay;
 
   function installFastDayNavigation() {
     if (currentCalendarView() !== 'day') return;
@@ -539,15 +546,18 @@
   async function navigateToStaff(staffId) {
     if (currentCalendarView() !== 'day' || !staffId) return false;
     const dateValue = currentCalendarDate();
+    const token = ++latestNavigationToken;
     const panel = document.querySelector('.sb-calendar-panel');
     panel?.setAttribute('aria-busy', 'true');
     try {
       const data = await loadCalendarDay(staffId, dateValue);
+      if (token !== latestNavigationToken) return true;
       setActiveStaffPill(staffId);
       renderCalendarDay(data, { updateHistory: true });
       prefetchStaffAlternatives(staffId, dateValue);
       return true;
     } catch (error) {
+      if (token !== latestNavigationToken) return true;
       console.warn('Fast staff switch failed:', error);
       panel?.setAttribute('aria-busy', 'false');
       return false;
@@ -625,6 +635,7 @@
             event.node.style.setProperty('max-width', 'none', 'important');
           }
           event.node.classList.toggle('is-overlap-layout', cols > 1);
+          event.node.classList.toggle('is-compact', (event.bottom - event.top) * 10.4 < 42 || cols >= 3);
         });
         cluster = [];
         clusterEnd = -1;
@@ -684,6 +695,11 @@
 
     await initEditableAvailability();
     layoutAppointments();
+    // Hydrate the initial server-rendered cards with their real edit handlers.
+    // Do not push history; the calendar is already on this date.
+    if (currentCalendarView() === 'day' && selectedStaff()) {
+      navigateToDay(currentCalendarDate(), { updateHistory: false }).catch(() => {});
+    }
     window.addEventListener('resize', () => {
       positionTimeAxis();
       layoutAppointments();

@@ -40,6 +40,7 @@
     addStylesheet('/static/booking/admin-calendar-plus.css?v=20260923-v19', 'data-admin-calendar-plus');
     if (document.querySelector('.sb-calendar-panel')) {
       addStylesheet('/static/booking/admin-calendar-mobile-v2.css?v=20261022-v4', 'data-admin-calendar-mobile-v2');
+      addStylesheet('/static/booking/admin-calendar-iphone-v1.css?v=20261029-v1', 'data-admin-calendar-iphone-v1');
     }
   }
 
@@ -50,6 +51,13 @@
     script.defer = true;
     script.setAttribute('data-admin-calendar-plus', '1');
     document.head.appendChild(script);
+    if (document.querySelector('.sb-calendar-panel')) {
+      const iphone = document.createElement('script');
+      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261029-v1';
+      iphone.defer = true;
+      iphone.setAttribute('data-admin-calendar-iphone-v1', '1');
+      document.head.appendChild(iphone);
+    }
   }
 
   function usesCompactMobileUi() {
