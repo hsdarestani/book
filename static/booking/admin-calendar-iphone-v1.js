@@ -4,7 +4,6 @@
   'use strict';
   if (document.documentElement.dataset.adminPage !== 'calendar') return;
   const phone = window.matchMedia('(max-width:760px)');
-  const DAY = 86400000;
   const format = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' });
   const weekday = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
   const days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -140,6 +139,7 @@
     strip.setAttribute('aria-label', 'Kalendertag auswählen');
     nav.insertAdjacentElement('afterend', strip);
     render(currentIso());
+    document.body.classList.add('sb-iphone-calendar-ready');
 
     const shell = document.querySelector('.sb-calendar-shell');
     if (shell) {
