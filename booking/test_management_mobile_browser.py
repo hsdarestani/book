@@ -131,17 +131,22 @@ class ManagementMobileBrowserTests(TestCase):
     @patch("booking.app_management_views._api")
     def test_points_and_patient_emerald_hero_is_visible_in_chromium(self, api):
         api.return_value = {"ok":True, "customers":[]}
+        # Fetch Django responses before Playwright starts its event loop:
+        # synchronous ORM access inside its context is prohibited by Django.
+        sources = []
+        for path, selector in (
+            ("/verwaltung/app/wallet/", ".points-admin-hero"),
+            ("/verwaltung/app/patients/", ".premium-list-heading"),
+        ):
+            response = self.client.get(path)
+            html, styles = self._html_with_styles(response)
+            sources.append((path, selector, html, styles))
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
             browser=p.chromium.launch(headless=True,args=["--no-sandbox"])
             try:
-                for path, selector in (
-                    ("/verwaltung/app/wallet/", ".points-admin-hero"),
-                    ("/verwaltung/app/patients/", ".premium-list-heading"),
-                ):
+                for path, selector, html, styles in sources:
                     with self.subTest(path=path):
-                        response=self.client.get(path)
-                        html,styles=self._html_with_styles(response)
                         context,page=self._page(browser,html,styles)
                         hero=page.locator(selector).first
                         self.assertTrue(hero.is_visible())
