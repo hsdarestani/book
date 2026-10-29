@@ -22,8 +22,8 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
             "admin-calendar-reference-v2.css",
             "data-admin-calendar-reference-v2",
             "admin-calendar-sheet-fix-v3.css",
-            "admin-calendar-date-dock-v6.css",
-            "20261029-dock6",
+            "admin-calendar-date-dock-v7.css",
+            "20261029-first-paint7",
             "20261029-reference2",
         ):
             self.assertIn(marker, admin)
@@ -35,7 +35,21 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         self.assertIn("dock.append(nav,strip)", js)
         self.assertIn("position:fixed!important", css)
         self.assertIn("top:64px!important", css)
-        self.assertIn("padding-top:150px!important", css)
+        self.assertIn("padding-top:260px!important", css)
+
+    def test_first_paint_is_server_rendered_not_javascript_reconstructed(self):
+        template = self.source("templates/booking/dashboard.html")
+        partial = self.source("templates/booking/_mobile_calendar_date_dock.html")
+        script = self.source("static/booking/admin-calendar-iphone-v1.js")
+        self.assertIn("sb-calendar-pro", template)
+        self.assertIn("booking/_mobile_calendar_date_dock.html",template)
+        self.assertIn("data-reference-date-dock",partial)
+        self.assertIn("sb-iphone-weekstrip",partial)
+        self.assertIn("calendar_week_strip",partial)
+        self.assertIn("const existingDock=document.querySelector('[data-reference-date-dock]')",script)
+        self.assertIn("main.scrollTop=0",script)
+        self.assertIn("history.scrollRestoration='manual'",template)
+        self.assertIn("data-admin-calendar-reference-v2",template)
 
     def test_race_safe_calendar_navigation_and_initial_edit_hydration(self):
         plus = self.source("static/booking/admin-calendar-plus.js")
