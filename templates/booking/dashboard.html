@@ -31,7 +31,7 @@
 
 <header class="sb-mobile-bar sb-reference-calendar-bar">
   <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
-  <button type="button" class="sb-mobile-title sb-reference-mode-button" data-view-menu-open aria-label="Kalenderansicht wählen">Kalender ({% if calendar_view == 'week' %}Woche{% else %}Tagesansicht{% endif %})</button>
+  <button type="button" class="sb-mobile-title sb-reference-mode-button" data-view-menu-open aria-haspopup="menu" aria-expanded="false" aria-label="Kalenderansicht wählen">Kalender ({% if calendar_view == 'week' %}Woche{% elif calendar_view == 'provider' %}Dienstleister{% elif calendar_view == 'service' %}Dienstleistungen{% else %}Tagesansicht{% endif %}) <span class="sb-reference-mode-chevron" aria-hidden="true">⌄</span></button>
   <button type="button" class="sb-icon-button sb-reference-date-button" data-iphone-date-open aria-label="Datum auswählen"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M12 13v5M9.5 15.5h5"/></svg></button>
   <button type="button" class="sb-icon-button sb-reference-filter-button" data-iphone-filter-open aria-label="Behandlerfilter öffnen"><svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/></svg></button>
 </header>
@@ -74,7 +74,9 @@
 </aside>
 
 <div class="sb-view-menu" data-view-menu hidden role="menu" aria-label="Kalenderansicht">
-  <a role="menuitem" href="?date={{ calendar_date|date:'Y-m-d' }}&cal_view=day{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" {% if calendar_view != 'week' %}aria-current="page"{% endif %}>Tagesansicht</a>
+  <a role="menuitem" href="?date={{ calendar_date|date:'Y-m-d' }}&cal_view=provider{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" {% if calendar_view == 'provider' %}aria-current="page"{% endif %}>Dienstleister-Ansicht</a>
+  <a role="menuitem" href="?date={{ calendar_date|date:'Y-m-d' }}&cal_view=service{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" {% if calendar_view == 'service' %}aria-current="page"{% endif %}>Dienstleistungsansicht</a>
+  <a role="menuitem" href="?date={{ calendar_date|date:'Y-m-d' }}&cal_view=day{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" {% if calendar_view == 'day' %}aria-current="page"{% endif %}>Tagesansicht</a>
   <a role="menuitem" href="?date={{ calendar_date|date:'Y-m-d' }}&cal_view=week{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" {% if calendar_view == 'week' %}aria-current="page"{% endif %}>Woche</a>
   <button type="button" role="menuitem" data-iphone-filter-open>Behandler auswählen</button>
 </div>
