@@ -1,0 +1,68 @@
+/* One reliable touch-scroll owner for the iPhone-style calendar.
+   The original page has several legacy scroll locks; on mobile the main calendar
+   is now a single native overflow viewport, regardless of body/WebView settings. */
+@media(max-width:760px){
+  html[data-admin-page="calendar"]{
+    width:100%!important;max-width:100%!important;
+    overflow-x:clip!important;
+    overscroll-behavior-y:auto!important;
+  }
+  html[data-admin-page="calendar"] body.sb-admin-body:has(.sb-calendar-panel){
+    position:relative!important;inset:auto!important;
+    width:100%!important;height:auto!important;min-height:100dvh!important;
+    max-height:none!important;margin:0!important;
+    overflow-x:clip!important;overflow-y:visible!important;
+    overscroll-behavior-y:auto!important;
+    touch-action:pan-y pinch-zoom!important;
+  }
+  html[data-clinic-navigation][data-clinic-design="premium"][data-admin-page="calendar"]
+  body.sb-admin-body.sb-calendar-pro main.sb-admin-shell {
+    position:relative!important;inset:auto!important;
+    box-sizing:border-box!important;display:block!important;
+    width:100%!important;max-width:100%!important;
+    height:calc(100vh - 64px)!important;
+    height:calc(100dvh - 64px - env(safe-area-inset-bottom,0px))!important;
+    min-height:0!important;max-height:none!important;
+    margin:0!important;padding:0 0 86px!important;
+    overflow-x:hidden!important;overflow-y:auto!important;
+    overflow-y:scroll!important;
+    overscroll-behavior-y:auto!important;
+    touch-action:pan-y pinch-zoom!important;
+    -webkit-overflow-scrolling:touch!important;
+    scroll-behavior:auto!important;
+    contain:none!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro main.sb-admin-shell > :is(.sb-calendar-panel,.admin-notice) {
+    position:relative!important;max-height:none!important;
+    overflow:visible!important;touch-action:pan-y pinch-zoom!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-panel,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell.is-day,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-days,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-day {
+    height:auto!important;max-height:none!important;overflow:visible!important;
+    overscroll-behavior-y:auto!important;
+    touch-action:pan-y pinch-zoom!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-day-track{
+    height:var(--sb-ref-track,1260px)!important;
+    min-height:var(--sb-ref-track,1260px)!important;
+    touch-action:pan-y pinch-zoom!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell.is-week {
+    max-height:none!important;overflow-x:auto!important;
+    overflow-y:hidden!important;touch-action:pan-x pan-y!important;
+    overscroll-behavior-x:contain!important;overscroll-behavior-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-weekstrip{
+    position:sticky!important;top:0!important;z-index:65!important;
+    touch-action:pan-y pinch-zoom!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-shell.is-day .sb-day-head{
+    position:sticky!important;top:0!important;z-index:45!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-panel [data-fab-wrap] {
+    position:fixed!important;
+  }
+}

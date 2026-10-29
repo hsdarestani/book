@@ -124,7 +124,7 @@ class FullManagementSurfaceRegressionTests(TestCase):
     @patch('booking.app_management_views._api')
     def test_patient_wallet_green_finish_is_server_rendered_and_reload_safe(self, api):
         api.side_effect = self._fake_aplus_api
-        finish = 'clinic-patient-wallet-finish-v4.css?v=20261029-finish-v4'
+        finish = 'clinic-patient-wallet-finish-v4.css?v=20261029-v5'
         for path in ('/verwaltung/app/patients/', '/verwaltung/app/wallet/'):
             with self.subTest(path=path):
                 for attempt in range(2):  # first render and hard-reload equivalent
@@ -138,6 +138,31 @@ class FullManagementSurfaceRegressionTests(TestCase):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 200)
                 self.assertNotContains(response, finish)
+
+    def test_green_finish_is_in_templates_even_without_aplus_sso_session(self):
+        from django.template.loader import get_template
+        # The template source is delivered to every already-authorized viewer,
+        # regardless of which valid session mechanism was used.
+        style = 'clinic-patient-wallet-finish-v4.css?v=20261029-v5'
+        for template in ('app_wallet_management.html', 'app_management.html'):
+            with self.subTest(template=template):
+                source = get_template('booking/' + template).template.source
+                self.assertEqual(source.count(style), 1)
+        wallet = get_template('booking/app_wallet_management.html').template.source
+        patient = get_template('booking/app_management.html').template.source
+        self.assertLess(wallet.index('clinic-signature-surfaces-v1.css'), wallet.index(style))
+        self.assertIn("{% if section == 'patients' %}", patient)
+
+    def test_calendar_scroll_owner_is_not_document_body(self):
+        source = (Path(__file__).resolve().parent.parent /
+                  'static/booking/admin-calendar-scroll-v5.css').read_text(encoding='utf-8')
+        for rule in ("main.sb-admin-shell", "overflow-y:scroll!important",
+                     "height:calc(100dvh - 64px", "touch-action:pan-y pinch-zoom",
+                     ".sb-day-track", ".sb-calendar-shell.is-week"):
+            self.assertIn(rule, source)
+        response = self.client.get('/verwaltung/kalender/', {'staff': self.staff.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'admin-calendar-scroll-v5.css?v=20261029-scroll-v5')
 
     def test_calendar_add_menu_remains_real_and_accessible(self):
         response = self.client.get('/verwaltung/kalender/', {'staff': self.staff.pk})

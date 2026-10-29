@@ -428,23 +428,15 @@ class APlusAdminNavigationMiddleware:
             if premium_links and '</head>' in html:
                 html = html.replace('</head>', ''.join(premium_links) + '</head>', 1)
 
-        # Apply the signed-off emerald management finish last, after legacy,
-        # navigation and premium CSS. A versioned server-rendered stylesheet
-        # survives hard reloads and does not depend on transient JS state.
-        if (
-            is_aplus
-            and request.path.startswith(('/verwaltung/app/patients/', '/verwaltung/app/wallet/'))
-            and 'data-clinic-design="premium"' in html
-            and 'data-clinic-mobile-finish-v4' not in html
-            and '</head>' in html
-        ):
-            html = html.replace(
-                '</head>',
-                '<link rel="stylesheet" '
-                'href="/static/booking/clinic-patient-wallet-finish-v4.css?v=20261029-finish-v4" '
-                'data-clinic-mobile-finish-v4></head>',
-                1,
-            )
+        # The patient/wallet finish is part of their server-side templates,
+        # independent of whether authentication arrived through A+ SSO.
+        # Reposition it after any premium CSS reordered above. Never inject
+        # a duplicate URL or rely on client-side theme activation.
+        if request.path.startswith(('/verwaltung/app/patients/', '/verwaltung/app/wallet/')):
+            finish = re.search(r'<link[^>]+data-clinic-mobile-finish-v4[^>]*>', html)
+            if finish and '</head>' in html:
+                html = html.replace(finish.group(0), '', 1)
+                html = html.replace('</head>', finish.group(0) + '</head>', 1)
 
         response.content = html.encode(response.charset or 'utf-8')
         if response.has_header('Content-Length'):
