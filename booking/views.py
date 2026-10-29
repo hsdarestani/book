@@ -626,6 +626,19 @@ def dashboard(request):
                 calendar_overlaps.append(start_label)
         known_end = max(known_end, item.ends_at) if known_end else item.ends_at
 
+    # Render mobile date controls directly in the first HTML response.
+    # Progressive JS only wires actions; no old calendar flashes before mount.
+    strip_monday = calendar_date - timedelta(days=calendar_date.weekday())
+    calendar_week_strip = [
+        {
+            'date': strip_monday + timedelta(days=index),
+            'weekday': day_names[index],
+            'selected': (strip_monday + timedelta(days=index)) == calendar_date,
+            'today': (strip_monday + timedelta(days=index)) == today,
+        }
+        for index in range(7)
+    ]
+
     context = {
         'doctor_mode': doctor_staff is not None,
         'today_count': appointment_scope.filter(starts_at__date=today).exclude(status='cancelled').count(),
@@ -645,6 +658,7 @@ def dashboard(request):
         'calendar_date': calendar_date,
         'calendar_view': calendar_view,
         'calendar_days': calendar_days,
+        'calendar_week_strip': calendar_week_strip,
         'calendar_hour_labels': [f'{hour:02d}:00' for hour in range(CALENDAR_START_HOUR, CALENDAR_END_HOUR + 1)],
         'calendar_start_hour': CALENDAR_START_HOUR,
         'calendar_end_hour': CALENDAR_END_HOUR,
