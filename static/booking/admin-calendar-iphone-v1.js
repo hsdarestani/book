@@ -324,17 +324,17 @@
     // The scrolling viewport belongs to main, not the month/week controls.
     // Move both controls into a fixed dock, so they remain visible like the
     // SimplyBook iPhone reference even at 20:00. Keep the real inputs/buttons.
-    const dock=document.createElement('div');
+    const dock=document.querySelector('[data-reference-date-dock]') || document.createElement('div');
     dock.className='sb-reference-date-dock';
     dock.setAttribute('data-reference-date-dock','');
-    // Place the dock directly on body. Position:fixed inside a transformed
-    // ancestor may instead be fixed to that ancestor and scroll away on iOS.
-    document.body.appendChild(dock);
-    dock.append(nav,strip);
+    if(!dock.isConnected)document.body.appendChild(dock);
+    // Replace the server-rendered modern preview, never expose the legacy UI.
+    dock.replaceChildren(nav,strip);
     renderStrip();
     renderHead(selectedDate);
     renderWeekHeads();
     document.body.classList.add('sb-iphone-calendar-ready');
+    document.body.classList.remove('sb-calendar-booting');
 
     /* Capture arrow taps before old AJAX one-day handlers can run. */
     nav.querySelectorAll('.sb-date-arrow').forEach((arrow,index)=>{
