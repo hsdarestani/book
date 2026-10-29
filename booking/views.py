@@ -645,6 +645,15 @@ def dashboard(request):
         'calendar_date': calendar_date,
         'calendar_view': calendar_view,
         'calendar_days': calendar_days,
+        'calendar_strip_days': [
+            {
+                'date': calendar_date - timedelta(days=calendar_date.weekday()) + timedelta(days=offset),
+                'label': ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][offset],
+                'selected': (calendar_date - timedelta(days=calendar_date.weekday()) + timedelta(days=offset)) == calendar_date,
+                'today': (calendar_date - timedelta(days=calendar_date.weekday()) + timedelta(days=offset)) == today,
+            }
+            for offset in range(7)
+        ],
         'calendar_hour_labels': [f'{hour:02d}:00' for hour in range(CALENDAR_START_HOUR, CALENDAR_END_HOUR + 1)],
         'calendar_start_hour': CALENDAR_START_HOUR,
         'calendar_end_hour': CALENDAR_END_HOUR,
