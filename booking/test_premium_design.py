@@ -183,13 +183,15 @@ class PremiumManagementDesignTests(SimpleTestCase):
         self.assertIn('(?:v1|all-v2|dashboard-v3|signature-surfaces-v1)', middleware)
 
     def test_signature_secondary_surfaces_share_theme(self):
-        stylesheet = "/static/booking/clinic-signature-surfaces-v1.css?v=20261024-signature-all1"
+        stylesheet_path = "/static/booking/clinic-signature-surfaces-v1.css?v="
         for name in ("app_management.html", "app_wallet_management.html",
                      "admin_more.html", "dashboard.html"):
             with self.subTest(template=name):
                 source = get_template(f"booking/{name}").template.source
-                self.assertEqual(source.count(stylesheet), 1)
-                self.assertLess(source.index("clinic-premium-all-v2.css"), source.index(stylesheet))
+                # Cache-busting may change between releases. Require exactly
+                # one instance and the correct CSS cascade order instead.
+                self.assertEqual(source.count(stylesheet_path), 1)
+                self.assertLess(source.index("clinic-premium-all-v2.css"), source.index(stylesheet_path))
         calendar = get_template("booking/dashboard.html").template.source
         self.assertIn("{% if not doctor_mode %}<link", calendar)
         self.assertIn("clinic-signature-surfaces-v1.css", calendar)
