@@ -55,3 +55,28 @@
     position:fixed!important;
   }
 }
+
+/* First paint uses server-rendered date controls. Never show the old date
+   selector while scripts/styles arrive, and do not delay the modern layout. */
+@media(max-width:760px){
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-reference-date-preview .sb-reference-preview-month {
+    display:grid!important;grid-template-columns:50px minmax(0,1fr) 50px!important;
+    height:60px!important;min-height:60px!important;align-items:center!important;
+    width:100%!important;background:#fff!important;
+    color:#252e3a!important;
+    text-align:center!important;padding:0 12px!important;box-sizing:border-box!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-reference-date-preview .sb-reference-preview-month strong {
+    color:#252e3a!important;font:520 19px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-reference-date-preview .sb-reference-preview-month span {
+    color:#252e3a!important;font:400 35px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro.sb-calendar-booting main.sb-admin-shell .sb-date-nav {
+    display:none!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-reference-date-preview .sb-iphone-weekstrip {
+    display:grid!important;
+    grid-template-columns:repeat(7,minmax(0,1fr))!important;
+  }
+}
