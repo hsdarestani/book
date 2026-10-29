@@ -1,0 +1,84 @@
+name: Native app bookings among recent registrations (read only)
+
+on:
+  push:
+    branches: [audit-native-booking-registrant-match-20261029]
+    paths: [.github/workflows/audit-native-registrant-match-20261029.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Count app bookings belonging to users registered after Qamar
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            import json, sqlite3
+            from collections import Counter
+            from pathlib import Path
+            from django.db.models import Q
+            from booking.models import Appointment
+
+            test_q=(Q(customer__email__icontains='test')|Q(customer__email__istartswith='demo@')|Q(customer__email__icontains='@example.')|Q(customer__first_name__iexact='test')|Q(customer__last_name__iexact='test')|Q(customer__first_name__iexact='demo')|Q(customer__last_name__iexact='demo')|Q(customer__last_name__iexact='muster'))
+            direct=Appointment.objects.filter(source__in=['app','web']).exclude(idempotency_key__startswith='simplybook-').exclude(idempotency_key__startswith='legacy-aesthetic-')
+            real=direct.exclude(test_q)
+            reserved={str(email or '').strip().lower() for email in real.values_list('customer__email',flat=True)}
+            app_only=real.filter(source='app')
+            direct_users={str(email or '').strip().lower() for email in app_only.values_list('customer__email',flat=True)}
+            p=Path('/opt/a-esthetic-mobile/db.sqlite3')
+            if not p.is_file():
+                print('MATCH_AUDIT_ERROR=mobile_sqlite_database_not_found')
+                raise SystemExit(1)
+            connection=sqlite3.connect('file:'+str(p)+'?mode=ro',uri=True)
+            connection.row_factory=sqlite3.Row
+            users=[dict(x) for x in connection.execute('SELECT id, username, email, first_name, last_name, date_joined, is_staff, is_superuser, is_active FROM auth_user')]
+            roles={int(x['user_id']):x['role'] for x in connection.execute('SELECT user_id, role FROM platform_app_userprofile')}
+            qamar=next((u for u in users if str(u['email'] or '').lower()=='qamar@a-esthetic.de'),None)
+            if qamar is None:
+                print('MATCH_AUDIT_ERROR=qamar_not_found')
+                raise SystemExit(1)
+            cutoff_id=qamar['id']
+            cutoff_date=qamar['date_joined']
+            after_id=[u for u in users if u['id']>cutoff_id]
+            after_date=[u for u in users if (u['date_joined'] or '') > cutoff_date]
+            def is_customer(u):
+                email=str(u['email'] or '').strip().lower()
+                username=str(u['username'] or '').lower()
+                if not email or '@' not in email or email.endswith(('@example.invalid','@test.invalid','@example.com','@localhost')): return False
+                if username.startswith(('production-smoke-','qa-','test-','demo-')): return False
+                return roles.get(u['id'])=='customer' and u['is_active'] and not u['is_staff'] and not u['is_superuser']
+            def count_match(rows, reserved):
+                return sum(str(u['email'] or '').strip().lower() in reserved for u in rows)
+            result={
+                'total_accounts_in_mobile_db':len(users),
+                'after_qamar_by_user_id':len(after_id),
+                'after_qamar_by_registration_date':len(after_date),
+                'real_customer_after_qamar_by_id':sum(is_customer(u) for u in after_id),
+                'real_customer_after_qamar_by_date':sum(is_customer(u) for u in after_date),
+                'direct_non_test_bookings':real.count(),
+                'app_non_test_bookings':app_only.count(),
+                'direct_non_test_customers':len(reserved),
+                'app_non_test_customers':len(direct_users),
+                'booked_customers_from_after_qamar_by_id':count_match(after_id,reserved),
+                'booked_customers_from_after_qamar_by_date':count_match(after_date,reserved),
+                'booked_customers_from_after_qamar_real_customer_id':count_match([u for u in after_id if is_customer(u)],reserved),
+                'booked_customers_from_after_qamar_real_customer_date':count_match([u for u in after_date if is_customer(u)],reserved),
+                'booked_via_app_from_after_qamar_by_id':count_match(after_id,direct_users),
+                'booked_via_app_from_after_qamar_by_date':count_match(after_date,direct_users),
+                'app_booking_statuses':dict(Counter(app_only.values_list('status',flat=True))),
+                'app_bookers_matching_any_registered_user':count_match(users,direct_users)
+            }
+            print('RECENT_SIGNUPS_BOOKING_MATCH_JSON='+json.dumps(result,ensure_ascii=False,sort_keys=True))
+            PY
