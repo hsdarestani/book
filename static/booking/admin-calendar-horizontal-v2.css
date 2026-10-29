@@ -1,0 +1,132 @@
+/* Native two-axis calendar repair, 2026-10-29.
+   Scrolling contract:
+   - main.sb-admin-shell owns VERTICAL scroll (as already fixed in v5)
+   - .sb-horizontal-track-viewport owns HORIZONTAL swipe for all 3 multi-column views
+   - .sb-time-axis stays OUTSIDE that viewport, so the clock doesn't pan
+   - each .sb-day-head precedes its track in normal flow, not inside a
+     broken sticky context with vertical overflow on Android WebView.
+   No JS touch handler, transforms, or manual scrolling required. */
+@media(max-width:760px){
+  html[data-admin-page="calendar"]:has(body[data-calendar-mode="week"]),
+  html[data-admin-page="calendar"]:has(body[data-calendar-mode="provider"]),
+  html[data-admin-page="calendar"]:has(body[data-calendar-mode="service"]){
+    touch-action:auto!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro:is(
+     [data-calendar-mode="week"],[data-calendar-mode="provider"],[data-calendar-mode="service"]),
+  html[data-admin-page="calendar"] body.sb-calendar-pro:is(
+     [data-calendar-mode="week"],[data-calendar-mode="provider"],[data-calendar-mode="service"]) main.sb-admin-shell,
+  html[data-admin-page="calendar"] body.sb-calendar-pro:is(
+     [data-calendar-mode="week"],[data-calendar-mode="provider"],[data-calendar-mode="service"]) .sb-calendar-panel,
+  html[data-admin-page="calendar"] body.sb-calendar-pro:is(
+     [data-calendar-mode="week"],[data-calendar-mode="provider"],[data-calendar-mode="service"]) .sb-calendar-dock-space {
+    touch-action:auto!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-calendar-shell.is-week {
+    display:grid!important;
+    grid-template-columns:62px minmax(0,1fr)!important;
+    width:100%!important; max-width:100%!important;
+    min-width:0!important; height:auto!important; max-height:none!important;
+    overflow:visible!important;
+    touch-action:auto!important;
+    scroll-snap-type:none!important;
+    overscroll-behavior-x:auto!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-calendar-shell.is-week > .sb-time-axis {
+    grid-column:1!important;
+    position:relative!important;left:auto!important;top:auto!important;
+    touch-action:auto!important;
+    z-index:12!important;
+    background:#f9fcfd!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-calendar-shell.is-week > .sb-horizontal-track-viewport {
+    grid-column:2!important;display:block!important;
+    box-sizing:border-box!important;
+    width:100%!important; max-width:100%!important;
+    min-width:0!important;min-height:0!important;
+    height:auto!important;
+    overflow-x:auto!important;overflow-y:hidden!important;
+    overscroll-behavior-x:contain!important;
+    overscroll-behavior-y:auto!important;
+    touch-action:auto!important;
+    scroll-behavior:auto!important;
+    scroll-snap-type:none!important;
+    -webkit-overflow-scrolling:touch!important;
+    scrollbar-width:none;
+    position:relative!important;
+    background:#fff!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-calendar-shell.is-week > .sb-horizontal-track-viewport::-webkit-scrollbar{
+    display:none;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-calendar-shell.is-week > .sb-horizontal-track-viewport > .sb-calendar-days {
+    display:grid!important;
+    grid-template-columns:repeat(var(--day-count),var(--sb-horizontal-column-width,calc((100vw - 62px)/2)))!important;
+    width:max-content!important;min-width:max-content!important;max-width:none!important;
+    min-height:0!important;height:auto!important;
+    margin:0!important;padding:0!important;
+    overflow:visible!important;
+    gap:0!important;
+    touch-action:auto!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-calendar-shell.is-week > .sb-horizontal-track-viewport > .sb-calendar-days > .sb-calendar-day {
+    display:block!important;
+    box-sizing:border-box!important;
+    width:var(--sb-horizontal-column-width,calc((100vw - 62px)/2))!important;
+    min-width:0!important;max-width:none!important;
+    height:auto!important;overflow:visible!important;
+    scroll-snap-align:none!important;
+    touch-action:auto!important;
+    position:relative!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-calendar-shell.is-week .sb-calendar-day > .sb-day-head {
+    display:flex!important;
+    align-items:center!important;justify-content:center!important;
+    position:relative!important;top:auto!important;left:auto!important;
+    height:56px!important;min-height:56px!important;
+    box-sizing:border-box!important;
+    z-index:2!important;margin:0!important;padding:4px 5px!important;
+    background:#f8fbfc!important;
+    border-bottom:1px solid #dde5eb!important;
+    touch-action:auto!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-calendar-shell.is-week :is(.sb-day-track,.sb-calendar-event,.sb-calendar-block,.sb-working-segment,.sb-working-segment-editable) {
+    touch-action:auto!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-calendar-shell.is-week .sb-day-track {
+    position:relative!important;
+    margin:0!important;
+  }
+}
+@media(min-width:761px){
+  .sb-calendar-shell.is-week:has(> .sb-horizontal-track-viewport){
+    display:grid!important;
+    grid-template-columns:75px minmax(0,1fr)!important;
+    overflow:visible!important;
+    max-width:100%!important;
+  }
+  .sb-calendar-shell.is-week > .sb-horizontal-track-viewport{
+    grid-column:2!important;
+    min-width:0!important;width:100%!important;
+    max-width:100%!important;
+    overflow-x:auto!important;overflow-y:hidden!important;
+    touch-action:auto!important;
+  }
+  .sb-calendar-shell.is-week > .sb-horizontal-track-viewport > .sb-calendar-days{
+    display:grid!important;
+    grid-template-columns:repeat(var(--day-count),minmax(200px,1fr))!important;
+    width:max-content!important;min-width:max-content!important;
+  }
+  .sb-calendar-shell.is-week > .sb-horizontal-track-viewport .sb-day-head{
+    position:relative!important;top:auto!important;
+  }
+}
