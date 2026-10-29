@@ -107,8 +107,8 @@
     gap: 1px !important;
     text-align: center !important;
   }
-  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-date-title > strong,
-  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-date-title > span {
+  html[data-admin-page="calendar"] body.sb-calendar-pro.sb-iphone-calendar-ready .sb-date-title > strong,
+  html[data-admin-page="calendar"] body.sb-calendar-pro.sb-iphone-calendar-ready .sb-date-title > span {
     display: none !important;
   }
   html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-month-button {
