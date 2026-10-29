@@ -348,12 +348,30 @@
     const fab = document.querySelector('[data-fab]');
     const actions = document.querySelector('[data-fab-actions]');
     if (!fab || !actions) return;
-    fab.addEventListener('click', () => {
+    if (!actions.id) actions.id = 'sb-fab-actions';
+    fab.setAttribute('aria-controls', actions.id);
+    fab.setAttribute('aria-expanded', 'false');
+    const close = () => {
+      actions.hidden = true;
+      fab.classList.remove('is-open');
+      fab.setAttribute('aria-expanded', 'false');
+      fab.setAttribute('aria-label', 'Hinzufügen');
+    };
+    fab.addEventListener('click', (event) => {
+      event.stopPropagation();
       const opening = actions.hidden;
       actions.hidden = !opening;
       fab.classList.toggle('is-open', opening);
+      fab.setAttribute('aria-expanded', String(opening));
+      fab.setAttribute('aria-label', opening ? 'Menü schließen' : 'Hinzufügen');
     });
-    actions.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => { actions.hidden = true; fab.classList.remove('is-open'); }));
+    actions.querySelectorAll('button').forEach((button) => button.addEventListener('click', close));
+    document.addEventListener('click', (event) => {
+      if (!actions.hidden && !event.target.closest('[data-fab-wrap]')) close();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !actions.hidden) { close(); fab.focus({preventScroll:true}); }
+    });
   }
 
   function bookingForm() { return document.querySelector('[data-modal="booking"] form'); }
