@@ -96,6 +96,14 @@
       monthButton.setAttribute('aria-label','Datum wählen: '+monthFormat.format(monthDay));
     }
     if (picker) picker.value=selectedDate;
+    // Fast AJAX day changes must not leave view-menu links pointing to an old date.
+    document.querySelectorAll('[data-view-menu] a[href]').forEach(link=>{
+      try {
+        const href=new URL(link.href,location.origin);
+        href.searchParams.set('date',selectedDate);
+        link.href=href.pathname+href.search+href.hash;
+      } catch(_error) {}
+    });
     strip.classList.toggle('is-week',isWeek());
     const today=iso(new Date());
     strip.replaceChildren();
