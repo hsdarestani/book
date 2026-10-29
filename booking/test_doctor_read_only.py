@@ -72,7 +72,7 @@ class DoctorPrivateCalendarTests(TestCase):
                     'data-fab-actions',
                     'data-open-note',
                     'data-open-block',
-                    'admin.js?v=20261029-view-modes1',
+                    'admin.js?v=20261029-horizontal2',
                 ):
                     self.assertContains(response, marker)
                 self.assertContains(response, 'Meine Patientin')
