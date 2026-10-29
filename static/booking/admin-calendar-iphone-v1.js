@@ -231,7 +231,12 @@
       input.insertAdjacentElement('beforebegin',text);
       const update=()=>{
         const date=parse(input.value);
-        text.textContent=date?dateFormat.format(date):'Datum wählen';
+        const display=date?dateFormat.format(date):'Datum wählen';
+        text.textContent=display;
+        const form=input.closest('form');
+        const mirror=form?.querySelector(input.name==='note_date'?'[data-note-end-date]':
+          input.name==='block_date'?'[data-block-end-date]':'[data-no-end-date]');
+        if(mirror)mirror.textContent=display;
       };
       input.addEventListener('change',update);
       input.addEventListener('input',update);
@@ -260,6 +265,26 @@
       const end=form.querySelector('[name="'+name+'_end"]');
       if(start&&!start.value)start.value='10:00';
       if(end&&!end.value)end.value='10:15';
+    });
+  }
+  function syncConditionalServiceFields() {
+    const groups=[
+      ['note','note_scope','.sb-service-scope-row','note_service_id'],
+      ['block','block_scope','.sb-block-service-row','block_service_id'],
+      ['calendar-item-edit','item_scope','.sb-edit-service-row','item_service_id']
+    ];
+    groups.forEach(([modalName,radioName,rowSelector,selectName])=>{
+      const modal=document.querySelector('[data-modal="'+modalName+'"]');
+      const form=modal?.querySelector('form');
+      if(!form)return;
+      const active=form.querySelector('input[name="'+radioName+'"]:checked')?.value==='service';
+      const row=form.querySelector(rowSelector);
+      const select=form.querySelector('select[name="'+selectName+'"]');
+      row?.classList.toggle('is-visible',active);
+      if(select) {
+        select.disabled=!active;
+        select.required=active;
+      }
     });
   }
   function updateScopeMessage() {
@@ -362,6 +387,16 @@
     blockToggle?.addEventListener('change',updateNoteBlockStatus);
     updateNoteBlockStatus();
     document.querySelectorAll('[data-modal="note"] input[name="note_scope"]').forEach(input=>input.addEventListener('change',updateScopeMessage));
+    document.querySelectorAll('.sb-modal input[name$="_scope"]').forEach(input=>{
+      input.addEventListener('change',syncConditionalServiceFields);
+    });
+    const editModal=document.querySelector('[data-modal="calendar-item-edit"]');
+    if(editModal && window.MutationObserver){
+      new MutationObserver(()=>{
+        if(editModal.classList.contains('is-open'))syncConditionalServiceFields();
+      }).observe(editModal,{attributes:true,attributeFilter:['class']});
+    }
+    syncConditionalServiceFields();
     updateScopeMessage();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
