@@ -525,12 +525,21 @@ def dashboard(request):
 
     calendar_appointments = Appointment.objects.none()
     calendar_blocks = BlockedPeriod.objects.none()
-    if selected_staff:
+    # Day/week/service are scoped to the selected clinician. Provider mode
+    # shows the same date as one real column per *authorized* clinician.
+    # doctor_staff_scope restricts staff_qs server-side before reaching here.
+    group_staff_members = list(staff_qs)
+    visible_staff_ids = (
+        [member.pk for member in group_staff_members]
+        if calendar_view == 'provider'
+        else ([selected_staff.pk] if selected_staff else [])
+    )
+    if visible_staff_ids:
         start_dt = timezone.make_aware(datetime.combine(range_start, datetime.min.time()), timezone.get_current_timezone())
         end_dt = timezone.make_aware(datetime.combine(range_end, datetime.min.time()), timezone.get_current_timezone())
         calendar_appointments = (
             Appointment.objects.filter(
-                staff=selected_staff,
+                staff_id__in=visible_staff_ids,
                 starts_at__lt=end_dt,
                 ends_at__gt=start_dt,
             )
@@ -539,7 +548,7 @@ def dashboard(request):
             .order_by('starts_at')
         )
         calendar_blocks = BlockedPeriod.objects.filter(
-            staff=selected_staff,
+            staff_id__in=visible_staff_ids,
             starts_at__lt=end_dt,
             ends_at__gt=start_dt,
         ).order_by('starts_at')
@@ -589,6 +598,96 @@ def dashboard(request):
             'is_today': day_cursor == today,
         })
         day_cursor += timedelta(days=1)
+
+    # True timeline columns for the additional SimplyBook modes. Reuse
+    # the existing appointments, block labels and working-hour geometry.
+    # Never reuse the selected admin's data in another clinician's column.
+    if calendar_view in {'provider', 'service'}:
+        grouped_day = calendar_date
+        visible_start = timezone.make_aware(datetime.combine(grouped_day, time(CALENDAR_START_HOUR)), tz)
+        visible_end = timezone.make_aware(datetime.combine(grouped_day, time(CALENDAR_END_HOUR)), tz)
+        all_appointments = list(calendar_appointments)
+        all_blocks = list(calendar_blocks)
+
+        def make_group_column(*, title, group_appointments, group_blocks, schedule):
+            working_segments = []
+            for working in schedule:
+                start = timezone.make_aware(datetime.combine(grouped_day, working.start_time), tz)
+                end = timezone.make_aware(datetime.combine(grouped_day, working.end_time), tz)
+                if end > visible_start and start < visible_end:
+                    top, height = _calendar_position(start, end)
+                    working_segments.append({
+                        'top': top, 'height': height,
+                        'label': f'{working.start_time:%H:%M}–{working.end_time:%H:%M}',
+                    })
+            appointments = []
+            for item in group_appointments:
+                if item.ends_at > visible_start and item.starts_at < visible_end:
+                    top, height = _calendar_position(item.starts_at, item.ends_at)
+                    appointments.append({'item': item, 'top': top, 'height': height})
+            blocks = []
+            for item in group_blocks:
+                if item.ends_at > visible_start and item.starts_at < visible_end:
+                    top, height = _calendar_position(item.starts_at, item.ends_at)
+                    blocks.append({
+                        'item': item, 'top': top, 'height': height,
+                        'kind': _calendar_block_kind(item.reason),
+                        'label': _clean_calendar_reason(item.reason),
+                    })
+            return {
+                'date': grouped_day, 'day_name': title, 'column_label': title,
+                'working_segments': working_segments,
+                'appointments': appointments, 'blocks': blocks,
+                'is_today': grouped_day == today,
+            }
+
+        if calendar_view == 'provider':
+            # This query also obeys doctor_staff_scope through visible_staff_ids.
+            schedules = WorkingHour.objects.filter(
+                staff_id__in=visible_staff_ids, active=True,
+                weekday=grouped_day.weekday(),
+            ).order_by('start_time')
+            hours_by_staff = {}
+            for working in schedules:
+                hours_by_staff.setdefault(working.staff_id, []).append(working)
+            calendar_days = [
+                make_group_column(
+                    title=member.display_name,
+                    group_appointments=[a for a in all_appointments if a.staff_id == member.pk],
+                    group_blocks=[b for b in all_blocks if b.staff_id == member.pk],
+                    schedule=hours_by_staff.get(member.pk, []),
+                )
+                for member in group_staff_members
+            ]
+        else:
+            # Expose real configured services as columns. Imported appointments
+            # also count, even if a service was later deactivated.
+            configured = list(
+                Service.objects.filter(
+                    staff_members=selected_staff, active=True,
+                ).order_by('sort_order', 'name')
+            ) if selected_staff else []
+            seen_ids = {service.pk for service in configured}
+            for item in all_appointments:
+                if item.service_id not in seen_ids:
+                    configured.append(item.service)
+                    seen_ids.add(item.service_id)
+            calendar_days = [
+                make_group_column(
+                    title=service.name,
+                    group_appointments=[a for a in all_appointments if a.service_id == service.pk],
+                    # A staff-wide blocked period affects every service.
+                    group_blocks=[b for b in all_blocks if b.staff_id == selected_staff.pk],
+                    schedule=hour_map.get(grouped_day.weekday(), []),
+                )
+                for service in configured
+            ]
+        # One empty-state column rather than an invalid zero-column grid.
+        if not calendar_days:
+            calendar_days = [make_group_column(
+                title='Keine Einträge', group_appointments=[],
+                group_blocks=[], schedule=[],
+            )]
 
     # Keep appointment totals visible per clinician even when the currently selected
     # clinician has no bookings. The calendar itself remains scoped to one doctor.
