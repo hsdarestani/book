@@ -285,7 +285,7 @@ def dashboard(request):
 
     calendar_date = parse_date(request.GET.get('date') or '') or timezone.localdate()
     calendar_view = request.GET.get('cal_view') or 'day'
-    if calendar_view not in {'day', 'week'}:
+    if calendar_view not in {'day', 'week', 'provider', 'service'}:
         calendar_view = 'day'
 
     notice = request.GET.get('notice', '')
