@@ -406,9 +406,13 @@
   function updateDateNavigation(dateValue) {
     const date = parseIsoDate(dateValue);
     if (!date) return;
-    const arrows = document.querySelectorAll('.sb-date-nav .sb-date-arrow');
-    if (arrows[0]) arrows[0].href = navHref(isoDate(addDays(date, -1)));
-    if (arrows[1]) arrows[1].href = navHref(isoDate(addDays(date, 1)));
+    document.querySelectorAll('.sb-date-nav').forEach((nav) => {
+      // Both SSR mobile and desktop date controls must stay in sync.
+      if (nav.matches('[data-calendar-mobile-nav]')) return;
+      const arrows = nav.querySelectorAll('.sb-date-arrow');
+      if (arrows[0]) arrows[0].href = navHref(isoDate(addDays(date, -1)));
+      if (arrows[1]) arrows[1].href = navHref(isoDate(addDays(date, 1)));
+    });
   }
 
   function renderCalendarDay(data, { updateHistory = true } = {}) {
@@ -417,7 +421,7 @@
     if (!dayNode || !track) return;
 
     const labels = dateLabels(data.date);
-    const title = document.querySelector('.sb-date-title');
+    const title = document.querySelector('main.sb-admin-shell .sb-date-title');
     if (labels && title) {
       const strong = title.querySelector('strong');
       const span = title.querySelector('span');
