@@ -296,45 +296,68 @@
   }
   function mount() {
     if(!mobile.matches)return;
-    const nav=document.querySelector('.sb-date-nav');
+    const existingDock=document.querySelector('[data-reference-date-dock]');
+    const nav=existingDock?.querySelector('.sb-date-nav') || document.querySelector('main .sb-date-nav');
     const title=nav?.querySelector('.sb-date-title');
-    if(!nav||!title||title.querySelector('.sb-iphone-month-button'))return;
+    if(!nav||!title||document.body.classList.contains('sb-iphone-calendar-ready'))return;
     const base=currentDate();
     selectedDate=parse(base)?base:iso(new Date());
     visibleMonday=mondayOf(selectedDate);
 
-    monthButton=document.createElement('button');
-    monthButton.type='button';
-    monthButton.className='sb-iphone-month-button';
+    monthButton=title.querySelector('.sb-iphone-month-button');
+    if(!monthButton){
+      monthButton=document.createElement('button');
+      monthButton.type='button';
+      monthButton.className='sb-iphone-month-button';
+      title.appendChild(monthButton);
+    }
     monthButton.addEventListener('click',openDatePicker);
-    title.appendChild(monthButton);
-    picker=document.createElement('input');
-    picker.type='date';
-    picker.className='sb-iphone-date-input';
-    picker.setAttribute('aria-label','Datum wählen');
-    title.appendChild(picker);
+    picker=title.querySelector('.sb-iphone-date-input');
+    if(!picker){
+      picker=document.createElement('input');
+      picker.type='date';
+      picker.className='sb-iphone-date-input';
+      picker.setAttribute('aria-label','Datum wählen');
+      title.appendChild(picker);
+    }
     picker.addEventListener('change',()=>{
       if(!parse(picker.value))return;
       if(isWeek())location.assign(urlFor(picker.value,'week'));
       else navigateToDay(picker.value);
     });
-    strip=document.createElement('nav');
-    strip.className='sb-iphone-weekstrip';
-    strip.setAttribute('aria-label','Kalendertag auswählen');
-    // The scrolling viewport belongs to main, not the month/week controls.
-    // Move both controls into a fixed dock, so they remain visible like the
-    // SimplyBook iPhone reference even at 20:00. Keep the real inputs/buttons.
-    const dock=document.createElement('div');
-    dock.className='sb-reference-date-dock';
-    dock.setAttribute('data-reference-date-dock','');
-    // Place the dock directly on body. Position:fixed inside a transformed
-    // ancestor may instead be fixed to that ancestor and scroll away on iOS.
-    document.body.appendChild(dock);
-    dock.append(nav,strip);
+    strip=existingDock?.querySelector('.sb-iphone-weekstrip');
+    if(!strip){
+      strip=document.createElement('nav');
+      strip.className='sb-iphone-weekstrip';
+      strip.setAttribute('aria-label','Kalendertag auswählen');
+    }
+    if(!existingDock){
+      // Fallback for older cached HTML. Normally the date dock is already
+      // server-rendered, avoiding any flash of legacy calendar controls.
+      const dock=document.createElement('div');
+      dock.className='sb-reference-date-dock';
+      dock.setAttribute('data-reference-date-dock','');
+      document.body.appendChild(dock);
+      dock.append(nav,strip);
+    }
     renderStrip();
     renderHead(selectedDate);
     renderWeekHeads();
     document.body.classList.add('sb-iphone-calendar-ready');
+
+    // The browser may restore a previous scroll offset or compensate for DOM
+    // movements. A freshly opened day must start at 10:00 (the actual server
+    // CALENDAR_START_HOUR), never with 11:00 as its first visible hour.
+    const main=document.querySelector('main.sb-admin-shell');
+    const resetInitialScroll=()=>{
+      if(main)main.scrollTop=0;
+      if(window.scrollY)window.scrollTo(0,0);
+    };
+    resetInitialScroll();
+    requestAnimationFrame(resetInitialScroll);
+    window.addEventListener('pageshow',event=>{
+      if(event.persisted)resetInitialScroll();
+    });
 
     /* Capture arrow taps before old AJAX one-day handlers can run. */
     nav.querySelectorAll('.sb-date-arrow').forEach((arrow,index)=>{
