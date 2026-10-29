@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/app.css{% else %}{% static 'booking/app.css' %}{% endif %}">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}?v=20261006-calendar-v20">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
-  <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261029-firstpaint-v7"></script>
+  <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261029-view-modes1"></script>
   <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20261029-sheet-v3"></script>
   {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% else %}
   <link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header4">
@@ -25,6 +25,7 @@
 <link rel="stylesheet" href="/static/booking/admin-calendar-sheet-fix-v3.css?v=20261029-v3" data-admin-calendar-sheet-fix-v3>
 <link rel="stylesheet" href="/static/booking/admin-calendar-mobile-finish-v4.css?v=20261029-finish-v4" data-admin-calendar-mobile-finish-v4>
 <link rel="stylesheet" href="/static/booking/admin-calendar-date-dock-v6.css?v=20261029-firsthour8" data-admin-calendar-dock-v6>
+<link rel="stylesheet" href="/static/booking/admin-calendar-view-modes-v1.css?v=20261029-modes1" data-admin-calendar-view-modes-v1>
 <script>try{history.scrollRestoration='manual'}catch(_e){}</script>
 </head>
 <body class="admin-body sb-admin-body sb-calendar-pro sb-calendar-booting" {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
