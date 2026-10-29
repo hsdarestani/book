@@ -235,6 +235,25 @@
       update();
     });
   }
+  function updateNoteBlockStatus() {
+    const modal=document.querySelector('[data-modal="note"]');
+    const enabled=Boolean(modal?.querySelector('input[name="note_blocked"]')?.checked);
+    const label=modal?.querySelector('.sb-block-toggle strong');
+    const description=modal?.querySelector('.sb-block-toggle div span');
+    if(label)label.textContent=enabled?'Zeitraum ist geblockt':'Zeitraum ist nicht geblockt';
+    if(description)description.textContent='Zeitraum ist geblockt';
+  }
+  function initTimeDefaults() {
+    ['note','block'].forEach(name=>{
+      const node=document.querySelector('[data-modal="'+name+'"]');
+      const form=node?.querySelector('form');
+      if(!form)return;
+      const start=form.querySelector('[name="'+name+'_start"]');
+      const end=form.querySelector('[name="'+name+'_end"]');
+      if(start&&!start.value)start.value='10:00';
+      if(end&&!end.value)end.value='10:15';
+    });
+  }
   function updateScopeMessage() {
     const value=document.querySelector('[data-modal="note"] input[name="note_scope"]:checked')?.value;
     const message=document.querySelector('[data-modal="note"] .sb-reference-scope-message');
@@ -330,6 +349,10 @@
     }
     if(isWeek())requestAnimationFrame(()=>scrollWeekTo(selectedDate));
     localizedDates();
+    initTimeDefaults();
+    const blockToggle=document.querySelector('[data-modal="note"] input[name="note_blocked"]');
+    blockToggle?.addEventListener('change',updateNoteBlockStatus);
+    updateNoteBlockStatus();
     document.querySelectorAll('[data-modal="note"] input[name="note_scope"]').forEach(input=>input.addEventListener('change',updateScopeMessage));
     updateScopeMessage();
   }
