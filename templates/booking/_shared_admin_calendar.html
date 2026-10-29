@@ -15,7 +15,7 @@
     <div class="sb-calendar-head">
       <div class="sb-calendar-heading">
         <div class="eyebrow">Kalender</div>
-        <h2>{% if calendar_view == 'week' %}Wochenansicht{% else %}Tagesansicht{% endif %}</h2>
+        <h2>{% if calendar_view == 'week' %}Wochenansicht{% elif calendar_view == 'provider' %}Dienstleister-Ansicht{% elif calendar_view == 'service' %}Dienstleistungsansicht{% else %}Tagesansicht{% endif %}</h2>
       </div>
       <div class="sb-calendar-head-actions">
         <button type="button" class="sb-subtle-button" data-view-menu-open>Ansicht ▾</button>
@@ -48,14 +48,14 @@
     </div>
 
     {% if selected_staff %}
-    <div class="sb-calendar-shell {% if calendar_view == 'week' %}is-week{% else %}is-day{% endif %}">
+    <div class="sb-calendar-shell {% if calendar_view == 'week' %}is-week{% elif calendar_view == 'provider' %}is-week is-provider is-grouped{% elif calendar_view == 'service' %}is-week is-service is-grouped{% else %}is-day{% endif %}">
       <div class="sb-time-axis">
         {% for hour in calendar_hour_labels %}<span>{{ hour }}</span>{% endfor %}
       </div>
       <div class="sb-calendar-days" style="--day-count:{{ calendar_days|length }}">
         {% for day in calendar_days %}
         <div class="sb-calendar-day {% if day.is_today %}is-today{% endif %}">
-          <div class="sb-day-head"><span>{{ day.day_name }}</span><b>{{ day.date|date:"d.m." }}</b></div>
+          <div class="sb-day-head">{% if day.column_label %}<strong class="sb-reference-day-label" title="{{ day.column_label }}">{{ day.column_label }}</strong>{% else %}<span>{{ day.day_name }}</span><b>{{ day.date|date:"d.m." }}</b>{% endif %}</div>
           <div class="sb-day-track">
             {% for segment in day.working_segments %}
             <div class="sb-working-segment" style="top:{{ segment.top }}%;height:{{ segment.height }}%;"><span>{{ segment.label }}</span></div>
