@@ -486,9 +486,10 @@
     background:#26394e!important;color:#fff!important;border:0!important;
     border-bottom:0!important;box-shadow:none!important;
     display:grid!important;grid-template-columns:38px minmax(0,1fr) 36px 36px!important;
-    height:64px!important;min-height:64px!important;
+    height:calc(64px + var(--calendar-status-gap,0px))!important;
+    min-height:calc(64px + var(--calendar-status-gap,0px))!important;
     width:100%!important;box-sizing:border-box!important;
-    padding:0 13px!important;
+    padding:var(--calendar-status-gap,0px) 13px 0!important;
     top:0!important;position:fixed!important;
   }
   html[data-clinic-navigation][data-clinic-navigation][data-admin-page="calendar"][data-clinic-design="premium"]
