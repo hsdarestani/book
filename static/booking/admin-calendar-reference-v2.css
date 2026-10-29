@@ -459,4 +459,20 @@
   html[data-admin-page="calendar"] .sb-modal.is-open .sb-reference-human-date {
     display:block!important;color:#2c3542!important;font-size:14px!important;font-weight:650!important;
   }
+
+  /* Native date inputs keep their event handlers, while the visible value
+     consistently uses German formatting even in English-locale Android. */
+  html[data-admin-page="calendar"] .sb-modal.is-open .sb-reference-date-field {
+    position:relative!important;display:inline-flex!important;align-items:center!important;
+    min-height:34px!important;min-width:150px!important;max-width:100%!important;
+  }
+  html[data-admin-page="calendar"] .sb-modal.is-open .sb-reference-date-field > input[type="date"] {
+    position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+    opacity:0!important;cursor:pointer!important;z-index:3!important;
+    pointer-events:auto!important;
+  }
+  html[data-admin-page="calendar"] .sb-modal.is-open .sb-reference-date-field > .sb-reference-human-date {
+    display:block!important;min-width:0!important;color:#2a3442!important;
+    font-size:14px!important;font-weight:650!important;pointer-events:none!important;
+  }
 }
