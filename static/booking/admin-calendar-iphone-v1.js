@@ -321,7 +321,16 @@
     strip=document.createElement('nav');
     strip.className='sb-iphone-weekstrip';
     strip.setAttribute('aria-label','Kalendertag auswählen');
-    nav.insertAdjacentElement('afterend',strip);
+    // The scrolling viewport belongs to main, not the month/week controls.
+    // Move both controls into a fixed dock, so they remain visible like the
+    // SimplyBook iPhone reference even at 20:00. Keep the real inputs/buttons.
+    const dock=document.createElement('div');
+    dock.className='sb-reference-date-dock';
+    dock.setAttribute('data-reference-date-dock','');
+    // Place the dock directly on body. Position:fixed inside a transformed
+    // ancestor may instead be fixed to that ancestor and scroll away on iOS.
+    document.body.appendChild(dock);
+    dock.append(nav,strip);
     renderStrip();
     renderHead(selectedDate);
     renderWeekHeads();

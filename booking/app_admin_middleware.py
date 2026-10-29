@@ -286,6 +286,12 @@ class APlusAdminNavigationMiddleware:
         if response.status_code != 200 or 'text/html' not in response.get('Content-Type', ''):
             return response
 
+        # Admin HTML must never be reused from the Android WebView disk cache.
+        # Public static files are versioned separately; this only governs
+        # private, per-user pages including Punkte and patient details.
+        response['Cache-Control'] = 'private, no-store, no-cache, max-age=0, must-revalidate'
+        response['Pragma'] = 'no-cache'
+
         # The file viewer has its own compact same-tab controls. Injecting the
         # legacy patient drawer here would overlay them inside mobile WebViews.
         if request.resolver_match and request.resolver_match.url_name == 'patient_record_view':
