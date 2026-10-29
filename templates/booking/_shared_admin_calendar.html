@@ -8,6 +8,10 @@
 .sb-calendar-panel .sb-calendar-overlap-warning strong{font:750 13px/1.3 system-ui,sans-serif!important;color:#805123!important}
 </style>
   <section class="admin-panel sb-calendar-panel" id="kalender">
+    {# Physical in-flow reservation for the fixed 150px month/week dock.
+       Padding on sb-calendar-panel is overridden by premium CSS and let
+       10:00 plus its events hide underneath the dock. #}
+    <div class="sb-calendar-dock-space" aria-hidden="true"></div>
     <div class="sb-calendar-head">
       <div class="sb-calendar-heading">
         <div class="eyebrow">Kalender</div>

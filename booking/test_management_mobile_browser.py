@@ -127,6 +127,30 @@ class ManagementMobileBrowserTests(TestCase):
                 self.assertEqual(first_label.text_content().strip(),"10:00")
 
                 dock=page.locator(".sb-reference-date-dock")
+                # Browser regression from the 19:36 phone screenshot: scrollTop=0
+                # was passing despite a fully obscured 10:00 hour behind
+                # the fixed month/week dock. Test visual geometry instead.
+                geometry=page.evaluate("""() => {
+                    const box=s=>document.querySelector(s)?.getBoundingClientRect();
+                    const dock=box('.sb-reference-date-dock');
+                    const spacer=box('.sb-calendar-dock-space');
+                    const head=box('.sb-calendar-shell.is-day .sb-day-head');
+                    const track=box('.sb-calendar-shell.is-day .sb-day-track');
+                    const first=box('.sb-time-axis span');
+                    return {
+                      dockBottom:dock?.bottom, spacerHeight:spacer?.height,
+                      headTop:head?.top, trackTop:track?.top,
+                      firstTop:first?.top, viewport:innerHeight,
+                      scroll:document.querySelector('main.sb-admin-shell')?.scrollTop
+                    };
+                }""")
+                self.assertEqual(geometry['scroll'],0,geometry)
+                self.assertAlmostEqual(geometry['spacerHeight'],150,delta=2,msg=str(geometry))
+                self.assertGreaterEqual(geometry['headTop'],geometry['dockBottom']-2,geometry)
+                self.assertGreater(geometry['trackTop'],geometry['dockBottom']+25,geometry)
+                self.assertLess(geometry['trackTop'],geometry['viewport']-15,geometry)
+                self.assertGreaterEqual(geometry['firstTop'],geometry['dockBottom']-7,geometry)
+
                 self.assertEqual(dock.count(),1)
                 self.assertEqual(dock.locator(".sb-iphone-day").count(),7)
                 fixed_before=dock.evaluate("""node=>({

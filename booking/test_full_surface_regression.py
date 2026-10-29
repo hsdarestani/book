@@ -174,7 +174,7 @@ class FullManagementSurfaceRegressionTests(TestCase):
                 self.assertIn('no-store', response.get('Cache-Control',''))
                 self.assertIn('private', response.get('Cache-Control',''))
         calendar = self.client.get('/verwaltung/kalender/')
-        self.assertContains(calendar,'admin-calendar-date-dock-v6.css?v=20261029-firstpaint7')
+        self.assertContains(calendar,'admin-calendar-date-dock-v6.css?v=20261029-firsthour8')
         wallet = self.client.get('/verwaltung/app/wallet/')
         self.assertContains(wallet,'background:linear-gradient(118deg,#10271d')
         customers = self.client.get('/verwaltung/app/patients/')

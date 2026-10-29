@@ -80,3 +80,35 @@
     grid-template-columns:repeat(7,minmax(0,1fr))!important;
   }
 }
+
+
+/* Geometry repair: fixed month+week dock sits outside the scroll viewport.
+   Premium CSS overrides the previous padding-top on the calendar panel.
+   The dedicated in-flow element keeps the first 10:00 row and its event
+   cards below the dock from the first server-rendered frame. */
+@media (max-width:760px) {
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-calendar-panel > .sb-calendar-dock-space {
+    display:block!important;
+    position:relative!important;
+    flex:none!important;
+    box-sizing:border-box!important;
+    height:150px!important;
+    min-height:150px!important;
+    max-height:150px!important;
+    padding:0!important;
+    margin:0!important;
+    overflow:hidden!important;
+    pointer-events:none!important;
+    background:transparent!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  main.sb-admin-shell > .sb-calendar-panel {
+    padding-top:0!important;
+  }
+}
+@media (min-width:761px) {
+  html[data-admin-page="calendar"] .sb-calendar-dock-space {
+    display:none!important;
+  }
+}
