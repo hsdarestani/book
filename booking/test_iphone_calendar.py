@@ -28,6 +28,13 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         ):
             self.assertIn(marker, admin)
 
+    def test_real_calendar_clearance_cannot_be_overridden_by_panel_padding(self):
+        shared=self.source("templates/booking/_shared_admin_calendar.html")
+        css=self.source("static/booking/admin-calendar-date-dock-v6.css")
+        self.assertIn('class="sb-calendar-dock-space"',shared)
+        self.assertIn('.sb-calendar-panel > .sb-calendar-dock-space',css)
+        self.assertIn('height:150px!important',css)
+
     def test_date_controls_are_portaled_outside_scrolling_calendar(self):
         js = self.source("static/booking/admin-calendar-iphone-v1.js")
         css = self.source("static/booking/admin-calendar-date-dock-v6.css")
