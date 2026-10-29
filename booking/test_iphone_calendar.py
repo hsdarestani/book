@@ -21,6 +21,8 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
             "admin-calendar-iphone-v1.js",
             "admin-calendar-reference-v2.css",
             "data-admin-calendar-reference-v2",
+            "admin-calendar-sheet-fix-v3.css",
+            "20261029-sheet-v3",
             "20261029-reference2",
         ):
             self.assertIn(marker, admin)
@@ -71,6 +73,27 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
             ".sb-calendar-event:not(.is-overlap-layout)",
         ):
             self.assertIn(marker, css)
+
+    def test_sheet_heading_dates_and_conditional_service_controls(self):
+        css = self.source("static/booking/admin-calendar-sheet-fix-v3.css")
+        js = self.source("static/booking/admin-calendar-iphone-v1.js")
+        template = self.source("templates/booking/dashboard.html")
+        server = self.source("booking/admin_views.py")
+        legacy = self.source("static/booking/admin-ferrari-v17.js")
+        for marker in (".sb-reference-date-time", ".sb-reference-end-date",
+                       ".sb-form-row.sb-service-scope-row:not(.is-visible)",
+                       ".sb-form-row.sb-block-service-row:not(.is-visible)",
+                       ".sb-form-row.sb-edit-service-row:not(.is-visible)"):
+            self.assertIn(marker, css)
+        self.assertIn("data-note-end-date", template)
+        self.assertIn("data-block-end-date", server)
+        self.assertIn("syncConditionalServiceFields", js)
+        self.assertIn("button.textContent = '×'", legacy)
+
+    def test_directory_theme_shared_across_customer_surfaces(self):
+        css = self.source("static/booking/clinic-signature-surfaces-v1.css")
+        self.assertIn('html[data-clinic-design="premium"] body.admin-body .premium-customer-panel .premium-list-heading', css)
+        self.assertIn('html[data-clinic-design="premium"] body.admin-body .premium-patient-list', css)
 
     def test_note_form_save_and_mobile_calendar_modes(self):
         dashboard = self.source("templates/booking/dashboard.html")
