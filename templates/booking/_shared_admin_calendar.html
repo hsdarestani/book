@@ -52,6 +52,7 @@
       <div class="sb-time-axis">
         {% for hour in calendar_hour_labels %}<span>{{ hour }}</span>{% endfor %}
       </div>
+      {% if calendar_view != 'day' %}<div class="sb-horizontal-track-viewport" data-calendar-horizontal-viewport tabindex="0" aria-label="Kalenderspalten horizontal scrollen">{% endif %}
       <div class="sb-calendar-days" style="--day-count:{{ calendar_days|length }}">
         {% for day in calendar_days %}
         <div class="sb-calendar-day {% if day.is_today %}is-today{% endif %}">
@@ -80,6 +81,7 @@
         </div>
         {% endfor %}
       </div>
+      {% if calendar_view != 'day' %}</div>{% endif %}
     </div>
 
     <div class="sb-fab-wrap" data-fab-wrap>
