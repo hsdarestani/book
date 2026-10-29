@@ -57,13 +57,13 @@ class ManagementMobileBrowserTests(TestCase):
         html = re.sub(r'<script\b[^>]*>.*?</script>', "", html, flags=re.I | re.S)
         html = re.sub(r'(<img[^>]*?)\s+src="[^"]+"', r"\1", html, flags=re.I)
         if calendar:
-            # These are loaded by admin.js after the initial template response.
-            # The last scroll stylesheet is intentionally injected last.
+            # Appending the same styles simulates a delayed second loader.
+            # The page must render correctly before it as well (first-paint).
             css_names = ["admin-simply.css", "admin-calendar-plus.css",
                          "admin-calendar-mobile-v2.css", "admin-calendar-iphone-v1.css",
                          "admin-calendar-reference-v2.css", "admin-calendar-sheet-fix-v3.css",
                          "admin-calendar-mobile-finish-v4.css", "admin-calendar-scroll-v5.css",
-                         "admin-calendar-date-dock-v6.css"]
+                         "admin-calendar-date-dock-v7.css"]
             for name in css_names:
                 item = finders.find("booking/"+name)
                 self.assertTrue(item, name)
@@ -99,6 +99,18 @@ class ManagementMobileBrowserTests(TestCase):
             try:
                 context, page = self._page(browser, html, styles, calendar=True)
                 self.assertTrue(page.locator(".sb-calendar-shell.is-day").count())
+                self.assertEqual(page.locator("[data-reference-date-dock]").count(), 1)
+                self.assertEqual(page.locator("main.sb-admin-shell .sb-date-nav").is_visible(), False)
+                initial = page.evaluate("""() => ({
+                    scroll:document.querySelector('main.sb-admin-shell').scrollTop,
+                    dockEnd:document.querySelector('[data-reference-date-dock]').getBoundingClientRect().bottom,
+                    firstHour:document.querySelector('.sb-time-axis span')?.getBoundingClientRect().top,
+                    trackStart:document.querySelector('.sb-day-track')?.getBoundingClientRect().top
+                })""")
+                self.assertEqual(initial['scroll'], 0, initial)
+                self.assertGreaterEqual(initial['trackStart'], initial['dockEnd']-5, initial)
+                self.assertGreaterEqual(initial['firstHour'], initial['dockEnd']-10, initial)
+                self.assertIn('10:00', page.locator('.sb-time-axis').inner_text())
                 dock=page.locator(".sb-reference-date-dock")
                 self.assertEqual(dock.count(),1)
                 self.assertEqual(dock.locator(".sb-iphone-day").count(),7)
