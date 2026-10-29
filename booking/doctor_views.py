@@ -165,7 +165,8 @@ def _calendar_block(staff, post):
     ends_at = timezone.make_aware(datetime.combine(block_date, end), timezone.get_current_timezone())
     is_note = action == 'add_calendar_note'
     label = (post.get('note_text') if is_note else (post.get('block_text') or post.get('block_reason'))) or ('Notiz' if is_note else 'Gesperrt')
-    reason = ('[NOTE][STAFF] ' if is_note else '[BLOCKNOTE][STAFF] ') + str(label).strip()[:120]
+    prefix = '[NOTE][STAFF] ' if is_note and post.get('note_blocked') != 'on' else '[BLOCKNOTE][STAFF] '
+    reason = prefix + str(label).strip()[:120]
     BlockedPeriod.objects.create(staff=staff, starts_at=starts_at, ends_at=ends_at, reason=reason[:160])
 
 
