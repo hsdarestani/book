@@ -593,3 +593,16 @@
     border-radius:6px!important;font-size:13px!important;
   }
 }
+
+@media (max-width:760px) {
+  /* In the reference, the date remains visible below the fixed navy app bar
+     when the user scrolls to afternoon appointments. No cloned header. */
+  html[data-clinic-design="premium"][data-admin-page="calendar"]
+  body.sb-calendar-pro .sb-calendar-shell.is-day .sb-day-head {
+    position:sticky!important;
+    top:calc(64px + var(--calendar-status-gap,0px))!important;
+    z-index:46!important;
+    background:#fff!important;
+    box-shadow:0 2px 7px rgba(29,40,54,.08)!important;
+  }
+}
