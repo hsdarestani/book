@@ -23,7 +23,7 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
             "data-admin-calendar-reference-v2",
             "admin-calendar-sheet-fix-v3.css",
             "admin-calendar-date-dock-v6.css",
-            "20261029-dock6",
+            "20261029-firstpaint7",
             "20261029-reference2",
         ):
             self.assertIn(marker, admin)
