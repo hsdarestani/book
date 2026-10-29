@@ -8,6 +8,9 @@ on:
       - "static/booking/admin-unified-nav-v14.js"
       - "booking/test_home_hero_admin.py"
       - "booking/test_hero_scroll_browser.py"
+      - "booking/test_management_mobile_browser.py"
+      - "static/booking/admin-calendar-scroll-v5.css"
+      - "static/booking/clinic-patient-wallet-finish-v4.css"
       - ".github/workflows/verify-hero-scroll-browser.yml"
   workflow_dispatch:
 permissions:
@@ -32,5 +35,5 @@ jobs:
           DJANGO_DEBUG: '1'
         run: |
           python manage.py check
-          python manage.py test booking.test_home_hero_admin booking.test_hero_scroll_browser --verbosity 2
+          python manage.py test booking.test_home_hero_admin booking.test_hero_scroll_browser booking.test_management_mobile_browser --verbosity 2
           node --check static/booking/admin-unified-nav-v14.js
