@@ -717,13 +717,15 @@ def dashboard(request):
     # External imports can contain overlapping confirmed appointments. Do not
     # silently hide them or delete either patient record: flag the overlap.
     calendar_overlaps = []
-    known_end = None
+    known_end_by_staff = {}
     for item in calendar_appointments:
+        # Two simultaneous bookings for different doctors are not a conflict.
+        known_end = known_end_by_staff.get(item.staff_id)
         if known_end is not None and item.starts_at < known_end:
             start_label = timezone.localtime(item.starts_at).strftime('%d.%m. %H:%M')
             if start_label not in calendar_overlaps:
                 calendar_overlaps.append(start_label)
-        known_end = max(known_end, item.ends_at) if known_end else item.ends_at
+        known_end_by_staff[item.staff_id] = max(known_end, item.ends_at) if known_end else item.ends_at
 
     context = {
         'doctor_mode': doctor_staff is not None,
