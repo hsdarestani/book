@@ -1,0 +1,20 @@
+{# The mobile date bar is server-rendered. It must never wait for admin.js. #}
+<div class="sb-reference-date-dock" data-reference-date-dock>
+  <nav class="sb-date-nav" aria-label="Kalenderwoche wählen" data-calendar-mobile-nav>
+    <a class="sb-date-arrow" href="?date={{ previous_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" aria-label="Vorherige Woche">‹</a>
+    <div class="sb-date-title">
+      <button type="button" class="sb-iphone-month-button" aria-label="Datum wählen">{{ calendar_date|date:"F Y" }}</button>
+      <input class="sb-iphone-date-input" type="date" value="{{ calendar_date|date:'Y-m-d' }}" aria-label="Datum wählen">
+    </div>
+    <a class="sb-date-arrow" href="?date={{ next_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" aria-label="Nächste Woche">›</a>
+  </nav>
+  <nav class="sb-iphone-weekstrip {% if calendar_view == 'week' %}is-week{% endif %}" aria-label="Kalendertag auswählen">
+    {% for day in calendar_week_strip %}
+    <button type="button" class="sb-iphone-day{% if day.selected %} is-active{% endif %}{% if day.today %} is-today{% endif %}"
+       data-date="{{ day.date|date:'Y-m-d' }}" aria-label="{{ day.date|date:'l, d. F Y' }}"
+       aria-pressed="{% if day.selected %}true{% else %}false{% endif %}">
+      <span>{{ day.weekday }}</span><strong>{{ day.date|date:"j" }}</strong>
+    </button>
+    {% endfor %}
+  </nav>
+</div>
