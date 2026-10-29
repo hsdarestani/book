@@ -1,0 +1,84 @@
+name: Match native bookings against mobile signups (read only)
+
+on:
+  push:
+    branches: [audit-native-booking-registrant-match-20261029]
+    paths: [.github/workflows/audit-mobile-booking-match-hashed-20261029.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Read each production database separately and print aggregate overlap only
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            export AUDIT_SALT="$(date +%s%N)-$$-$(hostname)"
+            cd /opt/aesthetic-book/app
+            BOOK_RAW="$(runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            import hashlib, json, os
+            from django.db.models import Q
+            from booking.models import Appointment
+            salt=os.environ['AUDIT_SALT']
+            def key(x):
+                return hashlib.sha256((salt+str(x or '').strip().lower()).encode()).hexdigest()
+            tests=Q(customer__email__icontains='test')|Q(customer__email__istartswith='demo@')|Q(customer__email__icontains='@example.')|Q(customer__first_name__iexact='test')|Q(customer__last_name__iexact='test')|Q(customer__first_name__iexact='demo')|Q(customer__last_name__iexact='demo')|Q(customer__last_name__iexact='muster')
+            direct=Appointment.objects.filter(source__in=['app','web']).exclude(idempotency_key__startswith='simplybook-').exclude(idempotency_key__startswith='legacy-aesthetic-').exclude(tests)
+            appts=direct.filter(source='app')
+            data={'direct_emails':list({key(e) for e in direct.values_list('customer__email',flat=True)}),'app_emails':list({key(e) for e in appts.values_list('customer__email',flat=True)}),'app_bookings':appts.count(),'total_direct_bookings':direct.count(),'app_booking_statuses':list(appts.values('status').order_by('status').distinct())}
+            print('BOOK_PRIVATE_HASH_PAYLOAD='+json.dumps(data))
+            PY
+            )"
+            BOOK_HASHES="$(printf '%s\n' "$BOOK_RAW" | sed -n 's/^BOOK_PRIVATE_HASH_PAYLOAD=//p')"
+            test -n "$BOOK_HASHES"
+            export BOOK_HASHES
+            cd /opt/a-esthetic-mobile
+            set -a
+            source /opt/a-esthetic-mobile/mobile.env
+            set +a
+            PYTHONPATH="/opt/a-esthetic-mobile/vendor:${PYTHONPATH:-}" /opt/a-esthetic-mobile/venv/bin/python manage.py shell <<'PY'
+            import hashlib,json,os
+            from django.contrib.auth.models import User
+            from django.db.models import Q
+            from platform_app.models import UserProfile
+            payload=json.loads(os.environ['BOOK_HASHES'])
+            def key(x):
+                return hashlib.sha256((os.environ['AUDIT_SALT']+str(x or '').strip().lower()).encode()).hexdigest()
+            matching_qamar=User.objects.filter(Q(email__iexact='qamar@a-esthetic.de')|Q(username__icontains='qamar')|Q(first_name__icontains='qamar')|Q(last_name__icontains='qamar')).order_by('id')
+            qamar=matching_qamar.first()
+            if not qamar: raise RuntimeError('Qamar account not found')
+            after_by_id=User.objects.filter(id__gt=qamar.id)
+            after_by_date=User.objects.filter(date_joined__gt=qamar.date_joined)
+            customer=User.objects.filter(is_active=True,is_staff=False,is_superuser=False,profile__role='customer').exclude(email__endswith='@example.invalid').exclude(email__endswith='@test.invalid').exclude(username__startswith='production-smoke-')
+            direct_keys=set(payload['direct_emails']);app_keys=set(payload['app_emails'])
+            def count(qs,keys):
+                return sum(key(e) in keys for e in qs.values_list('email',flat=True))
+            out={
+              'all_users':User.objects.count(),
+              'user_profiles':UserProfile.objects.count(),
+              'qamar_found':True,
+              'all_users_after_qamar_by_id':after_by_id.count(),
+              'all_users_after_qamar_by_date':after_by_date.count(),
+              'real_customer_after_qamar_by_id':customer.filter(id__gt=qamar.id).count(),
+              'real_customer_after_qamar_by_date':customer.filter(date_joined__gt=qamar.date_joined).count(),
+              'non_test_app_bookings':payload['app_bookings'],
+              'non_test_direct_bookings':payload['total_direct_bookings'],
+              'bookers_among_all_users':count(User.objects.all(),app_keys),
+              'bookers_among_after_qamar_by_id':count(after_by_id,app_keys),
+              'bookers_among_after_qamar_by_date':count(after_by_date,app_keys),
+              'bookers_among_real_customers_after_qamar':count(customer.filter(id__gt=qamar.id),app_keys),
+              'bookers_among_real_customers_after_qamar_by_date':count(customer.filter(date_joined__gt=qamar.date_joined),app_keys),
+              'website_bookers_among_after_qamar_by_id':count(after_by_id,direct_keys-app_keys),
+            }
+            print('APP_REGISTRANT_BOOKING_MATCH_JSON='+json.dumps(out,sort_keys=True))
+            PY
