@@ -170,6 +170,8 @@
   function openFilter(button) {
     if(providerSheet){closeFilter();return;}
     filterOpener=button;
+    const viewMenu=document.querySelector('[data-view-menu]');
+    if(viewMenu)viewMenu.hidden=true;
     const backdrop=document.createElement('div');
     backdrop.className='sb-reference-filter-scrim';
     backdrop.setAttribute('role','presentation');
@@ -225,6 +227,11 @@
       };
       input.addEventListener('change',update);
       input.addEventListener('input',update);
+      const modal=input.closest('.sb-modal');
+      if(modal&&window.MutationObserver) {
+        new MutationObserver(()=>{if(modal.classList.contains('is-open'))update();})
+          .observe(modal,{attributes:true,attributeFilter:['class']});
+      }
       update();
     });
   }
@@ -304,7 +311,7 @@
       shell.addEventListener('touchstart',event=>{
         const target=event.target;
         if(isWeek()||event.touches.length!==1||
-          target.closest('button,a,input,select,textarea,[role="button"]')) {
+          target.closest('a,input,select,textarea,.sb-event-menu,.sb-day-hours-edit,.sb-fab')) {
           pointerStart=null;return;
         }
         pointerStart={x:event.touches[0].clientX,y:event.touches[0].clientY,at:Date.now()};
