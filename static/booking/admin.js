@@ -46,6 +46,7 @@
       addStylesheet('/static/booking/admin-calendar-mobile-finish-v4.css?v=20261029-finish-v4', 'data-admin-calendar-mobile-finish-v4');
       addStylesheet('/static/booking/admin-calendar-scroll-v5.css?v=20261029-scroll-v5', 'data-admin-calendar-scroll-v5');
       addStylesheet('/static/booking/admin-calendar-date-dock-v6.css?v=20261029-firsthour8', 'data-admin-calendar-dock-v6');
+      addStylesheet('/static/booking/admin-calendar-view-modes-v1.css?v=20261029-modes1', 'data-admin-calendar-view-modes-v1');
     }
   }
 
@@ -58,7 +59,7 @@
     document.head.appendChild(script);
     if (document.querySelector('.sb-calendar-panel')) {
       const iphone = document.createElement('script');
-      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261029-firstpaint7';
+      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261029-view-modes1';
       iphone.defer = true;
       iphone.setAttribute('data-admin-calendar-iphone-v1', '1');
       document.head.appendChild(iphone);
@@ -339,11 +340,24 @@
   function initViewMenu() {
     const menu = document.querySelector('[data-view-menu]');
     if (!menu) return;
-    document.querySelectorAll('[data-view-menu-open]').forEach((button) => button.addEventListener('click', (event) => {
+    const triggers=[...document.querySelectorAll('[data-view-menu-open]')];
+    const close=()=>{
+      menu.hidden=true;
+      triggers.forEach(b=>b.setAttribute('aria-expanded','false'));
+    };
+    triggers.forEach((button) => button.addEventListener('click', (event) => {
       event.stopPropagation();
-      menu.hidden = !menu.hidden;
+      const opening=menu.hidden;
+      menu.hidden=!opening;
+      triggers.forEach(b=>b.setAttribute('aria-expanded',String(opening)));
+      if(opening)menu.querySelector('[role="menuitem"][aria-current="page"]')?.focus({preventScroll:true});
     }));
-    document.addEventListener('click', (event) => { if (!menu.hidden && !menu.contains(event.target)) menu.hidden = true; });
+    document.addEventListener('click', (event) => {
+      if (!menu.hidden && !menu.contains(event.target) && !event.target.closest('[data-view-menu-open]'))close();
+    });
+    document.addEventListener('keydown',event=>{
+      if(event.key==='Escape'&&!menu.hidden){close();triggers[0]?.focus({preventScroll:true});}
+    });
   }
 
   function initFab() {
