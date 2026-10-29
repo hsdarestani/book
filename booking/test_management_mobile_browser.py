@@ -79,7 +79,15 @@ class ManagementMobileBrowserTests(TestCase):
         page = context.new_page()
         page.set_content(html, wait_until="domcontentloaded")
         if calendar:
-            page.evaluate("document.body.classList.add('sb-calendar-pro')")
+            # Production's admin.js marks all inactive sections hidden before
+            # user input. Without this, the boot guard in admin-fixes.css
+            # sets pointer-events:none on the entire calendar, invalidating
+            # real touch tests that don't load the full admin.js.
+            page.evaluate("""() => {
+                document.body.classList.add('sb-calendar-pro');
+                document.querySelectorAll('.admin-hero,.metric-grid,main > section.admin-panel:not(#kalender)')
+                  .forEach(el=>el.classList.add('sb-page-hidden'));
+            }""")
         for style in styles:
             page.add_style_tag(content=style)
         if calendar:
