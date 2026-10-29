@@ -262,8 +262,8 @@
     <div class="sb-sheet-section-title">Details</div>
     <form method="post" class="sb-sheet-form" id="sb-new-note-form">
       {% csrf_token %}<input type="hidden" name="action" value="add_calendar_note"><input type="hidden" name="staff_id" value="{{ selected_staff.pk }}"><input type="hidden" name="return_date" value="{{ calendar_date|date:'Y-m-d' }}"><input type="hidden" name="return_view" value="{{ calendar_view }}">
-      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Startdatum und -uhrzeit</small><input type="date" name="note_date" value="{{ calendar_date|date:'Y-m-d' }}" required><input type="time" name="note_start" step="900" required></div></label>
-      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Enddatum und -uhrzeit</small><input type="time" name="note_end" step="900" required></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Startdatum und -uhrzeit</small><span class="sb-reference-date-time"><input type="date" name="note_date" value="{{ calendar_date|date:'Y-m-d' }}" required><input type="time" name="note_start" step="900" required></span></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Enddatum und -uhrzeit</small><span class="sb-reference-date-time"><span class="sb-reference-end-date" data-note-end-date></span><input type="time" name="note_end" step="900" required></span></div></label>
       <label class="sb-block-toggle"><div><strong>Zeitraum blockieren</strong><span>Wenn aus, bleibt der Zeitraum online buchbar.</span></div><input type="checkbox" name="note_blocked"><i></i></label>
       <div class="sb-sheet-section-title inner">Anwendung der Notiz</div>
       <div class="sb-scope-tabs">
