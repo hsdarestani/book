@@ -809,19 +809,19 @@ html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-custom
   </div>
   {% endif %}
   {% else %}
-  <section class="premium-customer-panel" aria-label="Kundenverzeichnis">
-    <div class="premium-list-heading">
+  <section class="premium-customer-panel" aria-label="Kundenverzeichnis" style="width:100%!important;max-width:100%!important;margin:0!important;padding:0 0 16px!important;overflow:hidden!important;box-sizing:border-box!important;">
+    <div class="premium-list-heading" style="width:100%!important;box-sizing:border-box!important;margin:0 0 14px!important;padding:22px 20px!important;border-radius:0!important;">
       <div><span class="eyebrow">KUNDENVERZEICHNIS</span><h2>Patienten finden</h2><p>Patientenakten, Termine und Kontaktinformationen auf einen Blick.</p></div>
       <span class="premium-list-count">{{ patients|length }} angezeigte Profile</span>
     </div>
-    <form method="get" class="app-search" role="search">
+    <form method="get" class="app-search" role="search" style="width:calc(100% - 24px)!important;margin:0 12px 14px!important;box-sizing:border-box!important;">
       <label for="premium-patient-search">Name, E-Mail oder Telefonnummer</label>
       <input id="premium-patient-search" type="search" name="q" value="{{ query }}" placeholder="Name, E-Mail oder Telefon …" autocomplete="off">
       <button type="submit">Suchen</button>
     </form>
     {% if query %}<p><a class="premium-reset" href="/verwaltung/app/patients/">Suche zurücksetzen</a></p>{% endif %}
     <div class="premium-table-heading" aria-hidden="true"><span>KUNDE</span><span>KONTAKT</span><span>AKTEN</span><span>TERMINE</span><span></span></div>
-    <div class="app-patient-list premium-patient-list" data-customer-list>
+    <div class="app-patient-list premium-patient-list" data-customer-list style="width:calc(100% - 24px)!important;margin:0 12px!important;box-sizing:border-box!important;">
       {% for customer in patients %}
         <a id="customer-{{ customer.id }}" data-customer-link data-customer-id="{{ customer.id }}" href="/verwaltung/app/patients/?customer={{ customer.id }}{% if query %}&q={{ query|urlencode }}{% endif %}" aria-label="Patientenprofil öffnen: {{ customer.first_name }} {{ customer.last_name }}">
           <div class="premium-person">
