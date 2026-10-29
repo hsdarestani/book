@@ -28,7 +28,11 @@
   function normalizeSheets(root=document) {
     const scope = root instanceof Element || root instanceof Document ? root : document;
     scope.querySelectorAll?.('.sb-sheet-head button[data-close-modal], .sb-sheet-head button[data-day-close]').forEach(button => {
-      const iphoneCalendar = document.documentElement.dataset.adminPage === 'calendar' && window.matchMedia('(max-width:760px)').matches;
+      const iphoneCalendar = (
+        (location.pathname === '/verwaltung/kalender/' || location.pathname === '/verwaltung/' ||
+         (location.pathname === '/verwaltung/arzt/' && document.body.dataset.doctorCalendar === '1')) &&
+        window.matchMedia('(max-width:760px)').matches
+      );
       if (iphoneCalendar) {
         // SimplyBook reference uses a single close glyph. Avoid the
         // old wide '‹ Zurück' text colliding with the centered sheet title.
