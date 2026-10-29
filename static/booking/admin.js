@@ -44,6 +44,7 @@
       addStylesheet('/static/booking/admin-calendar-reference-v2.css?v=20261029-reference2', 'data-admin-calendar-reference-v2');
       addStylesheet('/static/booking/admin-calendar-sheet-fix-v3.css?v=20261029-v3', 'data-admin-calendar-sheet-fix-v3');
       addStylesheet('/static/booking/admin-calendar-mobile-finish-v4.css?v=20261029-finish-v4', 'data-admin-calendar-mobile-finish-v4');
+      addStylesheet('/static/booking/admin-calendar-scroll-v5.css?v=20261029-scroll-v5', 'data-admin-calendar-scroll-v5');
     }
   }
 
