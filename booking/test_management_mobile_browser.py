@@ -87,6 +87,27 @@ class ManagementMobileBrowserTests(TestCase):
             ).read_text(encoding="utf-8"))
         return context, page
 
+    def test_server_html_shows_correct_calendar_before_javascript(self):
+        response=self.client.get('/verwaltung/kalender/', {'staff':self.staff.pk})
+        self.assertEqual(response.status_code,200)
+        html,styles=self._html_with_styles(response,calendar=True)
+        self.assertIn('sb-calendar-pro sb-calendar-booting', html)
+        self.assertIn('sb-reference-date-preview',html)
+        self.assertIn('admin-calendar-date-dock-v6.css',response.content.decode())
+        with __import__('playwright.sync_api',fromlist=['sync_playwright']).sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,args=['--no-sandbox'])
+            try:
+                context=browser.new_context(viewport={'width':390,'height':820},is_mobile=True,has_touch=True)
+                page=context.new_page()
+                page.set_content(html)
+                for style in styles: page.add_style_tag(content=style)
+                self.assertEqual(page.locator('.sb-reference-date-preview .sb-iphone-day').count(),7)
+                self.assertTrue(page.locator('.sb-reference-date-preview').is_visible())
+                self.assertFalse(page.locator('main.sb-admin-shell .sb-date-nav').is_visible())
+                self.assertEqual(page.locator('body.sb-calendar-pro').count(),1)
+                context.close()
+            finally: browser.close()
+
     def test_android_swipe_reaches_late_calendar_hours(self):
         from playwright.sync_api import sync_playwright
         date = timezone.localdate().isoformat()
@@ -99,6 +120,12 @@ class ManagementMobileBrowserTests(TestCase):
             try:
                 context, page = self._page(browser, html, styles, calendar=True)
                 self.assertTrue(page.locator(".sb-calendar-shell.is-day").count())
+                self.assertEqual(page.locator("body.sb-calendar-booting").count(),0)
+                page.wait_for_timeout(120)
+                self.assertEqual(page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop"),0)
+                first_label = page.locator(".sb-time-axis span").first
+                self.assertEqual(first_label.text_content().strip(),"10:00")
+
                 dock=page.locator(".sb-reference-date-dock")
                 self.assertEqual(dock.count(),1)
                 self.assertEqual(dock.locator(".sb-iphone-day").count(),7)
@@ -122,6 +149,14 @@ class ManagementMobileBrowserTests(TestCase):
                 page.mouse.wheel(0, 680)
                 page.wait_for_timeout(200)
                 self.assertGreater(page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop"), 70)
+                # Browser/WebView may restore a former day's scroll offset.
+                # The first view after pageshow must return to working start.
+                page.evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))")
+                page.wait_for_timeout(90)
+                self.assertEqual(page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop"),0)
+                page.mouse.wheel(0, 680)
+                page.wait_for_timeout(100)
+                self.assertGreater(page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop"),70)
                 self.assertLess(abs(dock.evaluate("el=>el.getBoundingClientRect().top")-fixed_before['y']),2)
                 self.assertTrue(dock.locator(".sb-iphone-month-button").is_visible())
                 self.assertTrue(dock.locator(".sb-iphone-day").first.is_visible())
