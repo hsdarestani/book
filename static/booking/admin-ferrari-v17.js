@@ -28,8 +28,16 @@
   function normalizeSheets(root=document) {
     const scope = root instanceof Element || root instanceof Document ? root : document;
     scope.querySelectorAll?.('.sb-sheet-head button[data-close-modal], .sb-sheet-head button[data-day-close]').forEach(button => {
-      if (button.textContent.trim() !== '‹ Zurück') button.textContent = '‹ Zurück';
-      if (button.getAttribute('aria-label') !== 'Zurück') button.setAttribute('aria-label','Zurück');
+      const iphoneCalendar = document.documentElement.dataset.adminPage === 'calendar' && window.matchMedia('(max-width:760px)').matches;
+      if (iphoneCalendar) {
+        // SimplyBook reference uses a single close glyph. Avoid the
+        // old wide '‹ Zurück' text colliding with the centered sheet title.
+        button.textContent = '×';
+        button.setAttribute('aria-label', 'Schließen');
+      } else {
+        if (button.textContent.trim() !== '‹ Zurück') button.textContent = '‹ Zurück';
+        if (button.getAttribute('aria-label') !== 'Zurück') button.setAttribute('aria-label','Zurück');
+      }
     });
   }
 
