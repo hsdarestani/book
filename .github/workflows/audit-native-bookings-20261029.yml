@@ -1,0 +1,73 @@
+name: Read-only native booking source audit (2026-10-29)
+
+on:
+  push:
+    branches:
+      - audit-booking-sources-20261029
+    paths:
+      - .github/workflows/audit-native-bookings-20261029.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Query source counts in production without changing records
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 4m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            import json
+            from django.db.models import Count, Q
+            from django.utils import timezone
+            from booking.models import Appointment
+
+            all_bookings = Appointment.objects.all()
+            sb = all_bookings.filter(idempotency_key__startswith='simplybook-')
+            legacy = all_bookings.filter(idempotency_key__startswith='legacy-aesthetic-')
+            non_imported = all_bookings.exclude(idempotency_key__startswith='simplybook-').exclude(idempotency_key__startswith='legacy-aesthetic-')
+            direct = non_imported.filter(source__in=['app','web'])
+            suspected_test_pattern = (
+                Q(customer__email__icontains='test')
+                | Q(customer__email__istartswith='demo@')
+                | Q(customer__email__icontains='@example.')
+                | Q(customer__first_name__iexact='test')
+                | Q(customer__last_name__iexact='test')
+                | Q(customer__last_name__iexact='muster')
+                | Q(customer__first_name__iexact='demo')
+                | Q(customer__last_name__iexact='demo')
+            )
+            def stat(qs):
+                return {
+                    'total': qs.count(),
+                    'unique_customers': qs.values('customer_id').distinct().count(),
+                    'source_status': list(qs.values('source','status').annotate(n=Count('id')).order_by('source','status')),
+                    'created_by_month': list(qs.extra(select={'month':'DATE_TRUNC(\'month\',created_at)'}).values('month').annotate(n=Count('id')).order_by('month').values('month','n')) if False else [],
+                }
+            report = {
+                'as_of_utc': timezone.now().isoformat(),
+                'all_appointments': stat(all_bookings),
+                'simplybook_key': stat(sb),
+                'legacy_import_key': stat(legacy),
+                'other_sources_not_imported': stat(non_imported.exclude(source__in=['app','web'])),
+                'direct_app': stat(direct.filter(source='app')),
+                'direct_web': stat(direct.filter(source='web')),
+                'direct_combined': stat(direct),
+                'direct_suspected_test': stat(direct.filter(suspected_test_pattern)),
+                'direct_excluding_obvious_test': stat(direct.exclude(suspected_test_pattern)),
+                'direct_booked_recent_30d': stat(direct.filter(created_at__gte=timezone.now()-timezone.timedelta(days=30))),
+                'direct_booked_recent_7d': stat(direct.filter(created_at__gte=timezone.now()-timezone.timedelta(days=7))),
+                'source_by_idempotency': list(non_imported.values('source').annotate(n=Count('id')).order_by('source')),
+            }
+            print('NATIVE_BOOKING_AUDIT_JSON='+json.dumps(report,default=str,ensure_ascii=False,sort_keys=True))
+            PY
