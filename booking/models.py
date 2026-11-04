@@ -176,6 +176,8 @@ class Appointment(models.Model):
     idempotency_key=models.CharField(max_length=80,unique=True,null=True,blank=True,editable=False)
     reminder_24h_sent_at=models.DateTimeField('24h-Erinnerung gesendet',null=True,blank=True,editable=False)
     reminder_1h_sent_at=models.DateTimeField('1h-Erinnerung gesendet',null=True,blank=True,editable=False)
+    reminder_1h_admin_email_sent_at=models.DateTimeField('1h-Admin-Erinnerung E-Mail gesendet',null=True,blank=True,editable=False)
+    reminder_1h_admin_push_sent_at=models.DateTimeField('1h-Admin-Erinnerung Push gesendet',null=True,blank=True,editable=False)
     created_at=models.DateTimeField('Erstellt am',auto_now_add=True)
     updated_at=models.DateTimeField('Aktualisiert am',auto_now=True)
     class Meta:
