@@ -50,7 +50,7 @@ class Command(BaseCommand):
         call_command("fix_simplybook_owner")
         notes_status = "ok"
         try:
-            call_command("sync_simplybook_notes")
+            call_command("sync_simplybook_notes", suppress_conflict_alerts=(state.baseline_completed_at is None))
         except CommandError as exc:
             # SimplyBook's notes API is independently rate limited. A
             # temporary 403 "Too many attempts" must not invalidate a

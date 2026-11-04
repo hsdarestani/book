@@ -191,6 +191,35 @@ class Appointment(models.Model):
     def __str__(self): return f'{self.service} – {self.customer} – {self.starts_at:%d.%m.%Y %H:%M}'
 
 
+class BlockedBookingConflictAlert(models.Model):
+    """One audit record for a newly synchronized block overlapping a live booking.
+
+    A changed or re-enabled block creates a new alert event. Delivery channel
+    timestamps are independent, so a failed email/push can be retried safely.
+    """
+    appointment = models.ForeignKey(
+        Appointment, on_delete=models.CASCADE, related_name='block_conflict_alerts',
+    )
+    blocked_period = models.ForeignKey(
+        BlockedPeriod, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='booking_conflict_alerts',
+    )
+    block_starts_at = models.DateTimeField()
+    block_ends_at = models.DateTimeField()
+    appointment_starts_at = models.DateTimeField()
+    source_note_id = models.CharField(max_length=80, blank=True)
+    email_sent_at = models.DateTimeField(null=True, blank=True)
+    push_sent_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'pk']
+        verbose_name = 'Terminkonflikt mit SimplyBook-Sperre'
+        verbose_name_plural = 'Terminkonflikte mit SimplyBook-Sperren'
+
+
+
 class AdminAccessProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='aesthetic_access')
     staff = models.ForeignKey(StaffMember, null=True, blank=True, on_delete=models.SET_NULL, related_name='admin_access_profiles')
