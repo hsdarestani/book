@@ -92,45 +92,6 @@ jobs:
               echo "APP_DB_NOT_COLOCATED_WITH_BOOK"
             fi
 
-            echo "=== SOURCE_NOTE_METADATA_AUDIT ==="
-            if test -r /etc/aesthetic-simplybook-credentials.env; then
-              set -a
-              source /etc/aesthetic-simplybook-credentials.env
-              set +a
-              cd /opt/aesthetic-book/app
-              runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
-            import os,urllib.parse
-            from booking.management.commands.sync_simplybook_notes import _request_json,_items_from_page,_total_pages,AUTH_URL,NOTES_URL
-            company=(os.environ.get("SIMPLYBOOK_COMPANY_LOGIN") or "").strip()
-            login=(os.environ.get("SIMPLYBOOK_USER_LOGIN") or "").strip()
-            pw=(os.environ.get("SIMPLYBOOK_USER_PASSWORD") or "").strip()
-            a=_request_json(AUTH_URL,method="POST",payload={"company":company,"login":login,"password":pw})
-            token=str(a.get("token") or "").strip()
-            if not token: raise RuntimeError("SimplyBook notes auth failed")
-            headers={"X-Company-Login":company,"X-Token":token}
-            matches=[]
-            total=0
-            for page in range(1,30):
-                query=urllib.parse.urlencode([("page",page),("on_page",100),("filter[date_from]","2000-01-01"),("filter[date_to]","2035-12-31")])
-                data=_request_json(NOTES_URL+"?"+query,headers=headers)
-                items=_items_from_page(data)
-                total+=len(items)
-                for row in items:
-                    if not isinstance(row,dict): continue
-                    start=str(row.get("start_date_time") or row.get("from") or "")
-                    end=str(row.get("end_date_time") or row.get("to") or "")
-                    if start.startswith("2026-11-04 16:00") and end.startswith("2026-11-04 20:00"):
-                        matches.append(row)
-                pages=_total_pages(data)
-                if len(items)<100 or (pages and page>=pages): break
-            print("SOURCE_NOTES_SCANNED",total,"SLOT_MATCHES",len(matches))
-            for m in matches:
-                print("SOURCE_NOTE","blocked",repr(m.get("time_blocked")),"keys",sorted(m.keys()),"create_fields",[(k,str(m.get(k))[:80]) for k in m if any(t in k.lower() for t in ("creat","modif","updat","insert","record_date","timestamp"))])
-            PY
-            else
-              echo "SOURCE_NOTE_CREDENTIALS_UNAVAILABLE"
-            fi
-
             echo "=== DATABASE_ROW_CHRONOLOGY ==="
             cd /opt/aesthetic-book/app
             set -a; source /etc/aesthetic-book.env; set +a
