@@ -42,4 +42,30 @@ jobs:
             if a:
               print("TARGET_REMINDER","sent_at",timezone.localtime(a.reminder_1h_sent_at,tz).isoformat() if a.reminder_1h_sent_at else "none","scheduled_start",timezone.localtime(a.starts_at,tz).isoformat())
             PY
+            echo "CUSTOMER_PUSH_REMINDER_AUDIT"
+            cd /opt/a-esthetic-mobile
+            set -a; source /opt/a-esthetic-mobile/mobile.env; set +a
+            /opt/a-esthetic-mobile/venv/bin/python manage.py shell <<'PY'
+            from p0_app.ops_models import AppNotification
+            from django.utils.dateparse import parse_datetime
+            from django.utils import timezone
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            tz=ZoneInfo("Europe/Berlin")
+            start=datetime(2026,11,4,17,0,tzinfo=tz)
+            end=datetime(2026,11,4,20,0,tzinfo=tz)
+            qs=AppNotification.objects.filter(category="booking",created_at__gte=start,created_at__lte=end)
+            hits=[]
+            for x in qs:
+                d=x.data or {}
+                if d.get("booking_event")!="reminder_1h":continue
+                v=parse_datetime(str(d.get("booking_starts_at") or ""))
+                if not v or timezone.is_naive(v): continue
+                if timezone.localtime(v,tz).strftime("%Y-%m-%d %H:%M")=="2026-11-04 19:00":
+                    hits.append(x)
+            print("TARGET_REMINDER_INAPP_NOTIFICATIONS",len(hits))
+            for n in hits:
+                devices=(n.push_result or {}).get("devices",[])
+                print("REMINDER_PUSH","created",timezone.localtime(n.created_at,tz).isoformat(),"attempted",timezone.localtime(n.push_attempted_at,tz).isoformat() if n.push_attempted_at else "none","device_attempts",len(devices),"accepted",sum(1 for d in devices if d.get("ok")),"errors",[str(d.get("error") or "")[:80].split(":")[0] for d in devices if not d.get("ok")])
+            PY
             echo "REMINDER_CHECK_COMPLETED"
