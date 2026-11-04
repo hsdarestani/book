@@ -131,4 +131,30 @@ jobs:
                 if hits:print("HTTP_MATCHES",p.name,hits[:20])
               except Exception: pass
             PY
+
+            echo "HISTORIC_NOTE_SYNC_EXACT_TIMES"
+            python3 - <<'PY'
+            import subprocess,json,re
+            from datetime import datetime
+            p=subprocess.run(["journalctl","-u","aesthetic-simplybook-sync.service","--since","2026-10-23 00:00:00 UTC","--until","2026-10-26 00:00:00 UTC","--no-pager","--output=short-iso"],capture_output=True,text=True,timeout=20)
+            matches=[]
+            for line in p.stdout.splitlines():
+              if "SIMPLYBOOK_NOTES_SYNC_JSON=" not in line:continue
+              try:
+                data=json.loads(line.split("SIMPLYBOOK_NOTES_SYNC_JSON=",1)[1])
+                stamp=line.split(" ",1)[0]
+                matches.append((stamp,data))
+              except Exception:pass
+            print("HISTORIC_NOTES_EVENTS_TOTAL",len(matches))
+            previous=None
+            for stamp,d in matches:
+              diff=previous is None or previous.get("source_notes")!=d.get("source_notes") or any(d.get(k) for k in ("created","updated","deleted"))
+              if diff:
+                print("SYNC_EVENT",stamp,"notes",d.get("source_notes"),"created",d.get("created"),"updated",d.get("updated"),"deleted",d.get("deleted"))
+              previous=d
+            print("SYNC_24OCT_06_TO_11")
+            for stamp,d in matches:
+              if ("2026-10-24T06:"<=stamp<="2026-10-24T11:59") or ("2026-10-24T04:"<=stamp<="2026-10-24T06:"):
+                print("SYNC_NEAR_BOOKING",stamp,"notes",d.get("source_notes"),"created",d.get("created"),"updated",d.get("updated"),"deleted",d.get("deleted"))
+            PY
             echo "INCIDENT_READ_ONLY_FINISHED"
