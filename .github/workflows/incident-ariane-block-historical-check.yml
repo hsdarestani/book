@@ -157,4 +157,36 @@ jobs:
               if ("2026-10-24T06:"<=stamp<="2026-10-24T11:59") or ("2026-10-24T04:"<=stamp<="2026-10-24T06:"):
                 print("SYNC_NEAR_BOOKING",stamp,"notes",d.get("source_notes"),"created",d.get("created"),"updated",d.get("updated"),"deleted",d.get("deleted"))
             PY
+
+            echo "PG_DUMP_DIAGNOSTIC"
+            python3 - <<'PY'
+            import subprocess
+            p=subprocess.run(["pg_restore","--version"],capture_output=True,text=True)
+            print("PG_RESTORE_VERSION",p.stdout.strip()[:150])
+            PY
+            cd /opt/aesthetic-book/app
+            set -a; source /etc/aesthetic-book.env; set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            import subprocess,gzip,tempfile
+            from pathlib import Path
+            from datetime import datetime,timezone
+            for root in [Path("/opt/aesthetic-book"),Path("/var/backups"),Path("/root")]:
+                if not root.exists():continue
+                for p in root.glob("**/*"):
+                    try:
+                        if not p.is_file() or p.suffix.lower() not in {".gz",".dump",".backup"}:continue
+                        st=p.stat();dt=datetime.fromtimestamp(st.st_mtime,timezone.utc)
+                        if not datetime(2026,10,17,tzinfo=timezone.utc)<=dt<datetime(2026,10,24,8,9,43,tzinfo=timezone.utc):continue
+                        if st.st_size>120_000_000 or st.st_size<2000:continue
+                        if p.suffix==".gz":
+                            with gzip.open(p,"rb") as f: raw=f.read(120_000_001)
+                        else:raw=p.read_bytes()[:120_000_001]
+                        if not raw.startswith(b"PGDMP"):continue
+                        with tempfile.NamedTemporaryFile(prefix="incidentpg-",suffix=".dump") as tmp:
+                            tmp.write(raw);tmp.flush()
+                            r=subprocess.run(["pg_restore","-a","-t","booking_blockedperiod",tmp.name],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=25)
+                            print("PG_RESTORE_DIAGNOSTIC","archive_date",dt.isoformat(),"size",len(raw),"exit",r.returncode,"stderr",r.stderr.decode(errors="replace")[:240].replace(str(tmp.name),"TEMP"),"output_bytes",len(r.stdout))
+                    except Exception as e:
+                        print("PG_RESTORE_READ_ERROR",str(type(e).__name__))
+            PY
             echo "INCIDENT_READ_ONLY_FINISHED"
