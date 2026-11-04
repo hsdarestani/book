@@ -29,8 +29,7 @@ def enqueue_block_conflicts(block, *, source_note_id=""):
             staff_id=block.staff_id,
             status__in=["new", "confirmed"],
             starts_at__lt=block.ends_at,
-            ends_at__gt=block.starts_at,
-            ends_at__gt=now,
+            ends_at__gt=max(block.starts_at, now),
             created_at__lt=now,
         )
         .select_related("customer", "service", "staff")
