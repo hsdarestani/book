@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand
 from django.db.models import Q
 from django.utils import timezone
 
+from booking.block_conflict_alerts import process_pending_block_conflict_alerts
 from booking.emails import send_admin_appointment_event_email
 from booking.models import Appointment
 from booking.notifications import notify_1h_reminder, notify_admin_1h_reminder
@@ -80,6 +81,11 @@ class Command(BaseCommand):
                 complete += 1
             else:
                 pending_retry += 1
+        # Retry any previously failed conflict-alert channel even when no
+        # appointment falls into the one-hour reminder window.
+        conflicts = process_pending_block_conflict_alerts()
         self.stdout.write(self.style.SUCCESS(
-            f"Booking 1h reminders processed: sent={complete}, pending_retry={pending_retry}"
+            f"Booking 1h reminders processed: sent={complete}, pending_retry={pending_retry}; "
+            f"block_conflicts={conflicts['attempted']}, "
+            f"conflict_retry={conflicts['pending_retry']}"
         ))
