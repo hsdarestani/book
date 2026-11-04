@@ -22,9 +22,15 @@ from booking.models import (
 )
 class SimplyBookBlockedBookingAlertTests(TestCase):
     def setUp(self):
-        self.staff = StaffMember.objects.create(
-            display_name="Frau Ariane Regaei", role="doctor", active=True,
-        )
+        # A migration seeds this exact clinician in the test database; use
+        # the same canonical staff row as the SimplyBook notes importer.
+        self.staff = StaffMember.objects.filter(
+            display_name="Frau Ariane Regaei",
+        ).order_by("pk").first()
+        if self.staff is None:
+            self.staff = StaffMember.objects.create(
+                display_name="Frau Ariane Regaei", role="doctor", active=True,
+            )
         self.service = Service.objects.create(
             name="Hyaluron", slug="block-conflict-test", duration_minutes=40,
             buffer_minutes=0, active=True, bookable=True,
@@ -71,17 +77,6 @@ class SimplyBookBlockedBookingAlertTests(TestCase):
     @patch("booking.block_conflict_alerts._send_admin_conflict_push", return_value={"ok": True})
     def test_new_source_block_warns_admin_by_email_and_push_once(self, push):
         output = self.sync()
-        block = BlockedPeriod.objects.first()
-        print("DIAGNOSTIC", {
-            "appointment_start": self.appointment.starts_at.isoformat(),
-            "appointment_end": self.appointment.ends_at.isoformat(),
-            "booking_created": self.appointment.created_at.isoformat(),
-            "block_start": block.starts_at.isoformat() if block else None,
-            "block_end": block.ends_at.isoformat() if block else None,
-            "block_reason_prefix": block.reason[:25] if block else None,
-            "now": timezone.now().isoformat(),
-            "staff_match": block.staff_id == self.appointment.staff_id if block else None,
-        })
         self.assertIn('"conflicts_queued": 1', output)
         self.assertEqual(BlockedBookingConflictAlert.objects.count(), 1)
         self.assertEqual(len(mail.outbox), 1)
