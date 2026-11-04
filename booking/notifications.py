@@ -226,6 +226,19 @@ def notify_1h_reminder(appointment):
     return result
 
 
+def notify_admin_1h_reminder(appointment):
+    """Send the one-hour reminder to every registered admin account."""
+    local = _local_start(appointment)
+    return _push(
+        appointment, target="admin", event="reminder_1h",
+        title="Terminerinnerung",
+        body=(
+            f"{appointment.customer.full_name} · {appointment.service.name} · "
+            f"{local:%H:%M} · {appointment.staff.display_name}"
+        ),
+    )
+
+
 def notify_admin_botoxbogen_received(record):
     """Notify admins once when a signed Botoxbogen is first added to the Akte.
 
