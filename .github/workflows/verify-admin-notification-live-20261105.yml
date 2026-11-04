@@ -1,0 +1,55 @@
+name: Verify live production admin email and reminder routing
+on:
+  push:
+    branches: [investigate/booking-20261104-ariane]
+    paths: [".github/workflows/verify-admin-notification-live-20261105.yml"]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify env, migration, timer and send harmless SMTP routing probe
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            echo "REMINDER_TIMER_STATUS"
+            systemctl is-active aesthetic-book-reminders.timer
+            cd /opt/aesthetic-book/app
+            set -a
+            source /etc/aesthetic-book.env
+            set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from django.conf import settings
+            from django.db import connection
+            from booking.models import Appointment
+            from booking.emails import _send_html_mail, _admin_bcc_recipients
+            from django.utils import timezone
+            primary=str(settings.BOOKING_NOTIFICATION_EMAIL or "").strip().lower()
+            bcc=_admin_bcc_recipients()
+            print("PRIMARY_RECIPIENT",primary)
+            print("BCC_MATCHES_PRIVATE_AUDIT_ACCOUNT",bcc==["hsdf7rb@gmail.com"])
+            assert primary=="info@a-esthetic.de", "Wrong production primary recipient"
+            assert bcc==["hsdf7rb@gmail.com"], "Wrong hidden recipient"
+            table=Appointment._meta.db_table
+            with connection.cursor() as cur:
+                columns={col.name for col in connection.introspection.get_table_description(cur,table)}
+            for name in ("reminder_1h_admin_email_sent_at","reminder_1h_admin_push_sent_at"):
+                assert name in columns, f"Missing production migration: {name}"
+            print("ADMIN_REMINDER_SCHEMA","ok")
+            from booking.notifications import notify_admin_1h_reminder
+            assert callable(notify_admin_1h_reminder)
+            print("ADMIN_PUSH_RELAY_FUNCTION","present")
+            test_subject="A+ Esthetic - Admin notification routing test - 2026-11-05"
+            text_body="Routing check only. No patient data. No action required."
+            html_body="<p>Routing check only. No patient data. No action required.</p>"
+            _send_html_mail(test_subject,text_body,html_body,[primary],bcc=bcc)
+            print("LIVE_SMTP_ACCEPTED","primary_and_hidden_copy")
+            PY
+            echo "ROUTING_VERIFICATION_COMPLETED"
