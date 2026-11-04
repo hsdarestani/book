@@ -388,8 +388,14 @@ def mobile_appointment_change(request, appointment_id):
             item.ends_at = starts_at + duration
             item.status = 'new' if item.service.requires_confirmation else 'confirmed'
             item.reminder_1h_sent_at = None
+            item.reminder_1h_admin_email_sent_at = None
+            item.reminder_1h_admin_push_sent_at = None
             item.full_clean()
-            item.save(update_fields=['staff', 'starts_at', 'ends_at', 'status', 'reminder_1h_sent_at', 'updated_at'])
+            item.save(update_fields=[
+                'staff', 'starts_at', 'ends_at', 'status', 'reminder_1h_sent_at',
+                'reminder_1h_admin_email_sent_at', 'reminder_1h_admin_push_sent_at',
+                'updated_at',
+            ])
 
     if action == 'cancel':
         notify_customer_cancelled(item)
