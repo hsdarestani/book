@@ -48,12 +48,14 @@ jobs:
                     name=line.split(' "/" ',1)[-1].strip().strip('"')
                     options.append(name)
                 except Exception:pass
-            print("MAILBOX_FOLDERS",len(options),"FOLDER_TAGS",["INBOX" if a.upper()=="INBOX" else ("SENT" if "sent" in a.lower() or "gesendet" in a.lower() else "OTHER") for a in options])
-            for folder in options:
-                if folder.upper()!="INBOX" and not any(x in folder.lower() for x in ("sent","gesendet")):continue
+            print("MAILBOX_FOLDERS",len(options),"FOLDER_NAMES",options[:15])
+            for folder in ["INBOX","Sent","Sent Items","Gesendet","INBOX.Sent"]:
+                if folder not in ["INBOX"] and folder not in options:continue
                 try:
                     typ,_=connection.select('"'+folder.replace('"','\\"')+'"',readonly=True)
-                    if typ!="OK":continue
+                    if typ!="OK":
+                        print("FOLDER_NOT_AVAILABLE",folder)
+                        continue
                     typ,data=connection.search(None,'SINCE','23-Oct-2026','BEFORE','27-Oct-2026')
                     if typ!="OK":continue
                     ids=data[0].split()
