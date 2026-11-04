@@ -238,4 +238,47 @@ jobs:
                 if has_marker or has_escaped_marker or (has_table and has_date):
                     print("ARCHIVE_EVIDENCE","date",dt.isoformat(),"suffix",p.suffix,"size",size,"db_table",has_table,"target_marker",has_marker or has_escaped_marker,"date",has_date,"label",has_label)
             PY
+
+            echo "=== POSTGRES_CUSTOM_DUMP_CHECK ==="
+            cd /opt/aesthetic-book/app
+            set -a; source /etc/aesthetic-book.env; set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from datetime import datetime,timezone
+            from pathlib import Path
+            from zoneinfo import ZoneInfo
+            import gzip,subprocess
+            from booking.models import BlockedPeriod
+            from booking.management.commands.sync_simplybook_notes import MARKER_SEP
+            day=datetime(2026,11,4,16,0,tzinfo=ZoneInfo("Europe/Berlin"))
+            b=BlockedPeriod.objects.filter(starts_at=day,staff__display_name__icontains="ariane",reason__icontains="Gesperrt").first()
+            if not b or MARKER_SEP not in b.reason: raise SystemExit(0)
+            marker=b.reason[b.reason.index(MARKER_SEP):].encode("utf-8")
+            cutoff=datetime(2026,10,24,8,9,43,tzinfo=timezone.utc)
+            candidates=[]
+            for root in [Path("/opt/aesthetic-book"),Path("/var/backups"),Path("/root")]:
+                if not root.exists():continue
+                for p in root.glob("**/*"):
+                    try:
+                        if not p.is_file() or p.suffix.lower() not in {".gz",".dump",".backup",".bak"}:continue
+                        st=p.stat(); dt=datetime.fromtimestamp(st.st_mtime,timezone.utc)
+                        if not (datetime(2026,10,17,tzinfo=timezone.utc)<=dt<cutoff):continue
+                        if st.st_size>120_000_000 or st.st_size<2000:continue
+                        candidates.append((dt,p))
+                    except Exception:continue
+            for dt,p in sorted(candidates):
+                try:
+                    if p.suffix.lower()==".gz":
+                        with gzip.open(p,"rb") as stream: raw=stream.read(120_000_001)
+                    else: raw=p.read_bytes()[:120_000_001]
+                except Exception:continue
+                if len(raw)>120_000_000:continue
+                if not raw.startswith(b"PGDMP"):continue
+                listing=subprocess.run(["pg_restore","-l"],input=raw,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=20).stdout
+                has_table=b"booking_blockedperiod" in listing
+                if not has_table:
+                    print("CUSTOM_ARCHIVE","at",dt.isoformat(),"has_table",False)
+                    continue
+                res=subprocess.run(["pg_restore","-a","-t","booking_blockedperiod","-"],input=raw,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=20)
+                print("CUSTOM_ARCHIVE","at",dt.isoformat(),"has_table",True,"target_marker",marker in res.stdout,"rows_data_bytes",len(res.stdout),"exit",res.returncode)
+            PY
             echo "INCIDENT_AUDIT_COMPLETE"
