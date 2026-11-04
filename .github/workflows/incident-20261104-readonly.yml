@@ -71,7 +71,7 @@ jobs:
             from django.utils.dateparse import parse_datetime
             from p0_app.ops_models import AppNotification,PushDevice
             tz=ZoneInfo("Europe/Berlin")
-            start=datetime(2026,11,1,0,0,tzinfo=tz)
+            start=datetime(2026,10,23,0,0,tzinfo=tz)
             q=AppNotification.objects.filter(category="booking",created_at__gte=start,created_at__lte=timezone.now()).order_by("-created_at")
             matches=[]
             for n in q.iterator():
