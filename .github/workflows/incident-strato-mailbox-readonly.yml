@@ -1,0 +1,73 @@
+name: Read-only verify Strato corporate mailbox booking email routing
+on:
+  push:
+    branches: [investigate/booking-20261104-ariane]
+    paths: [".github/workflows/incident-strato-mailbox-readonly.yml"]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check booking SMTP account inbox and sent headers read-only
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 6m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            set -a
+            source /etc/aesthetic-book.env
+            set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python - <<'PY'
+            import os,base64,imaplib,ssl,email
+            from email.header import decode_header,make_header
+            from email.utils import getaddresses, parsedate_to_datetime
+            username=os.environ.get("EMAIL_HOST_USER","").strip()
+            password=base64.b64decode(os.environ.get("EMAIL_HOST_PASSWORD_B64","")).decode("utf-8")
+            print("STRATO_AUTH_USER",username)
+            if not username or not password:raise SystemExit("MISSING_SMTP_CREDS")
+            try:
+                connection=imaplib.IMAP4_SSL("imap.strato.de",993,ssl_context=ssl.create_default_context(),timeout=15)
+                result,_=connection.login(username,password)
+                print("IMAP_LOGIN","success" if result=="OK" else "other")
+            except Exception as err:
+                print("IMAP_LOGIN","failed","error_type",type(err).__name__,"error_summary",str(err)[:80].replace(password,"<REDACTED>"))
+                raise SystemExit(0)
+            typ,folders=connection.list()
+            if typ!="OK":print("FOLDER_LIST_FAILED",typ);raise SystemExit(0)
+            options=[]
+            for item in folders or []:
+                try:
+                    line=item.decode("utf-8",errors="replace")
+                    name=line.split(' "/" ',1)[-1].strip().strip('"')
+                    options.append(name)
+                except Exception:pass
+            print("MAILBOX_FOLDERS",len(options),"FOLDER_TAGS",["INBOX" if a.upper()=="INBOX" else ("SENT" if "sent" in a.lower() or "gesendet" in a.lower() else "OTHER") for a in options])
+            for folder in options:
+                if folder.upper()!="INBOX" and not any(x in folder.lower() for x in ("sent","gesendet")):continue
+                try:
+                    typ,_=connection.select('"'+folder.replace('"','\\"')+'"',readonly=True)
+                    if typ!="OK":continue
+                    typ,data=connection.search(None,'SINCE','23-Oct-2026','BEFORE','27-Oct-2026')
+                    if typ!="OK":continue
+                    ids=data[0].split()
+                    print("SEARCHED_FOLDER","INBOX" if folder.upper()=="INBOX" else "SENT","OCT23_26_COUNT",len(ids))
+                    for msgid in ids[-250:]:
+                        status,items=connection.fetch(msgid,'(BODY.PEEK[HEADER.FIELDS (FROM TO CC BCC SUBJECT DATE MESSAGE-ID)])')
+                        if status!="OK" or not items:continue
+                        chunk=next((it[1] for it in items if isinstance(it,tuple) and len(it)>1),b"")
+                        hdr=email.message_from_bytes(chunk)
+                        subject=str(make_header(decode_header(hdr.get("Subject",""))))
+                        if "Neuer Termin" not in subject and "Hyaluron" not in subject and "Klara" not in subject:continue
+                        print("MATCH","folder","INBOX" if folder.upper()=="INBOX" else "SENT","subject",subject[:100],"to",[x[1] for x in getaddresses(hdr.get_all("To",[]))],"cc",[x[1] for x in getaddresses(hdr.get_all("Cc",[]))],"message_id",hdr.get("Message-Id","")[:110])
+                except Exception as err:
+                    print("FOLDER_SCAN_FAILED",type(err).__name__)
+            connection.logout()
+            print("IMAP_AUDIT_DONE")
+            PY
