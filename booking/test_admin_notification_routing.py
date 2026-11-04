@@ -13,7 +13,7 @@ from booking.models import Appointment, Customer, Service, StaffMember
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     BOOKING_NOTIFICATION_EMAIL="info@a-esthetic.de",
-    BOOKING_NOTIFICATION_BCC_EMAIL="hsdf7rb@gmail.com",
+    BOOKING_NOTIFICATION_BCC_EMAIL="audit@example.com",
 )
 class AdminNotificationRoutingTests(TestCase):
     def setUp(self):
@@ -41,7 +41,7 @@ class AdminNotificationRoutingTests(TestCase):
         self.assertEqual(customer.bcc, [])
         self.assertEqual(admin.to, ["info@a-esthetic.de"])
         self.assertEqual(admin.cc, [])
-        self.assertEqual(admin.bcc, ["hsdf7rb@gmail.com"])
+        self.assertEqual(admin.bcc, ["audit@example.com"])
         self.assertIn("Neuer Termin", admin.subject)
 
     @patch("booking.management.commands.send_booking_reminders.notify_admin_1h_reminder", return_value={"ok": True})
@@ -56,7 +56,7 @@ class AdminNotificationRoutingTests(TestCase):
         admin_push.assert_called_once()
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["info@a-esthetic.de"])
-        self.assertEqual(mail.outbox[0].bcc, ["hsdf7rb@gmail.com"])
+        self.assertEqual(mail.outbox[0].bcc, ["audit@example.com"])
         self.assertIn("IN EINER STUNDE", mail.outbox[0].subject)
 
         call_command("send_booking_reminders")
