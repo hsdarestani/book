@@ -194,6 +194,23 @@ jobs:
                             has_marker=bool(marker and marker in r.stdout)
                             has_escaped=bool(marker and marker.decode("utf-8").encode("unicode_escape") in r.stdout)
                             print("PG_RESTORE_DIAGNOSTIC","archive_date",dt.isoformat(),"size",len(raw),"exit",r.returncode,"error",r.stderr.decode(errors="replace")[:200].replace(str(tmp.name),"TEMP"),"output_bytes",len(r.stdout),"contains_exact_block_marker",has_marker or has_escaped,"contains_date",b"2026-11-04" in r.stdout)
+                            lines=r.stdout.decode("utf-8",errors="replace").splitlines()
+                            head=next((l for l in lines if l.startswith("COPY ") and "booking_blockedperiod" in l),"")
+                            print("ARCHIVE_TABLE_HEADER",head[:180])
+                            import re
+                            cols=re.search(r"\\(([^)]+)\\)",head)
+                            colnames=[x.strip().strip('"') for x in cols.group(1).split(",")] if cols else []
+                            dat=[]
+                            isdata=False
+                            for ln in lines:
+                                if ln==head: isdata=True;continue
+                                if isdata and ln=="\\.":break
+                                if isdata and ln and not ln.startswith("--"):
+                                    vals=ln.split("\\t")
+                                    if len(vals)==len(colnames):dat.append(dict(zip(colnames,vals)))
+                            ids=[int(d["id"]) for d in dat if str(d.get("id","")).isdecimal()]
+                            row=next((d for d in dat if str(d.get("id"))=="915"),None)
+                            print("ARCHIVE_BLOCKED_TABLE","rows",len(dat),"max_pk",max(ids) if ids else None,"contains_pk915",bool(row),"pk915_scope",str(row.get("staff_id")) if row else None,"pk915_start",str(row.get("starts_at"))[:24] if row else None,"pk915_kind",("note" if str(row.get("reason") or "").startswith("[NOTE]") else "blocked") if row else None)
                     except Exception as e:
                         print("PG_RESTORE_READ_ERROR",str(type(e).__name__))
             PY
