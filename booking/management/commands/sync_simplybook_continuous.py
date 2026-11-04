@@ -130,7 +130,12 @@ class Command(BaseCommand):
             elif item.status != "cancelled":
                 if previous.get("starts_at") != current_state.get("starts_at"):
                     item.reminder_1h_sent_at = None
-                    item.save(update_fields=["reminder_1h_sent_at"])
+                    item.reminder_1h_admin_email_sent_at = None
+                    item.reminder_1h_admin_push_sent_at = None
+                    item.save(update_fields=[
+                        "reminder_1h_sent_at", "reminder_1h_admin_email_sent_at",
+                        "reminder_1h_admin_push_sent_at",
+                    ])
                 notify_customer_rescheduled(item)
                 changed += 1
 
