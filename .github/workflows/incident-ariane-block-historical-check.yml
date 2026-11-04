@@ -197,16 +197,14 @@ jobs:
                             lines=r.stdout.decode("utf-8",errors="replace").splitlines()
                             head=next((l for l in lines if l.startswith("COPY ") and "booking_blockedperiod" in l),"")
                             print("ARCHIVE_TABLE_HEADER",head[:180])
-                            import re
-                            cols=re.search(r"\\(([^)]+)\\)",head)
-                            colnames=[x.strip().strip('"') for x in cols.group(1).split(",")] if cols else []
+                            colnames=[x.strip().strip('"') for x in head.split("(",1)[1].split(")",1)[0].split(",")] if "(" in head else []
                             dat=[]
                             isdata=False
                             for ln in lines:
                                 if ln==head: isdata=True;continue
                                 if isdata and ln=="\\.":break
                                 if isdata and ln and not ln.startswith("--"):
-                                    vals=ln.split("\\t")
+                                    vals=ln.split(chr(9))
                                     if len(vals)==len(colnames):dat.append(dict(zip(colnames,vals)))
                             ids=[int(d["id"]) for d in dat if str(d.get("id","")).isdecimal()]
                             row=next((d for d in dat if str(d.get("id"))=="915"),None)
