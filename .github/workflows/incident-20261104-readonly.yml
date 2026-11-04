@@ -183,4 +183,59 @@ jobs:
                     p=[x for x in found if x[0].strftime("%Y-%m-%d")==day]
                     print("BACKUP_DAY",day,"count",len(p),"types",sorted(set(item.suffix for _,item in p))[:12])
             PY
+
+            echo "=== ARCHIVE_PROOF_AUDIT ==="
+            cd /opt/aesthetic-book/app
+            set -a; source /etc/aesthetic-book.env; set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from datetime import datetime,timezone as pyutc
+            from pathlib import Path
+            import gzip,io,hashlib
+            from booking.models import BlockedPeriod
+            from django.utils import timezone
+            from zoneinfo import ZoneInfo
+            from datetime import timedelta
+            day=datetime(2026,11,4,16,0,tzinfo=ZoneInfo("Europe/Berlin"))
+            b=BlockedPeriod.objects.filter(starts_at=day,staff__display_name__icontains="ariane",reason__icontains="Gesperrt").first()
+            print("TARGET_FOUND",bool(b))
+            if not b: raise SystemExit(0)
+            from booking.management.commands.sync_simplybook_notes import MARKER_SEP
+            marker=b.reason[b.reason.index(MARKER_SEP):] if MARKER_SEP in b.reason else ""
+            print("TARGET_HAS_SOURCE_NOTE_MARKER",bool(marker))
+            if not marker: raise SystemExit(0)
+            cutoff=datetime(2026,10,24,8,9,43,tzinfo=pyutc.utc)
+            candidates=[]
+            for root in [Path("/opt/aesthetic-book"),Path("/var/backups"),Path("/root")]:
+                if not root.exists(): continue
+                for p in root.glob("**/*"):
+                    try:
+                        if not p.is_file() or p.suffix.lower() not in {".gz",".dump",".sql",".json",".backup",".bak"}: continue
+                        st=p.stat()
+                        dt=datetime.fromtimestamp(st.st_mtime,pyutc.utc)
+                        if dt < datetime(2026,10,17,tzinfo=pyutc.utc) or dt >= cutoff: continue
+                        if st.st_size>150_000_000 or st.st_size<2000: continue
+                        candidates.append((dt,p,st.st_size))
+                    except (PermissionError,OSError): continue
+            print("PRE_BOOKING_ARCHIVES_TO_SCAN",len(candidates))
+            for dt,p,size in sorted(candidates):
+                raw=b""
+                try:
+                    if p.suffix.lower()==".gz":
+                        with gzip.open(p,"rb") as stream:
+                            raw=stream.read(100_000_001)
+                    else:
+                        raw=p.read_bytes()[:100_000_001]
+                except Exception:
+                    continue
+                if len(raw)>100_000_000:
+                    print("ARCHIVE_SKIPPED_TOO_LARGE",dt.isoformat(),p.suffix)
+                    continue
+                has_marker=marker.encode("utf-8") in raw
+                has_escaped_marker=marker.encode("unicode_escape") in raw
+                has_table=b"booking_blockedperiod" in raw
+                has_date=b"2026-11-04" in raw
+                has_label=b"Gesperrt" in raw
+                if has_marker or has_escaped_marker or (has_table and has_date):
+                    print("ARCHIVE_EVIDENCE","date",dt.isoformat(),"suffix",p.suffix,"size",size,"db_table",has_table,"target_marker",has_marker or has_escaped_marker,"date",has_date,"label",has_label)
+            PY
             echo "INCIDENT_AUDIT_COMPLETE"
