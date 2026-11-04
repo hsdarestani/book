@@ -171,7 +171,8 @@ class Command(BaseCommand):
 
                 marker = _marker(note_id)
                 seen_markers.add(marker)
-                blocked = bool(row.get('time_blocked'))
+                blocked_value = row.get('time_blocked')
+                blocked = blocked_value is True or str(blocked_value).strip().lower() in ('1', 'true', 'yes')
                 prefix = '[BLOCKNOTE][STAFF]' if blocked else '[NOTE][STAFF]'
                 text = _clean_text(row.get('note')) or ('Gesperrt' if blocked else 'Notiz')
                 max_text = max(1, 160 - len(prefix) - len(marker) - 2)
