@@ -58,12 +58,21 @@ def _email_staff_label(staff):
         return 'Behandler'
     return 'Behandelnde Person'
 
-def _send_html_mail(subject, text_body, html_body, recipients, reply_to=None):
+def _admin_bcc_recipients():
+    """An optional audit-only hidden copy of admin notifications."""
+    primary = (getattr(settings, 'BOOKING_NOTIFICATION_EMAIL', '') or '').strip().lower()
+    configured = (getattr(settings, 'BOOKING_NOTIFICATION_BCC_EMAIL', '') or '').strip()
+    return [address for address in [part.strip() for part in configured.replace(';', ',').split(',')]
+            if address and address.lower() != primary]
+
+
+def _send_html_mail(subject, text_body, html_body, recipients, reply_to=None, bcc=None):
     message = EmailMultiAlternatives(
         subject=subject,
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=recipients,
+        bcc=bcc or [],
         reply_to=reply_to,
     )
     message.attach_alternative(html_body, 'text/html')
@@ -161,6 +170,7 @@ def send_booking_emails(appointment):
                 admin_text,
                 admin_html,
                 [settings.BOOKING_NOTIFICATION_EMAIL],
+                bcc=_admin_bcc_recipients(),
             )
     except Exception:
         logger.exception('Termin-E-Mail konnte nicht versendet werden')
@@ -251,6 +261,7 @@ def send_admin_appointment_event_email(appointment, event):
         text,
         html,
         [settings.BOOKING_NOTIFICATION_EMAIL],
+        bcc=_admin_bcc_recipients(),
     )
 
 

@@ -124,6 +124,7 @@ AESTHETIC_MEMBER_API_URL = os.getenv(
     'https://esthetic.smarbiz.sbs/api/mobile/me/',
 )
 BOOKING_NOTIFICATION_EMAIL = os.getenv('BOOKING_NOTIFICATION_EMAIL', '')
+BOOKING_NOTIFICATION_BCC_EMAIL = os.getenv('BOOKING_NOTIFICATION_BCC_EMAIL', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'A+Esthetic <termin@a-esthetic.de>')
 if os.getenv('EMAIL_HOST'):
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
