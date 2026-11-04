@@ -42,7 +42,10 @@ jobs:
     env:
       STRATO_SMTP_USER: ${{ secrets.STRATO_SMTP_USER }}
       STRATO_SMTP_PASSWORD: ${{ secrets.STRATO_SMTP_PASSWORD }}
-      BOOKING_NOTIFICATION_EMAIL: ${{ secrets.BOOKING_NOTIFICATION_EMAIL }}
+      BOOKING_NOTIFICATION_EMAIL: info@a-esthetic.de
+      # Preserve the old private admin-email secret as an optional hidden audit
+      # recipient. A dedicated BCC secret takes precedence when configured.
+      BOOKING_NOTIFICATION_BCC_EMAIL: ${{ secrets.BOOKING_NOTIFICATION_BCC_EMAIL || secrets.BOOKING_NOTIFICATION_EMAIL }}
       BOOKING_ADMIN_PASSWORD: ${{ secrets.BOOKING_ADMIN_PASSWORD }}
     steps:
       - name: Deploy to production server
@@ -53,7 +56,7 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 25m
-          envs: STRATO_SMTP_USER,STRATO_SMTP_PASSWORD,BOOKING_NOTIFICATION_EMAIL,BOOKING_ADMIN_PASSWORD
+          envs: STRATO_SMTP_USER,STRATO_SMTP_PASSWORD,BOOKING_NOTIFICATION_EMAIL,BOOKING_NOTIFICATION_BCC_EMAIL,BOOKING_ADMIN_PASSWORD
           script: |
             set -euo pipefail
             export DEBIAN_FRONTEND=noninteractive
@@ -135,6 +138,7 @@ jobs:
             PATIENT_FILE_MAX_BYTES=26214400
             PATIENT_SYNC_TOKEN_FILE=$PUSH_SYNC_TOKEN_FILE
             BOOKING_NOTIFICATION_EMAIL=$BOOKING_NOTIFICATION_EMAIL
+            BOOKING_NOTIFICATION_BCC_EMAIL=$BOOKING_NOTIFICATION_BCC_EMAIL
             DEFAULT_FROM_EMAIL='A+ Esthetic <$STRATO_SMTP_USER>'
             EMAIL_HOST=smtp.strato.de
             EMAIL_PORT=465
