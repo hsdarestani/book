@@ -1,0 +1,45 @@
+name: Inspect A+ Esthetic reminder timer and delivery flags (read only)
+on:
+  push:
+    branches: [investigate/booking-20261104-ariane]
+    paths: [".github/workflows/incident-reminder-readonly.yml"]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect reminder timer and recent delivery flags
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            echo "REMINDER_TIMER"
+            systemctl is-active aesthetic-book-reminders.timer || true
+            systemctl list-timers aesthetic-book-reminders.timer --no-pager || true
+            systemctl show aesthetic-book-reminders.service -p ActiveState -p Result -p ExecMainStatus --no-pager || true
+            echo "RECENT_REMINDER_LOGS"
+            journalctl -u aesthetic-book-reminders.service --since "2026-11-04 10:00:00" --no-pager --output=cat | grep -E 'Booking 1h reminders processed|Traceback|Error|Failed' | tail -30 || true
+            cd /opt/aesthetic-book/app
+            set -a
+            source /etc/aesthetic-book.env
+            set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from zoneinfo import ZoneInfo
+            from datetime import datetime,timedelta
+            from django.utils import timezone
+            from booking.models import Appointment
+            tz=ZoneInfo("Europe/Berlin")
+            start=datetime(2026,11,4,0,0,tzinfo=tz)
+            qs=Appointment.objects.filter(starts_at__gte=start,starts_at__lt=start+timedelta(days=1),status__in=["new","confirmed"])
+            print("NOV4_ACTIVE_TOTAL",qs.count(),"REMINDER_FLAGS_SENT",qs.exclude(reminder_1h_sent_at__isnull=True).count())
+            a=qs.filter(staff__display_name__icontains="ariane",service__name__icontains="Hyaluron",starts_at=start+timedelta(hours=19)).first()
+            if a:
+              print("TARGET_REMINDER","sent_at",timezone.localtime(a.reminder_1h_sent_at,tz).isoformat() if a.reminder_1h_sent_at else "none","scheduled_start",timezone.localtime(a.starts_at,tz).isoformat())
+            PY
+            echo "REMINDER_CHECK_COMPLETED"
