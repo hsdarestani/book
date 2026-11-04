@@ -256,4 +256,24 @@ jobs:
                   print("ARCHIVE_CANDIDATE",d.isoformat(),"type",kind,"extension",p.suffix,"bytes",st.st_size)
                 except Exception:pass
             PY
+
+            echo "SOURCE_NOTE_INSERTION_HISTORY"
+            python3 - <<'PY'
+            import subprocess,json
+            p=subprocess.run(["journalctl","-u","aesthetic-simplybook-sync.service","--since","2026-10-22 18:31:42 UTC","--until","2026-11-04 19:00:00 UTC","--no-pager","--output=short-iso"],capture_output=True,text=True,timeout=30)
+            count=0
+            seen=set()
+            records=[]
+            for line in p.stdout.splitlines():
+                if "SIMPLYBOOK_NOTES_SYNC_JSON=" not in line:continue
+                try:d=json.loads(line.split("SIMPLYBOOK_NOTES_SYNC_JSON=",1)[1])
+                except Exception:continue
+                n=int(d.get("created") or 0)
+                if n:
+                    count+=n
+                    record={"time":line.split(" ",1)[0],"created":n,"cumulative":count,"total":d.get("source_notes"),"updated":d.get("updated"),"deleted":d.get("deleted")}
+                    records.append(record)
+            print("SOURCE_NOTES_IMPORTED_SINCE_PREBOOKING_BACKUP",count)
+            print("NOTE_INSERT_EVENTS",records[:35])
+            PY
             echo "INCIDENT_READ_ONLY_FINISHED"
