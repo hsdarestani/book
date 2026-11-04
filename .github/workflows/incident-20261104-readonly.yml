@@ -1,0 +1,94 @@
+name: Incident 2026-11-04 read-only appointment and notification audit
+on:
+  push:
+    branches:
+      - investigate/booking-20261104-ariane
+    paths:
+      - ".github/workflows/incident-20261104-readonly.yml"
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Inspect production metadata only (no writes or personal identifiers)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            echo "INCIDENT_AUDIT_START"
+            cd /opt/aesthetic-book/app
+            set -a
+            source /etc/aesthetic-book.env
+            set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from datetime import datetime,timedelta
+            from zoneinfo import ZoneInfo
+            from django.utils import timezone
+            from django.conf import settings
+            from booking.models import Appointment,BlockedPeriod,StaffMember,DailyAvailabilityOverride,ExternalSyncState
+            tz=ZoneInfo("Europe/Berlin")
+            start=datetime(2026,11,4,0,0,tzinfo=tz)
+            end=start+timedelta(days=1)
+            print("BOOKING_ADMIN_MAIL_CONFIGURED",bool(settings.BOOKING_NOTIFICATION_EMAIL))
+            qs=Appointment.objects.select_related("staff","service").filter(starts_at__gte=start,starts_at__lt=end,staff__display_name__icontains="ariane",service__name__icontains="hyaluron").order_by("starts_at","created_at")
+            print("MATCHING_BOOKINGS",qs.count())
+            for a in qs:
+                print("BOOKING", "slot",timezone.localtime(a.starts_at,tz).strftime("%Y-%m-%d %H:%M"),"created",timezone.localtime(a.created_at,tz).isoformat(),"updated",timezone.localtime(a.updated_at,tz).isoformat(),"source",a.source,"status",a.status,"imported",str(a.idempotency_key or "").startswith("simplybook-"),"staff",a.staff.display_name,"service",a.service.name)
+            staff=StaffMember.objects.filter(display_name__icontains="ariane")
+            for s in staff:
+                blocks=BlockedPeriod.objects.filter(staff=s,starts_at__lt=end,ends_at__gt=start).order_by("starts_at")
+                print("STAFF_MATCHED",s.pk,"BLOCK_COUNT",blocks.count())
+                for b in blocks:
+                    print("BLOCK","start",timezone.localtime(b.starts_at,tz).isoformat(),"end",timezone.localtime(b.ends_at,tz).isoformat(),"kind",("note" if b.reason.startswith("[NOTE]") else "blocked"),"from_simplybook",("##SB:" in b.reason or "SIMPLYBOOK" in b.reason),"label_gesperrt",("gesperrt" in b.reason.lower()),"prefix",(b.reason or "")[:24].split(" ")[0])
+                o=DailyAvailabilityOverride.objects.filter(staff=s,date=start.date()).first()
+                if o:
+                    print("DAY_OVERRIDE","closed",o.closed,"first",str(o.start_time_1),str(o.end_time_1),"second",str(o.start_time_2),str(o.end_time_2))
+                else:
+                    print("DAY_OVERRIDE","none")
+            st=ExternalSyncState.objects.filter(source="simplybook").first()
+            if st: print("SYNC_STATE","last_success",str(st.last_success_at),"last_notes_status",str(st.metadata.get("last_notes_status")),"last_notes_success",str(st.metadata.get("last_notes_success_at")))
+            PY
+            echo "=== SYNC_TIMER ==="
+            systemctl is-active aesthetic-simplybook-sync.timer || true
+            systemctl show aesthetic-simplybook-sync.service -p ActiveState -p Result -p ExecMainStatus --no-pager || true
+            echo "=== APP_PUSH_AUDIT ==="
+            if test -x /opt/a-esthetic-mobile/venv/bin/python && test -f /opt/a-esthetic-mobile/mobile.env; then
+              cd /opt/a-esthetic-mobile
+              set -a
+              source /opt/a-esthetic-mobile/mobile.env
+              set +a
+              /opt/a-esthetic-mobile/venv/bin/python manage.py shell <<'PY'
+            from datetime import datetime,timedelta
+            from zoneinfo import ZoneInfo
+            from django.utils import timezone
+            from django.utils.dateparse import parse_datetime
+            from p0_app.ops_models import AppNotification,PushDevice
+            tz=ZoneInfo("Europe/Berlin")
+            start=datetime(2026,11,1,0,0,tzinfo=tz)
+            q=AppNotification.objects.filter(category="booking",created_at__gte=start,created_at__lte=timezone.now()).order_by("-created_at")
+            matches=[]
+            for n in q.iterator():
+                data=n.data or {}
+                if data.get("booking_event") != "booking_created": continue
+                v=parse_datetime(str(data.get("booking_starts_at") or ""))
+                if not v or timezone.is_naive(v): continue
+                if timezone.localtime(v,tz).strftime("%Y-%m-%d %H:%M")!="2026-11-04 19:00": continue
+                if n.title!="Neue Buchung": continue
+                matches.append(n)
+            print("ADMIN_PUSH_EVENT_MATCHES",len(matches))
+            for n in matches:
+                result=n.push_result or {}
+                devices=result.get("devices",[])
+                print("ADMIN_PUSH_EVENT","created",timezone.localtime(n.created_at,tz).isoformat(),"attempted",timezone.localtime(n.push_attempted_at,tz).isoformat() if n.push_attempted_at else "not_attempted","device_attempts",len(devices),"accepted",sum(1 for x in devices if x.get("ok")),"failures",sum(1 for x in devices if not x.get("ok")),"android_configured",bool((result.get("configured") or {}).get("android")),"ios_configured",bool((result.get("configured") or {}).get("ios")),"error_types",[str(x.get("error") or "")[:90].split(":")[0] for x in devices if not x.get("ok")])
+            PY
+            else
+              echo "APP_DB_NOT_COLOCATED_WITH_BOOK"
+            fi
+            echo "INCIDENT_AUDIT_COMPLETE"
