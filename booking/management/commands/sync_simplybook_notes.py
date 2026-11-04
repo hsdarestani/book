@@ -11,6 +11,9 @@ from django.db import transaction
 from django.utils import timezone
 
 from booking.models import BlockedPeriod, StaffMember
+from booking.block_conflict_alerts import (
+    enqueue_block_conflicts, process_pending_block_conflict_alerts, resolve_block_conflicts,
+)
 
 AUTH_URL = 'https://user-api-v2.simplybook.me/admin/auth'
 NOTES_URL = 'https://user-api-v2.simplybook.me/admin/calendar-notes'
@@ -101,6 +104,12 @@ def _clean_text(value):
 class Command(BaseCommand):
     help = 'Synchronizes SimplyBook calendar notes/time blocks to Frau Ariane Regaei.'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--suppress-conflict-alerts', action='store_true', default=False,
+            help='Baseline import: do not notify for historically imported blocks.',
+        )
+
     def handle(self, *args, **options):
         company = (os.environ.get('SIMPLYBOOK_COMPANY_LOGIN') or '').strip()
         login = (os.environ.get('SIMPLYBOOK_USER_LOGIN') or '').strip()
@@ -145,6 +154,8 @@ class Command(BaseCommand):
         created = 0
         updated = 0
         skipped = 0
+        conflicts_queued = 0
+        suppressed = bool(options.get('suppress_conflict_alerts'))
 
         with transaction.atomic():
             for row in all_notes:
@@ -166,18 +177,37 @@ class Command(BaseCommand):
                 max_text = max(1, 160 - len(prefix) - len(marker) - 2)
                 reason = f'{prefix} {text[:max_text]}{marker}'
 
-                item = BlockedPeriod.objects.filter(staff=ariane, reason__endswith=marker).order_by('pk').first()
+                item = BlockedPeriod.objects.select_for_update().filter(
+                    staff=ariane, reason__endswith=marker,
+                ).order_by('pk').first()
                 if item:
-                    changed = item.starts_at != starts_at or item.ends_at != ends_at or item.reason != reason
+                    was_blocking = (item.reason or '').startswith('[BLOCKNOTE]')
+                    period_changed = item.starts_at != starts_at or item.ends_at != ends_at
+                    became_blocking = blocked and not was_blocking
+                    changed = period_changed or item.reason != reason
                     if changed:
+                        # Suppress stale alerts if this blocker was moved or unblocked.
+                        if period_changed or (was_blocking and not blocked):
+                            resolve_block_conflicts(item)
                         item.starts_at = starts_at
                         item.ends_at = ends_at
                         item.reason = reason
                         item.save(update_fields=['starts_at', 'ends_at', 'reason'])
                         updated += 1
+                        # Text-only edits must not produce a fresh alert.
+                        if blocked and (period_changed or became_blocking) and not suppressed:
+                            conflicts_queued += enqueue_block_conflicts(
+                                item, source_note_id=note_id,
+                            )
                 else:
-                    BlockedPeriod.objects.create(staff=ariane, starts_at=starts_at, ends_at=ends_at, reason=reason)
+                    item = BlockedPeriod.objects.create(
+                        staff=ariane, starts_at=starts_at, ends_at=ends_at, reason=reason,
+                    )
                     created += 1
+                    if blocked and not suppressed:
+                        conflicts_queued += enqueue_block_conflicts(
+                            item, source_note_id=note_id,
+                        )
 
             stale = []
             for item in BlockedPeriod.objects.filter(staff=ariane, reason__contains=MARKER_SEP):
@@ -188,7 +218,13 @@ class Command(BaseCommand):
                     stale.append(item.pk)
             deleted = len(stale)
             if stale:
+                for item in BlockedPeriod.objects.filter(pk__in=stale):
+                    resolve_block_conflicts(item)
                 BlockedPeriod.objects.filter(pk__in=stale).delete()
+
+        # Never hold the note-import transaction while contacting SMTP/push.
+        # Failed channels are retried by the existing five-minute reminder timer.
+        delivery = process_pending_block_conflict_alerts() if not suppressed else {}
 
         self.stdout.write('SIMPLYBOOK_NOTES_SYNC_JSON=' + json.dumps({
             'source_notes': len(all_notes),
@@ -196,6 +232,8 @@ class Command(BaseCommand):
             'updated': updated,
             'deleted': deleted,
             'skipped': skipped,
+            'conflicts_queued': conflicts_queued,
+            'conflict_delivery': delivery,
             'owner': ariane.display_name,
         }, sort_keys=True))
         self.stdout.write(self.style.SUCCESS('SimplyBook calendar notes synchronized to Frau Ariane Regaei.'))
