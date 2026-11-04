@@ -1,0 +1,88 @@
+name: Independent forensic check of Ariane 2026-11-04 calendar block
+on:
+  push:
+    branches: [investigate/booking-20261104-ariane]
+    paths: [".github/workflows/incident-ariane-block-historical-check.yml"]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Inspect read-only DB versions, slot guard, and historical sync metadata
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 9m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            set -a
+            source /etc/aesthetic-book.env
+            set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from datetime import datetime,timedelta,date
+            from zoneinfo import ZoneInfo
+            from unittest.mock import patch
+            from django.utils import timezone
+            from django.db import connection
+            from booking.models import BlockedPeriod, Appointment,StaffMember,DailyAvailabilityOverride,WorkingHour
+            from booking.services import available_slots
+            from booking.management.commands.sync_simplybook_notes import MARKER_SEP,ONE,ZERO
+            tz=ZoneInfo("Europe/Berlin")
+            window_start=datetime(2026,11,4,0,0,tzinfo=tz)
+            when=datetime(2026,11,4,19,0,tzinfo=tz)
+            booking=Appointment.objects.select_related("staff","service").filter(starts_at=when,source="app",staff__display_name__icontains="ariane",service__name__icontains="hyaluron").first()
+            if not booking: raise SystemExit("MATCHING_BOOKING_NOT_FOUND")
+            blocks=list(BlockedPeriod.objects.filter(staff=booking.staff,starts_at__lt=when+timedelta(minutes=40),ends_at__gt=when).order_by("pk"))
+            print("BOOKING_RELEVANT","staff_pk",booking.staff_id,"created",timezone.localtime(booking.created_at,tz).isoformat(),"updated",timezone.localtime(booking.updated_at,tz).isoformat(),"status",booking.status,"service_active",booking.service.active,"staff_active",booking.staff.active,"service_bookable",booking.service.bookable)
+            print("BLOCK_COUNT",len(blocks))
+            for b in blocks:
+                source_marker=b.reason.split(MARKER_SEP,1)[1].split(MARKER_SEP)[0] if MARKER_SEP in b.reason else ""
+                number=0
+                for ch in source_marker:
+                    number=number*2+(1 if ch==ONE else 0)
+                with connection.cursor() as cursor:
+                    cursor.execute("select xmin::text, ctid::text from booking_blockedperiod where id=%s",[b.pk])
+                    row=cursor.fetchone()
+                print("BLOCK_RELEVANT","db_pk",b.pk,"xid",row[0],"rowversion",row[1],"source_note_id",number if source_marker else None,"source_linked",bool(source_marker),"kind",("note" if b.reason.startswith("[NOTE]") else "blocking"),"start",timezone.localtime(b.starts_at,tz).isoformat(),"end",timezone.localtime(b.ends_at,tz).isoformat())
+            with connection.cursor() as cursor:
+                cursor.execute("select xmin::text,ctid::text from booking_appointment where id=%s",[booking.pk])
+                row=cursor.fetchone()
+            print("BOOKING_ROW_VERSION","xid",row[0],"ctid",row[1])
+            other=Appointment.objects.filter(created_at__gte=datetime(2026,10,24,0,0,tzinfo=tz),created_at__lt=datetime(2026,10,25,0,0,tzinfo=tz)).order_by("created_at")
+            print("SAME_CREATION_DAY_BOOKINGS",other.count())
+            for appt in other[:20]:
+                with connection.cursor() as cursor:
+                    cursor.execute("select xmin::text from booking_appointment where id=%s",[appt.pk]); xid=cursor.fetchone()[0]
+                print("PEER_BOOKING","created",timezone.localtime(appt.created_at,tz).strftime("%H:%M:%S"),"xid",xid,"source",appt.source)
+            with patch("booking.services.timezone.now",return_value=datetime(2026,10,24,8,9,43,tzinfo=ZoneInfo("UTC"))):
+                candidate=available_slots(booking.service,booking.staff,date(2026,11,4),exclude_appointment_id=booking.public_id)
+            print("GUARD_REPLAY_WITH_CURRENT_BLOCK",when in candidate,"available_count",len(candidate))
+            ranges=list(WorkingHour.objects.filter(staff=booking.staff,weekday=date(2026,11,4).weekday()).values("start_time","end_time","active"))
+            print("WORK_HOURS",ranges)
+            overrides=list(DailyAvailabilityOverride.objects.filter(staff=booking.staff,date=date(2026,11,4)).values("closed","start_time_1","end_time_1"))
+            print("DAY_OVERRIDE",overrides)
+            print("STAFF_DUPLICATE_NAME_COUNT",StaffMember.objects.filter(display_name=booking.staff.display_name).count())
+            PY
+            echo "HISTORIC_SIMPLYBOOK_TIMER_LOGS"
+            python3 - <<'PY'
+            import subprocess,json
+            cmd=["journalctl","-u","aesthetic-simplybook-sync.service","--since","2026-10-23 00:00:00 UTC","--until","2026-10-26 00:00:00 UTC","--no-pager","--output=cat"]
+            p=subprocess.run(cmd,capture_output=True,text=True,timeout=20)
+            lines=p.stdout.splitlines()
+            report=[]
+            for line in lines:
+                if "SIMPLYBOOK_NOTES_SYNC_JSON=" in line:
+                    try: d=json.loads(line.split("SIMPLYBOOK_NOTES_SYNC_JSON=",1)[1]);report.append({"source_notes":d.get("source_notes"),"created":d.get("created"),"updated":d.get("updated"),"deleted":d.get("deleted")})
+                    except Exception: pass
+            print("LOCAL_SYNC_LOG_LINES",len(lines),"LOCAL_NOTES_RUNS",len(report))
+            print("LOCAL_NOTES_FIRST_6",report[:6])
+            print("LOCAL_NOTES_NONZERO",[(i,x) for i,x in enumerate(report) if any(x.get(k,0) for k in ("created","updated","deleted"))][:40])
+            print("LOCAL_NOTES_LAST_6",report[-6:])
+            PY
+            echo "INCIDENT_READ_ONLY_FINISHED"
