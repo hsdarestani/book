@@ -85,4 +85,50 @@ jobs:
             print("LOCAL_NOTES_NONZERO",[(i,x) for i,x in enumerate(report) if any(x.get(k,0) for k in ("created","updated","deleted"))][:40])
             print("LOCAL_NOTES_LAST_6",report[-6:])
             PY
+
+            echo "HISTORICAL_BLOCK_NEIGHBORS"
+            cd /opt/aesthetic-book/app
+            set -a; source /etc/aesthetic-book.env; set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from booking.models import BlockedPeriod,Appointment
+            from django.db import connection
+            from booking.management.commands.sync_simplybook_notes import MARKER_SEP,ONE
+            from django.utils import timezone
+            from zoneinfo import ZoneInfo
+            from datetime import datetime,timedelta
+            for x in BlockedPeriod.objects.filter(pk__gte=897,pk__lte=933).order_by("pk"):
+                mark=x.reason.split(MARKER_SEP,1)[1].split(MARKER_SEP)[0] if MARKER_SEP in x.reason else ""
+                no=0
+                for c in mark:no=no*2+(1 if c==ONE else 0)
+                with connection.cursor() as cur:
+                    cur.execute("select xmin::text from booking_blockedperiod where id=%s",[x.pk]);txid=cur.fetchone()[0]
+                print("ROW_NEAR_TARGET","pk",x.pk,"xid",txid,"source_note",no if mark else None,"date",timezone.localtime(x.starts_at).strftime("%Y-%m-%d"),"kind",("NOTE" if x.reason.startswith("[NOTE]") else "BLOCK"))
+            TZ=ZoneInfo("Europe/Berlin")
+            st=datetime(2026,10,23,0,0,tzinfo=TZ)
+            en=datetime(2026,10,25,0,0,tzinfo=TZ)
+            for x in Appointment.objects.filter(created_at__gte=st,created_at__lt=en).order_by("created_at")[:25]:
+                with connection.cursor() as cur:
+                    cur.execute("select xmin::text from booking_appointment where id=%s",[x.pk]);txid=cur.fetchone()[0]
+                print("APPT_NEAR_TARGET","date",timezone.localtime(x.created_at,TZ).strftime("%Y-%m-%dT%H:%M:%S"),"xid",txid,"source",x.source)
+            PY
+            echo "HISTORIC_BOOKING_HTTP_METADATA"
+            python3 - <<'PY'
+            import re,gzip
+            from pathlib import Path
+            pats=["24/Oct/2026:08:09","24/Oct/2026:10:09","24/Oct/2026:08:08","24/Oct/2026:08:10"]
+            for p in Path("/var/log/nginx").glob("access.log*"):
+              try:
+                if p.suffix==".gz": f=gzip.open(p,"rt",errors="replace")
+                else:f=p.open(errors="replace")
+                hits=[]
+                with f:
+                  for line in f:
+                    if not any(t in line for t in pats):continue
+                    if "/api/mobile/booking" not in line and "/api/appointments/" not in line:continue
+                    method=re.search(r'"(POST|GET|PUT|PATCH) ([^ ]+) HTTP/',line)
+                    status=re.search(r'HTTP/[0-9.]+" (\d{3})',line)
+                    if method: hits.append((method.group(1),method.group(2).split("?")[0],status.group(1) if status else "unknown"))
+                if hits:print("HTTP_MATCHES",p.name,hits[:20])
+              except Exception: pass
+            PY
             echo "INCIDENT_READ_ONLY_FINISHED"
