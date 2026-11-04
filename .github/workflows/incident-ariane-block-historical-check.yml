@@ -276,4 +276,20 @@ jobs:
             print("SOURCE_NOTES_IMPORTED_SINCE_PREBOOKING_BACKUP",count)
             print("NOTE_INSERT_EVENTS",records[:35])
             PY
+
+            echo "POST_BACKUP_SOURCE_NOTE_SEQUENCE"
+            cd /opt/aesthetic-book/app
+            set -a; source /etc/aesthetic-book.env; set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from booking.models import BlockedPeriod
+            from booking.management.commands.sync_simplybook_notes import MARKER_SEP,ONE
+            rows=BlockedPeriod.objects.filter(pk__gte=904,pk__lte=930).order_by("pk")
+            for b in rows:
+                raw=b.reason.split(MARKER_SEP,1)[1].split(MARKER_SEP)[0] if MARKER_SEP in b.reason else ""
+                val=0
+                for c in raw:val=val*2+int(c==ONE)
+                print("NOTE_SEQUENCE","pk",b.pk,"src_id",val if raw else None,"manual",not bool(raw),"difference",val-b.pk if raw else None)
+            print("POST_ARCHIVE_DB_SOURCE_COUNT",BlockedPeriod.objects.filter(pk__gt=906,reason__contains=MARKER_SEP).count())
+            print("POST_ARCHIVE_DB_MANUAL_COUNT",BlockedPeriod.objects.filter(pk__gt=906).exclude(reason__contains=MARKER_SEP).count())
+            PY
             echo "INCIDENT_READ_ONLY_FINISHED"
