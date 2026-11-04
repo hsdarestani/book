@@ -393,6 +393,8 @@ def appointment_action(request, appointment_id):
     item.status = status
     if starts_at.isoformat() != previous.get("starts_at"):
         item.reminder_1h_sent_at = None
+        item.reminder_1h_admin_email_sent_at = None
+        item.reminder_1h_admin_push_sent_at = None
     try:
         item.full_clean()
         item.save()
