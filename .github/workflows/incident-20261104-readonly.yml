@@ -130,4 +130,57 @@ jobs:
             else
               echo "SOURCE_NOTE_CREDENTIALS_UNAVAILABLE"
             fi
+
+            echo "=== DATABASE_ROW_CHRONOLOGY ==="
+            cd /opt/aesthetic-book/app
+            set -a; source /etc/aesthetic-book.env; set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from datetime import datetime,timedelta
+            from zoneinfo import ZoneInfo
+            from django.db import connection
+            from booking.models import BlockedPeriod,Appointment
+            tz=ZoneInfo("Europe/Berlin")
+            day_start=datetime(2026,11,4,0,0,tzinfo=tz)
+            a=Appointment.objects.filter(starts_at__gte=day_start,starts_at__lt=day_start+timedelta(days=1),staff__display_name__icontains="ariane",service__name__icontains="hyaluron").first()
+            b=BlockedPeriod.objects.filter(starts_at__lte=day_start+timedelta(hours=19),ends_at__gt=day_start+timedelta(hours=19),staff__display_name__icontains="ariane").first()
+            print("DATABASE_VENDOR",connection.vendor)
+            if connection.vendor=="postgresql" and a and b:
+                with connection.cursor() as c:
+                    c.execute("select current_setting('track_commit_timestamp',true)")
+                    flag=c.fetchone()[0]
+                    c.execute("select xmin::text from booking_appointment where id=%s",[a.pk]); ax=c.fetchone()[0]
+                    c.execute("select xmin::text from booking_blockedperiod where id=%s",[b.pk]); bx=c.fetchone()[0]
+                    print("ROW_ORDER","booking_xid",ax,"block_xid",bx,"block_current_row_version_after_booking",int(bx)>int(ax),"commit_tracking",flag)
+                    if flag=="on":
+                        c.execute("select pg_xact_commit_timestamp(xmin) from booking_appointment where id=%s",[a.pk]); at=c.fetchone()[0]
+                        c.execute("select pg_xact_commit_timestamp(xmin) from booking_blockedperiod where id=%s",[b.pk]); bt=c.fetchone()[0]
+                        print("ROW_COMMIT_TIMES","booking",str(at),"block_last_version",str(bt))
+            PY
+            echo "=== HISTORICAL_BACKUPS_METADATA ==="
+            python3 - <<'PY'
+            from pathlib import Path
+            from datetime import datetime,timezone
+            roots=["/opt/aesthetic-book","/var/backups","/root"]
+            suffixes=(".sql",".dump",".bak",".backup",".gz",".zip",".sqlite",".sqlite3",".json")
+            found=[]
+            for root in roots:
+                p=Path(root)
+                if not p.exists(): continue
+                for item in p.glob("**/*"):
+                    try:
+                        if not item.is_file(): continue
+                        if not any(item.name.lower().endswith(x) for x in suffixes) and "backup" not in item.name.lower(): continue
+                        st=item.stat()
+                        if st.st_size < 2000: continue
+                        d=datetime.fromtimestamp(st.st_mtime,timezone.utc)
+                        if d.year!=2026: continue
+                        found.append((d,item))
+                    except (OSError,PermissionError): continue
+                    if len(found)>2500: break
+            print("BACKUP_CANDIDATES_TOTAL",len(found))
+            for day in sorted(set(d.strftime("%Y-%m-%d") for d,_ in found)):
+                if "2026-10-10"<=day<="2026-11-04":
+                    p=[x for x in found if x[0].strftime("%Y-%m-%d")==day]
+                    print("BACKUP_DAY",day,"count",len(p),"types",sorted(set(item.suffix for _,item in p))[:12])
+            PY
             echo "INCIDENT_AUDIT_COMPLETE"
