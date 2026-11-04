@@ -1,0 +1,33 @@
+name: Inspect booking admin email recipient (read only)
+on:
+  push:
+    branches: [investigate/booking-20261104-ariane]
+    paths: [".github/workflows/incident-email-recipient-readonly.yml"]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect production notification recipient without edits
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            set -a
+            source /etc/aesthetic-book.env
+            set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from django.conf import settings
+            address=str(settings.BOOKING_NOTIFICATION_EMAIL or '').strip().lower()
+            print('ACTIVE_BOOKING_NOTIFICATION_RECIPIENT',address or '(none)')
+            print('IS_INFO_ADDRESS',address=='info@a-esthetic.de')
+            print('HAS_MULTI_RECIPIENT',any(sep in address for sep in (',',';',' ')))
+            PY
+            echo "INSPECTION_COMPLETE"
