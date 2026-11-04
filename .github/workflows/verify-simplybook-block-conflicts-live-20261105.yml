@@ -1,0 +1,54 @@
+name: Verify SimplyBook conflict alert deployment read only
+on:
+  push:
+    branches: [investigate/booking-20261104-ariane]
+    paths: [".github/workflows/verify-simplybook-block-conflicts-live-20261105.yml"]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Inspect production schema, code, reminders, and sync timers
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            echo "BOOKING_DEPLOY_STATUS"
+            systemctl is-active aesthetic-book
+            echo "REMINDER_TIMER_STATUS"
+            systemctl is-active aesthetic-book-reminders.timer
+            echo "SIMPLYBOOK_TIMER_STATUS"
+            systemctl is-active aesthetic-simplybook-sync.timer
+            cd /opt/aesthetic-book/app
+            set -a
+            source /etc/aesthetic-book.env
+            set +a
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from django.conf import settings
+            from django.db import connection
+            from booking.models import BlockedBookingConflictAlert
+            from booking.block_conflict_alerts import process_pending_block_conflict_alerts
+            from django.db.models import Q
+            table=BlockedBookingConflictAlert._meta.db_table
+            with connection.cursor() as cursor:
+                tables=connection.introspection.table_names(cursor)
+                assert table in tables, "conflict alert DB migration missing"
+                cols={x.name for x in connection.introspection.get_table_description(cursor,table)}
+            assert {"email_sent_at","push_sent_at","resolved_at","block_starts_at","block_ends_at"}.issubset(cols)
+            assert settings.BOOKING_NOTIFICATION_EMAIL=="info@a-esthetic.de"
+            print("CONFLICT_DB_SCHEMA", "ok")
+            print("PRIMARY_EMAIL",settings.BOOKING_NOTIFICATION_EMAIL)
+            print("CONFLICT_ALERT_CODE","available")
+            print("ALERT_RECORDS",BlockedBookingConflictAlert.objects.count())
+            print("PENDING_ALERTS",BlockedBookingConflictAlert.objects.filter(resolved_at__isnull=True).filter(Q(email_sent_at__isnull=True)|Q(push_sent_at__isnull=True)).count())
+            PY
+            echo "SIMPLYBOOK_RECENT_RESULT"
+            journalctl -u aesthetic-simplybook-sync.service --since "2026-11-04 21:55:00 UTC" --no-pager --output=cat | grep -E 'SIMPLYBOOK_NOTES_SYNC_JSON|SimplyBook continuous sync completed|calendar notes rate limited|Too many attempts|Traceback|error' | tail -12 || true
+            echo "PRODUCTION_CONFLICT_VERIFIED"
