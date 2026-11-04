@@ -184,8 +184,16 @@ jobs:
                         if not raw.startswith(b"PGDMP"):continue
                         with tempfile.NamedTemporaryFile(prefix="incidentpg-",suffix=".dump") as tmp:
                             tmp.write(raw);tmp.flush()
-                            r=subprocess.run(["pg_restore","-a","-t","booking_blockedperiod",tmp.name],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=25)
-                            print("PG_RESTORE_DIAGNOSTIC","archive_date",dt.isoformat(),"size",len(raw),"exit",r.returncode,"stderr",r.stderr.decode(errors="replace")[:240].replace(str(tmp.name),"TEMP"),"output_bytes",len(r.stdout))
+                            r=subprocess.run(["pg_restore","-a","-t","booking_blockedperiod","-f","/dev/stdout",tmp.name],stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=25)
+                            from booking.models import BlockedPeriod
+                            from zoneinfo import ZoneInfo
+                            from datetime import datetime
+                            from booking.management.commands.sync_simplybook_notes import MARKER_SEP
+                            block=BlockedPeriod.objects.filter(starts_at=datetime(2026,11,4,16,0,tzinfo=ZoneInfo("Europe/Berlin")),reason__icontains="Gesperrt").first()
+                            marker=block.reason[block.reason.index(MARKER_SEP):].encode("utf-8") if block and MARKER_SEP in block.reason else b""
+                            has_marker=bool(marker and marker in r.stdout)
+                            has_escaped=bool(marker and marker.decode("utf-8").encode("unicode_escape") in r.stdout)
+                            print("PG_RESTORE_DIAGNOSTIC","archive_date",dt.isoformat(),"size",len(raw),"exit",r.returncode,"error",r.stderr.decode(errors="replace")[:200].replace(str(tmp.name),"TEMP"),"output_bytes",len(r.stdout),"contains_exact_block_marker",has_marker or has_escaped,"contains_date",b"2026-11-04" in r.stdout)
                     except Exception as e:
                         print("PG_RESTORE_READ_ERROR",str(type(e).__name__))
             PY
