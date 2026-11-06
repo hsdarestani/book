@@ -1,0 +1,27 @@
+name: Verify A+ Esthetic iOS admin session persistence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'booking/auth_views.py'
+      - 'booking/app_admin_middleware.py'
+      - 'booking/test_ios_admin_session.py'
+      - '.github/workflows/verify-ios-admin-session.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ios-admin-session:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: iPhone session persistence and Android regression
+        run: python manage.py test booking.test_ios_admin_session -v 2
