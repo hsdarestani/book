@@ -281,6 +281,18 @@ class APlusAdminNavigationMiddleware:
             return HttpResponseForbidden('Dieser Zugang ist nur zum Ansehen freigeschaltet.')
 
         response = self.get_response(request)
+        # Keep only native iOS app SSO sessions alive while the admin is active.
+        # This reissues the persistent cookie in WKWebView after each successful
+        # management page load; other users and explicit logout are unchanged.
+        if (
+            request.path.startswith('/verwaltung/')
+            and request.method == 'GET'
+            and response.status_code == 200
+            and getattr(request.user, 'is_authenticated', False)
+            and request.session.get('aplus_app_admin')
+            and any(device in request.META.get('HTTP_USER_AGENT', '') for device in ('iPhone', 'iPad', 'iPod'))
+        ):
+            request.session.modified = True
         if not request.path.startswith('/verwaltung/'):
             return response
         if response.status_code != 200 or 'text/html' not in response.get('Content-Type', ''):
