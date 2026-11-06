@@ -2,10 +2,16 @@
 from unittest.mock import patch
 
 from django.conf import settings
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    },
+)
 class IosAppAdminSessionTests(TestCase):
     identity = {"id": 912341, "name": "Test Admin", "email": "ios-admin@example.test"}
 
