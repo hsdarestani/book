@@ -149,9 +149,10 @@ def app_admin_sso(request):
     profile = AdminAccessProfile.objects.filter(user=user, view_only=True, staff__isnull=False).first()
 
     login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-    # Persist the native app's management session across iOS WebView restarts.
-    # Only A+ app SSO sessions receive the 30-day inactivity window.
-    request.session.set_expiry(60 * 60 * 24 * 30)
+    # iOS WKWebView needs a persistent admin cookie across app restarts.
+    # Android and ordinary browser staff sessions retain their existing policy.
+    if any(name in request.META.get('HTTP_USER_AGENT', '') for name in ('iPhone', 'iPad', 'iPod')):
+        request.session.set_expiry(60 * 60 * 24 * 30)
     request.session['aplus_app_admin'] = True
     request.session['aplus_admin_external_id'] = external_id
     authorization = str(request.headers.get('Authorization') or '').strip()
