@@ -133,6 +133,7 @@ def approved_patient_representatives(customers, query=''):
     groups = approved_patient_groups(customers)
     needle = str(query or '').strip().casefold()
     result = []
+    decisions = list(latest_decisions().values())
     for group in groups:
         searchable = ' '.join(
             f'{item.first_name} {item.last_name} {item.email} {item.phone}'
@@ -144,7 +145,7 @@ def approved_patient_representatives(customers, query=''):
         # record or clinical document ownership is ever rewritten.
         group_ids = {item.pk for item in group}
         approvals = [
-            decision for decision in latest_decisions().values()
+            decision for decision in decisions
             if decision.action == 'approve'
             and decision.primary_customer_id in group_ids
             and decision.left_id in group_ids and decision.right_id in group_ids
