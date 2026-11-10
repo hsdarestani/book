@@ -110,8 +110,9 @@
 
           <tr>
             <td style="padding:18px 28px 6px;text-align:center;">
-              <a href="{{ email_cancel_url }}" style="display:inline-block;background:#342d25;color:#fff;text-decoration:none;border-radius:12px;padding:14px 22px;font-size:13px;font-weight:700;">Termin stornieren · ohne Anmeldung</a>
+              {% if email_cancel_allowed %}<a href="{{ email_cancel_url }}" style="display:inline-block;background:#342d25;color:#fff;text-decoration:none;border-radius:12px;padding:14px 22px;font-size:13px;font-weight:700;">Termin stornieren · ohne Anmeldung</a>
               <p style="margin:10px auto 0;max-width:460px;font-size:12px;line-height:1.6;color:#756e64;">Ein sicherer Bestätigungsschritt. Du kannst deinen Termin bis {{ cancellation_deadline_hours }} Stunden vor Beginn online stornieren. Eine App-Anmeldung ist nicht erforderlich.</p>
+              {% else %}<p style="margin:10px auto;max-width:460px;font-size:13px;line-height:1.6;color:#756e64">Dieser Termin stammt aus SimplyBook. Für die Stornierung kontaktiere bitte die Praxis, damit beide Kalender übereinstimmen.</p>{% endif %}
               <p style="margin:10px auto 0;max-width:460px;font-size:12px;line-height:1.6"><a href="{{ manage_booking_url }}" style="color:#846634">Weitere Terminänderungen in der App</a></p>
             </td>
           </tr>
