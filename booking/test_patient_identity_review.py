@@ -90,6 +90,16 @@ class PatientIdentityReviewTests(TestCase):
         self.assertEqual(self.client.get(self.path).status_code, 403)
         self.assertEqual(self.client.post(self.path, self.payload()).status_code, 403)
 
+    def test_reviewer_choice_of_primary_is_reflected_in_patient_directory(self):
+        chosen = self.payload()
+        chosen['primary_id'] = str(self.second.pk)
+        response = self.client.post(self.path, chosen)
+        self.assertEqual(response.status_code, 302)
+        result = approved_patient_representatives([self.first, self.second])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].pk, self.second.pk)
+        self.assertEqual(Customer.objects.count(), 2)
+
     def test_missing_checkbox_does_not_link_records(self):
         response = self.client.post(self.path, self.payload(confirmed=False))
         self.assertEqual(response.status_code, 409)
