@@ -22,12 +22,12 @@ footer a{color:#7a592b;text-decoration:underline}
 <header><strong>A+ESTHETIC</strong></header>
 {% if done %}<h1>Termin storniert</h1>{% else %}<h1>Termin stornieren</h1>{% endif %}
 <p>Du kannst diesen Termin direkt aus deiner E-Mail verwalten. Eine Anmeldung ist nicht erforderlich.</p>
-<div class="details">
+{% if show_details %}<div class="details">
 <div><span>Behandlung</span><b>{{ appointment.service.name }}</b></div>
 <div><span>Datum</span><b>{{ local_start|date:"d.m.Y" }}</b></div>
 <div><span>Uhrzeit</span><b>{{ local_start|date:"H:i" }}</b></div>
 <div><span>Behandler</span><b>{{ appointment.staff.display_name }}</b></div>
-</div>
+</div>{% endif %}
 {% if message %}<p role="status" class="info {% if done %}good{% else %}bad{% endif %}">{{ message }}</p>{% endif %}
 {% if can_cancel and not done %}
 <form method="post">

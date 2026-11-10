@@ -105,6 +105,7 @@ def _booking_email_context(appointment):
         'calendar_url': f'{base_url}/termin/{appointment.public_id}/kalender.ics',
         'manage_booking_url': 'https://app.a-esthetic.de/?bereich=termine',
         'email_cancel_url': _email_cancel_url(appointment),
+        'email_cancel_allowed': not (appointment.idempotency_key or '').startswith('simplybook-'),
         'cancellation_deadline_hours': max(1, int(getattr(settings, 'BOOKING_CHANGE_DEADLINE_HOURS', 24))),
         'directions_url': DIRECTIONS_URL,
         'instagram_url': INSTAGRAM_URL,
@@ -123,6 +124,11 @@ def send_customer_booking_email(appointment):
     calendar_url = context['calendar_url']
 
     subject = 'Deine Terminbestätigung bei A+ Esthetic'
+    cancel_instruction = (
+        f'Termin ohne Anmeldung stornieren: {context["email_cancel_url"]}\n'
+        if context['email_cancel_allowed']
+        else 'Für die Stornierung dieses SimplyBook-Termins bitte die Praxis kontaktieren.\n'
+    )
     customer_text = (
         f'Hallo {appointment.customer.first_name},\n'
         'hier findest du alle wichtigen Informationen zu deinem Termin auf einen Blick.\n\n'
@@ -134,8 +140,8 @@ def send_customer_booking_email(appointment):
         f'A+ Esthetic Frankfurt · {CLINIC_ADDRESS}\n'
         f'Telefon: {CLINIC_PHONE}\n\n'
         f'Zum Kalender hinzufügen: {calendar_url}\n'
-        f'Termin ohne Anmeldung stornieren: {context["email_cancel_url"]}\n'
-        f'Weitere Terminänderungen in der App: {context["manage_booking_url"]}\n'
+        + cancel_instruction
+        + f'Weitere Terminänderungen in der App: {context["manage_booking_url"]}\n'
         f'Online-Stornierung bis {context["cancellation_deadline_hours"]} Stunden vor Terminbeginn möglich.\n'
         f'Wegbeschreibung: {DIRECTIONS_URL}\n'
         f'Instagram: {INSTAGRAM_URL}\n'

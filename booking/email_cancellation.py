@@ -56,11 +56,12 @@ def _validate_email_token(token, appointment):
     )
 
 
-def _render(request, appointment, *, message='', status=200, done=False, can_cancel=False, token=''):
+def _render(request, appointment, *, message='', status=200, done=False, can_cancel=False, token='', show_details=True):
     local = timezone.localtime(appointment.starts_at)
     response = render(request, 'booking/email_cancellation.html', {
         'appointment': appointment,
         'local_start': local,
+        'show_details': show_details,
         'message': message,
         'done': done,
         'can_cancel': can_cancel,
@@ -86,7 +87,7 @@ def cancel_from_email(request, appointment_id):
     if not _validate_email_token(token, item):
         return _render(request, item,
                        message='Dieser Link ist ungültig oder abgelaufen. Bitte kontaktiere die Praxis.',
-                       status=403)
+                       status=403, show_details=False)
 
     # Imported SimplyBook slots are owned by the upstream calendar. Changing
     # only our local mirror would make the importer restore the booking and
@@ -118,7 +119,7 @@ def cancel_from_email(request, appointment_id):
         if not _validate_email_token(token, item):
             return _render(request, item,
                            message='Die Termindaten wurden geändert. Bitte verwende die neue Bestätigung.',
-                           status=403)
+                           status=403, show_details=False)
         if item.status == 'cancelled':
             return _render(request, item, message='Dieser Termin ist bereits storniert.', done=True)
         if item.status not in ('new', 'confirmed') or timezone.now() > (
