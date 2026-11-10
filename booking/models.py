@@ -267,7 +267,7 @@ class PatientIdentityDecision(models.Model):
 
     class Meta:
         ordering = ['-created_at', '-pk']
-        indexes = [models.Index(fields=['left', 'right', '-pk'], name='patient_decision_pair_idx')]
+        indexes = [models.Index(fields=['left', 'right', '-id'], name='patient_decision_pair_idx')]
         constraints = [
             models.CheckConstraint(
                 condition=Q(left__lt=models.F('right')),
