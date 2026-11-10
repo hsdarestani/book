@@ -46,15 +46,15 @@ button.primary{background:#302a23;color:white;border-color:#302a23}
 </head><body><main>
 <header><div><span class="eyebrow">A+ ESTHETIC · VERWALTUNG</span><h1>Patientenabgleich</h1></div>
 <a href="/verwaltung/app/patients/">Zurück zu Patientenakten</a></header>
-<p class="hint">Mögliche doppelte Patientenprofile werden vorgeschlagen, nicht automatisch zusammengeführt.
-Nach deiner Bestätigung erscheinen die Akten im internen Patientenverlauf zusammen.
+<p class="hint">Profile mit identischem vollständigen Namen und Telefonnummer werden automatisch in der Verwaltungsansicht zusammen angezeigt. Unterschiedliche E-Mails bleiben erhalten.
+Buchungen bleiben unter ihren ursprünglichen Profilen erhalten.
 Originalprofile, Arztzuordnungen, externe SimplyBook-IDs, Termine und Dateien bleiben unverändert. Entscheidungen lassen sich rückgängig machen.</p>
 {% if notice %}<p class="notice" role="status">Entscheidung gespeichert.</p>{% endif %}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
 {% for pair in candidates %}
 <article class="review">
-<h2>Abgleich prüfen</h2>
+<h2>{% if pair.auto_linked %}Automatisch verknüpft{% else %}Abgleich prüfen{% endif %}</h2>
 <p class="evidence">{{ pair.reason }}</p>
 <div class="profiles">
 <section class="profile"><strong>{{ pair.left.full_name }}</strong>
@@ -72,13 +72,14 @@ Originalprofile, Arztzuordnungen, externe SimplyBook-IDs, Termine und Dateien bl
 {% csrf_token %}
 <input type="hidden" name="left_id" value="{{ pair.left.pk }}"><input type="hidden" name="right_id" value="{{ pair.right.pk }}">
 <input type="hidden" name="fingerprint" value="{{ pair.fingerprint }}">
-<fieldset><legend>Welches Profil soll die Hauptakte in der Verwaltung sein?</legend>
+{% if pair.auto_linked %}<input type="hidden" name="primary_id" value="{{ pair.left.pk }}">{% endif %}
+{% if not pair.auto_linked %}<fieldset><legend>Welches Profil soll die Hauptakte in der Verwaltung sein?</legend>
 <label class="choice"><input type="radio" name="primary_id" value="{{ pair.left.pk }}" checked>{{ pair.left.full_name }} · #{{ pair.left.pk }}</label>
 <label class="choice"><input type="radio" name="primary_id" value="{{ pair.right.pk }}">{{ pair.right.full_name }} · #{{ pair.right.pk }}</label>
 </fieldset>
 <label class="checkline"><input type="checkbox" name="confirmed_same_patient"><span>Ich habe beide Profile geprüft und bestätige, dass sie dieselbe Person betreffen.</span></label>
-<div class="actions"><button type="submit" name="action" value="approve" class="primary">Profile verknüpfen</button>
-<button type="submit" name="action" value="reject">Nicht dieselbe Person</button></div>
+<div class="actions"><button type="submit" name="action" value="approve" class="primary">Profile verknüpfen</button>{% endif %}
+<button type="submit" name="action" value="reject">{% if pair.auto_linked %}Falsche Zuordnung trennen{% else %}Nicht dieselbe Person{% endif %}</button></div>
 </form>
 </article>
 {% empty %}
