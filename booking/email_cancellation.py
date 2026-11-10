@@ -92,7 +92,7 @@ def cancel_from_email(request, appointment_id):
     # only our local mirror would make the importer restore the booking and
     # create contradictory cancellation messages. Never offer email-only
     # cancellation on a source-managed appointment.
-    if item.idempotency_key.startswith('simplybook-'):
+    if (item.idempotency_key or '').startswith('simplybook-'):
         return _render(
             request, item,
             message='Dieser Termin wurde über SimplyBook gebucht. Bitte kontaktiere die Praxis für die Stornierung.',
