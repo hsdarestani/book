@@ -16,7 +16,7 @@ from django.views.decorators.http import require_http_methods
 
 from . import patient_portal
 from .invoice_bridge import _request_bridge
-from .customer_identity import duplicate_customer_groups, grouped_customers_for_display
+from .patient_identity_review import approved_patient_groups, approved_patient_representatives, possible_duplicate_pairs
 from .models import Appointment, Customer, PatientRecord, WhatsAppTemplate
 
 
@@ -171,14 +171,14 @@ def _patient_context(request):
     if doctor_staff:
         qs = qs.filter(pk__in=_own_customer_ids(doctor_staff))
     all_customers = list(qs)
-    groups = duplicate_customer_groups(all_customers)
+    groups = approved_patient_groups(all_customers)
     group_by_customer_id = {}
     for group in groups:
         ids = [item.pk for item in group]
         for item in group:
             group_by_customer_id[item.pk] = ids
 
-    customers = grouped_customers_for_display(all_customers, query=query)[:250]
+    customers = approved_patient_representatives(all_customers, query=query)[:250]
 
     all_ids = [item.pk for item in all_customers]
     appointment_counts = {
@@ -308,6 +308,7 @@ def _patient_context(request):
         'whatsapp_templates': whatsapp_templates,
         'salutation_choices': Customer.SALUTATION,
         'view_only': _local_view_only(request),
+        'can_review_patient_links': bool(request.session.get('aplus_app_admin') is True and not _local_view_only(request)),
     }
 
 

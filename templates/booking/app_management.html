@@ -812,7 +812,7 @@ html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-custom
   <section class="premium-customer-panel" aria-label="Kundenverzeichnis" style="width:100%!important;max-width:100%!important;margin:0!important;padding:0 0 16px!important;overflow:hidden!important;box-sizing:border-box!important;">
     <div class="premium-list-heading" style="width:100%!important;box-sizing:border-box!important;margin:0 0 14px!important;padding:22px 20px!important;border-radius:0!important;">
       <div><span class="eyebrow">KUNDENVERZEICHNIS</span><h2>Patienten finden</h2><p>Patientenakten, Termine und Kontaktinformationen auf einen Blick.</p></div>
-      <span class="premium-list-count">{{ patients|length }} angezeigte Profile</span>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px">{% if can_review_patient_links %}<a href="/verwaltung/app/identity-review/" style="display:inline-flex;align-items:center;min-height:44px;padding:9px 14px;background:#29251f;color:#fff;border-radius:12px;text-decoration:none;font-size:13px;font-weight:750">Doppelte Profile prüfen</a>{% endif %}<span class="premium-list-count">{{ patients|length }} angezeigte Profile</span></div>
     </div>
     <form method="get" class="app-search" role="search" style="width:calc(100% - 24px)!important;margin:0 12px 14px!important;box-sizing:border-box!important;">
       <label for="premium-patient-search">Name, E-Mail oder Telefonnummer</label>
