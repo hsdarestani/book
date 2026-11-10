@@ -1,0 +1,30 @@
+name: Verify automatic patient grouping and email cancellations
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "booking/patient_identity_review.py"
+      - "booking/app_management_views.py"
+      - "booking/email_cancellation.py"
+      - "booking/emails.py"
+      - "booking/test_email_cancellation.py"
+      - "booking/test_patient_identity_review.py"
+      - ".github/workflows/verify-email-cancel-auto-group.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python manage.py check
+      - run: python manage.py test booking.test_email_cancellation booking.test_patient_identity_review booking.test_mobile_booking_recovery booking.tests.BookingApiTests --verbosity 2
