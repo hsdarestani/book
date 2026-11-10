@@ -1,10 +1,11 @@
 from django.urls import path
-from . import record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
+from . import email_cancellation, record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
     path('', views.booking_page, name='home'),
     path('termin/<uuid:appointment_id>/kalender.ics', calendar.appointment_calendar, name='appointment_calendar'),
+    path('termin/<uuid:appointment_id>/stornieren/', email_cancellation.cancel_from_email, name='email_booking_cancel'),
     # Preserve the long-standing root/calendar contract for existing deep links and tests.
     path('verwaltung/', admin_views.dashboard_proxy, name='dashboard'),
     path('verwaltung/dashboard/', admin_dashboard_views.admin_dashboard, name='admin_dashboard'),

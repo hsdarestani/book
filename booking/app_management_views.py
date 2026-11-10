@@ -215,6 +215,17 @@ def _patient_context(request):
         group_ids = group_by_customer_id.get(selected.pk, [selected.pk])
         selected_group = [item for item in all_customers if item.pk in set(group_ids)]
         selected.display_profile_count = len(selected_group)
+        selected.identity_sources = []
+        for linked in sorted(selected_group, key=lambda item: item.pk):
+            selected.identity_sources.append({
+                'id': linked.pk,
+                'email': linked.email,
+                'phone': linked.phone,
+                'name': linked.full_name,
+                'appointments': appointment_counts.get(linked.pk, 0),
+                'documents': record_counts.get(linked.pk, 0),
+                'is_current': linked.pk == selected.pk,
+            })
 
         appointments = list(
             Appointment.objects.select_related('customer', 'service', 'staff')

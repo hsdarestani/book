@@ -79,6 +79,18 @@ def _send_html_mail(subject, text_body, html_body, recipients, reply_to=None, bc
     message.send(fail_silently=False)
 
 
+def _email_cancel_url(appointment):
+    # Email links intentionally work in Safari without the app login.
+    # GET asks for confirmation; only a CSRF-protected POST cancels.
+    from urllib.parse import quote
+    from .email_cancellation import cancellation_token
+    base_url = _public_base_url()
+    return (
+        f'{base_url}/termin/{appointment.public_id}/stornieren/'
+        f'?token={quote(cancellation_token(appointment), safe="")}'
+    )
+
+
 def _booking_email_context(appointment):
     local_start = timezone.localtime(appointment.starts_at)
     base_url = _public_base_url()
@@ -92,6 +104,7 @@ def _booking_email_context(appointment):
         'admin_url': f'{base_url}/verwaltung/#termine',
         'calendar_url': f'{base_url}/termin/{appointment.public_id}/kalender.ics',
         'manage_booking_url': 'https://app.a-esthetic.de/?bereich=termine',
+        'email_cancel_url': _email_cancel_url(appointment),
         'cancellation_deadline_hours': max(1, int(getattr(settings, 'BOOKING_CHANGE_DEADLINE_HOURS', 24))),
         'directions_url': DIRECTIONS_URL,
         'instagram_url': INSTAGRAM_URL,
@@ -121,7 +134,8 @@ def send_customer_booking_email(appointment):
         f'A+ Esthetic Frankfurt · {CLINIC_ADDRESS}\n'
         f'Telefon: {CLINIC_PHONE}\n\n'
         f'Zum Kalender hinzufügen: {calendar_url}\n'
-        f'Termin verwalten oder stornieren (Anmeldung erforderlich): {context["manage_booking_url"]}\n'
+        f'Termin ohne Anmeldung stornieren: {context["email_cancel_url"]}\n'
+        f'Weitere Terminänderungen in der App: {context["manage_booking_url"]}\n'
         f'Online-Stornierung bis {context["cancellation_deadline_hours"]} Stunden vor Terminbeginn möglich.\n'
         f'Wegbeschreibung: {DIRECTIONS_URL}\n'
         f'Instagram: {INSTAGRAM_URL}\n'

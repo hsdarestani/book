@@ -103,6 +103,11 @@ def identity_review(request):
 
 def _render_review(request, *, error='', status=200):
     rows = possible_duplicate_pairs(limit=150)
+    for pair in rows:
+        pair['auto_linked'] = (
+            pair['reason'].startswith('Gleicher Vorname, Nachname und Telefonnummer')
+            and (pair['decision'] is None or pair['decision'].action != 'revoke')
+        )
     relevant_ids = set()
     for item in rows:
         relevant_ids.update((item['left'].pk, item['right'].pk))

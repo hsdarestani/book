@@ -10,8 +10,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from . import app_management_views
-from .customer_identity import duplicate_customer_groups
-from .patient_identity_review import approved_patient_representatives
+from .patient_identity_review import approved_patient_groups, approved_patient_representatives
 from .models import Appointment, Customer, WhatsAppTemplate
 
 
@@ -128,7 +127,7 @@ def admin_dashboard(request):
         and customer.email.lower().endswith('@invalid.local')
         and not customer.phone.strip()
     )]
-    customer_groups = duplicate_customer_groups(identified_customers)
+    customer_groups = approved_patient_groups(identified_customers)
     contact_group_count = len(customer_groups)
     anonymous_booking_count = len(all_customers) - len(identified_customers)
     # Do not silently display unreviewed shared-phone accounts as one clinical profile.

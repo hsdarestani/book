@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light"><title>Termin stornieren | A+ Esthetic</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#27231d;background:#f7f4ee}
+*{box-sizing:border-box}body{margin:0;padding:18px;min-height:100vh;display:grid;place-items:center}
+main{width:min(100%,500px);background:#fff;border:1px solid #e7ddcc;border-radius:24px;padding:26px;box-shadow:0 15px 42px #29201211}
+header{text-align:center;padding:3px 0 22px;border-bottom:1px solid #ede5da}
+header strong{font:600 27px Georgia,serif;letter-spacing:.04em;color:#70502c}
+h1{font-size:26px;font-weight:650;letter-spacing:-.035em;line-height:1.2;margin:25px 0 8px}
+p{color:#736a5f;font-size:14px;line-height:1.62}
+.details{padding:17px;border-radius:16px;background:#faf6ef;margin:19px 0 24px}
+.details>div{display:flex;gap:15px;justify-content:space-between;padding:7px 0;font-size:13px}
+.details span{color:#766d63}.details b{text-align:right}
+button{width:100%;padding:14px;border-radius:13px;border:0;background:#352d23;color:white;min-height:51px;font:700 15px system-ui;cursor:pointer}
+.info{background:#f4f1e9;padding:13px 16px;border-radius:12px;color:#5d503b;font-size:14px;line-height:1.6}
+.good{background:#ebf6e8;color:#2f5e36}.bad{background:#fff0ee;color:#923f31}
+footer{margin-top:20px;text-align:center;color:#82796e;font-size:12px;line-height:1.6}
+footer a{color:#7a592b;text-decoration:underline}
+</style></head><body><main>
+<header><strong>A+ESTHETIC</strong></header>
+{% if done %}<h1>Termin storniert</h1>{% else %}<h1>Termin stornieren</h1>{% endif %}
+<p>Du kannst diesen Termin direkt aus deiner E-Mail verwalten. Eine Anmeldung ist nicht erforderlich.</p>
+<div class="details">
+<div><span>Behandlung</span><b>{{ appointment.service.name }}</b></div>
+<div><span>Datum</span><b>{{ local_start|date:"d.m.Y" }}</b></div>
+<div><span>Uhrzeit</span><b>{{ local_start|date:"H:i" }}</b></div>
+<div><span>Behandler</span><b>{{ appointment.staff.display_name }}</b></div>
+</div>
+{% if message %}<p role="status" class="info {% if done %}good{% else %}bad{% endif %}">{{ message }}</p>{% endif %}
+{% if can_cancel and not done %}
+<form method="post">
+{% csrf_token %}
+<input type="hidden" name="token" value="{{ token }}">
+<button type="submit">Ja, diesen Termin verbindlich stornieren</button>
+</form>
+<p style="font-size:12px">Bis {{ deadline_hours }} Stunden vor Terminbeginn möglich. Dieser Link gilt nur für diesen einen Termin.</p>
+{% endif %}
+<footer>Fragen? <a href="tel:+496971417012">069 71417012</a> · A+ Esthetic Frankfurt</footer>
+</main></body></html>

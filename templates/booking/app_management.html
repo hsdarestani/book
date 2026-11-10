@@ -397,10 +397,29 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
   {% if selected_customer %}
   <div class="app-patient-toolbar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
     <a class="app-back-link" data-customer-back href="/verwaltung/app/patients/{% if query %}?q={{ query|urlencode }}{% endif %}">‹ Alle Kunden</a>
-    {% if can_review_patient_links %}<a href="/verwaltung/app/identity-review/" aria-label="Mögliche doppelte Patientenprofile überprüfen" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 14px;border-radius:13px;border:1px solid #d6c9ae;background:#fbf6e9;color:#584421;text-decoration:none;font-size:13px;font-weight:750">Doppelte Profile prüfen</a>{% endif %}
+    
   </div>
-  <section class="patient-command-card"><div class="patient-command-glow"></div><div class="patient-command-avatar">{{ selected_customer.last_name|slice:":1" }}{{ selected_customer.first_name|slice:":1" }}</div><div class="patient-command-copy"><span>PATIENTENPROFIL</span><h2>{{ selected_customer.first_name }} {{ selected_customer.last_name }}</h2><p>{{ selected_customer.email }}{% if selected_customer.phone %} · {{ selected_customer.phone }}{% endif %}</p>{% if selected_profile_count > 1 %}<div class="patient-linked-badge">{{ selected_profile_count }} Profile zusammen angezeigt · keine Daten gelöscht</div>{% endif %}</div><div class="patient-command-actions">{% if call_url %}<a href="{{ call_url }}">☎ Anrufen</a>{% endif %}{% if whatsapp_url %}<a href="{{ whatsapp_url }}" target="_blank" rel="noopener">◉ WhatsApp</a>{% endif %}</div></section>
+  <section class="patient-command-card"><div class="patient-command-glow"></div><div class="patient-command-avatar">{{ selected_customer.last_name|slice:":1" }}{{ selected_customer.first_name|slice:":1" }}</div><div class="patient-command-copy"><span>PATIENTENPROFIL</span><h2>{{ selected_customer.first_name }} {{ selected_customer.last_name }}</h2><p>{{ selected_customer.email }}{% if selected_customer.phone %} · {{ selected_customer.phone }}{% endif %}</p>{% if selected_profile_count > 1 %}<div class="patient-linked-badge">{{ selected_profile_count }} Profile in einer Ansicht · Termine unverändert</div>{% endif %}</div><div class="patient-command-actions">{% if call_url %}<a href="{{ call_url }}">☎ Anrufen</a>{% endif %}{% if whatsapp_url %}<a href="{{ whatsapp_url }}" target="_blank" rel="noopener">◉ WhatsApp</a>{% endif %}</div></section>
 
+  {% if selected_profile_count > 1 %}
+  <details class="patient-identity-aliases" style="margin:13px 12px 15px;padding:14px 16px;background:#fff;border:1px solid #e5decf;border-radius:17px;box-shadow:0 5px 16px #231f1708">
+    <summary style="cursor:pointer;font-size:14px;font-weight:750;color:#4a3926;min-height:28px">
+      {{ selected_profile_count }} verknüpfte Profile · Alle Buchungen und Akten im Überblick
+    </summary>
+    <p style="color:#766b5b;line-height:1.5;font-size:12px;margin:9px 0 13px">
+      Automatisch nach identischem Vor- und Nachnamen sowie Telefonnummer abgeglichen oder früher bestätigt.
+      Jede Buchung bleibt unverändert bei ihrem ursprünglichen Konto. Keine Daten wurden gelöscht.
+    </p>
+    {% for source in selected_customer.identity_sources %}
+      <div style="padding:11px 0;border-top:1px solid #eee7db;font-size:12px;overflow-wrap:anywhere">
+        <strong style="display:block;margin-bottom:3px;color:#312a20">{{ source.name }} · Profil #{{ source.id }}{% if source.is_current %} · Hauptansicht{% endif %}</strong>
+        <div>{{ source.email|default:"Keine E-Mail" }} · {{ source.phone|default:"Keine Telefonnummer" }}</div>
+        <div style="color:#897967;margin-top:3px">{{ source.appointments }} Termine · {{ source.documents }} Akteneinträge</div>
+      </div>
+    {% endfor %}
+    {% if can_review_patient_links %}<p style="margin:10px 0 2px"><a href="/verwaltung/app/identity-review/" style="font-size:12px;color:#7d6847">Zuordnung stimmt nicht? Korrigieren</a></p>{% endif %}
+  </details>
+  {% endif %}
   <nav id="patient-tab-nav" class="customer-profile-tabs" aria-label="Kundenprofil Bereiche" data-clinic-profile-build="4">
     <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
       <input type="hidden" name="customer" value="{{ selected_customer.id }}">
@@ -815,7 +834,7 @@ html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-custom
   <section class="premium-customer-panel" aria-label="Kundenverzeichnis" style="width:100%!important;max-width:100%!important;margin:0!important;padding:0 0 16px!important;overflow:hidden!important;box-sizing:border-box!important;">
     <div class="premium-list-heading" style="width:100%!important;box-sizing:border-box!important;margin:0 0 14px!important;padding:22px 20px!important;border-radius:0!important;">
       <div><span class="eyebrow">KUNDENVERZEICHNIS</span><h2>Patienten finden</h2><p>Patientenakten, Termine und Kontaktinformationen auf einen Blick.</p></div>
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px">{% if can_review_patient_links %}<a href="/verwaltung/app/identity-review/" style="display:inline-flex;align-items:center;min-height:44px;padding:9px 14px;background:#29251f;color:#fff;border-radius:12px;text-decoration:none;font-size:13px;font-weight:750">Doppelte Profile prüfen</a>{% endif %}<span class="premium-list-count">{{ patients|length }} angezeigte Profile</span></div>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px"><span class="premium-list-count">{{ patients|length }} angezeigte Profile</span></div>
     </div>
     <form method="get" class="app-search" role="search" style="width:calc(100% - 24px)!important;margin:0 12px 14px!important;box-sizing:border-box!important;">
       <label for="premium-patient-search">Name, E-Mail oder Telefonnummer</label>

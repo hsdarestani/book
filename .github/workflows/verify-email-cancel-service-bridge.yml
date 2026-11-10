@@ -1,0 +1,38 @@
+name: Verify email cancellation package release bridge (read only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/verify-email-cancel-service-bridge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Probe trusted package release on a nonexistent random booking only
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c "set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            import uuid
+            from booking.notifications import _post_internal, _sync_token
+            print('INTERSERVICE_CREDENTIAL_CONFIGURED', bool(_sync_token()))
+            response = _post_internal('https://app.a-esthetic.de/api/mobile/internal/book-package-release/', {'booking_public_id': str(uuid.uuid4())})
+            print('EMAIL_CANCEL_SERVICE_BRIDGE_OK', response.get('ok') is True)
+            print('NONEXISTENT_BOOKING_CREDIT_UNCHANGED', not bool(response.get('package_released')))
+            if response.get('ok') is not True:
+                raise SystemExit('Secure package release bridge is not operational')
+            PY"

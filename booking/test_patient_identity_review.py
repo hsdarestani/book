@@ -57,6 +57,55 @@ class PatientIdentityReviewTests(TestCase):
             data['confirmed_same_patient'] = 'on'
         return data
 
+    def test_auto_grouping_keeps_booking_foreign_keys_and_email_aliases(self):
+        self.assertEqual(len(approved_patient_groups([self.first, self.second])), 1)
+        self.assertEqual(PatientIdentityDecision.objects.count(), 0)
+        grouped = approved_patient_representatives([self.first, self.second], query='anna.new@example.test')
+        self.assertEqual(len(grouped), 1)
+        self.assertEqual(set(grouped[0].display_group_ids), {self.first.pk, self.second.pk})
+        self.assertEqual(set(grouped[0].display_group_emails),
+                         {'anna.original@example.test', 'anna.new@example.test'})
+
+    def test_bookings_from_both_emails_appear_together_without_moving_or_cancelling(self):
+        service = Service.objects.create(name='Consult', slug='both-aliases-consult', duration_minutes=15)
+        staff = StaffMember.objects.create(display_name='Dr. Group Test', active=True)
+        staff.services.add(service)
+        start = timezone.now() + timedelta(days=5)
+        first_booking = Appointment.objects.create(
+            customer=self.first, service=service, staff=staff,
+            starts_at=start, ends_at=start + timedelta(minutes=15),
+            source='app', status='confirmed',
+        )
+        second_booking = Appointment.objects.create(
+            customer=self.second, service=service, staff=staff,
+            starts_at=start + timedelta(hours=1),
+            ends_at=start + timedelta(hours=1, minutes=15),
+            source='web', status='new',
+        )
+        page = self.client.get(f'/verwaltung/app/patients/?customer={self.first.pk}&tab=appointments')
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, '2 verknüpfte Profile')
+        self.assertContains(page, 'anna.new@example.test')
+        first_booking.refresh_from_db()
+        second_booking.refresh_from_db()
+        self.assertEqual(first_booking.customer_id, self.first.pk)
+        self.assertEqual(second_booking.customer_id, self.second.pk)
+        self.assertEqual(first_booking.status, 'confirmed')
+        self.assertEqual(second_booking.status, 'new')
+        self.assertEqual(Customer.objects.count(), 2)
+
+    def test_explicit_rejection_prevents_relinking_through_a_third_profile(self):
+        third = Customer.objects.create(
+            first_name='Anna', last_name='Muster',
+            phone=self.first.phone, email='third@example.test',
+        )
+        response = self.client.post(self.path, self.payload(action='reject', confirmed=False))
+        self.assertEqual(response.status_code, 302)
+        groups = approved_patient_groups([self.first, self.second, third])
+        self.assertEqual(len(groups), 2)
+        self.assertFalse(any({self.first.pk, self.second.pk}.issubset(
+            {x.pk for x in group}) for group in groups))
+
     def test_matching_phone_and_name_different_email_produces_review_candidate(self):
         pairs = possible_duplicate_pairs()
         self.assertEqual(len(pairs), 1)
@@ -105,7 +154,7 @@ class PatientIdentityReviewTests(TestCase):
             f'/verwaltung/app/patients/?customer={self.first.pk}&tab=records'
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Doppelte Profile prüfen')
+        self.assertContains(response, 'verknüpfte Profile')
         self.assertContains(response, '/verwaltung/app/identity-review/')
 
     def test_ordinary_staff_browser_without_app_sso_gets_helpful_403(self):
@@ -151,7 +200,7 @@ class PatientIdentityReviewTests(TestCase):
             customer=self.second, appointment=appointment,
             kind='note', title='Vertraulicher Eintrag',
         )
-        self.assertEqual([len(group) for group in approved_patient_groups([self.first, self.second])], [1, 1])
+        self.assertEqual([len(group) for group in approved_patient_groups([self.first, self.second])], [2])
 
         response = self.client.post(self.path, self.payload())
         self.assertEqual(response.status_code, 302, response.content)
@@ -178,18 +227,20 @@ class PatientIdentityReviewTests(TestCase):
         self.assertIsNone(resolved)
         self.assertEqual(conflict, 'email_phone_conflict')
 
-        # Both medical histories are visible to staff only AFTER approval.
+        # Staff-only view groups matching original profiles without moving clinical records.
         page = self.client.get(f'/verwaltung/app/patients/?customer={self.first.pk}&tab=records')
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, 'Vertraulicher Eintrag')
 
-    def test_before_approval_patient_records_remain_separate(self):
+    def test_automatic_grouping_shows_both_original_histories_without_mutation(self):
         PatientRecord.objects.create(
             customer=self.second, kind='note', title='Eintrag nur in Profil zwei',
         )
         page = self.client.get(f'/verwaltung/app/patients/?customer={self.first.pk}&tab=records')
         self.assertEqual(page.status_code, 200)
-        self.assertNotContains(page, 'Eintrag nur in Profil zwei')
+        self.assertContains(page, 'Eintrag nur in Profil zwei')
+        self.assertEqual(Customer.objects.count(), 2)
+        self.assertEqual(PatientIdentityDecision.objects.count(), 0)
 
     def test_rejection_is_logged_and_suppresses_candidate(self):
         response = self.client.post(self.path, self.payload(action='reject', confirmed=False))
