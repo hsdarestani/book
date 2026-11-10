@@ -1,0 +1,39 @@
+name: Verify reviewed patient identity linking
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "booking/models.py"
+      - "booking/customer_identity.py"
+      - "booking/patient_identity_review.py"
+      - "booking/patient_identity_views.py"
+      - "booking/app_management_views.py"
+      - "booking/urls.py"
+      - "booking/migrations/0024_patient_identity_decision.py"
+      - "booking/test_patient_identity_review.py"
+      - "templates/booking/patient_identity_review.html"
+      - ".github/workflows/verify-patient-identity-review.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Check schema and safe patient review regressions
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+          python manage.py test booking.test_patient_identity_review booking.test_app_management booking.test_duplicate_patient_safety --verbosity 2
