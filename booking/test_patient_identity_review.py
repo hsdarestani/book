@@ -100,6 +100,25 @@ class PatientIdentityReviewTests(TestCase):
         self.assertEqual(result[0].pk, self.second.pk)
         self.assertEqual(Customer.objects.count(), 2)
 
+    def test_valid_app_admin_sees_review_link_in_patient_profile(self):
+        response = self.client.get(
+            f'/verwaltung/app/patients/?customer={self.first.pk}&tab=records'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Doppelte Profile prüfen')
+        self.assertContains(response, '/verwaltung/app/identity-review/')
+
+    def test_ordinary_staff_browser_without_app_sso_gets_helpful_403(self):
+        session = self.client.session
+        session.pop('aplus_app_admin', None)
+        session.save()
+        response = self.client.get(self.path)
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(response, 'Admin-Anmeldung erforderlich', status_code=403)
+        self.assertContains(response, 'im selben Fenster', status_code=403)
+        self.assertNotContains(response, 'anna.original@example.test', status_code=403)
+        self.assertEqual(PatientIdentityDecision.objects.count(), 0)
+
     def test_missing_checkbox_does_not_link_records(self):
         response = self.client.post(self.path, self.payload(confirmed=False))
         self.assertEqual(response.status_code, 409)
