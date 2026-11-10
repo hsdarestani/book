@@ -140,9 +140,19 @@ def approved_patient_representatives(customers, query=''):
         ).casefold()
         if needle and needle not in searchable:
             continue
-        # Keep the oldest record as the canonical label. No source record is
-        # deleted and this choice affects staff display only.
-        representative = min(group, key=lambda item: item.pk)
+        # The chosen primary profile is only a label preference; no source
+        # record or clinical document ownership is ever rewritten.
+        group_ids = {item.pk for item in group}
+        approvals = [
+            decision for decision in latest_decisions().values()
+            if decision.action == 'approve'
+            and decision.primary_customer_id in group_ids
+            and decision.left_id in group_ids and decision.right_id in group_ids
+        ]
+        approvals.sort(key=lambda decision: decision.pk, reverse=True)
+        preferred = approvals[0].primary_customer_id if approvals else None
+        representative = next((item for item in group if item.pk == preferred),
+                              min(group, key=lambda item: item.pk))
         representative.display_group_ids = [item.pk for item in group]
         representative.display_profile_count = len(group)
         representative.display_group_emails = [item.email for item in group if normalize_email(item.email)]
