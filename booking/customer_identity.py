@@ -56,6 +56,67 @@ def find_customer(*, email="", phone="", first_name="", last_name=""):
     return None
 
 
+
+def resolve_app_booking_identity(*, email="", phone="", first_name="", last_name=""):
+    """Safely identify an app booking customer without joining medical records.
+
+    The authenticated app controls this email address. An identical telephone
+    number on a different patient must not prevent this account from booking
+    against its own, uniquely identified email record. In contrast, this
+    resolver never links an unrelated patient through telephone alone.
+    Clinical document ingestion intentionally continues to use the stricter
+    resolve_patient_identity() below.
+    """
+    normalized_email = normalize_email(email)
+    if not normalized_email:
+        return None, "invalid_email"
+
+    first = normalize_name(first_name)
+    last = normalize_name(last_name)
+    incoming_phone = normalize_phone(phone)
+    by_email = list(Customer.objects.filter(email__iexact=normalized_email).order_by("pk"))
+
+    def name_agrees(candidate):
+        return (
+            first and last
+            and normalize_name(candidate.first_name) in ("", "patient", first)
+            and normalize_name(candidate.last_name) in ("", last)
+        )
+
+    if not by_email:
+        # Never inherit a different email owner's medical history from a shared
+        # family telephone number. A fresh app booking gets its own record.
+        if not first or not last:
+            return None, "missing_name"
+        return None, ""
+
+    if len(by_email) > 1:
+        # Legacy SimplyBook imports may create duplicate emails. Select an
+        # unambiguous contact/name match, but never auto-merge the old records.
+        candidates = [
+            candidate for candidate in by_email
+            if (
+                incoming_phone and normalize_phone(candidate.phone) == incoming_phone
+                and name_agrees(candidate)
+            )
+        ]
+        if len(candidates) == 1:
+            return candidates[0], ""
+        return None, "duplicate_email"
+
+    candidate = by_email[0]
+    old_phone = normalize_phone(candidate.phone)
+    # Same authenticated email plus the exact phone identifies this patient,
+    # including cases where an import used a shortened/incorrect display name.
+    if incoming_phone and old_phone == incoming_phone:
+        return candidate, ""
+    # Same email and fully matching name is safe when the customer updated
+    # their telephone. Keep the canonical contact unchanged until clinic review.
+    if name_agrees(candidate):
+        return candidate, ""
+    return None, "identity_mismatch"
+
+
 def duplicate_customer_groups(customers=None):
     """Group exact duplicate identities without changing or deleting records."""
     items = list(customers if customers is not None else Customer.objects.order_by("pk"))

@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "booking/mobile_api.py"
+      - "booking/customer_identity.py"
       - "booking/test_mobile_booking_recovery.py"
       - ".github/workflows/verify-mobile-booking-recovery.yml"
   workflow_dispatch:

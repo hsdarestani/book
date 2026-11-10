@@ -15,7 +15,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .emails import send_booking_emails
-from .customer_identity import resolve_patient_identity
+from .customer_identity import normalize_name, normalize_phone, resolve_app_booking_identity
 from .models import Appointment, Customer, Service, StaffMember
 from .notifications import notify_booking_created, notify_customer_cancelled, notify_customer_rescheduled
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
@@ -72,14 +72,18 @@ def _member(request):
     if not email or '@' not in email:
         return None, _error('valid_email_required', 'Für die Terminbuchung ist eine gültige E-Mail-Adresse erforderlich.', 400)
 
-    full_name = str(member.get('name') or '').strip() or email.split('@', 1)[0]
-    parts = full_name.split()
-    if len(parts) > 1:
-        first_name = ' '.join(parts[:-1])[:80]
-        last_name = parts[-1][:80]
-    else:
-        first_name = full_name[:80]
-        last_name = full_name[:80]
+    # The profile has verified first/last fields. Never synthesize a patient
+    # name from the username or email local-part: that causes false conflicts
+    # against legacy SimplyBook patient records.
+    first_name = str(profile.get('first_name') or '').strip()[:80]
+    last_name = str(profile.get('last_name') or '').strip()[:80]
+    if not first_name or not last_name:
+        display_name = str(member.get('name') or '').strip()
+        if display_name.casefold() not in (email.casefold(), email.split('@', 1)[0].casefold()):
+            parts = display_name.split()
+            if len(parts) >= 2:
+                first_name = first_name or ' '.join(parts[:-1])[:80]
+                last_name = last_name or parts[-1][:80]
 
     return {
         'email': email,
@@ -90,22 +94,28 @@ def _member(request):
 
 
 def _customer(member):
-    item, conflict = resolve_patient_identity(
+    item, conflict = resolve_app_booking_identity(
         email=member['email'], phone=member['phone'],
         first_name=member['first_name'], last_name=member['last_name'])
     if conflict:
-        raise ValueError('identity_conflict')
+        raise ValueError(conflict)
     if item:
-        item.first_name = member['first_name']
-        item.last_name = member['last_name']
-        item.phone = member['phone']
-        item.email = member['email']
-        item.save(update_fields=['first_name', 'last_name', 'phone', 'email', 'updated_at'])
+        # Booking is not a medical identity-change operation. Never overwrite
+        # existing patient name/phone on a booking submission.
         return item
     return Customer.objects.create(
         first_name=member['first_name'], last_name=member['last_name'],
         phone=member['phone'], email=member['email'],
     )
+
+
+def _app_booking_customer(member):
+    """Read the same scoped patient without modifying records."""
+    customer, conflict = resolve_app_booking_identity(
+        email=member['email'], phone=member['phone'],
+        first_name=member['first_name'], last_name=member['last_name'],
+    )
+    return customer if not conflict else None
 
 
 def _eligible_staff(service, staff_id=None):
@@ -270,9 +280,12 @@ def mobile_booking(request):
 
         try:
             customer = _customer(member)
-        except ValueError:
+        except ValueError as exc:
+            if str(exc) == 'missing_name':
+                return _error('profile_completion_required',
+                              'Bitte ergänze deinen Vor- und Nachnamen in deinem Profil.', 422)
             return _error('identity_conflict',
-                          'Die Patientendaten stimmen nicht mit der vorhandenen Akte überein. Bitte kontaktiere die Praxis.', 409)
+                          'Die Patientendaten können nicht eindeutig zugeordnet werden. Bitte kontaktiere die Praxis.', 409)
         legacy_consent = bool(data.get('consent_acknowledged'))
         marketing_opt_in = bool(data.get('marketing_opt_in', True))
         cancellation_terms_accepted = bool(data.get('cancellation_terms_accepted', legacy_consent))
@@ -308,7 +321,7 @@ def mobile_booking(request):
 
     services = Service.objects.filter(active=True, bookable=True).order_by('sort_order', 'name')
     staff = StaffMember.objects.filter(active=True).prefetch_related('services').order_by('sort_order', 'display_name')
-    customer = Customer.objects.filter(email__iexact=member['email']).order_by('pk').first()
+    customer = _app_booking_customer(member)
     appointments = Appointment.objects.none()
     if customer:
         appointments = Appointment.objects.filter(customer=customer).select_related('service', 'staff').order_by('-starts_at')[:20]
@@ -352,7 +365,7 @@ def mobile_manageable_appointments(request):
     member, error = _member(request)
     if error:
         return error
-    customer = Customer.objects.filter(email__iexact=member['email']).order_by('pk').first()
+    customer = _app_booking_customer(member)
     items = Appointment.objects.none()
     if customer:
         items = Appointment.objects.filter(
@@ -395,7 +408,7 @@ def mobile_appointment_change(request, appointment_id):
     if action not in {'cancel', 'reschedule'}:
         return _error('invalid_change_action', 'Diese Änderung ist nicht möglich.', 400)
 
-    customer = Customer.objects.filter(email__iexact=member['email']).order_by('pk').first()
+    customer = _app_booking_customer(member)
     if not customer:
         return _error('appointment_not_found', 'Termin nicht gefunden.', 404)
 
