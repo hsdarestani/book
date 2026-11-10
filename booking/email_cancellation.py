@@ -88,6 +88,17 @@ def cancel_from_email(request, appointment_id):
                        message='Dieser Link ist ungültig oder abgelaufen. Bitte kontaktiere die Praxis.',
                        status=403)
 
+    # Imported SimplyBook slots are owned by the upstream calendar. Changing
+    # only our local mirror would make the importer restore the booking and
+    # create contradictory cancellation messages. Never offer email-only
+    # cancellation on a source-managed appointment.
+    if item.idempotency_key.startswith('simplybook-'):
+        return _render(
+            request, item,
+            message='Dieser Termin wurde über SimplyBook gebucht. Bitte kontaktiere die Praxis für die Stornierung.',
+            status=409,
+        )
+
     if item.status == 'cancelled':
         return _render(request, item, message='Dieser Termin ist bereits storniert.', done=True)
     if item.status not in ('new', 'confirmed'):
