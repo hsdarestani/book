@@ -80,19 +80,106 @@ class MobileBookingRecoveryTests(TestCase):
         self.assertNotIn('appointment_id', retry.json())
         self.assertEqual(Appointment.objects.count(), 1)
 
-    def test_name_conflict_returns_actionable_message_without_merging_patient(self):
+    def test_same_email_phone_with_legacy_name_allows_booking_without_changing_patient(self):
         known = Customer.objects.create(
             first_name='Different', last_name='Patient',
             email=self.member['email'], phone=self.member['phone'],
         )
-        response = self.post(key='identity-conflict-attempt')
-        self.assertEqual(response.status_code, 409, response.content)
-        self.assertEqual(response.json()['error'], 'identity_conflict')
-        self.assertIn('Praxis', response.json()['message'])
-        self.assertEqual(Appointment.objects.count(), 0)
+        with patch('booking.mobile_api.send_booking_emails'), \
+             patch('booking.mobile_api.notify_booking_created'), \
+             self.captureOnCommitCallbacks(execute=True):
+            response = self.post(key='identity-compatible-attempt')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(Appointment.objects.count(), 1)
+        self.assertEqual(Appointment.objects.get().customer_id, known.pk)
         self.assertEqual(Customer.objects.count(), 1)
         known.refresh_from_db()
         self.assertEqual(known.first_name, 'Different')
+        self.assertEqual(known.last_name, 'Patient')
+
+    def test_email_match_is_not_blocked_by_another_record_sharing_the_phone(self):
+        known = Customer.objects.create(
+            first_name='Anna', last_name='Muster',
+            email=self.member['email'], phone=self.member['phone'],
+        )
+        other = Customer.objects.create(
+            first_name='Someone', last_name='Else',
+            email='someone@example.invalid', phone=self.member['phone'],
+        )
+        with patch('booking.mobile_api.send_booking_emails'), \
+             patch('booking.mobile_api.notify_booking_created'), \
+             self.captureOnCommitCallbacks(execute=True):
+            response = self.post(key='shared-family-phone')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(Appointment.objects.get().customer_id, known.pk)
+        self.assertEqual(Customer.objects.count(), 2)
+        self.assertTrue(Customer.objects.filter(pk=other.pk).exists())
+
+    def test_different_email_with_same_phone_gets_independent_booking_customer(self):
+        previous = Customer.objects.create(
+            first_name='Someone', last_name='Else',
+            email='someone@example.invalid', phone=self.member['phone'],
+        )
+        with patch('booking.mobile_api.send_booking_emails'), \
+             patch('booking.mobile_api.notify_booking_created'), \
+             self.captureOnCommitCallbacks(execute=True):
+            response = self.post(key='new-account-shared-phone')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(Customer.objects.count(), 2)
+        self.assertNotEqual(Appointment.objects.get().customer_id, previous.pk)
+
+    def test_conflicting_email_and_phone_and_name_still_blocked(self):
+        known = Customer.objects.create(
+            first_name='Unrelated', last_name='Person',
+            email=self.member['email'], phone='+4915123451234',
+        )
+        response = self.post(key='identity-mismatch-attempt')
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertEqual(response.json()['error'], 'identity_conflict')
+        self.assertEqual(Appointment.objects.count(), 0)
+        known.refresh_from_db()
+        self.assertEqual(known.phone, '+4915123451234')
+
+    def test_duplicate_email_without_unambiguous_match_does_not_expose_records(self):
+        Customer.objects.create(first_name='Different', last_name='Person',
+                                email=self.member['email'], phone='')
+        Customer.objects.create(first_name='Another', last_name='Person',
+                                email=self.member['email'], phone='')
+        response = self.post(key='duplicated-email')
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['error'], 'identity_conflict')
+        self.assertEqual(Appointment.objects.count(), 0)
+
+    def test_duplicate_email_with_one_exact_phone_and_name_is_resolved(self):
+        first = Customer.objects.create(first_name='Someone', last_name='Else',
+                                        email=self.member['email'], phone='+4915123451234')
+        matched = Customer.objects.create(first_name='Anna', last_name='Muster',
+                                          email=self.member['email'], phone=self.member['phone'])
+        with patch('booking.mobile_api.send_booking_emails'), \
+             patch('booking.mobile_api.notify_booking_created'), \
+             self.captureOnCommitCallbacks(execute=True):
+            response = self.post(key='duplicate-email-disambiguated')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(Appointment.objects.get().customer_id, matched.pk)
+        self.assertNotEqual(Appointment.objects.get().customer_id, first.pk)
+
+    def test_missing_new_patient_name_requires_profile_completion(self):
+        anon_member = {**self.member, 'first_name': '', 'last_name': ''}
+        response = self.post(key='missing-name-attempt', member=anon_member)
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['error'], 'profile_completion_required')
+        self.assertEqual(Customer.objects.count(), 0)
+
+    def test_readonly_history_does_not_expose_ambiguous_duplicate_email(self):
+        Customer.objects.create(first_name='A', last_name='One',
+                                email=self.member['email'], phone='')
+        Customer.objects.create(first_name='B', last_name='Two',
+                                email=self.member['email'], phone='')
+        with patch('booking.mobile_api._member', return_value=(self.member, None)):
+            history = self.client.get('/api/mobile/booking/')
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.json()['appointments'], [])
+
 
     def test_notification_error_cannot_fail_already_persisted_appointment(self):
         with patch('booking.mobile_api.send_booking_emails', side_effect=RuntimeError('smtp down')), \
