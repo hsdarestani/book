@@ -213,7 +213,9 @@ class BookingApiTests(TestCase):
         message = mail.outbox[0]
         self.assertIn('https://app.a-esthetic.de/?bereich=termine', message.body)
         self.assertIn('24 Stunden vor Terminbeginn', message.body)
-        self.assertIn('Termin verwalten oder stornieren', message.alternatives[0][0])
+        self.assertIn('Termin stornieren · ohne Anmeldung', message.alternatives[0][0])
+        self.assertIn('/stornieren/?token=', message.alternatives[0][0])
+        self.assertIn('Termin ohne Anmeldung stornieren:', message.body)
 
 
 class PatientFileTests(TestCase):
