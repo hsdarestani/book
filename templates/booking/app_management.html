@@ -395,7 +395,10 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
 {% if not error %}
 {% if section == 'patients' %}
   {% if selected_customer %}
-  <div class="app-patient-toolbar"><a class="app-back-link" data-customer-back href="/verwaltung/app/patients/{% if query %}?q={{ query|urlencode }}{% endif %}">‹ Alle Kunden</a></div>
+  <div class="app-patient-toolbar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+    <a class="app-back-link" data-customer-back href="/verwaltung/app/patients/{% if query %}?q={{ query|urlencode }}{% endif %}">‹ Alle Kunden</a>
+    {% if can_review_patient_links %}<a href="/verwaltung/app/identity-review/" aria-label="Mögliche doppelte Patientenprofile überprüfen" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 14px;border-radius:13px;border:1px solid #d6c9ae;background:#fbf6e9;color:#584421;text-decoration:none;font-size:13px;font-weight:750">Doppelte Profile prüfen</a>{% endif %}
+  </div>
   <section class="patient-command-card"><div class="patient-command-glow"></div><div class="patient-command-avatar">{{ selected_customer.last_name|slice:":1" }}{{ selected_customer.first_name|slice:":1" }}</div><div class="patient-command-copy"><span>PATIENTENPROFIL</span><h2>{{ selected_customer.first_name }} {{ selected_customer.last_name }}</h2><p>{{ selected_customer.email }}{% if selected_customer.phone %} · {{ selected_customer.phone }}{% endif %}</p>{% if selected_profile_count > 1 %}<div class="patient-linked-badge">{{ selected_profile_count }} Profile zusammen angezeigt · keine Daten gelöscht</div>{% endif %}</div><div class="patient-command-actions">{% if call_url %}<a href="{{ call_url }}">☎ Anrufen</a>{% endif %}{% if whatsapp_url %}<a href="{{ whatsapp_url }}" target="_blank" rel="noopener">◉ WhatsApp</a>{% endif %}</div></section>
 
   <nav id="patient-tab-nav" class="customer-profile-tabs" aria-label="Kundenprofil Bereiche" data-clinic-profile-build="4">
