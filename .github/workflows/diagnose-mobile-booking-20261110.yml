@@ -1,0 +1,91 @@
+name: A+ Esthetic read-only booking incident audit 2026-11-10
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/diagnose-mobile-booking-20261110.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Audit mobile booking response codes and anonymous appointment counts
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 7m
+          script: |
+            set -euo pipefail
+            echo "AESTHETIC_BOOK_INCIDENT_AUDIT"
+            python3 - <<'PY'
+            import collections
+            import re
+            import subprocess
+            from pathlib import Path
+
+            count = collections.Counter()
+            for log in ['/var/log/nginx/access.log', '/var/log/nginx/access.log.1']:
+                p = Path(log)
+                if not p.is_file():
+                    continue
+                for line in p.open(errors='replace'):
+                    if '10/Nov/2026:' not in line or '/api/mobile/booking/' not in line:
+                        continue
+                    match = re.search(r'"(GET|POST|OPTIONS) /api/mobile/booking/[^"]* HTTP/[^"]+" (\d{3}) ', line)
+                    if match:
+                        count[(match.group(1), match.group(2))] += 1
+            for (method, code), n in sorted(count.items()):
+                print('HTTP_BOOKING', method, code, n)
+            if not count:
+                print('NO_MATCHING_NGINX_LINES')
+
+            cmd = ['journalctl', '-u', 'aesthetic-book.service', '--since',
+                   '2026-11-10 07:00:00 UTC', '--until', '2026-11-10 13:00:00 UTC',
+                   '--no-pager', '-o', 'cat']
+            process = subprocess.run(cmd, text=True, capture_output=True, timeout=25)
+            errors = collections.Counter()
+            for line in process.stdout.splitlines():
+                if 'Internal Server Error: /api/mobile/booking/' in line:
+                    errors['internal_server_error'] += 1
+                elif 'identity_conflict' in line:
+                    errors['identity_conflict_mentioned'] += 1
+                elif 'django.core.exceptions.ValidationError' in line:
+                    errors['validation_error'] += 1
+                elif 'IntegrityError:' in line:
+                    errors['integrity_error'] += 1
+                elif 'OperationalError:' in line:
+                    errors['operational_error'] += 1
+                elif 'POST /api/mobile/booking/' in line:
+                    m = re.search(r'"POST /api/mobile/booking/ HTTP/[^"]+" (\d{3})', line)
+                    if m:
+                        errors['gunicorn_http_' + m.group(1)] += 1
+            for kind, n in sorted(errors.items()):
+                print('BACKEND', kind, n)
+            print('JOURNAL_AUDITED', process.returncode == 0)
+            PY
+
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c "set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from datetime import date, datetime, timezone as utc
+            from django.db.models import Count
+            from booking.models import Appointment
+            qs=Appointment.objects.filter(
+                starts_at__date=date(2026, 11, 11),
+                staff__display_name__icontains='Ariane',
+                service__name__icontains='Botox',
+            )
+            print('TARGET_DAY_BOTOX_APPOINTMENTS',qs.count())
+            for row in qs.values('status','source').annotate(count=Count('id')).order_by('status','source'):
+                print('APPOINTMENT_GROUP',row['status'],row['source'],row['count'])
+            incident=qs.filter(created_at__gte=datetime(2026,11,10,7,tzinfo=utc.utc),created_at__lte=datetime(2026,11,10,13,tzinfo=utc.utc))
+            print('INCIDENT_WINDOW_CREATED_APPOINTMENTS',incident.count())
+            PY"
