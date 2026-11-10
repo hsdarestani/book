@@ -140,9 +140,8 @@ def send_customer_booking_email(appointment):
         f'A+ Esthetic Frankfurt · {CLINIC_ADDRESS}\n'
         f'Telefon: {CLINIC_PHONE}\n\n'
         f'Zum Kalender hinzufügen: {calendar_url}\n'
-        cancel_instruction
-
-        f'Weitere Terminänderungen in der App: {context["manage_booking_url"]}\n'
+        + cancel_instruction
+        + f'Weitere Terminänderungen in der App: {context["manage_booking_url"]}\n'
         f'Online-Stornierung bis {context["cancellation_deadline_hours"]} Stunden vor Terminbeginn möglich.\n'
         f'Wegbeschreibung: {DIRECTIONS_URL}\n'
         f'Instagram: {INSTAGRAM_URL}\n'
