@@ -1,5 +1,5 @@
 from django.urls import path
-from . import record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, referral_relay, views
+from . import record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
@@ -17,6 +17,7 @@ urlpatterns = [
     path('verwaltung/behandlungen/', admin_views.dashboard_proxy, name='admin_services'),
     path('verwaltung/information/', admin_views.dashboard_proxy, name='admin_information'),
     path('verwaltung/app/wallet/', app_wallet_views.app_wallet_management, name='app_wallet_management'),
+    path('verwaltung/app/identity-review/', patient_identity_views.identity_review, name='patient_identity_review'),
     path('verwaltung/app/<slug:section>/', app_management_views.app_management, name='app_management'),
     path('verwaltung/api/patient-form-notifications/', desktop_notifications.new_patient_forms, name='patient_form_notifications'),
     path('verwaltung/app/invoices/<int:invoice_id>/pdf/', invoice_bridge.invoice_pdf, name='billing_invoice_pdf'),
