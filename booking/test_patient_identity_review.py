@@ -66,6 +66,34 @@ class PatientIdentityReviewTests(TestCase):
         self.assertEqual(set(grouped[0].display_group_emails),
                          {'anna.original@example.test', 'anna.new@example.test'})
 
+    def test_bookings_from_both_emails_appear_together_without_moving_or_cancelling(self):
+        service = Service.objects.create(name='Consult', slug='both-aliases-consult', duration_minutes=15)
+        staff = StaffMember.objects.create(display_name='Dr. Group Test', active=True)
+        staff.services.add(service)
+        start = timezone.now() + timedelta(days=5)
+        first_booking = Appointment.objects.create(
+            customer=self.first, service=service, staff=staff,
+            starts_at=start, ends_at=start + timedelta(minutes=15),
+            source='app', status='confirmed',
+        )
+        second_booking = Appointment.objects.create(
+            customer=self.second, service=service, staff=staff,
+            starts_at=start + timedelta(hours=1),
+            ends_at=start + timedelta(hours=1, minutes=15),
+            source='web', status='new',
+        )
+        page = self.client.get(f'/verwaltung/app/patients/?customer={self.first.pk}&tab=appointments')
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, '2 verknüpfte Profile')
+        self.assertContains(page, 'anna.new@example.test')
+        first_booking.refresh_from_db()
+        second_booking.refresh_from_db()
+        self.assertEqual(first_booking.customer_id, self.first.pk)
+        self.assertEqual(second_booking.customer_id, self.second.pk)
+        self.assertEqual(first_booking.status, 'confirmed')
+        self.assertEqual(second_booking.status, 'new')
+        self.assertEqual(Customer.objects.count(), 2)
+
     def test_explicit_rejection_prevents_relinking_through_a_third_profile(self):
         third = Customer.objects.create(
             first_name='Anna', last_name='Muster',
