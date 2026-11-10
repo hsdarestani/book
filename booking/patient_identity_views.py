@@ -2,7 +2,6 @@
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db import transaction
 from django.db.models import Count
-from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
@@ -88,7 +87,9 @@ def _process_decision(request):
 @require_http_methods(['GET', 'POST'])
 def identity_review(request):
     if not _authorized(request):
-        return HttpResponseForbidden('Nur bestätigte A+ Administratoren können Patientenzuordnungen prüfen.')
+        # Browser cookies are separate from the in-app admin WebView session.
+        # Never silently grant access based on ordinary Django staff login.
+        return render(request, 'booking/patient_identity_denied.html', status=403)
 
     if request.method == 'POST':
         try:
