@@ -103,10 +103,19 @@ def possible_duplicate_pairs(customers=None, *, limit=300, include_reviewed=Fals
 
 
 def approved_patient_groups(customers):
-    """Only staff-approved links combine otherwise independent patient views."""
+    """Show strong exact-name/phone duplicates as one *administrative* patient.
+
+    Booking rows, clinical records, external identity IDs and customer-app
+    permissions are untouched. Rejected and revoked pairs are not re-linked
+    automatically. Never join through an ambiguous name or telephone alone.
+    """
     items = list(customers)
     by_id = {item.pk: item for item in items}
     parent = {item.pk: item.pk for item in items}
+    members = {item.pk: {item.pk} for item in items}
+    decisions = latest_decisions()
+    separated = {key for key, decision in decisions.items()
+                 if decision.action in ('reject', 'revoke')}
 
     def root(pk):
         while parent[pk] != pk:
@@ -116,17 +125,60 @@ def approved_patient_groups(customers):
 
     def join(left, right):
         a, b = root(left), root(right)
-        if a != b:
-            parent[max(a, b)] = min(a, b)
+        if a == b:
+            return
+        # Explicitly separated accounts must stay separated even through
+        # transitive matches (A↔B↔C may contain an explicit A≠C).
+        if any(ordered_pair(i, j) in separated
+               for i in members[a] for j in members[b]):
+            return
+        keep, remove = (a, b) if a < b else (b, a)
+        parent[remove] = keep
+        members[keep].update(members.pop(remove))
 
-    for (left, right), decision in latest_decisions().items():
+    # Keep explicit approved reviews, unless a later reject/revoke superseded
+    # them in the append-only decision log.
+    for (left, right), decision in decisions.items():
         if decision.action == 'approve' and left in by_id and right in by_id:
             join(left, right)
+
+    # Automatic high confidence administrative grouping: full name plus a
+    # normalized valid phone must both match. Different emails are fine.
+    # Such grouping is deliberately not shared with account authentication.
+    by_identity = defaultdict(list)
+    for item in items:
+        first, last = normalize_name(item.first_name), normalize_name(item.last_name)
+        phone = normalize_phone(item.phone)
+        if first and last and phone and first not in ('patient', 'simplybook'):
+            by_identity[(first, last, phone)].append(item.pk)
+
+    for ids in by_identity.values():
+        for index, left in enumerate(ids):
+            for right in ids[index + 1:]:
+                join(left, right)
 
     groups = defaultdict(list)
     for item in items:
         groups[root(item.pk)].append(item)
     return list(groups.values())
+
+
+def patient_group_sources(group):
+    """Explain which independent sources contribute to the staff-only view."""
+    if len(group) < 2:
+        return []
+    decisions = latest_decisions()
+    sources = []
+    for item in sorted(group, key=lambda x: x.pk):
+        sources.append({
+            'customer': item,
+            'email': item.email,
+            'phone': item.phone,
+            'first_name': item.first_name,
+            'last_name': item.last_name,
+            'mode': 'Gesondertes Kundenprofil',
+        })
+    return sources
 
 
 def approved_patient_representatives(customers, query=''):
