@@ -144,7 +144,7 @@ def process_pending_block_conflict_alerts(limit=100):
     for pk in pending:
         with transaction.atomic():
             alert = (
-                BlockedBookingConflictAlert.objects.select_for_update()
+                BlockedBookingConflictAlert.objects.select_for_update(of=('self',))
                 .select_related(
                     "blocked_period", "appointment__customer",
                     "appointment__service", "appointment__staff",

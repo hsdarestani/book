@@ -1,11 +1,13 @@
 import hashlib
 import json
+import logging
 from datetime import timedelta
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.conf import settings
-from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
@@ -21,6 +23,7 @@ from .package_bridge import sync_package
 from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, create_appointment
 
 CHANGE_DEADLINE_HOURS = max(1, int(getattr(settings, 'BOOKING_CHANGE_DEADLINE_HOURS', 24)))
+logger = logging.getLogger(__name__)
 
 
 def _json(request):
@@ -171,6 +174,44 @@ def mobile_slots(request):
     })
 
 
+
+def _same_booking_for_member(item, member, service, starts_at, requested_staff_id):
+    """Replay only this member's exact appointment; an idempotency key is not proof of ownership."""
+    return (
+        item.customer.email.casefold() == member['email'].casefold()
+        and item.service_id == service.pk
+        and item.starts_at == starts_at
+        and (not requested_staff_id or str(item.staff_id) == str(requested_staff_id))
+    )
+
+
+def _booking_result(item, *, created, authorization):
+    """The canonical record is saved even if a secondary package bridge is unavailable."""
+    try:
+        package = sync_package(authorization, 'reserve', item)
+    except Exception:
+        logger.exception('Package bridge failed after appointment persistence')
+        package = {'ok': False, 'package_used': False, 'error': 'package_service_unavailable'}
+    return JsonResponse({
+        'ok': True,
+        'appointment_id': str(item.public_id),
+        'status': item.get_status_display(),
+        'status_code': item.status,
+        'staff': item.staff.display_name,
+        'starts_at': item.starts_at.isoformat(),
+        'package': package,
+    }, status=201 if created else 200)
+
+
+def _safe_new_booking_notifications(item):
+    """Never turn a saved appointment into HTTP 500 because a notification fails."""
+    for sender in (send_booking_emails, notify_booking_created):
+        try:
+            sender(item)
+        except Exception:
+            logger.exception('Post-booking notification failed for appointment id=%s', item.pk)
+
+
 @csrf_exempt
 @require_http_methods(['GET', 'POST'])
 def mobile_booking(request):
@@ -193,6 +234,33 @@ def mobile_booking(request):
             return _error('invalid_start_time', 'Bitte wählen Sie Datum und Uhrzeit.', 400)
         if timezone.is_naive(starts_at):
             starts_at = timezone.make_aware(starts_at, timezone.get_current_timezone())
+        supplied_key = (request.headers.get('Idempotency-Key') or '').strip()[:80]
+        if supplied_key:
+            idem_key = supplied_key
+        else:
+            digest = hashlib.sha256(
+                f"app|{member['email']}|{service.pk}|{starts_at.isoformat()}".encode('utf-8')
+            ).hexdigest()[:60]
+            idem_key = f'app-{digest}'
+
+        # Check idempotency BEFORE rechecking the occupied slot. Otherwise a
+        # successful booking whose HTTP response was lost becomes a false 409
+        # on every retry, even though the patient's appointment already exists.
+        previous = Appointment.objects.select_related('customer', 'service', 'staff').filter(
+            idempotency_key=idem_key,
+        ).first()
+        if previous:
+            if not _same_booking_for_member(previous, member, service, starts_at, data.get('staff_id')):
+                return _error('time_not_available', 'Diese Zeit ist inzwischen nicht mehr verfügbar.', 409)
+            if previous.status in ('new', 'confirmed'):
+                return _booking_result(previous, created=False, authorization=authorization)
+            if supplied_key:
+                return _error('booking_attempt_closed',
+                              'Dieser Buchungsversuch wurde bereits abgeschlossen. Bitte wählen Sie den Termin erneut.', 409)
+            # Legacy callers without a key can rebook a previously cancelled
+            # appointment; their replacement receives a distinct key.
+            idem_key = f'{idem_key[:62]}-{int(timezone.now().timestamp())}'[:80]
+
         if starts_at < timezone.now() + LEAD_TIME:
             return _error('start_time_too_soon', 'Bitte wählen Sie einen späteren Termin.', 400)
 
@@ -203,19 +271,8 @@ def mobile_booking(request):
         try:
             customer = _customer(member)
         except ValueError:
-            return _error('identity_conflict', 'Patientendaten bitte mit der Praxis klären.', 409)
-        supplied_key = (request.headers.get('Idempotency-Key') or '').strip()[:80]
-        if supplied_key:
-            idem_key = supplied_key
-        else:
-            digest = hashlib.sha256(
-                f"app|{member['email']}|{service.pk}|{starts_at.isoformat()}".encode('utf-8')
-            ).hexdigest()[:60]
-            idem_key = f'app-{digest}'
-            previous = Appointment.objects.filter(idempotency_key=idem_key).first()
-            if previous and previous.status == 'cancelled':
-                idem_key = f'{idem_key[:62]}-{int(timezone.now().timestamp())}'[:80]
-
+            return _error('identity_conflict',
+                          'Die Patientendaten stimmen nicht mit der vorhandenen Akte überein. Bitte kontaktiere die Praxis.', 409)
         legacy_consent = bool(data.get('consent_acknowledged'))
         marketing_opt_in = bool(data.get('marketing_opt_in', True))
         cancellation_terms_accepted = bool(data.get('cancellation_terms_accepted', legacy_consent))
@@ -234,22 +291,20 @@ def mobile_booking(request):
                 cancellation_terms_accepted=cancellation_terms_accepted,
                 privacy_accepted=privacy_accepted,
             )
-        except ValueError:
+        except (ValueError, ValidationError, IntegrityError):
+            # Includes model overlap validation and concurrent unique-key races.
+            existing = Appointment.objects.select_related('customer', 'service', 'staff').filter(
+                idempotency_key=idem_key,
+            ).first()
+            if existing and existing.status in ('new', 'confirmed') and _same_booking_for_member(
+                existing, member, service, starts_at, data.get('staff_id')
+            ):
+                return _booking_result(existing, created=False, authorization=authorization)
             return _error('time_not_available', 'Diese Zeit ist inzwischen nicht mehr verfügbar.', 409)
 
         if created:
-            transaction.on_commit(lambda appointment=appointment: send_booking_emails(appointment))
-            transaction.on_commit(lambda appointment=appointment: notify_booking_created(appointment))
-        package = sync_package(authorization, 'reserve', appointment)
-        return JsonResponse({
-            'ok': True,
-            'appointment_id': str(appointment.public_id),
-            'status': appointment.get_status_display(),
-            'status_code': appointment.status,
-            'staff': appointment.staff.display_name,
-            'starts_at': appointment.starts_at.isoformat(),
-            'package': package,
-        }, status=201 if created else 200)
+            transaction.on_commit(lambda appointment=appointment: _safe_new_booking_notifications(appointment))
+        return _booking_result(appointment, created=created, authorization=authorization)
 
     services = Service.objects.filter(active=True, bookable=True).order_by('sort_order', 'name')
     staff = StaffMember.objects.filter(active=True).prefetch_related('services').order_by('sort_order', 'display_name')
