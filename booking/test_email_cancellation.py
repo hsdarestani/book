@@ -80,6 +80,24 @@ class EmailCancellationTests(TestCase):
         self.assertEqual(self.appointment.status, 'confirmed')
         notify.assert_not_called()
 
+    def test_invalid_link_does_not_reveal_treatment_or_clinician_details(self):
+        response = self.client.get(self.url, {'token': 'bad'})
+        self.assertEqual(response.status_code, 403)
+        self.assertNotContains(response, 'Botox-Test', status_code=403)
+        self.assertNotContains(response, 'Frau Test', status_code=403)
+
+    def test_imported_simplybook_email_does_not_offer_a_local_cancel_link(self):
+        from django.core import mail
+        from .emails import send_customer_booking_email
+        self.appointment.idempotency_key = 'simplybook-42'
+        self.appointment.save(update_fields=['idempotency_key'])
+        send_customer_booking_email(self.appointment)
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertIn('SimplyBook-Termins', message.body)
+        self.assertNotIn('Termin ohne Anmeldung stornieren:', message.body)
+        self.assertNotIn('Termin stornieren · ohne Anmeldung', message.alternatives[0][0])
+
     def test_expired_or_tampered_link_cannot_view_or_cancel(self):
         for value in ('tampered-token', ''):
             response = self.client.post(self.url, {'token': value})
