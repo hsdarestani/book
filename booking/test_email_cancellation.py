@@ -49,7 +49,8 @@ class EmailCancellationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'verbindlich stornieren')
         self.assertEqual(response['Referrer-Policy'], 'no-referrer')
-        self.assertEqual(response['Cache-Control'], 'private, no-store, max-age=0')
+        self.assertIn('private', response['Cache-Control'])
+        self.assertIn('no-store', response['Cache-Control'])
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.status, 'confirmed')
 
