@@ -104,6 +104,19 @@ class EmailCancellationTests(TestCase):
         second.refresh_from_db()
         self.assertEqual(second.status, 'confirmed')
 
+    @patch('booking.email_cancellation._post_internal')
+    def test_imported_simplybook_booking_cannot_be_cancelled_only_in_local_mirror(self, post):
+        self.appointment.idempotency_key = 'simplybook-remote-42'
+        self.appointment.source = 'admin'
+        self.appointment.save(update_fields=['idempotency_key', 'source'])
+        token = cancellation_token(self.appointment)
+        response = self.client.post(self.url, {'token': token})
+        self.assertEqual(response.status_code, 409)
+        self.assertContains(response, 'SimplyBook', status_code=409)
+        self.appointment.refresh_from_db()
+        self.assertEqual(self.appointment.status, 'confirmed')
+        post.assert_not_called()
+
     def test_link_expires_if_original_slot_changes(self):
         self.appointment.starts_at += timedelta(hours=1)
         self.appointment.save(update_fields=['starts_at'])
