@@ -240,6 +240,45 @@ class DoctorPatientAccess(models.Model):
         ]
 
 
+
+class PatientIdentityDecision(models.Model):
+    """Append-only, audited human decision to link or unlink two patient profiles.
+
+    Links are logical: neither Customer nor the medical records, appointment
+    ownership or external SimplyBook source IDs are rewritten or deleted.
+    """
+    ACTIONS = [
+        ('approve', 'Zusammenführen bestätigen'),
+        ('reject', 'Nicht dieselbe Person'),
+        ('revoke', 'Verknüpfung aufheben'),
+    ]
+    left = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name='identity_decisions_left')
+    right = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name='identity_decisions_right')
+    primary_customer = models.ForeignKey(
+        Customer, on_delete=models.PROTECT, related_name='identity_decisions_primary',
+    )
+    action = models.CharField(max_length=12, choices=ACTIONS)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='patient_identity_decisions',
+    )
+    reason = models.CharField(max_length=120)
+    snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        indexes = [models.Index(fields=['left', 'right', '-pk'], name='patient_decision_pair_idx')]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(left__lt=models.F('right')),
+                name='patient_decision_ordered_pair',
+            ),
+        ]
+        verbose_name = 'Prüfung möglicher Patienten-Duplikate'
+        verbose_name_plural = 'Prüfungen möglicher Patienten-Duplikate'
+
+
+
 class ExternalSyncState(models.Model):
     source = models.CharField(max_length=40, unique=True)
     baseline_completed_at = models.DateTimeField(null=True, blank=True)
