@@ -78,7 +78,8 @@ Originalprofile, Arztzuordnungen, externe SimplyBook-IDs, Termine und Dateien bl
 <label class="choice"><input type="radio" name="primary_id" value="{{ pair.right.pk }}">{{ pair.right.full_name }} · #{{ pair.right.pk }}</label>
 </fieldset>
 <label class="checkline"><input type="checkbox" name="confirmed_same_patient"><span>Ich habe beide Profile geprüft und bestätige, dass sie dieselbe Person betreffen.</span></label>
-<div class="actions"><button type="submit" name="action" value="approve" class="primary">Profile verknüpfen</button>{% endif %}
+{% endif %}<div class="actions">
+{% if not pair.auto_linked %}<button type="submit" name="action" value="approve" class="primary">Profile verknüpfen</button>{% endif %}
 <button type="submit" name="action" value="reject">{% if pair.auto_linked %}Falsche Zuordnung trennen{% else %}Nicht dieselbe Person{% endif %}</button></div>
 </form>
 </article>
