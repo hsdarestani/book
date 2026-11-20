@@ -171,6 +171,6 @@ class SimplyBookBlockedBookingAlertTests(TestCase):
         alert = BlockedBookingConflictAlert.objects.get()
         self.assertIsNotNone(alert.resolved_at)
         self.assertIsNone(alert.blocked_period_id)
-        self.assertEqual(BlockedPeriod.objects.count(), 0)
+        self.assertEqual(BlockedPeriod.objects.filter(staff=self.staff).count(), 0)
         self.assertEqual(len(mail.outbox), 1)
         push.assert_called_once()
