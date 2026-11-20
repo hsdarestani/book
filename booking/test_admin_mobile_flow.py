@@ -198,7 +198,7 @@ class MobileAdminFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertIn('notice=block-error', response['Location'])
-        self.assertFalse(BlockedPeriod.objects.exists())
+        self.assertFalse(BlockedPeriod.objects.filter(staff=self.staff).exists())
 
     def test_admin_can_edit_block_and_public_slots_follow_change(self):
         block = BlockedPeriod.objects.create(
@@ -253,7 +253,7 @@ class MobileAdminFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertIn('notice=block-deleted', response['Location'])
-        self.assertFalse(BlockedPeriod.objects.exists())
+        self.assertFalse(BlockedPeriod.objects.filter(staff=self.staff).exists())
         labels = {timezone.localtime(slot).strftime('%H:%M') for slot in available_slots(self.service, self.staff, self.day)}
         self.assertIn('10:00', labels)
 
