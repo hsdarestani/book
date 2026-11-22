@@ -37,6 +37,14 @@ jobs:
             git -C /opt/aesthetic-book/app rev-parse --short HEAD || true
             echo 'book working tree:'
             git -C /opt/aesthetic-book/app status --porcelain | wc -l
+            echo 'modified file paths (not contents):'
+            git -C /opt/aesthetic-book/app status --short --untracked-files=normal | head -40
+            echo 'nginx book configuration candidates:'
+            grep -rl 'book.a-esthetic.de' /etc/nginx/sites-enabled/ 2>/dev/null | head -8 || true
+            echo 'nginx app configuration candidates:'
+            grep -rl 'app.a-esthetic.de' /etc/nginx/sites-enabled/ 2>/dev/null | head -8 || true
+            echo 'nginx related upstream ports only:'
+            grep -REho 'proxy_pass http://127\\.0\\.0\\.1:[0-9]+' /etc/nginx/sites-enabled/ 2>/dev/null | sort -u | head -20 || true
             echo 'book processes:'
             systemctl show aesthetic-book --property=ActiveState --property=FragmentPath --no-pager
             echo 'ports:'
