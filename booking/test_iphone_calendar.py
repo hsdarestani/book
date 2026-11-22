@@ -109,6 +109,20 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         self.assertIn("20261122-sunday1", self.source("static/booking/admin.js"))
         self.assertIn("20261122-strip2", self.source("templates/booking/dashboard.html"))
 
+    def test_closed_sundays_have_calendar_visual_markers(self):
+        dashboard = self.source("templates/booking/dashboard.html")
+        calendar = self.source("templates/booking/_shared_admin_calendar.html")
+        javascript = self.source("static/booking/admin-calendar-iphone-v1.js")
+        styles = self.source("static/booking/calendar-sunday-closed-v1.css")
+        self.assertIn("forloop.last %}is-sunday is-closed", dashboard)
+        self.assertIn("calendar-sunday-closed-v1.css?v=20261122-sunday1", dashboard)
+        self.assertIn("day.date.weekday == 6", calendar)
+        self.assertIn("sb-sunday-closed-label", calendar)
+        self.assertIn("Geschlossen", calendar)
+        self.assertIn("button.classList.toggle('is-sunday',i===6)", javascript)
+        self.assertIn(".sb-calendar-day.is-sunday .sb-day-track", styles)
+        self.assertIn(".sb-iphone-day.is-sunday > strong", styles)
+
     def test_visual_css_follows_reference_and_overrides_global_premium(self):
         css = self.source("static/booking/admin-calendar-reference-v2.css")
         for marker in (
