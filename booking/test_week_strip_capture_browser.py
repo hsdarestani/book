@@ -203,6 +203,45 @@ class RealCalendarStripCaptureTests(TestCase):
             finally:
                 browser.close()
 
+    def test_diagnose_day_header_scroll_geometry(self):
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,args=["--no-sandbox"])
+            try:
+                context,page,_=self.open_calendar(browser,"day")
+                probe="""() => {
+                    const pick=s=>document.querySelector(s);
+                    const describe=s=>{
+                        const e=pick(s), r=e?.getBoundingClientRect(), cs=e&&getComputedStyle(e);
+                        return e?{rect:{top:r.top,bottom:r.bottom,height:r.height},
+                                  position:cs.position,top:cs.top,overflowX:cs.overflowX,
+                                  overflowY:cs.overflowY,transform:cs.transform,
+                                  scrollTop:e.scrollTop,scrollHeight:e.scrollHeight,
+                                  clientHeight:e.clientHeight}:null;
+                    };
+                    return {
+                        body:describe('body'),main:describe('main.sb-admin-shell'),
+                        dock:describe('.sb-reference-date-dock'),
+                        dockSpace:describe('.sb-calendar-dock-space'),
+                        shell:describe('.sb-calendar-shell'),
+                        days:describe('.sb-calendar-days'),
+                        day:describe('.sb-calendar-day'),
+                        head:describe('.sb-calendar-day .sb-day-head'),
+                        track:describe('.sb-calendar-day .sb-day-track'),
+                        axis:describe('.sb-time-axis')
+                    };
+                }"""
+                print("HEAD BEFORE SCROLL",page.evaluate(probe),flush=True)
+                page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop=360")
+                page.wait_for_timeout(250)
+                print("HEAD AFTER SCROLL 360",page.evaluate(probe),flush=True)
+                page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop=720")
+                page.wait_for_timeout(250)
+                print("HEAD AFTER SCROLL 720",page.evaluate(probe),flush=True)
+                context.close()
+            finally:
+                browser.close()
+
     def test_real_calendar_day_strip_swipe_left_and_vertical_scroll(self):
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
