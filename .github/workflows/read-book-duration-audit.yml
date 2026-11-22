@@ -1,0 +1,40 @@
+name: Read-only live Botox returning-patient duration audit
+
+on:
+  push:
+    branches:
+      - audit/book-botox-duration-20261122
+    paths:
+      - ".github/workflows/read-book-duration-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    name: Read only - no migrations or service reload
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Inspect production service configuration without writes
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+            APP_DIR=/opt/aesthetic-book/app
+            VENV=/opt/aesthetic-book/venv
+            ENV_FILE=/etc/aesthetic-book.env
+            test -f "$ENV_FILE"
+            test -x "$VENV/bin/python"
+            test -f "$APP_DIR/manage.py"
+            systemctl is-active --quiet aesthetic-book
+            printf 'Service active: yes\n'
+            printf 'Running repository head: '
+            git -C "$APP_DIR" rev-parse --short HEAD
+            cd "$APP_DIR"
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell -c "from booking.models import Service; print(\"Configured Botox returning patient service:\", list(Service.objects.filter(slug=\"botox-bestandspatient\").values(\"id\",\"slug\",\"duration_minutes\",\"buffer_minutes\",\"active\",\"bookable\")))"'
