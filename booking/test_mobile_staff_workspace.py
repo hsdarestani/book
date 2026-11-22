@@ -1,4 +1,6 @@
 import json
+import base64
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, time, timedelta
 from unittest.mock import patch
@@ -6,7 +8,7 @@ from uuid import uuid4
 
 from django.core.management import call_command
 from django.db import connection, connections
-from django.test import Client, TestCase, TransactionTestCase
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 
 from .models import Appointment, BlockedPeriod, Customer, MobileStaffCancellation, PatientRecord, Service, StaffMember, WorkingHour
@@ -63,6 +65,23 @@ class WorkspaceTests(TestCase):
         self.assertEqual(self.post('appointment', operation='cancel',id=self.foreign.pk).status_code,404)
         self.assertEqual(self.post('block', operation='create',staff_id=self.other.pk).status_code,404)
         self.assertEqual(self.post('service',id=self.service.pk,name='Restricted').status_code,403)
+
+    def test_native_pdf_upload_is_scoped_and_idempotent(self):
+        self.identity['role'] = 'doctor'
+        payload = {'customer_id': self.patient.pk,'filename':'synthetic.pdf',
+                   'base64':base64.b64encode(b'%PDF-1.4\\nsynthetic').decode(),'key':str(uuid4())}
+        with tempfile.TemporaryDirectory() as directory, override_settings(PATIENT_FILES_ROOT=directory):
+            forbidden = self.post('record-upload', **(payload | {'customer_id':self.outside.pk}))
+            self.assertEqual(forbidden.status_code, 403)
+            uploaded = self.post('record-upload', **payload)
+            self.assertEqual(uploaded.status_code, 200, uploaded.content)
+            self.assertTrue(self.post('record-upload', **payload).json()['replayed'])
+            record = PatientRecord.objects.get(pk=uploaded.json()['id'])
+            self.assertEqual(record.customer_id, self.patient.pk)
+            self.assertFalse(record.metadata['shared_with_customer'])
+            content = self.client.get(f'/api/mobile/staff/patient/{self.patient.pk}/records/{record.public_id}/')
+            self.assertEqual(content.status_code, 200)
+            content.close()
 
     def test_create_replay_collision_and_slot_overlap(self):
         payload = dict(operation='create',staff_id=self.doctor.pk,customer_id=self.patient.pk,

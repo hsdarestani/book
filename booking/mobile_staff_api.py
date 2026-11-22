@@ -1,5 +1,7 @@
 """API for the bundled staff workspace. Desktop routes retain their existing contracts."""
 
+import base64
+import binascii
 import hashlib
 import json
 import logging
@@ -10,6 +12,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.http import FileResponse
@@ -23,6 +26,7 @@ from .calendar_admin_api import _block_payload
 from .doctor_views import _save_availability, _save_weekly, _time
 from .emails import send_customer_booking_email
 from .internal_api import _patient_path
+from .patient_uploads import save_patient_upload, PatientUploadError
 from .models import (
     Appointment, BlockedPeriod, Customer, DailyAvailabilityOverride, DoctorPatientAccess,
     MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour,
@@ -288,7 +292,7 @@ def workspace(request, action, ident=None, record_id=None):
             return _private({'ok': True, 'id': review.pk})
         if request.method == 'GET' and action in {'calendar', 'catalog', 'overview', 'appointments', 'patients', 'patient', 'record', 'visit'}:
             return _read(request, actor, providers, action, ident, record_id)
-        if request.method == 'POST' and action in {'appointment', 'block', 'availability', 'service', 'record-note'}:
+        if request.method == 'POST' and action in {'appointment', 'block', 'availability', 'service', 'record-note', 'record-upload'}:
             return _mutate(request, actor, providers, action)
     except (ValidationError, TypeError, ValueError, OverflowError) as exc:
         message = ' '.join(exc.messages) if isinstance(exc, ValidationError) else 'Die Eingaben sind ungültig.'
@@ -478,7 +482,7 @@ def _save_service(data, actor):
 
 def _mutate(request, actor, providers, action):
     try:
-        if len(request.body) > 24000:
+        if len(request.body) > (8 * 1024 * 1024 + 24000 if action == 'record-upload' else 24000):
             raise ValueError
         data = json.loads(request.body)
         if not isinstance(data, dict):
@@ -524,6 +528,29 @@ def _mutate(request, actor, providers, action):
                 person = _people(actor, providers).filter(pk=int(data['customer_id'])).first()
                 if not person:
                     raise PermissionError
+                if action == 'record-upload':
+                    # Only the explicitly selected patient's authorized timeline.
+                    filename = str(data.get('filename') or '').strip()
+                    if not filename.lower().endswith('.pdf') or len(filename) > 200 or '/' in filename or '\\' in filename:
+                        raise ValidationError('Nur PDF-Dateien sind zulässig.')
+                    try:
+                        content = base64.b64decode(str(data.get('base64') or ''), validate=True)
+                    except (ValueError, binascii.Error):
+                        raise ValidationError('Ungültige PDF-Datei.')
+                    if not content.startswith(b'%PDF-') or not 0 < len(content) <= 6 * 1024 * 1024:
+                        raise ValidationError('PDF-Datei darf maximal 6 MB groß sein.')
+                    appointment = _appointments(providers).filter(customer=person).order_by('-starts_at').first() if actor['role'] == 'doctor' else None
+                    try:
+                        uploaded = save_patient_upload(user=None, customer=person,
+                            files=[SimpleUploadedFile(filename, content, content_type='application/pdf')],
+                            kind='document', appointment=appointment, shared=False, source='mobile_staff')[0]
+                    except PatientUploadError:
+                        raise ValidationError('Datei konnte nicht gespeichert werden.')
+                    uploaded.metadata = {**uploaded.metadata, 'actor_id': actor['id']}
+                    uploaded.save(update_fields=['metadata'])
+                    receipt.object_id = uploaded.pk
+                    receipt.save(update_fields=['object_id'])
+                    return _private({'ok': True, 'id': uploaded.pk})
                 note = str(data.get('note') or '').strip()
                 title = str(data.get('title') or '').strip()
                 if not note or len(note) > 6000 or not title or len(title) > 180:
