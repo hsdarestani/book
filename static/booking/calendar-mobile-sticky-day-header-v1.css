@@ -1,0 +1,38 @@
+/* Calendar mobile day header — last-load geometry normalization (2026-11-22).
+ * Main.sb-admin-shell is the only vertical scroll owner.
+ * The fixed month+week date dock ends 150px below its 64px toolbar.
+ * Legacy date controls leave an extra 90px above .sb-calendar-shell.
+ * Shift only the day timeline up to the dock boundary and give the real
+ * editable date header native sticky positioning within the scrollport.
+ * No cloned title, no event/booking modifications, no desktop changes.
+ */
+@media (max-width:760px) {
+  html[data-admin-page="calendar"][data-clinic-design="premium"]
+  body.sb-calendar-pro main.sb-admin-shell > .sb-calendar-panel > .sb-calendar-shell.is-day {
+    margin-top:-90px!important;
+    overflow:visible!important;
+  }
+  html[data-admin-page="calendar"][data-clinic-design="premium"]
+  body.sb-calendar-pro main.sb-admin-shell > .sb-calendar-panel
+  .sb-calendar-shell.is-day .sb-calendar-day > .sb-day-head {
+    position:sticky!important;
+    top:150px!important; /* relative to the main scroll viewport starting at 64px */
+    left:auto!important;
+    right:auto!important;
+    margin:0!important;
+    transform:none!important;
+    z-index:74!important; /* under the month/week dock (78), above events */
+    height:47px!important;
+    min-height:47px!important;
+    background:#fff!important;
+    box-shadow:0 2px 8px rgba(31,45,61,.10)!important;
+    isolation:isolate!important;
+  }
+  /* The visual Sunday state remains legible when its heading is sticky. */
+  html[data-admin-page="calendar"][data-clinic-design="premium"]
+  body.sb-calendar-pro main.sb-admin-shell > .sb-calendar-panel
+  .sb-calendar-shell.is-day .sb-calendar-day.is-sunday > .sb-day-head {
+    background:#e8ebef!important;
+    color:#566170!important;
+  }
+}
