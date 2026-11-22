@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: one-time-aesthetic-book-sticky-day-heading-20261122
@@ -19,10 +20,12 @@ jobs:
     timeout-minutes: 12
     steps:
       - name: Require mobile browser, calendar and clinician regression suites
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           for run_id in 45041695926 45041695914 45041695920; do
-            curl -fsSL "https://api.github.com/repos/hsdarestani/book/actions/runs/$run_id" |
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/hsdarestani/book/actions/runs/$run_id" |
               python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["status"]=="completed" and d["conclusion"]=="success", d'
           done
           echo "All mobile heading, calendar, and doctor checks passed."
