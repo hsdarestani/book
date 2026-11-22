@@ -21,7 +21,7 @@ jobs:
       - name: Confirm real mobile browser, calendar and doctor tests pass
         run: |
           set -euo pipefail
-          for run in 45040244534 45040244524 45040244528; do
+          for run in 45040388385 45040388399 45040388447; do
             curl --fail --silent --show-error "https://api.github.com/repos/hsdarestani/book/actions/runs/$run" | python3 -c 'import json,sys; x=json.load(sys.stdin); assert x["status"]=="completed" and x["conclusion"]=="success",x'
           done
           echo "All three CI suites verified green"
@@ -38,7 +38,7 @@ jobs:
             APP=/opt/aesthetic-book/app
             MAIN=29433dfc865c3f52e1d65f47148f791920dab128
             PRIOR=186bfffa68def81c16c9e0194a00a641fc1eae5f
-            FIX=025113168a8e1c2c80ef83013cc63d2fa20d8f67
+            FIX=4c814b6440e8d7c35d74ab1fc719902fb7ecd419
             TMP="$(mktemp -d)"
             BACKUP="/opt/aesthetic-book/hotfix-backups/sunday-ajax-$(date -u +%Y%m%dT%H%M%SZ)"
             APPLIED=0
