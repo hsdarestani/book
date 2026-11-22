@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}?v=20261006-calendar-v20">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
   <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261122-strip2"></script>
+  <script defer src="/static/booking/calendar-week-strip-swipe-v1.js?v=20261122-strip3" data-week-strip-swipe-capture></script>
   <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20261029-sheet-v3"></script>
   {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% else %}
   <link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header4">
