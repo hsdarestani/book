@@ -26,6 +26,7 @@
 <link rel="stylesheet" href="/static/booking/admin-calendar-sheet-fix-v3.css?v=20261029-v3" data-admin-calendar-sheet-fix-v3>
 <link rel="stylesheet" href="/static/booking/admin-calendar-mobile-finish-v4.css?v=20261029-finish-v4" data-admin-calendar-mobile-finish-v4>
 <link rel="stylesheet" href="/static/booking/admin-calendar-date-dock-v6.css?v=20261122-strip2" data-admin-calendar-dock-v6>
+<link rel="stylesheet" href="/static/booking/calendar-sunday-closed-v1.css?v=20261122-sunday1" data-calendar-sunday-closed>
 <link rel="stylesheet" href="/static/booking/admin-calendar-view-modes-v1.css?v=20261029-modes1" data-admin-calendar-view-modes-v1>
 <link rel="stylesheet" href="/static/booking/admin-calendar-horizontal-v2.css?v=20261029-horizontal2" data-calendar-horizontal-v2>
 <script>try{history.scrollRestoration='manual'}catch(_e){}</script>
@@ -45,7 +46,7 @@
   </div>
   <nav class="sb-iphone-weekstrip" aria-label="Kalendertag auswählen">
     {% for day in calendar_strip_days %}
-    <button type="button" class="sb-iphone-day {% if day.selected %}is-active{% endif %} {% if day.today %}is-today{% endif %}" tabindex="-1" aria-hidden="true">
+    <button type="button" class="sb-iphone-day {% if day.selected %}is-active{% endif %} {% if day.today %}is-today{% endif %} {% if forloop.last %}is-sunday is-closed{% endif %}" {% if forloop.last %}title="Sonntag – geschlossen"{% endif %} tabindex="-1" aria-hidden="true">
       <span>{{ day.label }}</span><strong>{{ day.date|date:"j" }}</strong>
     </button>
     {% endfor %}
