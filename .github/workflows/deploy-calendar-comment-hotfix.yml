@@ -1,0 +1,82 @@
+name: Surgical Book calendar template hotfix (graceful workers only)
+
+on:
+  push:
+    branches:
+      - audit/book-botox-duration-20261122
+    paths:
+      - ".github/workflows/deploy-calendar-comment-hotfix.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: one-time-book-calendar-template-hotfix
+  cancel-in-progress: false
+
+jobs:
+  hotfix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Apply exact audited template replacement and gracefully reload Gunicorn
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 6m
+          script: |
+            set -euo pipefail
+            APP=/opt/aesthetic-book/app
+            TARGET="$APP/templates/booking/_shared_admin_calendar.html"
+            MAIN_SHA=29433dfc865c3f52e1d65f47148f791920dab128
+            FIX_SHA=9ed3e13b417f76c7973f79af85f6f2a7b2711631
+            TMP="$(mktemp -d)"
+            trap 'rm -rf "$TMP"' EXIT
+            test "$(id -u)" -eq 0
+            systemctl is-active --quiet aesthetic-book
+            test "$(git -C "$APP" rev-parse HEAD)" = "$MAIN_SHA"
+            curl -fsS --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$MAIN_SHA/templates/booking/_shared_admin_calendar.html" -o "$TMP/old"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$FIX_SHA/templates/booking/_shared_admin_calendar.html" -o "$TMP/new"
+            cmp -s "$TARGET" "$TMP/old"
+            python3 - "$TMP/old" "$TMP/new" <<'PY'
+            from pathlib import Path
+            import sys
+            before, after = [Path(x).read_text() for x in sys.argv[1:]]
+            comment = """    {# Physical in-flow reservation for the fixed 150px month/week dock.
+                   Padding on sb-calendar-panel is overridden by premium CSS and let
+                   10:00 plus its events hide underneath the dock. #}
+            """
+            if comment not in before:
+                raise SystemExit("Exact target comment missing; aborting")
+            if before.replace(comment, "") != after:
+                raise SystemExit("Changes are not limited to removing the comment; aborting")
+            if 'class="sb-calendar-dock-space"' not in after:
+                raise SystemExit("Dock space missing; aborting")
+            print("Exact template-only hotfix validated")
+            PY
+            MASTER="$(systemctl show aesthetic-book -p MainPID --value)"
+            test "$MASTER" -gt 1
+            test "$(pgrep -P "$MASTER" | wc -l)" -ge 2
+            mkdir -p /opt/aesthetic-book/hotfix-backups
+            BACKUP="/opt/aesthetic-book/hotfix-backups/calendar-template-before-20261122.html"
+            cp -p "$TARGET" "$BACKUP"
+            TEMP_TARGET="$(mktemp "$APP/templates/booking/.calendar-new-XXXXXXXX")"
+            install -o aestheticbook -g aestheticbook -m 0644 "$TMP/new" "$TEMP_TARGET"
+            mv -f "$TEMP_TARGET" "$TARGET"
+            kill -HUP "$MASTER"
+            sleep 4
+            if ! systemctl is-active --quiet aesthetic-book || ! curl -fsS --retry 3 --retry-delay 1 --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null; then
+              echo 'Hotfix health failed; restoring the previous template'
+              RESTORE_TARGET="$(mktemp "$APP/templates/booking/.calendar-restore-XXXXXXXX")"
+              install -o aestheticbook -g aestheticbook -m 0644 "$BACKUP" "$RESTORE_TARGET"
+              mv -f "$RESTORE_TARGET" "$TARGET"
+              kill -HUP "$MASTER"
+              exit 1
+            fi
+            ! grep -q 'Physical in-flow reservation' "$TARGET"
+            test "$(systemctl show aesthetic-book -p MainPID --value)" = "$MASTER"
+            echo 'LIVE: template comment removed; Gunicorn master preserved; Book health passed; no systemctl restart'
