@@ -121,6 +121,12 @@
       button.setAttribute('aria-pressed',value===selectedDate?'true':'false');
       button.classList.toggle('is-active',value===selectedDate);
       button.classList.toggle('is-today',value===today);
+      button.classList.toggle('is-sunday',i===6);
+      button.classList.toggle('is-closed',i===6);
+      if(i===6){
+        button.title='Sonntag – geschlossen';
+        button.setAttribute('aria-label',longWeekday.format(date)+' '+dateFormat.format(date)+' – geschlossen; bestehende Termine ansehen');
+      }
       const day=document.createElement('span');
       day.textContent=names[i];
       const number=document.createElement('strong');
