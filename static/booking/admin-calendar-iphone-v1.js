@@ -354,29 +354,66 @@
     renderStrip();
     renderHead(selectedDate);
     renderWeekHeads();
-    // The fixed week strip is a safe gesture target even while the timeline
-    // remains horizontally scrollable within the current week.
+    // The fixed date strip navigates weeks in BOTH calendar views.
+    // Detect the swipe while the finger is moving: iOS can cancel an
+    // in-progress touch after native scroll arbitration, before touchend.
     let stripStart=null;
+    let pointerStart=null;
     let suppressStripClickUntil=0;
+    let lastStripSwipeAt=0;
+    function applyStripSwipe(dx,dy,elapsed){
+      if(elapsed>=1100 || Math.abs(dx)<55 || Math.abs(dx)<=Math.abs(dy)*1.4)return false;
+      if(Date.now()-lastStripSwipeAt<650)return true; // touch and pointer events can both fire
+      lastStripSwipeAt=Date.now();
+      suppressStripClickUntil=Date.now()+700;
+      changeWeek(dx<0?1:-1);
+      return true;
+    }
     strip.addEventListener('touchstart',event=>{
-      if(!isWeek()||event.touches.length!==1){stripStart=null;return;}
-      stripStart={x:event.touches[0].clientX,y:event.touches[0].clientY,at:Date.now()};
+      if(event.touches.length!==1){stripStart=null;return;}
+      const touch=event.touches[0];
+      stripStart={id:touch.identifier,x:touch.clientX,y:touch.clientY,at:Date.now()};
     },{passive:true});
+    strip.addEventListener('touchmove',event=>{
+      if(!stripStart || event.touches.length!==1)return;
+      const touch=event.touches[0];
+      if(touch.identifier!==stripStart.id)return;
+      const dx=touch.clientX-stripStart.x;
+      const dy=touch.clientY-stripStart.y;
+      if(Math.abs(dy)>35&&Math.abs(dy)>Math.abs(dx)){stripStart=null;return;}
+      if(Math.abs(dx)>=55&&Math.abs(dx)>Math.abs(dy)*1.4){
+        const start=stripStart;
+        stripStart=null; // only one week change per continuous gesture
+        if(event.cancelable)event.preventDefault();
+        applyStripSwipe(dx,dy,Date.now()-start.at);
+      }
+    },{passive:false});
     strip.addEventListener('touchend',event=>{
       if(!stripStart||!event.changedTouches?.length)return;
-      const dx=event.changedTouches[0].clientX-stripStart.x;
-      const dy=event.changedTouches[0].clientY-stripStart.y;
-      const elapsed=Date.now()-stripStart.at;
+      const touch=[...event.changedTouches].find(item=>item.identifier===stripStart.id);
+      if(!touch)return;
+      const start=stripStart;
       stripStart=null;
-      if(elapsed<850&&Math.abs(dx)>65&&Math.abs(dx)>Math.abs(dy)*1.5){
-        suppressStripClickUntil=Date.now()+500;
-        changeWeek(dx<0?1:-1);
-      }
+      applyStripSwipe(touch.clientX-start.x,touch.clientY-start.y,Date.now()-start.at);
     },{passive:true});
     strip.addEventListener('touchcancel',()=>{stripStart=null;},{passive:true});
+    // Pointer fallback covers trackpads and browsers that emit pointerup
+    // without a matching touchend; the deduplication prevents double navigation.
+    strip.addEventListener('pointerdown',event=>{
+      if(!event.isPrimary)return;
+      pointerStart={id:event.pointerId,x:event.clientX,y:event.clientY,at:Date.now()};
+    });
+    strip.addEventListener('pointerup',event=>{
+      if(!pointerStart||event.pointerId!==pointerStart.id)return;
+      const start=pointerStart;
+      pointerStart=null;
+      applyStripSwipe(event.clientX-start.x,event.clientY-start.y,Date.now()-start.at);
+    });
+    strip.addEventListener('pointercancel',()=>{pointerStart=null;});
     strip.addEventListener('click',event=>{
       if(Date.now()<suppressStripClickUntil){
-        event.preventDefault();event.stopImmediatePropagation();
+        event.preventDefault();
+        event.stopImmediatePropagation();
       }
     },true);
     document.body.classList.add('sb-iphone-calendar-ready');
