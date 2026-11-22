@@ -60,7 +60,7 @@
     document.head.appendChild(script);
     if (document.querySelector('.sb-calendar-panel')) {
       const iphone = document.createElement('script');
-      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261122-strip2';
+      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261122-sunday1';
       iphone.defer = true;
       iphone.setAttribute('data-admin-calendar-iphone-v1', '1');
       document.head.appendChild(iphone);
