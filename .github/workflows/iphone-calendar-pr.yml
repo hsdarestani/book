@@ -7,6 +7,8 @@ on:
       - "static/booking/admin-calendar-plus.js"
       - "static/booking/admin-calendar-iphone-v1.*"
       - "booking/test_iphone_calendar.py"
+      - "booking/services.py"
+      - "booking/test_sunday_booking.py"
       - "booking/test_calendar_sheet_correctness.py"
       - "booking/test_premium_design.py"
       - "booking/admin_views.py"
