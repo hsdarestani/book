@@ -105,6 +105,39 @@ class RealCalendarStripCaptureTests(TestCase):
         self.assertGreater(rect["height"],40)
         return context,page,rect
 
+    def test_december_six_is_visibly_closed_in_real_book_calendar(self):
+        for mode in ("day", "week"):
+            with self.subTest(mode=mode):
+                html = self.client.get("/verwaltung/kalender/", {
+                    "date": "2026-12-06", "cal_view": mode, "staff": self.staff.pk,
+                }).content.decode("utf-8")
+                self.assertIn("is-sunday is-closed-day", html)
+                self.assertIn("Geschlossen", html)
+                self.assertIn("Sonntag – geschlossen", html)
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,args=["--no-sandbox"])
+            try:
+                for mode in ("day", "week"):
+                    context,page,_=self.open_calendar(browser,mode)
+                    sunday=page.locator(".sb-reference-date-dock .sb-iphone-day.is-sunday")
+                    self.assertEqual(sunday.count(),1)
+                    label=page.locator(".sb-calendar-day.is-sunday .sb-sunday-closed-label")
+                    self.assertEqual(label.count(),1)
+                    self.assertEqual(label.inner_text(),"Geschlossen")
+                    self.assertIn("Zu",page.evaluate("""() => getComputedStyle(
+                        document.querySelector('.sb-reference-date-dock .sb-iphone-day.is-sunday'),
+                        '::after'
+                    ).content"""))
+                    gray=page.evaluate("""() => getComputedStyle(
+                        document.querySelector('.sb-reference-date-dock .sb-iphone-day.is-sunday strong')
+                    ).backgroundColor""")
+                    self.assertNotEqual(gray,"rgba(0, 0, 0, 0)")
+                    self.assertNotEqual(gray,"rgb(255, 255, 255)")
+                    context.close()
+            finally:
+                browser.close()
+
     def test_real_calendar_day_strip_swipe_left_and_vertical_scroll(self):
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
