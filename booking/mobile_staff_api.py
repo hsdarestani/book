@@ -29,6 +29,8 @@ from .models import (
 )
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
 from .services import effective_working_ranges
+from .patient_identity_review import possible_duplicate_pairs
+from .patient_identity_views import process_decision
 
 logger = logging.getLogger(__name__)
 
@@ -251,6 +253,30 @@ def workspace(request, action, ident=None, record_id=None):
     if actor['role'] == 'doctor' and providers.count() != 1:
         return _private({'ok': False, 'error': 'doctor_not_configured'}, 403)
     try:
+        if action == 'identity-review':
+            if actor['role'] != 'admin':
+                return _private({'ok': False, 'error': 'admin_required'}, 403)
+            if request.method == 'GET':
+                rows = possible_duplicate_pairs(limit=150)
+                def identity(person):
+                    return _person(person) | {
+                        'first_name': person.first_name, 'last_name': person.last_name,
+                        'date_of_birth': person.date_of_birth.isoformat() if person.date_of_birth else None,
+                    }
+                return _private({'ok': True, 'items': [{
+                    'left': identity(pair['left']), 'right': identity(pair['right']),
+                    'reason': pair['reason'], 'fingerprint': pair['fingerprint'],
+                } for pair in rows]})
+            if len(request.body) > 8000:
+                raise ValueError('Invalid review')
+            data = json.loads(request.body)
+            if not isinstance(data, dict):
+                raise ValueError('Invalid review')
+            try:
+                review = process_decision(data, aesthetic_actor_id=int(actor['id']))
+            except ValueError as exc:
+                return _private({'ok': False, 'error': 'identity_review_conflict', 'message': str(exc)}, 409)
+            return _private({'ok': True, 'id': review.pk})
         if request.method == 'GET' and action in {'calendar', 'catalog', 'overview', 'appointments', 'patients', 'patient', 'record'}:
             return _read(request, actor, providers, action, ident, record_id)
         if request.method == 'POST' and action in {'appointment', 'block', 'availability', 'service', 'record-note'}:

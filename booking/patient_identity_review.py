@@ -6,7 +6,10 @@ staff-facing patient timeline. Customer IDs and external sync links remain
 unchanged; customer-app permissions are not expanded by a staff review.
 """
 import hashlib
+import json
+import unicodedata
 from collections import defaultdict
+from itertools import combinations
 
 from .customer_identity import normalize_email, normalize_name, normalize_phone
 from .models import Customer, PatientIdentityDecision
@@ -19,34 +22,56 @@ def ordered_pair(left, right):
     return tuple(ids)
 
 
+def identity_fields(patient):
+    """Five independent match fields; unknown and placeholder values never match."""
+    def name(value):
+        value = normalize_name(unicodedata.normalize('NFC', str(value or '')))
+        return '' if value in ('patient', 'simplybook', 'unknown', '-') else value
+
+    phone = normalize_phone(patient.phone)
+    # The legacy normalizer truncates overlong numbers. Never use a truncated
+    # value as identity evidence.
+    raw_digits = ''.join(ch for ch in str(patient.phone or '') if ch.isascii() and ch.isdigit())
+    if len(raw_digits.removeprefix('00')) > 15:
+        phone = ''
+    dob = getattr(patient, 'date_of_birth', None)
+    return (
+        name(patient.first_name),
+        name(patient.last_name),
+        phone,
+        normalize_email(patient.email),
+        dob.isoformat() if dob else '',
+    )
+
+
+FIELD_LABELS = ('Vorname', 'Nachname', 'Telefonnummer', 'E-Mail', 'Geburtsdatum')
+
+
+def matched_fields(left, right):
+    return tuple(label for label, a, b in zip(FIELD_LABELS, identity_fields(left), identity_fields(right))
+                 if a and b and a == b)
+
+
 def match_evidence(left, right):
-    """Return an explanation only for a high-confidence potential match."""
-    name_a = (normalize_name(left.first_name), normalize_name(left.last_name))
-    name_b = (normalize_name(right.first_name), normalize_name(right.last_name))
-    full_name = all(name_a) and all(name_b) and name_a == name_b
-    phone_a, phone_b = normalize_phone(left.phone), normalize_phone(right.phone)
-    email_a, email_b = normalize_email(left.email), normalize_email(right.email)
-    same_phone = bool(phone_a and phone_b and phone_a == phone_b)
-    same_email = bool(email_a and email_b and email_a == email_b)
-    # A shared phone or email without a matching full name is not enough to
-    # recommend combining two medical files (households may share both).
-    if full_name and same_phone and email_a != email_b:
-        return 'Gleicher Vorname, Nachname und Telefonnummer; andere E-Mail'
-    if full_name and same_email and phone_a != phone_b:
-        return 'Gleicher Vorname, Nachname und E-Mail; andere Telefonnummer'
-    if full_name and same_phone and same_email:
-        return 'Gleicher vollständiger Name, E-Mail und Telefonnummer'
-    return ''
+    """Three of five exact populated matches suggest review, never identity proof."""
+    matches = matched_fields(left, right)
+    if len(matches) < 3:
+        return ''
+    reason = f'{len(matches)}/5: ' + ', '.join(matches)
+    dob_a, dob_b = getattr(left, 'date_of_birth', None), getattr(right, 'date_of_birth', None)
+    if dob_a and dob_b and dob_a != dob_b:
+        reason += '; anderes Geburtsdatum'
+    elif matches == ('Vorname', 'Nachname', 'Telefonnummer'):
+        reason += '; andere E-Mail'
+    elif matches == ('Vorname', 'Nachname', 'E-Mail'):
+        reason += '; andere Telefonnummer'
+    return reason
 
 
 def pair_fingerprint(left, right):
-    """Guard against approving an old browser view after patient data change."""
-    parts = []
-    for item in sorted((left, right), key=lambda value: value.pk):
-        parts.extend([str(item.pk), normalize_email(item.email),
-                      normalize_phone(item.phone), normalize_name(item.first_name),
-                      normalize_name(item.last_name)])
-    return hashlib.sha256('|'.join(parts).encode('utf-8')).hexdigest()
+    """Include all five fields in the stale-review guard."""
+    parts = [(item.pk, identity_fields(item)) for item in sorted((left, right), key=lambda value: value.pk)]
+    return hashlib.sha256(json.dumps(parts, ensure_ascii=False).encode('utf-8')).hexdigest()
 
 
 def latest_decisions():
@@ -59,30 +84,22 @@ def latest_decisions():
 def possible_duplicate_pairs(customers=None, *, limit=300, include_reviewed=False):
     """Suggest matches in deterministic order, avoiding quadratic all-customer scans."""
     items = list(customers if customers is not None else Customer.objects.order_by('pk'))
-    by_phone_name = defaultdict(list)
-    by_email_name = defaultdict(list)
+    # Index every populated triple (at most ten per record). This catches
+    # every 3-of-5 combination without scanning unrelated pairs.
+    by_triple = defaultdict(list)
     for item in items:
-        first, last = normalize_name(item.first_name), normalize_name(item.last_name)
-        if not first or not last:
-            continue
-        phone, email = normalize_phone(item.phone), normalize_email(item.email)
-        if phone:
-            by_phone_name[(phone, first, last)].append(item)
-        if email:
-            by_email_name[(email, first, last)].append(item)
+        populated = [(index, value) for index, value in enumerate(identity_fields(item)) if value]
+        for triple in combinations(populated, 3):
+            by_triple[triple].append(item)
 
     pairs = {}
-    for index in (by_phone_name, by_email_name):
-        for members in index.values():
-            if len(members) < 2:
-                continue
-            for position, left in enumerate(members):
-                for right in members[position+1:]:
-                    pair = ordered_pair(left.pk, right.pk)
-                    if pair not in pairs:
-                        reason = match_evidence(left, right)
-                        if reason:
-                            pairs[pair] = (left, right, reason)
+    for members in by_triple.values():
+        for left, right in combinations(members, 2):
+            pair = ordered_pair(left.pk, right.pk)
+            if pair not in pairs:
+                reason = match_evidence(left, right)
+                if reason:
+                    pairs[pair] = (left, right, reason)
 
     decisions = latest_decisions()
     results = []
@@ -103,7 +120,7 @@ def possible_duplicate_pairs(customers=None, *, limit=300, include_reviewed=Fals
 
 
 def approved_patient_groups(customers):
-    """Show strong exact-name/phone duplicates as one *administrative* patient.
+    """Show only explicitly verified aliases as one administrative patient.
 
     Booking rows, clinical records, external identity IDs and customer-app
     permissions are untouched. Rejected and revoked pairs are not re-linked
@@ -142,20 +159,8 @@ def approved_patient_groups(customers):
         if decision.action == 'approve' and left in by_id and right in by_id:
             join(left, right)
 
-    # Automatic high confidence administrative grouping: full name plus a
-    # normalized valid phone must both match. Different emails are fine.
-    # Such grouping is deliberately not shared with account authentication.
-    by_identity = defaultdict(list)
-    for item in items:
-        first, last = normalize_name(item.first_name), normalize_name(item.last_name)
-        phone = normalize_phone(item.phone)
-        if first and last and phone and first not in ('patient', 'simplybook'):
-            by_identity[(first, last, phone)].append(item.pk)
-
-    for ids in by_identity.values():
-        for index, left in enumerate(ids):
-            for right in ids[index + 1:]:
-                join(left, right)
+    # Candidate matches never expand clinical timelines. Only a recorded
+    # approval joins aliases, including exact full-name / phone matches.
 
     groups = defaultdict(list)
     for item in items:

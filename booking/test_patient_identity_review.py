@@ -1,5 +1,7 @@
 """Test reviewed, reversible patient linking without cross-account record leakage."""
-from datetime import timedelta
+from datetime import date, timedelta
+from unittest.mock import patch
+import json
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
@@ -57,9 +59,10 @@ class PatientIdentityReviewTests(TestCase):
             data['confirmed_same_patient'] = 'on'
         return data
 
-    def test_auto_grouping_keeps_booking_foreign_keys_and_email_aliases(self):
-        self.assertEqual(len(approved_patient_groups([self.first, self.second])), 1)
+    def test_confirmed_grouping_keeps_booking_foreign_keys_and_email_aliases(self):
+        self.assertEqual(len(approved_patient_groups([self.first, self.second])), 2)
         self.assertEqual(PatientIdentityDecision.objects.count(), 0)
+        self.assertEqual(self.client.post(self.path, self.payload()).status_code, 302)
         grouped = approved_patient_representatives([self.first, self.second], query='anna.new@example.test')
         self.assertEqual(len(grouped), 1)
         self.assertEqual(set(grouped[0].display_group_ids), {self.first.pk, self.second.pk})
@@ -82,6 +85,7 @@ class PatientIdentityReviewTests(TestCase):
             ends_at=start + timedelta(hours=1, minutes=15),
             source='web', status='new',
         )
+        self.assertEqual(self.client.post(self.path, self.payload()).status_code, 302)
         page = self.client.get(f'/verwaltung/app/patients/?customer={self.first.pk}&tab=appointments')
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, '2 verknüpfte Profile')
@@ -101,6 +105,8 @@ class PatientIdentityReviewTests(TestCase):
         )
         response = self.client.post(self.path, self.payload(action='reject', confirmed=False))
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.client.post(self.path, self.payload(second=third)).status_code, 302)
+        self.assertEqual(self.client.post(self.path, self.payload(first=self.second, second=third)).status_code, 302)
         groups = approved_patient_groups([self.first, self.second, third])
         self.assertEqual(len(groups), 2)
         self.assertFalse(any({self.first.pk, self.second.pk}.issubset(
@@ -150,6 +156,7 @@ class PatientIdentityReviewTests(TestCase):
         self.assertEqual(Customer.objects.count(), 2)
 
     def test_valid_app_admin_sees_review_link_in_patient_profile(self):
+        self.assertEqual(self.client.post(self.path, self.payload()).status_code, 302)
         response = self.client.get(
             f'/verwaltung/app/patients/?customer={self.first.pk}&tab=records'
         )
@@ -200,7 +207,7 @@ class PatientIdentityReviewTests(TestCase):
             customer=self.second, appointment=appointment,
             kind='note', title='Vertraulicher Eintrag',
         )
-        self.assertEqual([len(group) for group in approved_patient_groups([self.first, self.second])], [2])
+        self.assertEqual([len(group) for group in approved_patient_groups([self.first, self.second])], [1, 1])
 
         response = self.client.post(self.path, self.payload())
         self.assertEqual(response.status_code, 302, response.content)
@@ -232,13 +239,13 @@ class PatientIdentityReviewTests(TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertContains(page, 'Vertraulicher Eintrag')
 
-    def test_automatic_grouping_shows_both_original_histories_without_mutation(self):
+    def test_unverified_candidate_does_not_expose_other_clinical_history(self):
         PatientRecord.objects.create(
             customer=self.second, kind='note', title='Eintrag nur in Profil zwei',
         )
         page = self.client.get(f'/verwaltung/app/patients/?customer={self.first.pk}&tab=records')
         self.assertEqual(page.status_code, 200)
-        self.assertContains(page, 'Eintrag nur in Profil zwei')
+        self.assertNotContains(page, 'Eintrag nur in Profil zwei')
         self.assertEqual(Customer.objects.count(), 2)
         self.assertEqual(PatientIdentityDecision.objects.count(), 0)
 
@@ -277,3 +284,52 @@ class PatientIdentityReviewTests(TestCase):
         response = strict.post(self.path, self.payload())
         self.assertEqual(response.status_code, 403)
         self.assertEqual(PatientIdentityDecision.objects.count(), 0)
+
+    def test_three_of_five_without_full_name_is_candidate_only(self):
+        self.first.date_of_birth = date(1990, 2, 3)
+        self.first.save(update_fields=['date_of_birth'])
+        self.second.date_of_birth = date(1990, 2, 3)
+        self.second.last_name = 'Neuer Name'
+        self.second.save(update_fields=['date_of_birth', 'last_name'])
+        pairs = possible_duplicate_pairs()
+        self.assertEqual(len(pairs), 1)
+        self.assertIn('3/5', pairs[0]['reason'])
+        self.assertIn('Geburtsdatum', pairs[0]['reason'])
+        self.assertEqual(len(approved_patient_groups([self.first, self.second])), 2)
+
+    def test_conflicting_birth_dates_never_auto_link(self):
+        self.first.date_of_birth = date(1990, 2, 3)
+        self.second.date_of_birth = date(1991, 2, 3)
+        self.first.save(update_fields=['date_of_birth'])
+        self.second.save(update_fields=['date_of_birth'])
+        self.assertIn('anderes Geburtsdatum', possible_duplicate_pairs()[0]['reason'])
+        self.assertEqual(len(approved_patient_groups([self.first, self.second])), 2)
+
+    def test_birth_date_change_invalidates_review_snapshot(self):
+        payload = self.payload()
+        self.second.date_of_birth = date(1990, 2, 3)
+        self.second.save(update_fields=['date_of_birth'])
+        self.assertEqual(self.client.post(self.path, payload).status_code, 409)
+        self.assertFalse(PatientIdentityDecision.objects.exists())
+
+    def test_native_admin_review_records_verified_aesthetic_actor(self):
+        endpoint = '/api/mobile/staff/identity-review/'
+        with patch('booking.mobile_staff_api._verify', return_value=({'id': 97, 'role': 'admin'}, 200)):
+            response = self.client.get(endpoint)
+            self.assertEqual(response.status_code, 200)
+            found = response.json()['items'][0]
+            data = self.payload(fingerprint=found['fingerprint'])
+            response = self.client.post(endpoint, json.dumps(data), content_type='application/json')
+            self.assertEqual(response.status_code, 200, response.content)
+        event = PatientIdentityDecision.objects.get()
+        self.assertEqual(event.reviewed_by_aesthetic_id, 97)
+        self.assertIsNone(event.reviewed_by_id)
+        self.assertEqual(len(approved_patient_groups([self.first, self.second])), 1)
+
+    def test_native_doctor_cannot_access_identity_review(self):
+        endpoint = '/api/mobile/staff/identity-review/'
+        StaffMember.objects.get_or_create(display_name='Qamar Hameed', defaults={'role': 'doctor'})
+        with patch('booking.mobile_staff_api._verify', return_value=({'id': 98, 'role': 'doctor'}, 200)):
+            self.assertEqual(self.client.get(endpoint).status_code, 403)
+            self.assertEqual(self.client.post(endpoint, json.dumps(self.payload()), content_type='application/json').status_code, 403)
+        self.assertFalse(PatientIdentityDecision.objects.exists())

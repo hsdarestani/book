@@ -115,6 +115,7 @@ class Customer(models.Model):
     salutation = models.CharField('Anrede', max_length=10, choices=SALUTATION, blank=True, default='')
     phone = models.CharField('Telefon', max_length=40, blank=True)
     email = models.EmailField('E-Mail')
+    date_of_birth = models.DateField('Geburtsdatum', null=True, blank=True)
     created_at = models.DateTimeField('Erstellt am', auto_now_add=True)
     updated_at = models.DateTimeField('Aktualisiert am', auto_now=True)
 
@@ -261,7 +262,9 @@ class PatientIdentityDecision(models.Model):
     action = models.CharField(max_length=12, choices=ACTIONS)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='patient_identity_decisions',
+        null=True, blank=True,
     )
+    reviewed_by_aesthetic_id = models.PositiveBigIntegerField(null=True, blank=True)
     reason = models.CharField(max_length=120)
     snapshot = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -273,6 +276,11 @@ class PatientIdentityDecision(models.Model):
             models.CheckConstraint(
                 condition=Q(left__lt=models.F('right')),
                 name='patient_decision_ordered_pair',
+            ),
+            models.CheckConstraint(
+                condition=(Q(reviewed_by__isnull=False, reviewed_by_aesthetic_id__isnull=True) |
+                           Q(reviewed_by__isnull=True, reviewed_by_aesthetic_id__isnull=False)),
+                name='patient_decision_verified_actor',
             ),
         ]
         verbose_name = 'Prüfung möglicher Patienten-Duplikate'
