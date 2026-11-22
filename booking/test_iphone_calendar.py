@@ -101,6 +101,8 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         self.assertIn("if(dx<0&&gesture.atRight&&viewport.scrollLeft>=maxScroll-4)changeWeek(1)", iphone)
         self.assertIn("else if(dx>0&&gesture.atLeft&&viewport.scrollLeft<=4)changeWeek(-1)", iphone)
         self.assertNotIn("if(isWeek()||isGrouped()||event.touches.length!==1", iphone)
+        self.assertIn("20261122-weekswipe1", self.source("static/booking/admin.js"))
+        self.assertIn("20261122-weekswipe1", self.source("templates/booking/dashboard.html"))
 
     def test_visual_css_follows_reference_and_overrides_global_premium(self):
         css = self.source("static/booking/admin-calendar-reference-v2.css")
