@@ -1,0 +1,107 @@
+name: Surgical Sunday public-booking guard (no service restart)
+
+on:
+  push:
+    branches:
+      - audit/book-botox-duration-20261122
+    paths:
+      - ".github/workflows/deploy-book-sunday-guard.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: one-time-book-sunday-guard
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Deploy exact Sunday validation guard with graceful Gunicorn reload
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -Eeuo pipefail
+            APP=/opt/aesthetic-book/app
+            TARGET="$APP/booking/services.py"
+            MAIN=29433dfc865c3f52e1d65f47148f791920dab128
+            FIX=2052f0bccf77da1ca139ac1edbfa018bd4406224
+            TMP="$(mktemp -d)"
+            BACKUP="/opt/aesthetic-book/hotfix-backups/services-before-sunday-guard-20261122.py"
+            APPLIED=0
+            restore(){
+              code=$?
+              trap - ERR
+              set +e
+              if [ "$APPLIED" = 1 ]; then
+                echo 'Restoring previous booking service implementation'
+                RESTORE_TARGET="$(mktemp "$APP/booking/.services-restore-XXXXXXXX")"
+                install -o aestheticbook -g aestheticbook -m 0644 "$BACKUP" "$RESTORE_TARGET"
+                mv -f "$RESTORE_TARGET" "$TARGET"
+                MASTER_NOW="$(systemctl show aesthetic-book -p MainPID --value)"
+                [ "$MASTER_NOW" -gt 1 ] && kill -HUP "$MASTER_NOW"
+              fi
+              exit "$code"
+            }
+            trap 'rm -rf "$TMP"' EXIT
+            trap restore ERR
+            test "$(id -u)" -eq 0
+            systemctl is-active --quiet aesthetic-book
+            test "$(git -C "$APP" rev-parse HEAD)" = "$MAIN"
+            curl -fsS --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$MAIN/booking/services.py" -o "$TMP/old.py"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$FIX/booking/services.py" -o "$TMP/new.py"
+            cmp -s "$TARGET" "$TMP/old.py"
+            python3 - "$TMP/old.py" "$TMP/new.py" <<'PY'
+            import sys
+            from pathlib import Path
+            before,after=[Path(p).read_text() for p in sys.argv[1:]]
+            old="""def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None):
+                if not service.active or not service.bookable or not staff.active:
+                    return []
+            """
+            new="""def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None):
+                # Clinic-wide public booking policy: every Sunday is closed, even when a
+                # stale weekly working hour or a per-day availability override says open.
+                # Staff-entered historical appointments are preserved.
+                if day.weekday() == 6:
+                    return []
+                if not service.active or not service.bookable or not staff.active:
+                    return []
+            """
+            if old not in before or before.replace(old,new)!=after:
+                raise SystemExit("Sunday patch is not an exact narrow edit; abort")
+            print("Sunday guard code validated: no other booking logic affected")
+            PY
+            MASTER="$(systemctl show aesthetic-book -p MainPID --value)"
+            test "$MASTER" -gt 1
+            test "$(pgrep -P "$MASTER" | wc -l)" -ge 2
+            mkdir -p /opt/aesthetic-book/hotfix-backups
+            cp -p "$TARGET" "$BACKUP"
+            APPLIED=1
+            NEW_TARGET="$(mktemp "$APP/booking/.services-new-XXXXXXXX")"
+            install -o aestheticbook -g aestheticbook -m 0644 "$TMP/new.py" "$NEW_TARGET"
+            mv -f "$NEW_TARGET" "$TARGET"
+            kill -HUP "$MASTER"
+            sleep 4
+            systemctl is-active --quiet aesthetic-book
+            test "$(systemctl show aesthetic-book -p MainPID --value)" = "$MASTER"
+            curl -fsS --retry 3 --retry-delay 1 --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            curl -fsS --max-time 15 'https://book.a-esthetic.de/api/mobile/slots/?service_id=11&day=2026-11-29' -o "$TMP/sunday.json"
+            python3 - "$TMP/sunday.json" <<'PY'
+            import json,sys
+            data=json.load(open(sys.argv[1]))
+            assert data.get("ok") is True and data["slots"]==[], data
+            print("Sunday public mobile slots verified closed")
+            PY
+            cmp -s "$TARGET" "$TMP/new.py"
+            APPLIED=0
+            trap - ERR
+            echo 'LIVE: Sunday booking guard deployed; all current customer appointments untouched; Gunicorn master preserved; health OK'
