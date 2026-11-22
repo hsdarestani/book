@@ -1,15 +1,15 @@
 /* Calendar mobile day header — last-load geometry normalization (2026-11-22).
  * Main.sb-admin-shell is the only vertical scroll owner.
  * The fixed month+week date dock ends 150px below its 64px toolbar.
- * Legacy date controls leave an extra 90px above .sb-calendar-shell.
- * Shift only the day timeline up to the dock boundary and give the real
+ * The hidden template comment no longer creates an extra 90px in flow.
+ * Keep the day timeline at the reserved dock boundary and give the real
  * editable date header native sticky positioning within the scrollport.
  * No cloned title, no event/booking modifications, no desktop changes.
  */
 @media (max-width:760px) {
   html[data-admin-page="calendar"][data-clinic-design="premium"]
   body.sb-calendar-pro main.sb-admin-shell > .sb-calendar-panel > .sb-calendar-shell.is-day {
-    margin-top:-90px!important;
+    margin-top:0!important;
     overflow:visible!important;
   }
   html[data-admin-page="calendar"][data-clinic-design="premium"]
