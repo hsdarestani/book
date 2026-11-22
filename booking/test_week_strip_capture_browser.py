@@ -76,8 +76,8 @@ class RealCalendarStripCaptureTests(TestCase):
         context=browser.new_context(viewport={"width":390,"height":820},
                                     device_scale_factor=2,is_mobile=True,has_touch=True)
         page=context.new_page()
-        page.route("https://book.test/**",self.route)
         page.route("**/*",lambda route: route.abort())
+        page.route("https://book.test/**",self.route)
         page.goto(f"https://book.test/verwaltung/kalender/?date=2026-11-22&cal_view={mode}&staff={self.staff.pk}",wait_until="domcontentloaded")
         page.wait_for_function("document.documentElement.dataset.weekStripSwipeVersion==='20261122-strip3'")
         page.locator(".sb-iphone-weekstrip").first.wait_for()
