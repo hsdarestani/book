@@ -54,7 +54,7 @@
   function loadCalendarPlus() {
     if (document.querySelector('script[data-admin-calendar-plus]')) return;
     const script = document.createElement('script');
-    script.src = '/static/booking/admin-calendar-plus.js?v=20261022-timeline-v3';
+    script.src = '/static/booking/admin-calendar-plus.js?v=20261122-sunday-ajax1';
     script.defer = true;
     script.setAttribute('data-admin-calendar-plus', '1');
     document.head.appendChild(script);
