@@ -58,6 +58,7 @@ urlpatterns = [
     path('api/mobile/staff/<slug:action>/', mobile_staff_api.workspace),
     path('api/mobile/staff/patient/<int:ident>/', mobile_staff_api.workspace, {'action': 'patient'}),
     path('api/mobile/staff/patient/<int:ident>/records/<uuid:record_id>/', mobile_staff_api.workspace, {'action': 'record'}),
+    path('api/mobile/staff/patient/<int:ident>/visits/<uuid:record_id>/', mobile_staff_api.workspace, {'action': 'visit'}),
     path('api/mobile/app-admin/overview/', app_admin_api.overview, name='app_admin_overview'),
     path('api/mobile/app-admin/calendar/', app_admin_api.calendar, name='app_admin_calendar'),
     path('api/mobile/app-admin/bookings/', app_admin_api.bookings, name='app_admin_bookings'),

@@ -230,16 +230,25 @@ def _read(request, actor, providers, action, ident, record_id):
     person = people.filter(pk=ident).first()
     if not person:
         return _private({'ok': False, 'error': 'not_found'}, 404)
+    if action == 'visit':
+        if actor['role'] != 'admin':
+            return _private({'ok': False, 'error': 'admin_required'}, 403)
+        visit = items.filter(customer=person, public_id=record_id).first()
+        if not visit:
+            return _private({'ok': False, 'error': 'not_found'}, 404)
+        return _private({'ok': True, 'visit': _appointment(visit) | {'public_id': str(visit.public_id)}})
     if action == 'record':
         return _record_file(actor, providers, person, record_id)
     return _private({
-        'ok': True, 'patient': _person(person),
+        'ok': True, 'patient': _person(person) | ({'first_name': person.first_name, 'last_name': person.last_name,
+                                     'date_of_birth': person.date_of_birth.isoformat() if person.date_of_birth else None}
+                                    if actor['role'] == 'admin' else {}),
         'records': [{
             'id': str(item.public_id), 'title': item.title, 'note': item.note,
             'date': item.created_at.isoformat(), 'has_file': item.has_file, 'filename': item.original_name,
         } for item in _records(actor, person, providers).order_by('-created_at', '-pk')[offset:offset+31]][:30],
         'has_more': _records(actor, person, providers).count() > offset+30,
-        'appointments': [_appointment(row) for row in items.filter(customer=person).order_by('-starts_at')[:20]],
+        'appointments': [_appointment(row) | {'public_id': str(row.public_id)} for row in items.filter(customer=person).order_by('-starts_at')[:20]],
     })
 
 
@@ -277,7 +286,7 @@ def workspace(request, action, ident=None, record_id=None):
             except ValueError as exc:
                 return _private({'ok': False, 'error': 'identity_review_conflict', 'message': str(exc)}, 409)
             return _private({'ok': True, 'id': review.pk})
-        if request.method == 'GET' and action in {'calendar', 'catalog', 'overview', 'appointments', 'patients', 'patient', 'record'}:
+        if request.method == 'GET' and action in {'calendar', 'catalog', 'overview', 'appointments', 'patients', 'patient', 'record', 'visit'}:
             return _read(request, actor, providers, action, ident, record_id)
         if request.method == 'POST' and action in {'appointment', 'block', 'availability', 'service', 'record-note'}:
             return _mutate(request, actor, providers, action)
