@@ -39,5 +39,7 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Run complete Django regression suite before production merge
         run: python manage.py test
+      - name: Validate calendar JavaScript syntax
+        run: node --check static/booking/admin-calendar-iphone-v1.js && node --check static/booking/admin.js
       - name: Check Django system configuration
         run: python manage.py check
