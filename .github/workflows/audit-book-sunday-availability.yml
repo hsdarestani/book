@@ -1,0 +1,52 @@
+name: Read-only Sunday availability and hotfix topology audit
+
+on:
+  push:
+    branches:
+      - audit/book-botox-duration-20261122
+    paths:
+      - ".github/workflows/audit-book-sunday-availability.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Inspect scheduling configuration and Gunicorn (read-only)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+            systemctl is-active --quiet aesthetic-book
+            echo 'Gunicorn PID and worker count:'
+            systemctl show aesthetic-book -p MainPID --value
+            pgrep -fa 'gunicorn.*config.wsgi' | cut -c 1-180 || true
+            echo 'Production template and statics:'
+            test -f /opt/aesthetic-book/app/templates/booking/_shared_admin_calendar.html
+            sha256sum /opt/aesthetic-book/app/templates/booking/_shared_admin_calendar.html
+            test -f /opt/aesthetic-book/app/staticfiles/booking/admin-calendar-iphone-v1.js && sha256sum /opt/aesthetic-book/app/staticfiles/booking/admin-calendar-iphone-v1.js || true
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from datetime import timedelta
+            from django.utils import timezone
+            from booking.models import WorkingHour, DailyAvailabilityOverride
+            today = timezone.localdate()
+            horizon = today + timedelta(days=365)
+            sunday_hours = list(WorkingHour.objects.filter(weekday=6, active=True).select_related("staff").values("id","staff_id","staff__display_name","start_time","end_time"))
+            sunday_overrides = [
+                dict(id=o.id,staff_id=o.staff_id,date=o.date.isoformat(),closed=o.closed)
+                for o in DailyAvailabilityOverride.objects.filter(date__gte=today,date__lte=horizon)
+                if o.date.weekday() == 6
+            ]
+            print("Active recurring Sunday working hours:", sunday_hours)
+            print("Future Sunday overrides (next 365 days):", sunday_overrides)
+            print("Other weekly hours count:", WorkingHour.objects.exclude(weekday=6).filter(active=True).count())
+            PY
