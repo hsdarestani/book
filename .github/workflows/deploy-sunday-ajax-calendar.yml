@@ -1,0 +1,150 @@
+name: Surgical Sunday AJAX day calendar state hotfix (no booking downtime)
+
+on:
+  push:
+    branches: [audit/book-botox-duration-20261122]
+    paths:
+      - ".github/workflows/deploy-sunday-ajax-calendar.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aesthetic-book-sunday-ajax-day-20261122
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Confirm real mobile browser, calendar and doctor tests pass
+        run: |
+          set -euo pipefail
+          for run in 45040244534 45040244524 45040244528; do
+            curl --fail --silent --show-error "https://api.github.com/repos/hsdarestani/book/actions/runs/$run" | python3 -c 'import json,sys; x=json.load(sys.stdin); assert x["status"]=="completed" and x["conclusion"]=="success",x'
+          done
+          echo "All three CI suites verified green"
+      - name: Install precisely three reviewed source changes with grace reload
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 7m
+          script: |
+            set -Eeuo pipefail
+            APP=/opt/aesthetic-book/app
+            MAIN=29433dfc865c3f52e1d65f47148f791920dab128
+            PRIOR=186bfffa68def81c16c9e0194a00a641fc1eae5f
+            FIX=025113168a8e1c2c80ef83013cc63d2fa20d8f67
+            TMP="$(mktemp -d)"
+            BACKUP="/opt/aesthetic-book/hotfix-backups/sunday-ajax-$(date -u +%Y%m%dT%H%M%SZ)"
+            APPLIED=0
+            FILES="static/booking/admin-calendar-plus.js staticfiles/booking/admin-calendar-plus.js static/booking/admin.js staticfiles/booking/admin.js templates/booking/dashboard.html"
+            restore(){
+              code=$?
+              trap - ERR
+              set +e
+              if [ "$APPLIED" = 1 ]; then
+                echo 'Restore original five Book files after health or source check failure'
+                for f in $FILES; do
+                  RECOVERY="$(mktemp "$(dirname "$APP/$f")/.sunday-ajax-back-XXXXXXXX")"
+                  install -o aestheticbook -g aestheticbook -m 0644 "$BACKUP/$f" "$RECOVERY"
+                  mv -f "$RECOVERY" "$APP/$f"
+                done
+                M="$(systemctl show aesthetic-book -p MainPID --value)"
+                [ "$M" -gt 1 ] && kill -HUP "$M"
+              fi
+              exit "$code"
+            }
+            trap 'rm -rf "$TMP"' EXIT
+            trap restore ERR
+            test "$(id -u)" -eq 0
+            test "$(git -C "$APP" rev-parse HEAD)" = "$MAIN"
+            systemctl is-active --quiet aesthetic-book
+            curl -fsS --max-time 15 https://book.a-esthetic.de/api/health/ > /dev/null
+            grep -q '20261122-sunday1' "$APP/templates/booking/dashboard.html"
+            grep -q '20261122-strip3' "$APP/templates/booking/dashboard.html"
+            grep -q 'Geschlossen' "$APP/templates/booking/_shared_admin_calendar.html"
+            grep -q 'if day.weekday() == 6:' "$APP/booking/services.py"
+            mkdir -p "$TMP/old/static/booking" "$TMP/new/static/booking" "$TMP/old/templates/booking" "$TMP/new/templates/booking"
+            for file in static/booking/admin-calendar-plus.js static/booking/admin.js templates/booking/dashboard.html; do
+              if [ "$file" = "static/booking/admin-calendar-plus.js" ]; then origin="$MAIN"; else origin="$PRIOR"; fi
+              curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$origin/$file" -o "$TMP/old/$file"
+              curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$FIX/$file" -o "$TMP/new/$file"
+              cmp -s "$APP/$file" "$TMP/old/$file"
+              case "$file" in
+                static/*)
+                  cmp -s "$APP/staticfiles/booking/$(basename "$file")" "$TMP/old/$file"
+                  ;;
+              esac
+            done
+            python3 - "$TMP" <<'PY'
+            from pathlib import Path
+            import sys
+            d=Path(sys.argv[1])
+            old=(d/"old/static/booking/admin-calendar-plus.js").read_text()
+            new=(d/"new/static/booking/admin-calendar-plus.js").read_text()
+            a="    const head = dayNode.querySelector('.sb-day-head');"
+            z="    dayNode.classList.toggle('is-today', Boolean(data.is_today));"
+            cut=old.index("  function renderCalendarDay(")
+            i=old.index(a,cut); j=old.index(z,i)
+            i2=new.index("    // The AJAX renderer reuses one DOM column across different dates.",new.index("  function renderCalendarDay("))
+            j2=new.index(z,i2)
+            if old[:i]!=new[:i2] or old[j:]!=new[j2:]:
+                raise SystemExit("AJAX change contains unexpected non-Sunday modifications")
+            portion=new[i2:j2]
+            for t in ("requestedDate.getDay() === 0","classList.toggle('is-sunday', isSunday)",
+                      "classList.toggle('is-closed-day', isSunday)",
+                      "closedLabel.textContent = 'Geschlossen'"):
+                if t not in portion:
+                    raise SystemExit("Missing Sunday state restoration: "+t)
+            loader_old=(d/"old/static/booking/admin.js").read_text()
+            loader_new=(d/"new/static/booking/admin.js").read_text()
+            if loader_old.replace("admin-calendar-plus.js?v=20261022-timeline-v3","admin-calendar-plus.js?v=20261122-sunday-ajax1")!=loader_new:
+                raise SystemExit("Unexpected loader change")
+            html_old=(d/"old/templates/booking/dashboard.html").read_text()
+            html_new=(d/"new/templates/booking/dashboard.html").read_text()
+            if html_old.replace("admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261122-sunday1",
+                                "admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261122-sunday-ajax1")!=html_new:
+                raise SystemExit("Unexpected dashboard change")
+            print("Exactly scoped AJAX calendar and cache versions verified")
+            PY
+            MASTER="$(systemctl show aesthetic-book -p MainPID --value)"
+            test "$MASTER" -gt 1
+            test "$(pgrep -P "$MASTER" | wc -l)" -ge 2
+            for f in $FILES; do
+              mkdir -p "$BACKUP/$(dirname "$f")"
+              cp -p "$APP/$f" "$BACKUP/$f"
+            done
+            put(){
+              dest="$1"
+              source="$2"
+              temp="$(mktemp "$(dirname "$APP/$dest")/.sun-replace-XXXXXXXX")"
+              install -o aestheticbook -g aestheticbook -m 0644 "$source" "$temp"
+              mv -f "$temp" "$APP/$dest"
+            }
+            APPLIED=1
+            for name in admin-calendar-plus.js admin.js; do
+              put "static/booking/$name" "$TMP/new/static/booking/$name"
+              put "staticfiles/booking/$name" "$TMP/new/static/booking/$name"
+            done
+            put "templates/booking/dashboard.html" "$TMP/new/templates/booking/dashboard.html"
+            kill -HUP "$MASTER"
+            sleep 4
+            systemctl is-active --quiet aesthetic-book
+            test "$(systemctl show aesthetic-book -p MainPID --value)" = "$MASTER"
+            curl -fsS --retry 3 --retry-delay 1 --max-time 15 https://book.a-esthetic.de/api/health/ > /dev/null
+            for name in admin-calendar-plus.js admin.js; do
+              curl -fsS --max-time 20 "https://book.a-esthetic.de/static/booking/$name?v=20261122-sunday-ajax1" -o "$TMP/public-$name"
+              cmp -s "$TMP/public-$name" "$TMP/new/static/booking/$name"
+            done
+            grep -q '20261122-sunday-ajax1' "$APP/templates/booking/dashboard.html"
+            grep -q '20261122-strip3' "$APP/templates/booking/dashboard.html"
+            curl -fsS --max-time 15 'https://book.a-esthetic.de/api/mobile/slots/?service_id=11&day=2026-12-13' |
+              python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") and d["slots"]==[]'
+            APPLIED=0
+            trap - ERR
+            echo 'LIVE: both Sundays stay gray during AJAX day navigation; yellow OP/manual blocks preserved; Book health OK; Gunicorn master unchanged'
