@@ -29,6 +29,15 @@
     box-shadow:none!important;
     border-bottom:1px solid #e0e5e9!important;
   }
+  /* Explicitly reserve horizontal gestures on the fixed strip for JS while
+     keeping vertical scrolling available to iOS Safari and Android Chrome. */
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-reference-date-dock .sb-iphone-weekstrip,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-reference-date-dock .sb-iphone-day {
+    touch-action:pan-y!important;
+    user-select:none!important;
+    -webkit-user-select:none!important;
+    -webkit-touch-callout:none!important;
+  }
   html[data-admin-page="calendar"] body.sb-calendar-pro main.sb-admin-shell>.sb-calendar-panel{
     padding-top:150px!important;
   }

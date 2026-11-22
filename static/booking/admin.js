@@ -45,7 +45,7 @@
       addStylesheet('/static/booking/admin-calendar-sheet-fix-v3.css?v=20261029-v3', 'data-admin-calendar-sheet-fix-v3');
       addStylesheet('/static/booking/admin-calendar-mobile-finish-v4.css?v=20261029-finish-v4', 'data-admin-calendar-mobile-finish-v4');
       addStylesheet('/static/booking/admin-calendar-scroll-v5.css?v=20261029-scroll-v5', 'data-admin-calendar-scroll-v5');
-      addStylesheet('/static/booking/admin-calendar-date-dock-v6.css?v=20261029-firsthour8', 'data-admin-calendar-dock-v6');
+      addStylesheet('/static/booking/admin-calendar-date-dock-v6.css?v=20261122-strip2', 'data-admin-calendar-dock-v6');
       addStylesheet('/static/booking/admin-calendar-view-modes-v1.css?v=20261029-modes1', 'data-admin-calendar-view-modes-v1');
       addStylesheet('/static/booking/admin-calendar-horizontal-v2.css?v=20261029-horizontal2', 'data-calendar-horizontal-v2');
     }
@@ -54,13 +54,13 @@
   function loadCalendarPlus() {
     if (document.querySelector('script[data-admin-calendar-plus]')) return;
     const script = document.createElement('script');
-    script.src = '/static/booking/admin-calendar-plus.js?v=20261022-timeline-v3';
+    script.src = '/static/booking/admin-calendar-plus.js?v=20261122-sunday-ajax1';
     script.defer = true;
     script.setAttribute('data-admin-calendar-plus', '1');
     document.head.appendChild(script);
     if (document.querySelector('.sb-calendar-panel')) {
       const iphone = document.createElement('script');
-      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261029-horizontal2';
+      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261122-sunday1';
       iphone.defer = true;
       iphone.setAttribute('data-admin-calendar-iphone-v1', '1');
       document.head.appendChild(iphone);

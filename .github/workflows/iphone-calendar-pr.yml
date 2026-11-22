@@ -7,6 +7,11 @@ on:
       - "static/booking/admin-calendar-plus.js"
       - "static/booking/admin-calendar-iphone-v1.*"
       - "booking/test_iphone_calendar.py"
+      - "booking/services.py"
+      - "booking/test_sunday_booking.py"
+      - "booking/test_mobile_staff_workspace.py"
+      - "booking/mobile_staff_api.py"
+      - "booking/migrations/**"
       - "booking/test_calendar_sheet_correctness.py"
       - "booking/test_premium_design.py"
       - "booking/admin_views.py"
@@ -39,5 +44,7 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Run complete Django regression suite before production merge
         run: python manage.py test
+      - name: Validate calendar JavaScript syntax
+        run: node --check static/booking/admin-calendar-iphone-v1.js && node --check static/booking/admin.js
       - name: Check Django system configuration
         run: python manage.py check

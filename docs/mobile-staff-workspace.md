@@ -22,3 +22,9 @@ Run `manage.py reconcile_mobile_cancellations` on isolated staging first. For a 
 The existing mobile desktop flow remains the fallback for advanced form/file administration, invoice work, patient identity review, source-managed appointment changes and older shared blocks. A new staff build must clear release review before being offered to production personnel.
 
 Remaining release work includes all-writer overlap checks against legacy desktop mutations, durable delivery for customer-side package reservation failures, provider and service assignment parity, and a physical-device role and gesture matrix.
+
+## November 22 hotfix reconciliation
+
+Calendar fixes #102, #104, #105, #106 and #107 are cumulative through Book commit `ed40b65d84bfd34807f5bac7fd96e249a54bcf53`. Integrate that snapshot with the independently diverged #101 template-comment fix and #103 canonical public Sunday closure and tests. The combined regression workflow runs the complete Django suite and calendar JavaScript syntax checks. The new data migration corrects only the historical seeded returning-patient Botox setting (15 minutes + 10 buffer) to 15 minutes + 0 buffer; it never rewrites appointment times or overwrites other customized configurations.
+
+This integration is repository-based; the exact deployed assets and production service configuration have not been independently compared. Do not run the production deployment workflow or migration without approval. The existing public Sunday guard does not prohibit authorized staff historical/manual appointment handling. Native calendar rendering and device gestures still require separate implementation and testing.
