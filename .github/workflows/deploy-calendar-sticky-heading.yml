@@ -1,0 +1,122 @@
+name: Surgical Book calendar sticky day heading release (no restart)
+
+on:
+  push:
+    branches: [audit/book-botox-duration-20261122]
+    paths:
+      - ".github/workflows/deploy-calendar-sticky-heading.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: one-time-aesthetic-book-sticky-day-heading-20261122
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Require mobile browser, calendar and clinician regression suites
+        run: |
+          set -euo pipefail
+          for run_id in 45041695926 45041695914 45041695920; do
+            curl -fsSL "https://api.github.com/repos/hsdarestani/book/actions/runs/$run_id" |
+              python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["status"]=="completed" and d["conclusion"]=="success", d'
+          done
+          echo "All mobile heading, calendar, and doctor checks passed."
+      - name: Deploy just the new scoped CSS and dashboard stylesheet reference
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 6m
+          script: |
+            set -Eeuo pipefail
+            APP=/opt/aesthetic-book/app
+            MAIN=29433dfc865c3f52e1d65f47148f791920dab128
+            PRIOR=4c814b6440e8d7c35d74ab1fc719902fb7ecd419
+            FIX=ed40b65d84bfd34807f5bac7fd96e249a54bcf53
+            CSS=calendar-mobile-sticky-day-header-v1.css
+            TMP="$(mktemp -d)"
+            BACKUP="/opt/aesthetic-book/hotfix-backups/calendar-dashboard-pre-sticky-$(date -u +%Y%m%dT%H%M%SZ).html"
+            APPLIED=0
+            rollback(){
+              code=$?
+              trap - ERR
+              set +e
+              if [ "$APPLIED" = 1 ]; then
+                echo "Validation failed: removing new CSS and restoring previous dashboard"
+                recover="$(mktemp "$APP/templates/booking/.rollback-sticky-XXXXXXXX")"
+                install -o aestheticbook -g aestheticbook -m 0644 "$BACKUP" "$recover"
+                mv -f "$recover" "$APP/templates/booking/dashboard.html"
+                rm -f "$APP/static/booking/$CSS" "$APP/staticfiles/booking/$CSS"
+                master_now="$(systemctl show aesthetic-book -p MainPID --value)"
+                [ "$master_now" -gt 1 ] && kill -HUP "$master_now"
+              fi
+              exit "$code"
+            }
+            trap 'rm -rf "$TMP"' EXIT
+            trap rollback ERR
+            test "$(id -u)" -eq 0
+            test "$(git -C "$APP" rev-parse HEAD)" = "$MAIN"
+            systemctl is-active --quiet aesthetic-book
+            curl -fsS --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            test ! -e "$APP/static/booking/$CSS"
+            test ! -e "$APP/staticfiles/booking/$CSS"
+            # Preserve all previous live hotfixes and block/booking behavior.
+            grep -q '20261122-strip3' "$APP/templates/booking/dashboard.html"
+            grep -q '20261122-sunday-ajax1' "$APP/templates/booking/dashboard.html"
+            grep -q 'Geschlossen' "$APP/templates/booking/_shared_admin_calendar.html"
+            grep -q 'if day.weekday() == 6:' "$APP/booking/services.py"
+            ! grep -q 'Physical in-flow reservation' "$APP/templates/booking/_shared_admin_calendar.html"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$PRIOR/templates/booking/dashboard.html" -o "$TMP/old.html"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$FIX/templates/booking/dashboard.html" -o "$TMP/new.html"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$FIX/static/booking/$CSS" -o "$TMP/$CSS"
+            cmp -s "$APP/templates/booking/dashboard.html" "$TMP/old.html"
+            python3 - "$TMP/old.html" "$TMP/new.html" "$TMP/$CSS" <<'PY'
+            from pathlib import Path
+            import sys
+            old,new,css=[Path(p).read_text() for p in sys.argv[1:]]
+            previous='<link rel="stylesheet" href="/static/booking/admin-calendar-horizontal-v2.css?v=20261029-horizontal2" data-calendar-horizontal-v2>'
+            line='<link rel="stylesheet" href="/static/booking/calendar-mobile-sticky-day-header-v1.css?v=20261122-header1" data-calendar-sticky-day-heading>'
+            if old.count(previous)!=1 or new!=old.replace(previous,previous+'\n'+line):
+                raise SystemExit("Dashboard includes unexpected modifications")
+            must=['margin-top:-90px!important','position:sticky!important','top:150px!important',
+                  '.sb-calendar-shell.is-day','.sb-calendar-day > .sb-day-head']
+            for token in must:
+                if token not in css:
+                    raise SystemExit("CSS missing validated layout token "+token)
+            if '@media (max-width:760px)' not in css:
+                raise SystemExit("Unexpected desktop stylesheet impact")
+            print("Strictly scoped CSS and single dashboard link validated")
+            PY
+            master="$(systemctl show aesthetic-book -p MainPID --value)"
+            test "$master" -gt 1
+            test "$(pgrep -P "$master" | wc -l)" -ge 2
+            mkdir -p /opt/aesthetic-book/hotfix-backups
+            cp -p "$APP/templates/booking/dashboard.html" "$BACKUP"
+            APPLIED=1
+            install -o aestheticbook -g aestheticbook -m 0644 "$TMP/$CSS" "$APP/static/booking/$CSS"
+            install -o aestheticbook -g aestheticbook -m 0644 "$TMP/$CSS" "$APP/staticfiles/booking/$CSS"
+            replacement="$(mktemp "$APP/templates/booking/.sticky-day-XXXXXXXX")"
+            install -o aestheticbook -g aestheticbook -m 0644 "$TMP/new.html" "$replacement"
+            mv -f "$replacement" "$APP/templates/booking/dashboard.html"
+            kill -HUP "$master"
+            sleep 4
+            systemctl is-active --quiet aesthetic-book
+            test "$(systemctl show aesthetic-book -p MainPID --value)" = "$master"
+            curl -fsS --retry 3 --retry-delay 1 --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            curl -fsS --max-time 20 "https://book.a-esthetic.de/static/booking/$CSS?v=20261122-header1" -o "$TMP/public.css"
+            cmp -s "$TMP/public.css" "$TMP/$CSS"
+            grep -q 'data-calendar-sticky-day-heading' "$APP/templates/booking/dashboard.html"
+            grep -q '20261122-strip3' "$APP/templates/booking/dashboard.html"
+            grep -q '20261122-sunday-ajax1' "$APP/templates/booking/dashboard.html"
+            curl -fsS --max-time 15 'https://book.a-esthetic.de/api/mobile/slots/?service_id=11&day=2026-12-13' |
+              python3 -c 'import json,sys; j=json.load(sys.stdin); assert j.get("ok") is True and j["slots"]==[]'
+            APPLIED=0
+            trap - ERR
+            echo 'LIVE: date heading aligned under fixed week dock and sticky across scrolling; existing yellow blocks unchanged; Book healthy; master process preserved'
