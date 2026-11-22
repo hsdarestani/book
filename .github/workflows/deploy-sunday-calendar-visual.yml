@@ -1,0 +1,166 @@
+name: Surgical live Sunday closed-calendar visual repair
+
+on:
+  push:
+    branches:
+      - audit/book-botox-duration-20261122
+    paths:
+      - ".github/workflows/deploy-sunday-calendar-visual.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: one-time-book-sunday-visual-20261122
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Confirm three PR validation workflows passed
+        run: |
+          set -euo pipefail
+          for id in 45036809600 45036809586 45036809501; do
+            curl --fail --silent --show-error "https://api.github.com/repos/hsdarestani/book/actions/runs/$id" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["status"]=="completed" and d["conclusion"]=="success", d'
+          done
+          echo 'Calendar, browser, and doctor-access CI all passed.'
+      - name: Atomic scoped Sunday appearance release with file rollback
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 7m
+          script: |
+            set -Eeuo pipefail
+            APP=/opt/aesthetic-book/app
+            MAIN=29433dfc865c3f52e1d65f47148f791920dab128
+            PRIOR_SWIPES=ec99fbfbe709a980be84f78906b0160a0816d9cb
+            PRIOR_CAPTURE=32fe8a77c5ea41c01295798804bddb6310737c6c
+            NEW=186bfffa68def81c16c9e0194a00a641fc1eae5f
+            NEW_CSS=calendar-sunday-closed-v1.css
+            TMP="$(mktemp -d)"
+            BACKUP="/opt/aesthetic-book/hotfix-backups/sunday-visual-$(date -u +%Y%m%dT%H%M%SZ)"
+            APPLIED=0
+            FILES="static/booking/admin.js staticfiles/booking/admin.js static/booking/admin-calendar-iphone-v1.js staticfiles/booking/admin-calendar-iphone-v1.js templates/booking/dashboard.html templates/booking/_shared_admin_calendar.html"
+            restore(){
+              code=$?
+              trap - ERR
+              set +e
+              if [ "$APPLIED" = 1 ]; then
+                echo 'Rolling back all 6 original files and the 2 new CSS files'
+                for f in $FILES; do
+                  RECOVERY="$(mktemp "$(dirname "$APP/$f")/.sunday-recovery-XXXXXXXX")"
+                  install -o aestheticbook -g aestheticbook -m 0644 "$BACKUP/$f" "$RECOVERY"
+                  mv -f "$RECOVERY" "$APP/$f"
+                done
+                rm -f "$APP/static/booking/$NEW_CSS" "$APP/staticfiles/booking/$NEW_CSS"
+                CUR_MASTER="$(systemctl show aesthetic-book -p MainPID --value)"
+                [ "$CUR_MASTER" -gt 1 ] && kill -HUP "$CUR_MASTER"
+              fi
+              exit "$code"
+            }
+            trap 'rm -rf "$TMP"' EXIT
+            trap restore ERR
+            test "$(id -u)" -eq 0
+            test "$(git -C "$APP" rev-parse HEAD)" = "$MAIN"
+            systemctl is-active --quiet aesthetic-book
+            curl -fsS --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            test ! -e "$APP/static/booking/$NEW_CSS"
+            test ! -e "$APP/staticfiles/booking/$NEW_CSS"
+            grep -q '20261122-strip3' "$APP/templates/booking/dashboard.html"
+            grep -q 'if day.weekday() == 6:' "$APP/booking/services.py"
+            ! grep -q 'Physical in-flow reservation' "$APP/templates/booking/_shared_admin_calendar.html"
+
+            mkdir -p "$TMP/old/static/booking" "$TMP/old/templates/booking"
+            mkdir -p "$TMP/new/static/booking" "$TMP/new/templates/booking"
+            for name in admin.js admin-calendar-iphone-v1.js; do
+              curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$PRIOR_SWIPES/static/booking/$name" -o "$TMP/old/static/booking/$name"
+              curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$NEW/static/booking/$name" -o "$TMP/new/static/booking/$name"
+              cmp -s "$APP/static/booking/$name" "$TMP/old/static/booking/$name"
+              cmp -s "$APP/staticfiles/booking/$name" "$TMP/old/static/booking/$name"
+            done
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$PRIOR_CAPTURE/templates/booking/dashboard.html" -o "$TMP/old/templates/booking/dashboard.html"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$NEW/templates/booking/dashboard.html" -o "$TMP/new/templates/booking/dashboard.html"
+            cmp -s "$APP/templates/booking/dashboard.html" "$TMP/old/templates/booking/dashboard.html"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$MAIN/templates/booking/_shared_admin_calendar.html" -o "$TMP/old/shared-with-comment.html"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$NEW/templates/booking/_shared_admin_calendar.html" -o "$TMP/new/shared-with-comment.html"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$NEW/static/booking/$NEW_CSS" -o "$TMP/new/static/booking/$NEW_CSS"
+            python3 - "$TMP" <<'PY'
+            from pathlib import Path
+            import sys
+            t=Path(sys.argv[1])
+            marker="""    {# Physical in-flow reservation for the fixed 150px month/week dock.
+                   Padding on sb-calendar-panel is overridden by premium CSS and let
+                   10:00 plus its events hide underneath the dock. #}
+            """
+            old=(t/'old/shared-with-comment.html').read_text()
+            new=(t/'new/shared-with-comment.html').read_text()
+            assert old.count(marker)==1 and new.count(marker)==1, 'Source template marker drift'
+            (t/'old/templates/booking/_shared_admin_calendar.html').write_text(old.replace(marker,''))
+            (t/'new/templates/booking/_shared_admin_calendar.html').write_text(new.replace(marker,''))
+            dash_old=(t/'old/templates/booking/dashboard.html').read_text()
+            dash_new=(t/'new/templates/booking/dashboard.html').read_text()
+            assert '20261122-strip3' in dash_old and '20261122-strip3' in dash_new
+            assert 'calendar-sunday-closed-v1.css?v=20261122-sunday1' in dash_new
+            assert 'forloop.last %}is-sunday is-closed' in dash_new
+            assert 'Geschlossen' in new and 'day.date.weekday == 6' in new
+            js_old=(t/'old/static/booking/admin-calendar-iphone-v1.js').read_text()
+            js_new=(t/'new/static/booking/admin-calendar-iphone-v1.js').read_text()
+            add="""      button.classList.toggle('is-sunday',i===6);
+                  button.classList.toggle('is-closed',i===6);
+                  if(i===6){
+                    button.title='Sonntag – geschlossen';
+                    button.setAttribute('aria-label',longWeekday.format(date)+' '+dateFormat.format(date)+' – geschlossen; bestehende Termine ansehen');
+                  }
+            """
+            assert js_old.replace("      button.classList.toggle('is-today',value===today);","      button.classList.toggle('is-today',value===today);\n"+add.rstrip('\n'))==js_new, 'Unexpected JS change'
+            loader_old=(t/'old/static/booking/admin.js').read_text()
+            loader_new=(t/'new/static/booking/admin.js').read_text()
+            assert loader_old.replace('iphone.src = \'/static/booking/admin-calendar-iphone-v1.js?v=20261122-strip2\';','iphone.src = \'/static/booking/admin-calendar-iphone-v1.js?v=20261122-sunday1\';')==loader_new, 'Unexpected loader change'
+            assert '20261122-sunday1' in dash_new
+            assert len((t/'new/static/booking/calendar-sunday-closed-v1.css').read_text())>500
+            print('All live files match reviewed sources; Sunday visuals contain only approved changes')
+            PY
+            cmp -s "$APP/templates/booking/_shared_admin_calendar.html" "$TMP/old/templates/booking/_shared_admin_calendar.html"
+            MASTER="$(systemctl show aesthetic-book -p MainPID --value)"
+            test "$MASTER" -gt 1
+            test "$(pgrep -P "$MASTER" | wc -l)" -ge 2
+            for f in $FILES; do
+              mkdir -p "$BACKUP/$(dirname "$f")"
+              cp -p "$APP/$f" "$BACKUP/$f"
+            done
+            put(){
+              RELATIVE="$1"
+              CONTENT="$2"
+              TEMP_TARGET="$(mktemp "$(dirname "$APP/$RELATIVE")/.sunday-new-XXXXXXXX")"
+              install -o aestheticbook -g aestheticbook -m 0644 "$CONTENT" "$TEMP_TARGET"
+              mv -f "$TEMP_TARGET" "$APP/$RELATIVE"
+            }
+            APPLIED=1
+            for name in admin.js admin-calendar-iphone-v1.js; do
+              put "static/booking/$name" "$TMP/new/static/booking/$name"
+              put "staticfiles/booking/$name" "$TMP/new/static/booking/$name"
+            done
+            put "templates/booking/dashboard.html" "$TMP/new/templates/booking/dashboard.html"
+            put "templates/booking/_shared_admin_calendar.html" "$TMP/new/templates/booking/_shared_admin_calendar.html"
+            put "static/booking/$NEW_CSS" "$TMP/new/static/booking/$NEW_CSS"
+            put "staticfiles/booking/$NEW_CSS" "$TMP/new/static/booking/$NEW_CSS"
+            kill -HUP "$MASTER"
+            sleep 4
+            systemctl is-active --quiet aesthetic-book
+            test "$(systemctl show aesthetic-book -p MainPID --value)" = "$MASTER"
+            curl -fsS --retry 3 --retry-delay 1 --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            for name in admin.js admin-calendar-iphone-v1.js "$NEW_CSS"; do
+              curl -fsS --max-time 20 "https://book.a-esthetic.de/static/booking/$name?v=20261122-sunday1" -o "$TMP/public-$name"
+              cmp -s "$TMP/public-$name" "$TMP/new/static/booking/$name"
+            done
+            curl -fsS --max-time 15 'https://book.a-esthetic.de/api/mobile/slots/?service_id=11&day=2026-12-06' | python3 -c 'import json,sys; j=json.load(sys.stdin); assert j.get("ok") and j["slots"] == []'
+            grep -q '20261122-strip3' "$APP/templates/booking/dashboard.html"
+            grep -q 'Geschlossen' "$APP/templates/booking/_shared_admin_calendar.html"
+            APPLIED=0
+            trap - ERR
+            echo 'LIVE: Sunday 6 Dec visibly closed in mobile calendar; old appointments preserved; public Sunday slots empty; Gunicorn master stable and Book healthy'
