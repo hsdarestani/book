@@ -3,6 +3,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 
 class Service(models.Model):
@@ -330,3 +331,27 @@ class SimplyBookClientLink(models.Model):
     class Meta:
         verbose_name = 'SimplyBook-Kundenverknüpfung'
         verbose_name_plural = 'SimplyBook-Kundenverknüpfungen'
+
+
+class MobileStaffCommand(models.Model):
+    """Audit and replay receipt for commands issued by the bundled app."""
+    actor_id = models.PositiveBigIntegerField()
+    key = models.UUIDField()
+    fingerprint = models.CharField(max_length=64)
+    action = models.CharField(max_length=32)
+    object_id = models.PositiveBigIntegerField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['actor_id', 'key'], name='mobile_staff_command_actor_key')]
+
+
+class MobileStaffCancellation(models.Model):
+    """Durable delivery of an idempotent package release after Book commits."""
+    appointment = models.OneToOneField(
+        Appointment, null=True, on_delete=models.SET_NULL, related_name='mobile_cancellation',
+    )
+    booking_public_id = models.UUIDField(unique=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    completed_at = models.DateTimeField(null=True)

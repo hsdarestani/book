@@ -1,3 +1,4 @@
+from . import mobile_staff_api
 from django.urls import path
 from . import email_cancellation, record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
 
@@ -54,6 +55,9 @@ urlpatterns = [
     path('api/mobile/booking/manageable/', mobile_api.mobile_manageable_appointments, name='mobile_manageable_appointments'),
     path('api/mobile/booking/<uuid:appointment_id>/change/', mobile_api.mobile_appointment_change, name='mobile_appointment_change'),
     path('api/mobile/referral-email/', referral_relay.referral_email, name='mobile_referral_email'),
+    path('api/mobile/staff/<slug:action>/', mobile_staff_api.workspace),
+    path('api/mobile/staff/patient/<int:ident>/', mobile_staff_api.workspace, {'action': 'patient'}),
+    path('api/mobile/staff/patient/<int:ident>/records/<uuid:record_id>/', mobile_staff_api.workspace, {'action': 'record'}),
     path('api/mobile/app-admin/overview/', app_admin_api.overview, name='app_admin_overview'),
     path('api/mobile/app-admin/calendar/', app_admin_api.calendar, name='app_admin_calendar'),
     path('api/mobile/app-admin/bookings/', app_admin_api.bookings, name='app_admin_bookings'),
