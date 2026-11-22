@@ -1,0 +1,126 @@
+name: Repair live date-strip swipe in day and week views (graceful reload)
+
+on:
+  push:
+    branches:
+      - audit/book-botox-duration-20261122
+    paths:
+      - ".github/workflows/deploy-week-strip-day-week-repair.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: one-time-book-day-week-strip-repair
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Guarded surgical Book asset patch with rollback
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 7m
+          script: |
+            set -Eeuo pipefail
+            APP=/opt/aesthetic-book/app
+            BASE=29433dfc865c3f52e1d65f47148f791920dab128
+            OLD=fbe44abde1ec929d67a6299a1965470afb340b91
+            NEW=ec99fbfbe709a980be84f78906b0160a0816d9cb
+            TMP="$(mktemp -d)"
+            BACKUP="/opt/aesthetic-book/hotfix-backups/strip-swipe-20261122-$(date -u +%H%M%S)"
+            APPLIED=0
+            rollback(){
+              original_status=$?
+              trap - ERR
+              set +e
+              if [ "$APPLIED" = 1 ]; then
+                echo 'Rollback: restoring exact previous calendar JS, CSS and template'
+                for f in static/booking/admin-calendar-iphone-v1.js staticfiles/booking/admin-calendar-iphone-v1.js static/booking/admin-calendar-date-dock-v6.css staticfiles/booking/admin-calendar-date-dock-v6.css static/booking/admin.js staticfiles/booking/admin.js templates/booking/dashboard.html; do
+                  restored="$(mktemp "$(dirname "$APP/$f")/.strip-rollback-XXXXXXXX")"
+                  install -o aestheticbook -g aestheticbook -m 0644 "$BACKUP/$f" "$restored"
+                  mv -f "$restored" "$APP/$f"
+                done
+                current_master="$(systemctl show aesthetic-book -p MainPID --value)"
+                [ "$current_master" -gt 1 ] && kill -HUP "$current_master"
+              fi
+              exit "$original_status"
+            }
+            trap 'rm -rf "$TMP"' EXIT
+            trap rollback ERR
+            test "$(id -u)" -eq 0
+            test "$(git -C "$APP" rev-parse HEAD)" = "$BASE"
+            systemctl is-active --quiet aesthetic-book
+            curl -fsS --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            mkdir -p "$TMP/static/booking" "$TMP/templates/booking"
+            for f in static/booking/admin-calendar-iphone-v1.js static/booking/admin-calendar-date-dock-v6.css static/booking/admin.js templates/booking/dashboard.html; do
+              if [ "$f" = "static/booking/admin-calendar-date-dock-v6.css" ]; then expected="$BASE"; else expected="$OLD"; fi
+              curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$expected/$f" -o "$TMP/$f.old"
+              curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$NEW/$f" -o "$TMP/$f.new"
+              cmp -s "$APP/$f" "$TMP/$f.old" || { echo "Unexpected live file drift: $f"; exit 1; }
+              if [ "$f" != "templates/booking/dashboard.html" ]; then
+                cmp -s "$APP/staticfiles/booking/$(basename "$f")" "$TMP/$f.old" || { echo "Unexpected collected static drift: $f"; exit 1; }
+              fi
+            done
+            python3 - "$TMP" <<'PY'
+            from pathlib import Path
+            import sys
+            tmp=Path(sys.argv[1])
+            def contents(path):
+                return ((tmp/path).with_suffix((tmp/path).suffix+".old").read_text(),
+                        (tmp/path).with_suffix((tmp/path).suffix+".new").read_text())
+            old_js,new_js=contents(Path("static/booking/admin-calendar-iphone-v1.js"))
+            old_loader,new_loader=contents(Path("static/booking/admin.js"))
+            old_css,new_css=contents(Path("static/booking/admin-calendar-date-dock-v6.css"))
+            old_html,new_html=contents(Path("templates/booking/dashboard.html"))
+            assert "if(!isWeek()||event.touches.length!==1" in old_js
+            assert "strip.addEventListener('touchmove'" in new_js
+            assert "strip.addEventListener('pointerup'" in new_js
+            assert "applyStripSwipe(dx,dy,Date.now()-start.at)" in new_js
+            assert "if(!isWeek()||event.touches.length!==1" not in new_js
+            assert new_loader==old_loader.replace("20261122-weekswipe1","20261122-strip2").replace("admin-calendar-date-dock-v6.css?v=20261029-firsthour8","admin-calendar-date-dock-v6.css?v=20261122-strip2")
+            assert new_html==old_html.replace("20261122-weekswipe1","20261122-strip2").replace("admin-calendar-date-dock-v6.css?v=20261029-firsthour8","admin-calendar-date-dock-v6.css?v=20261122-strip2")
+            assert "touch-action:pan-y!important" in new_css and len(new_css)>len(old_css)
+            print("Validated narrow, versioned touch-swipe repair and unchanged booking API")
+            PY
+            MASTER="$(systemctl show aesthetic-book -p MainPID --value)"
+            test "$MASTER" -gt 1
+            test "$(pgrep -P "$MASTER" | wc -l)" -ge 2
+            for f in static/booking/admin-calendar-iphone-v1.js staticfiles/booking/admin-calendar-iphone-v1.js static/booking/admin-calendar-date-dock-v6.css staticfiles/booking/admin-calendar-date-dock-v6.css static/booking/admin.js staticfiles/booking/admin.js templates/booking/dashboard.html; do
+              mkdir -p "$BACKUP/$(dirname "$f")"
+              cp -p "$APP/$f" "$BACKUP/$f"
+            done
+            replace_file(){
+              dest="$1"
+              source="$2"
+              temp_dest="$(mktemp "$(dirname "$APP/$dest")/.strip-replace-XXXXXXXX")"
+              install -o aestheticbook -g aestheticbook -m 0644 "$source" "$temp_dest"
+              mv -f "$temp_dest" "$APP/$dest"
+            }
+            APPLIED=1
+            for name in admin-calendar-iphone-v1.js admin-calendar-date-dock-v6.css admin.js; do
+              replace_file "static/booking/$name" "$TMP/static/booking/$name.new"
+              replace_file "staticfiles/booking/$name" "$TMP/static/booking/$name.new"
+            done
+            replace_file "templates/booking/dashboard.html" "$TMP/templates/booking/dashboard.html.new"
+            kill -HUP "$MASTER"
+            sleep 4
+            systemctl is-active --quiet aesthetic-book
+            test "$(systemctl show aesthetic-book -p MainPID --value)" = "$MASTER"
+            curl -fsS --retry 3 --retry-delay 1 --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            for name in admin-calendar-iphone-v1.js admin-calendar-date-dock-v6.css admin.js; do
+              curl -fsS --max-time 20 "https://book.a-esthetic.de/static/booking/$name?v=20261122-strip2" -o "$TMP/live-$name"
+              cmp -s "$TMP/live-$name" "$TMP/static/booking/$name.new"
+            done
+            grep -q '20261122-strip2' "$APP/templates/booking/dashboard.html"
+            grep -q 'if day.weekday() == 6:' "$APP/booking/services.py"
+            ! grep -q 'Physical in-flow reservation' "$APP/templates/booking/_shared_admin_calendar.html"
+            APPLIED=0
+            trap - ERR
+            echo 'LIVE: fixed date-strip swipe in day/week views; JS/CSS cache invalidation verified; existing Sunday and template hotfixes retained; service healthy, master PID stable'
