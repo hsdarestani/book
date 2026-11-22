@@ -36,6 +36,15 @@ class RealCalendarStripCaptureTests(TestCase):
         self.staff.services.add(self.service)
         for weekday in range(7):
             WorkingHour.objects.create(staff=self.staff,weekday=weekday,start_time=time(9),end_time=time(18),active=True)
+        # Django's test DB and session store must NOT be accessed from a
+        # Playwright route callback; prerender the actual authenticated pages.
+        self.rendered_pages={}
+        for mode in ("day","week"):
+            response=self.client.get("/verwaltung/kalender/",{
+                "date":"2026-11-22","cal_view":mode,"staff":self.staff.pk,
+            })
+            self.assertEqual(response.status_code,200)
+            self.rendered_pages[mode]=response.content
 
     def route(self, route):
         from mimetypes import guess_type
@@ -51,10 +60,14 @@ class RealCalendarStripCaptureTests(TestCase):
             else:
                 route.fulfill(status=404,body="Not found")
             return
-        if url.path.startswith("/verwaltung/") or url.path.startswith("/api/"):
-            response=self.client.get(url.path+("?" + url.query if url.query else ""))
-            route.fulfill(status=response.status_code,body=response.content,
-                          content_type=response.get("Content-Type","text/html"))
+        if url.path.startswith("/verwaltung/kalender/"):
+            mode=parse_qs(url.query).get("cal_view",["day"])[0]
+            route.fulfill(status=200,body=self.rendered_pages.get(mode,self.rendered_pages["day"]),
+                          content_type="text/html; charset=utf-8")
+            return
+        if url.path.startswith("/verwaltung/api/") or url.path.startswith("/api/"):
+            route.fulfill(status=200,body='{"ok":true,"appointments":[],"blocks":[]}',
+                          content_type="application/json")
             return
         route.fulfill(status=404,body="Not found")
 
