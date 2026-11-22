@@ -1,0 +1,46 @@
+name: A+ Book production-safe release preflight (read-only)
+on:
+  push:
+    branches: [feature/mobile-unified-overhaul]
+    paths: [.github/workflows/book-release-preflight.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Read-only Book host inspection without patient access
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 4m
+          script: |
+            set -eu
+            echo '=== BOOK SERVER ==='
+            printf 'hostname_hash='; hostname | sha256sum | cut -c 1-12
+            echo 'service:'; systemctl is-active aesthetic-book 2>/dev/null || true
+            echo 'nginx:'; systemctl is-active nginx 2>/dev/null || true
+            echo 'caddy:'; systemctl is-active caddy 2>/dev/null || true
+            echo 'pg:'; systemctl is-active postgresql 2>/dev/null || true
+            echo 'disk:'; df -Pk / | tail -1 | awk '{print "available_kb="$4}'
+            echo 'memory:'; free -m | awk '/^Mem:/{print "available_mb="$7}'
+            echo 'book files:'
+            for p in /opt/aesthetic-book/app/manage.py /opt/aesthetic-book/private/patient-files /etc/aesthetic-book.env; do
+              if test -e "$p"; then echo "$p=exists"; else echo "$p=missing"; fi
+            done
+            echo 'current book git ref:'
+            git -C /opt/aesthetic-book/app rev-parse --short HEAD || true
+            echo 'book working tree:'
+            git -C /opt/aesthetic-book/app status --porcelain | wc -l
+            echo 'book processes:'
+            systemctl show aesthetic-book --property=ActiveState --property=FragmentPath --no-pager
+            echo 'ports:'
+            for p in 8017 8018 8087; do
+              if ss -ltn "( sport = :$p )" 2>/dev/null | grep -q LISTEN; then echo "$p=in_use"; else echo "$p=free"; fi
+            done
+            echo 'Read-only preflight complete.'
