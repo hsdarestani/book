@@ -178,7 +178,7 @@ class RealCalendarStripCaptureTests(TestCase):
                         "(date) => window.aplusCalendarNavigate(date)", day)
                     self.assertTrue(ok)
                     page.wait_for_function(
-                        "(day) => new URLSearchParams(location.search).get('date')===day", day)
+                        "(day) => new URLSearchParams(location.search).get('date')===day", arg=day)
                     column=page.locator(".sb-calendar-shell.is-day .sb-calendar-day")
                     self.assertIn("is-sunday",column.get_attribute("class"))
                     self.assertIn("is-closed-day",column.get_attribute("class"))
