@@ -1,0 +1,127 @@
+name: Surgical live week-swipe fix (static files and graceful reload)
+
+on:
+  push:
+    branches:
+      - audit/book-botox-duration-20261122
+    paths:
+      - ".github/workflows/deploy-week-swipe-hotfix.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: one-time-book-week-swipe-hotfix
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Strictly guarded static asset update with automatic file rollback
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 7m
+          script: |
+            set -Eeuo pipefail
+            APP=/opt/aesthetic-book/app
+            MAIN=29433dfc865c3f52e1d65f47148f791920dab128
+            FIX=fbe44abde1ec929d67a6299a1965470afb340b91
+            TMP="$(mktemp -d)"
+            BACKUP="/opt/aesthetic-book/hotfix-backups/weekswipe-$(date -u +%Y%m%dT%H%M%SZ)"
+            APPLIED=0
+            cleanup(){ rm -rf "$TMP"; }
+            rollback(){
+              code=$?
+              trap - ERR
+              set +e
+              if [ "$APPLIED" = 1 ]; then
+                echo 'Safety check failed: restoring five backed-up files'
+                for f in static/booking/admin-calendar-iphone-v1.js staticfiles/booking/admin-calendar-iphone-v1.js static/booking/admin.js staticfiles/booking/admin.js templates/booking/dashboard.html; do
+                  TEMP_RESTORE="$(mktemp "$(dirname "$APP/$f")/.restore-XXXXXXXX")"
+                  install -o aestheticbook -g aestheticbook -m 0644 "$BACKUP/$f" "$TEMP_RESTORE"
+                  mv -f "$TEMP_RESTORE" "$APP/$f"
+                done
+                CURRENT_MASTER="$(systemctl show aesthetic-book -p MainPID --value)"
+                [ "$CURRENT_MASTER" -gt 1 ] && kill -HUP "$CURRENT_MASTER"
+              fi
+              exit "$code"
+            }
+            trap cleanup EXIT
+            trap rollback ERR
+            test "$(id -u)" -eq 0
+            test "$(git -C "$APP" rev-parse HEAD)" = "$MAIN"
+            systemctl is-active --quiet aesthetic-book
+            curl -fsS --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            for f in static/booking/admin.js static/booking/admin-calendar-iphone-v1.js templates/booking/dashboard.html; do
+              dest="$TMP/$f"
+              mkdir -p "$(dirname "$dest")"
+              curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$MAIN/$f" -o "$dest.old"
+              curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$FIX/$f" -o "$dest.new"
+              cmp -s "$APP/$f" "$dest.old"
+            done
+            cmp -s "$APP/staticfiles/booking/admin.js" "$TMP/static/booking/admin.js.old"
+            cmp -s "$APP/staticfiles/booking/admin-calendar-iphone-v1.js" "$TMP/static/booking/admin-calendar-iphone-v1.js.old"
+            python3 - "$TMP" <<'PY'
+            from pathlib import Path
+            import sys
+            tmp=Path(sys.argv[1])
+            old_loader=(tmp/"static/booking/admin.js.old").read_text()
+            new_loader=(tmp/"static/booking/admin.js.new").read_text()
+            old_entry=(tmp/"templates/booking/dashboard.html.old").read_text()
+            new_entry=(tmp/"templates/booking/dashboard.html.new").read_text()
+            old_iphone=(tmp/"static/booking/admin-calendar-iphone-v1.js.old").read_text()
+            new_iphone=(tmp/"static/booking/admin-calendar-iphone-v1.js.new").read_text()
+            old_js="'/static/booking/admin-calendar-iphone-v1.js?v=20261029-horizontal2'"
+            new_js="'/static/booking/admin-calendar-iphone-v1.js?v=20261122-weekswipe1'"
+            if old_loader.replace(old_js,new_js)!=new_loader:
+                raise SystemExit("Loader contains unexpected changes")
+            if old_entry.replace("?v=20261029-horizontal2</script>", "?v=20261122-weekswipe1</script>")!=new_entry:
+                # Real HTML contains a quote immediately before the closing script.
+                if old_entry.replace('?v=20261029-horizontal2"></script>', '?v=20261122-weekswipe1"></script>')!=new_entry:
+                    raise SystemExit("Dashboard entry contains unexpected changes")
+            for marker in ("strip.addEventListener('touchstart'","suppressStripClickUntil","gesture.atRight","gesture.atLeft"):
+                if marker not in new_iphone:
+                    raise SystemExit("Week swipe implementation incomplete")
+            if new_iphone==old_iphone:
+                raise SystemExit("No swipe change found")
+            print("Validated exact cache-bust and scoped swipe files")
+            PY
+            MASTER="$(systemctl show aesthetic-book -p MainPID --value)"
+            test "$MASTER" -gt 1
+            test "$(pgrep -P "$MASTER" | wc -l)" -ge 2
+            mkdir -p "$BACKUP/static/booking" "$BACKUP/staticfiles/booking" "$BACKUP/templates/booking"
+            for f in static/booking/admin-calendar-iphone-v1.js staticfiles/booking/admin-calendar-iphone-v1.js static/booking/admin.js staticfiles/booking/admin.js templates/booking/dashboard.html; do
+              cp -p "$APP/$f" "$BACKUP/$f"
+            done
+            replace_file(){
+              file="$1"
+              source="$2"
+              temporary="$(mktemp "$(dirname "$APP/$file")/.weekswipe-XXXXXXXX")"
+              install -o aestheticbook -g aestheticbook -m 0644 "$source" "$temporary"
+              mv -f "$temporary" "$APP/$file"
+            }
+            APPLIED=1
+            replace_file static/booking/admin-calendar-iphone-v1.js "$TMP/static/booking/admin-calendar-iphone-v1.js.new"
+            replace_file staticfiles/booking/admin-calendar-iphone-v1.js "$TMP/static/booking/admin-calendar-iphone-v1.js.new"
+            replace_file static/booking/admin.js "$TMP/static/booking/admin.js.new"
+            replace_file staticfiles/booking/admin.js "$TMP/static/booking/admin.js.new"
+            replace_file templates/booking/dashboard.html "$TMP/templates/booking/dashboard.html.new"
+            kill -HUP "$MASTER"
+            sleep 4
+            systemctl is-active --quiet aesthetic-book
+            test "$(systemctl show aesthetic-book -p MainPID --value)" = "$MASTER"
+            curl -fsS --retry 3 --retry-delay 1 --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            curl -fsS --max-time 20 "https://book.a-esthetic.de/static/booking/admin-calendar-iphone-v1.js?v=20261122-weekswipe1" -o "$TMP/live-iphone"
+            curl -fsS --max-time 20 "https://book.a-esthetic.de/static/booking/admin.js?v=20261122-weekswipe1" -o "$TMP/live-admin"
+            cmp -s "$TMP/live-iphone" "$TMP/static/booking/admin-calendar-iphone-v1.js.new"
+            cmp -s "$TMP/live-admin" "$TMP/static/booking/admin.js.new"
+            grep -q '20261122-weekswipe1' "$APP/templates/booking/dashboard.html"
+            APPLIED=0
+            trap - ERR
+            echo 'LIVE: week-swipe static assets and cache-bust entry deployed; master PID stable; health and public static responses verified'
