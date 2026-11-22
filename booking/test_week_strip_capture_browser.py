@@ -40,6 +40,9 @@ class RealCalendarStripCaptureTests(TestCase):
     def route(self, route):
         from mimetypes import guess_type
         url=urlsplit(route.request.url)
+        if url.netloc!="book.test":
+            route.abort()
+            return
         if url.path.startswith("/static/"):
             fp=finders.find(url.path[len("/static/"):])
             if fp and Path(fp).is_file():
@@ -76,8 +79,7 @@ class RealCalendarStripCaptureTests(TestCase):
         context=browser.new_context(viewport={"width":390,"height":820},
                                     device_scale_factor=2,is_mobile=True,has_touch=True)
         page=context.new_page()
-        page.route("**/*",lambda route: route.abort())
-        page.route("https://book.test/**",self.route)
+        page.route("**/*",self.route)
         page.goto(f"https://book.test/verwaltung/kalender/?date=2026-11-22&cal_view={mode}&staff={self.staff.pk}",wait_until="domcontentloaded")
         page.wait_for_function("document.documentElement.dataset.weekStripSwipeVersion==='20261122-strip3'")
         page.locator(".sb-iphone-weekstrip").first.wait_for()
