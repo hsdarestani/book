@@ -46,6 +46,17 @@ class RealCalendarStripCaptureTests(TestCase):
             self.assertEqual(response.status_code,200)
             self.rendered_pages[mode]=response.content
 
+        # Use actual authenticated Django AJAX payloads. Sunday 13 Dec has
+        # weekly working hours but must still be visually closed by policy.
+        # Sunday 6 Dec and 13 Dec must look identical after in-place navigation.
+        self.calendar_day_payloads={}
+        for day in ("2026-11-22","2026-12-06","2026-12-13","2026-12-10","2026-12-14"):
+            response=self.client.get("/verwaltung/api/calendar-day/",{
+                "date": day, "staff": self.staff.pk,
+            })
+            self.assertEqual(response.status_code,200)
+            self.calendar_day_payloads[day]=response.content
+
     def route(self, route):
         from mimetypes import guess_type
         url=urlsplit(route.request.url)
@@ -64,6 +75,15 @@ class RealCalendarStripCaptureTests(TestCase):
             mode=parse_qs(url.query).get("cal_view",["day"])[0]
             route.fulfill(status=200,body=self.rendered_pages.get(mode,self.rendered_pages["day"]),
                           content_type="text/html; charset=utf-8")
+            return
+        if url.path.startswith("/verwaltung/api/calendar-day/"):
+            date=parse_qs(url.query).get("date",[""])[0]
+            payload=self.calendar_day_payloads.get(date)
+            if payload is None:
+                route.fulfill(status=400,body='{"ok":false,"error":"unknown_day_test"}',
+                              content_type="application/json")
+                return
+            route.fulfill(status=200,body=payload,content_type="application/json")
             return
         if url.path.startswith("/verwaltung/api/") or url.path.startswith("/api/"):
             route.fulfill(status=200,body='{"ok":true,"appointments":[],"blocks":[]}',
@@ -135,6 +155,51 @@ class RealCalendarStripCaptureTests(TestCase):
                     self.assertNotEqual(gray,"rgba(0, 0, 0, 0)")
                     self.assertNotEqual(gray,"rgb(255, 255, 255)")
                     context.close()
+            finally:
+                browser.close()
+
+    def test_ajax_navigation_keeps_every_sunday_closed_and_restores_weekdays(self):
+        from playwright.sync_api import sync_playwright
+
+        # The fast calendar API's 'closed' is staff-availability state, not
+        # the customer Sunday policy. It can be false on an unblocked Sunday.
+        import json
+        data=json.loads(self.calendar_day_payloads["2026-12-13"])
+        self.assertFalse(data["closed"])
+        self.assertEqual(data["date"],"2026-12-13")
+
+        with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,args=["--no-sandbox"])
+            try:
+                context,page,_=self.open_calendar(browser,"day")
+                page.wait_for_function("typeof window.aplusCalendarNavigate === 'function'")
+                for day in ("2026-12-06","2026-12-13"):
+                    ok=page.evaluate(
+                        "(date) => window.aplusCalendarNavigate(date)", day)
+                    self.assertTrue(ok)
+                    page.wait_for_function(
+                        "(day) => new URLSearchParams(location.search).get('date')===day", day)
+                    column=page.locator(".sb-calendar-shell.is-day .sb-calendar-day")
+                    self.assertIn("is-sunday",column.get_attribute("class"))
+                    self.assertIn("is-closed-day",column.get_attribute("class"))
+                    label=column.locator(".sb-sunday-closed-label")
+                    self.assertEqual(label.count(),1)
+                    self.assertEqual(label.inner_text(),"Geschlossen")
+                    bg=page.evaluate("""() => getComputedStyle(
+                        document.querySelector('.sb-calendar-shell.is-day .sb-calendar-day .sb-day-track')
+                    ).backgroundImage""")
+                    self.assertIn("repeating-linear-gradient",bg)
+
+                ok=page.evaluate(
+                    "() => window.aplusCalendarNavigate('2026-12-14')")
+                self.assertTrue(ok)
+                page.wait_for_function(
+                    "() => new URLSearchParams(location.search).get('date')==='2026-12-14'")
+                column=page.locator(".sb-calendar-shell.is-day .sb-calendar-day")
+                self.assertNotIn("is-sunday",column.get_attribute("class"))
+                self.assertNotIn("is-closed-day",column.get_attribute("class"))
+                self.assertEqual(column.locator(".sb-sunday-closed-label").count(),0)
+                context.close()
             finally:
                 browser.close()
 
