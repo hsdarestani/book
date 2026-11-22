@@ -231,6 +231,15 @@ class RealCalendarStripCaptureTests(TestCase):
                         axis:describe('.sb-time-axis')
                     };
                 }"""
+                print("MAIN CHILDREN",page.evaluate("""() => [...document.querySelector('main.sb-admin-shell').children].slice(0,8).map(e=>({
+                    tag:e.tagName,classes:e.className,id:e.id,
+                    rect:{top:e.getBoundingClientRect().top,height:e.getBoundingClientRect().height},
+                    display:getComputedStyle(e).display,
+                    position:getComputedStyle(e).position,
+                    marginTop:getComputedStyle(e).marginTop,
+                    marginBottom:getComputedStyle(e).marginBottom,
+                    paddingTop:getComputedStyle(e).paddingTop
+                }))"""),flush=True)
                 print("HEAD BEFORE SCROLL",page.evaluate(probe),flush=True)
                 page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop=360")
                 page.wait_for_timeout(250)
