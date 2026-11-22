@@ -1,0 +1,52 @@
+name: Verify all live A+ Esthetic Book fast-track fixes (read only)
+
+on:
+  push:
+    branches:
+      - audit/book-botox-duration-20261122
+    paths:
+      - ".github/workflows/verify-live-book-hotfixes.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check live source, data and public Book API without writes
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 4m
+          script: |
+            set -euo pipefail
+            APP=/opt/aesthetic-book/app
+            systemctl is-active --quiet aesthetic-book
+            curl -fsS --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            ! grep -q 'Physical in-flow reservation' "$APP/templates/booking/_shared_admin_calendar.html"
+            grep -q 'suppressStripClickUntil' "$APP/staticfiles/booking/admin-calendar-iphone-v1.js"
+            grep -q '20261122-weekswipe1' "$APP/staticfiles/booking/admin.js"
+            grep -q '20261122-weekswipe1' "$APP/templates/booking/dashboard.html"
+            grep -q 'if day.weekday() == 6:' "$APP/booking/services.py"
+            cd "$APP"
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from django.utils import timezone
+            from datetime import timedelta
+            from booking.models import Service, WorkingHour, DailyAvailabilityOverride
+            from booking.services import available_slots
+            s=Service.objects.get(pk=11,slug="botox-bestandspatient")
+            assert (s.duration_minutes,s.buffer_minutes)==(15,0)
+            today=timezone.localdate()
+            next_sunday=today+timedelta(days=(6-today.weekday())%7 or 7)
+            assert not WorkingHour.objects.filter(weekday=6,active=True).exists()
+            assert not any(o.date.weekday()==6 and not o.closed for o in DailyAvailabilityOverride.objects.filter(date__gte=today,date__lte=today+timedelta(days=365)))
+            print("PASS: Botox Bestandspatient block 15 minutes, Sunday working hours closed, date overrides closed")
+            print("PASS: Sunday policy enforced",next_sunday.isoformat())
+            PY
+            curl -fsS --max-time 15 'https://book.a-esthetic.de/api/mobile/slots/?service_id=11&day=2026-11-29' | python3 -c 'import json,sys; x=json.load(sys.stdin); assert x["ok"] is True and x["slots"]==[]'
+            echo 'PASS: all four live hotfixes present and public Book health OK'
