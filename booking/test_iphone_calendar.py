@@ -35,6 +35,20 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         self.assertIn('.sb-calendar-panel > .sb-calendar-dock-space',css)
         self.assertIn('height:150px!important',css)
 
+    def test_internal_calendar_comment_never_appears_in_html(self):
+        from django.template import Context, Engine
+
+        template = self.source("templates/booking/_shared_admin_calendar.html")
+        rendered = Engine.get_default().from_string(template).render(Context({
+            "calendar_view": "day",
+            "staff_members": [],
+            "selected_staff": None,
+        }))
+        self.assertNotIn("Physical in-flow reservation", template)
+        self.assertNotIn("Padding on sb-calendar-panel", template)
+        self.assertNotIn("Physical in-flow reservation", rendered)
+        self.assertIn('class="sb-calendar-dock-space"', rendered)
+
     def test_date_controls_are_portaled_outside_scrolling_calendar(self):
         js = self.source("static/booking/admin-calendar-iphone-v1.js")
         css = self.source("static/booking/admin-calendar-date-dock-v6.css")
