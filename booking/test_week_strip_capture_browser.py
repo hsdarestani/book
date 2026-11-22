@@ -1,0 +1,121 @@
+"""End-to-end week-strip touch navigation using the ACTUAL Book admin template.
+
+Unlike the old synthetic fixture this serves the real calendar HTML, all
+local stylesheets, the legacy date-strip script, and the independent capture
+script; CDP sends browser touch input over the rendered seven-day bar.
+"""
+import importlib.util
+import unittest
+from datetime import time
+from pathlib import Path
+from urllib.parse import urlsplit, parse_qs
+
+from django.contrib.auth import get_user_model
+from django.contrib.staticfiles import finders
+from django.test import TestCase, override_settings
+from .models import Service, StaffMember, WorkingHour
+
+
+@unittest.skipUnless(importlib.util.find_spec("playwright"), "Playwright browser installed in CI")
+@override_settings(STORAGES={
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+})
+class RealCalendarStripCaptureTests(TestCase):
+    def setUp(self):
+        user = get_user_model().objects.create_user(
+            username="week-capture-admin", password="test-secret",
+            is_staff=True, is_superuser=True,
+        )
+        self.client.force_login(user)
+        session=self.client.session
+        session["aplus_app_admin"]=True
+        session.save()
+        self.service=Service.objects.create(name="Week capture test",slug="week-capture-test")
+        self.staff=StaffMember.objects.create(display_name="Week capture clinician",role="doctor",active=True)
+        self.staff.services.add(self.service)
+        for weekday in range(7):
+            WorkingHour.objects.create(staff=self.staff,weekday=weekday,start_time=time(9),end_time=time(18),active=True)
+
+    def route(self, route):
+        from mimetypes import guess_type
+        url=urlsplit(route.request.url)
+        if url.path.startswith("/static/"):
+            fp=finders.find(url.path[len("/static/"):])
+            if fp and Path(fp).is_file():
+                content=Path(fp).read_bytes()
+                route.fulfill(status=200,body=content,content_type=guess_type(fp)[0] or "application/octet-stream")
+            else:
+                route.fulfill(status=404,body="Not found")
+            return
+        if url.path.startswith("/verwaltung/") or url.path.startswith("/api/"):
+            response=self.client.get(url.path+("?" + url.query if url.query else ""))
+            route.fulfill(status=response.status_code,body=response.content,
+                          content_type=response.get("Content-Type","text/html"))
+            return
+        route.fulfill(status=404,body="Not found")
+
+    def drag(self, page, x0, y0, x1, y1):
+        devtools=page.context.new_cdp_session(page)
+        try:
+            devtools.send("Input.dispatchTouchEvent",{
+                "type":"touchStart","touchPoints":[{"x":x0,"y":y0,"id":1}]
+            })
+            for n in range(1,7):
+                k=n/6
+                devtools.send("Input.dispatchTouchEvent",{
+                    "type":"touchMove",
+                    "touchPoints":[{"x":x0+(x1-x0)*k,"y":y0+(y1-y0)*k,"id":1}]
+                })
+                page.wait_for_timeout(18)
+            devtools.send("Input.dispatchTouchEvent",{"type":"touchEnd","touchPoints":[]})
+        finally:
+            devtools.detach()
+
+    def open_calendar(self,browser,mode):
+        context=browser.new_context(viewport={"width":390,"height":820},
+                                    device_scale_factor=2,is_mobile=True,has_touch=True)
+        page=context.new_page()
+        page.route("https://book.test/**",self.route)
+        page.route("**/*",lambda route: route.abort())
+        page.goto(f"https://book.test/verwaltung/kalender/?date=2026-11-22&cal_view={mode}&staff={self.staff.pk}",wait_until="domcontentloaded")
+        page.wait_for_function("document.documentElement.dataset.weekStripSwipeVersion==='20261122-strip3'")
+        page.locator(".sb-iphone-weekstrip").first.wait_for()
+        # Wait for existing calendar JS to swap the server preview for its
+        # interactive fixed strip; capture must work regardless of layering.
+        page.wait_for_function("document.body.classList.contains('sb-iphone-calendar-ready')")
+        rect=page.locator(".sb-reference-date-dock .sb-iphone-weekstrip").bounding_box()
+        self.assertIsNotNone(rect)
+        self.assertGreater(rect["width"],300)
+        self.assertGreater(rect["height"],40)
+        return context,page,rect
+
+    def test_real_calendar_day_strip_swipe_left_and_vertical_scroll(self):
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,args=["--no-sandbox"])
+            try:
+                context,page,rect=self.open_calendar(browser,"day")
+                y=rect["y"]+rect["height"]/2
+                self.drag(page,300,y,300,y+45)
+                self.assertIn("date=2026-11-22",page.url,"Vertical scroll must not navigate weeks")
+                self.drag(page,300,y,90,y)
+                page.wait_for_url("**date=2026-11-29&cal_view=day*",timeout=8000)
+                self.assertIn("date=2026-11-29",page.url)
+                context.close()
+            finally:
+                browser.close()
+
+    def test_real_calendar_week_strip_swipe_left(self):
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,args=["--no-sandbox"])
+            try:
+                context,page,rect=self.open_calendar(browser,"week")
+                y=rect["y"]+rect["height"]/2
+                self.drag(page,300,y,90,y)
+                page.wait_for_url("**date=2026-11-23&cal_view=week*",timeout=8000)
+                self.assertIn("date=2026-11-23",page.url)
+                context.close()
+            finally:
+                browser.close()
