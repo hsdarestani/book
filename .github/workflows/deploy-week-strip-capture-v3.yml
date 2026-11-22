@@ -1,0 +1,113 @@
+name: Surgical date-strip capture hotfix (day and week, no downtime)
+
+on:
+  push:
+    branches:
+      - audit/book-botox-duration-20261122
+    paths:
+      - ".github/workflows/deploy-week-strip-capture-v3.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: one-time-aesthetic-book-strip-capture
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - name: Apply independent fixed-strip swipe listener with strict rollback
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -Eeuo pipefail
+            APP=/opt/aesthetic-book/app
+            MAIN=29433dfc865c3f52e1d65f47148f791920dab128
+            OLD=ec99fbfbe709a980be84f78906b0160a0816d9cb
+            NEW=32fe8a77c5ea41c01295798804bddb6310737c6c
+            NEW_SCRIPT=calendar-week-strip-swipe-v1.js
+            TEMPLATE="$APP/templates/booking/dashboard.html"
+            STATIC="$APP/static/booking/$NEW_SCRIPT"
+            COLLECTED="$APP/staticfiles/booking/$NEW_SCRIPT"
+            TMP="$(mktemp -d)"
+            BACKUP="/opt/aesthetic-book/hotfix-backups/dashboard-before-weekstrip-capture-20261122.html"
+            APPLIED=0
+            rollback(){
+              code=$?
+              trap - ERR
+              set +e
+              if [ "$APPLIED" = 1 ]; then
+                echo 'Restoring dashboard and removing independent swipe listener'
+                RESTORE="$(mktemp "$APP/templates/booking/.restore-capture-XXXXXXXX")"
+                install -o aestheticbook -g aestheticbook -m 0644 "$BACKUP" "$RESTORE"
+                mv -f "$RESTORE" "$TEMPLATE"
+                rm -f "$STATIC" "$COLLECTED"
+                MASTER_NOW="$(systemctl show aesthetic-book -p MainPID --value)"
+                [ "$MASTER_NOW" -gt 1 ] && kill -HUP "$MASTER_NOW"
+              fi
+              exit "$code"
+            }
+            trap 'rm -rf "$TMP"' EXIT
+            trap rollback ERR
+            test "$(id -u)" -eq 0
+            test "$(git -C "$APP" rev-parse HEAD)" = "$MAIN"
+            systemctl is-active --quiet aesthetic-book
+            test ! -e "$STATIC"
+            test ! -e "$COLLECTED"
+            grep -q '20261122-strip2' "$TEMPLATE"
+            grep -q '20261122-strip2' "$APP/staticfiles/booking/admin.js"
+            grep -q 'if day.weekday() == 6:' "$APP/booking/services.py"
+            ! grep -q 'Physical in-flow reservation' "$APP/templates/booking/_shared_admin_calendar.html"
+            curl -fsS --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$OLD/templates/booking/dashboard.html" -o "$TMP/old.html"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$NEW/templates/booking/dashboard.html" -o "$TMP/new.html"
+            curl -fsSL --max-time 30 "https://raw.githubusercontent.com/hsdarestani/book/$NEW/static/booking/$NEW_SCRIPT" -o "$TMP/$NEW_SCRIPT"
+            cmp -s "$TEMPLATE" "$TMP/old.html"
+            python3 - "$TMP/old.html" "$TMP/new.html" "$TMP/$NEW_SCRIPT" <<'PY'
+            from pathlib import Path
+            import sys
+            old,new,script=[Path(p).read_text() for p in sys.argv[1:]]
+            line='  <script defer src="/static/booking/calendar-week-strip-swipe-v1.js?v=20261122-strip3" data-week-strip-swipe-capture></script>\n'
+            if new.replace(line,'')!=old or new.count(line)!=1:
+                raise SystemExit("Dashboard differs from expected single-script addition")
+            for marker in ('window.addEventListener(\'touchstart\'','window.addEventListener(\'touchmove\'',
+                           "document.documentElement.dataset.weekStripSwipeVersion",
+                           "withinStrip(x,y)", "changeByWeek(dx<0?1:-1)", "window.addEventListener('pointermove'"):
+                if marker not in script:
+                    raise SystemExit("Gesture script incomplete: "+marker)
+            if "location.assign(url)" not in script:
+                raise SystemExit("No guaranteed URL navigation fallback")
+            print("Validated standalone capture script and exact template-only addition")
+            PY
+            MASTER="$(systemctl show aesthetic-book -p MainPID --value)"
+            test "$MASTER" -gt 1
+            test "$(pgrep -P "$MASTER" | wc -l)" -ge 2
+            mkdir -p /opt/aesthetic-book/hotfix-backups
+            cp -p "$TEMPLATE" "$BACKUP"
+            APPLIED=1
+            install -o aestheticbook -g aestheticbook -m 0644 "$TMP/$NEW_SCRIPT" "$STATIC"
+            install -o aestheticbook -g aestheticbook -m 0644 "$TMP/$NEW_SCRIPT" "$COLLECTED"
+            REPLACEMENT="$(mktemp "$APP/templates/booking/.dashboard-new-XXXXXXXX")"
+            install -o aestheticbook -g aestheticbook -m 0644 "$TMP/new.html" "$REPLACEMENT"
+            mv -f "$REPLACEMENT" "$TEMPLATE"
+            kill -HUP "$MASTER"
+            sleep 4
+            systemctl is-active --quiet aesthetic-book
+            test "$(systemctl show aesthetic-book -p MainPID --value)" = "$MASTER"
+            curl -fsS --retry 3 --retry-delay 1 --max-time 15 https://book.a-esthetic.de/api/health/ >/dev/null
+            curl -fsS --max-time 20 "https://book.a-esthetic.de/static/booking/$NEW_SCRIPT?v=20261122-strip3" -o "$TMP/live-script.js"
+            cmp -s "$TMP/$NEW_SCRIPT" "$TMP/live-script.js"
+            grep -q '20261122-strip3' "$TEMPLATE"
+            grep -q '20261122-strip2' "$APP/staticfiles/booking/admin.js"
+            grep -q 'if day.weekday() == 6:' "$APP/booking/services.py"
+            APPLIED=0
+            trap - ERR
+            echo 'LIVE: independent window capture installed for week-strip swipes in day and week; verified public JS and Book health; Gunicorn master PID preserved; no database changes'
