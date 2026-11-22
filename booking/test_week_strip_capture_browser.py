@@ -240,6 +240,23 @@ class RealCalendarStripCaptureTests(TestCase):
                     marginBottom:getComputedStyle(e).marginBottom,
                     paddingTop:getComputedStyle(e).paddingTop
                 }))"""),flush=True)
+                print("PANEL CHILDREN",page.evaluate("""() => {
+                    const p=document.querySelector('.sb-calendar-panel');
+                    return {
+                        panel:{top:p.getBoundingClientRect().top,display:getComputedStyle(p).display,
+                            paddingTop:getComputedStyle(p).paddingTop,
+                            before:{content:getComputedStyle(p,'::before').content,
+                                    height:getComputedStyle(p,'::before').height,
+                                    display:getComputedStyle(p,'::before').display}},
+                        children:[...p.children].slice(0,12).map(e=>{
+                            const r=e.getBoundingClientRect(),s=getComputedStyle(e);
+                            return {tag:e.tagName,cl:e.className,top:r.top,height:r.height,
+                                display:s.display,order:s.order,marginTop:s.marginTop,
+                                marginBottom:s.marginBottom,position:s.position,
+                                paddingTop:s.paddingTop};
+                        })
+                    };
+                }"""),flush=True)
                 print("HEAD BEFORE SCROLL",page.evaluate(probe),flush=True)
                 page.evaluate("document.querySelector('main.sb-admin-shell').scrollTop=360")
                 page.wait_for_timeout(250)
