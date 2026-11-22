@@ -39,7 +39,9 @@ class Command(BaseCommand):
             services.append(service)
 
         Service.objects.filter(
-            slug__in=['beratung', 'botulinumtoxin', 'hyaluronsaure', 'skinbooster', 'laserbehandlung']
+            # Keep 'skinbooster': migration 0005 defines it as a canonical treatment.
+            # Deactivating it here on every deployment silently removes online booking.
+            slug__in=['beratung', 'botulinumtoxin', 'hyaluronsaure', 'laserbehandlung']
         ).update(active=False, bookable=False)
 
         # The provider records are seeded by migrations. If a fresh/manual database
