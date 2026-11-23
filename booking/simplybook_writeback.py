@@ -113,10 +113,19 @@ def write_existing_booking(item, *, operation, start=None, end=None):
     _compare(item,remote)
     # Do not silently discard SimplyBook custom fields or interfere with
     # paid invoices, deposits or payment/credit workflows.
+    # getBookingDetails exposes paid bookings via "price" (not necessarily
+    # invoice_id). An absent invoice_id must never be treated as proof that
+    # no payment or financial workflow exists.
     if (remote.get('invoice_id') not in (None,0,'0','') or
         remote.get('invoice_payment_received') not in (None,0,'0','',False) or
-        remote.get('deposit_is_enabled') in (True,1,'1','true')):
+        remote.get('deposit_is_enabled') in (True,1,'1','true') or
+        remote.get('price') not in (None,{},[],'') or
+        remote.get('promo') not in (None,{},[],'',False)):
         raise SourceConflict('Bezahlte oder fakturierte SimplyBook-Termine müssen dort verwaltet werden.')
+    # editBook additionally needs location_id in "additional" for the
+    # Multiple Locations plugin; do not rewrite a booking without it.
+    if operation=='reschedule' and remote.get('location') not in (None,{},[],''):
+        raise SourceConflict('Standortgebundene SimplyBook-Termine müssen dort verwaltet werden.')
     if operation=='reschedule' and remote.get('additional_fields') not in (None,{},[],''):
         raise SourceConflict('Dieser Termin besitzt zusätzliche SimplyBook-Felder und muss dort geändert werden.')
     if operation=='reschedule':
