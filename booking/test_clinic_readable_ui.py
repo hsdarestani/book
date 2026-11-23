@@ -26,11 +26,12 @@ class ReadableClinicUiTests(TestCase):
         template = full_template.split("{% elif section == 'invoices' %}", 1)[1].split("{% elif section == 'hero' %}", 1)[0]
         goae = get_template("booking/_billing_goae_form.html").template.source
         self.assertIn('booking/_billing_goae_form.html', template)
-        self.assertIn('GOÄ-Rechnungen', template)
+        self.assertIn('booking/_billing_goae_form.html', template)
         self.assertIn('GOÄ-Entwürfe und Rechnungen', template)
         self.assertNotIn('data-billing-create-form', template)
         self.assertNotIn('data-premium-catalog', template)
         self.assertNotIn('billing-settings-panel', template)
+        self.assertIn('GOÄ-Rechner', goae)
         self.assertIn('placeholder="TT.MM.JJJJ"', goae)
         self.assertIn('name="service_date"', goae)
         self.assertIn('data-goae-full', goae)

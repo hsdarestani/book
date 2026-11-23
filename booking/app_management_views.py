@@ -572,9 +572,12 @@ def app_management(request, section='bookings'):
             context['goae_invoices'] = [inv for inv in (data.get('invoices') or [])
                 if inv.get('billing_method') == 'goae']
             try:
-                context['goae_catalog'] = _billing_api(request,'billing/goae/').get('catalog',[])
+                catalog_data = _billing_api(request,'billing/goae/')
+                context['goae_catalog'] = catalog_data.get('catalog',[])
+                context['goae_treatments'] = catalog_data.get('treatments',{})
             except (RuntimeError,ValueError,PermissionError):
                 context['goae_catalog'] = []
+                context['goae_treatments'] = {}
         else:
             data = _api(request, 'referrals/')
         title, subtitle = SECTIONS[section]

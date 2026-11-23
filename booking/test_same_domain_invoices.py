@@ -37,7 +37,7 @@ class SameDomainInvoicesTests(TestCase):
         self.client.force_login(self.staff)
         res = self.client.get(self.url)
         self.assertEqual(res.status_code, 200, res.content[:400])
-        self.assertContains(res, "GOÄ-Rechnungen")
+        self.assertContains(res, "GOÄ-Rechner")
         self.assertNotContains(res, "Rechnung erstellen")
         self.assertNotContains(res, "Steuer & Bank")
         self.assertContains(res, "Rechnung nach GOÄ")
