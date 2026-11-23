@@ -186,14 +186,22 @@ def _catalog(providers):
         'ok': True,
         'providers': [{
             'id': item.pk, 'name': item.display_name, 'role': item.role,
+            'source_managed': item.display_name.startswith('A+ Esthetic (SimplyBook #'),
+            'management_system': ('SimplyBook' if item.display_name.startswith('A+ Esthetic (SimplyBook #') else 'Book'),
             'services': [service.pk for service in item.services.all() if service.active],
             'working_hours': [
                 {'weekday': row.weekday, 'start': row.start_time.strftime('%H:%M'), 'end': row.end_time.strftime('%H:%M')}
                 for row in item.working_hours.all() if row.active
             ],
         } for item in staff],
-        'services': [_service_payload(item) for item in Service.objects.filter(
-            staff_members__in=providers).distinct().order_by('sort_order', 'name')],
+        'services': [
+            _service_payload(item) | {
+                'source_managed': item.slug.startswith('simplybook-event-'),
+                'management_system': 'SimplyBook' if item.slug.startswith('simplybook-event-') else 'Book',
+            }
+            for item in Service.objects.filter(
+                staff_members__in=providers).distinct().order_by('sort_order', 'name')
+        ],
     })
 
 
@@ -459,6 +467,8 @@ def _save_hours(data, providers):
     staff = providers.filter(pk=int(data['staff_id'])).first()
     if not staff or data.get('operation') not in {'daily', 'weekly', 'reset'}:
         raise ValidationError('Ungültige Verfügbarkeit.')
+    if staff.display_name.startswith('A+ Esthetic (SimplyBook #'):
+        raise CommandConflict('Diese Arbeitszeiten werden aus SimplyBook synchronisiert. Bitte direkt in SimplyBook ändern.')
     date = _date(data.get('date'))
     post = {**data, 'closed': 'on' if data.get('closed') is True else '', 'action': data['operation']}
     if data['operation'] == 'weekly':
@@ -474,6 +484,8 @@ def _save_service(data, actor):
     item = Service.objects.select_for_update().filter(pk=int(data['id'])).first()
     if not item:
         raise ValidationError('Behandlung nicht gefunden.')
+    if item.slug.startswith('simplybook-event-'):
+        raise CommandConflict('Diese Behandlung wird aus SimplyBook synchronisiert. Bitte direkt in SimplyBook ändern.')
     for field in ('name', 'description', 'price_label'):
         if field in data:
             setattr(item, field, str(data[field]).strip())
