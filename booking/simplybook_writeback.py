@@ -111,6 +111,14 @@ def write_existing_booking(item, *, operation, start=None, end=None):
     headers=_session()
     remote=_detail(external_id,headers)
     _compare(item,remote)
+    # Do not silently discard SimplyBook custom fields or interfere with
+    # paid invoices, deposits or payment/credit workflows.
+    if (remote.get('invoice_id') not in (None,0,'0','') or
+        remote.get('invoice_payment_received') not in (None,0,'0','',False) or
+        remote.get('deposit_is_enabled') in (True,1,'1','true')):
+        raise SourceConflict('Bezahlte oder fakturierte SimplyBook-Termine müssen dort verwaltet werden.')
+    if operation=='reschedule' and remote.get('additional_fields') not in (None,{},[],''):
+        raise SourceConflict('Dieser Termin besitzt zusätzliche SimplyBook-Felder und muss dort geändert werden.')
     if operation=='reschedule':
         if not start or not end or end<=start:
             raise SourceConflict('Ungültiger Terminzeitraum.')
