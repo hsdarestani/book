@@ -108,10 +108,11 @@ class PremiumManagementDesignTests(SimpleTestCase):
         source = get_template("booking/app_management.html").template.source
         goae = get_template("booking/_billing_goae_form.html").template.source
         self.assertIn("{% if section != 'invoices' %}", source)
-        self.assertIn("<h2>GOÄ-Rechnungen</h2>", source)
+        self.assertIn('booking/_billing_goae_form.html', source)
         self.assertIn('booking/_billing_goae_form.html', source)
         self.assertIn('goae_invoices', source)
         self.assertIn('name="action" value="billing_create_goae_full"', goae)
+        self.assertIn('GOÄ-Rechner', goae)
         self.assertIn('data-goae-preview', goae)
         self.assertIn('goaeDateGerman', goae)
         for removed in ('billing-settings-panel', 'data-billing-create-form',
