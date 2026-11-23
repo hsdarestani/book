@@ -113,8 +113,16 @@ def _appointment(item):
 
 
 def _block(item, editable):
-    return _block_payload(item) | {
-        'editable': editable,
+    # SimplyBook note sync stores its source identifier after an invisible
+    # separator. This is read-only provenance, NOT permission to change source.
+    imported = (item.reason or '').count('\u2063') >= 2
+    payload = _block_payload(item)
+    if imported:
+        payload['text'] = payload['text'].split('\u2063', 1)[0].strip()
+    return payload | {
+        'editable': editable and not imported,
+        'source_managed': imported,
+        'management_system': 'SimplyBook' if imported else 'Book',
         'start_at': timezone.localtime(item.starts_at).isoformat(),
         'end_at': timezone.localtime(item.ends_at).isoformat(),
     }
