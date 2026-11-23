@@ -69,8 +69,13 @@ def smoke():
   page.locator('[data-goae-preview]').click()
   assert len(requests)==0
   assert 'Patient auswählen' in page.locator('[data-goae-feedback]').inner_text()
+  # Fresh form makes medical-review blocking independent of the prior missing-patient focus.
+  page.reload(wait_until='networkidle')
+  page.locator('#goaeDetails>summary').click()
   page.locator('#goaePatient').select_option('1')
+  page.locator('#goaeDateGerman').fill('23.11.2026')
   page.locator('[data-goae-preview]').click()
+  page.wait_for_timeout(170)
   print('DEBUG: preview feedback', repr(page.locator('[data-goae-feedback]').inner_text()),
         'server requests',len(requests),'patient',page.locator('#goaePatient').input_value(),
         'date',page.locator('#goaeDateGerman').input_value(), 'errors', errors, flush=True)
@@ -79,6 +84,7 @@ def smoke():
   for checkbox in page.locator('[data-g="clinical_confirmed"]').all():
     checkbox.check()
   page.locator('[data-goae-preview]').click()
+  page.wait_for_timeout(170)
   assert len(requests)==1
   assert 'Synthetic quote rejected' in page.locator('[data-goae-feedback]').inner_text()
   assert page.locator('#goaeDateIso').input_value()=='2026-11-23'
