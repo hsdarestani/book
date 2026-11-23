@@ -882,190 +882,40 @@ html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-custom
 {% elif section == 'forms' %}
 {% include "booking/_office_intake_forms.html" %}
 {% elif section == 'invoices' %}
-<section class="billing-command">
+<section class="billing-command goae-only-heading">
   <div class="billing-command-copy">
-    <span>A+ ESTHETIC · RECHNUNGEN</span>
-    <h2>Rechnungen verwalten</h2>
-    <p>Entwürfe erstellen, Preise pflegen und ausgestellte Rechnungen verwalten.</p>
+    <span>A+ ESTHETIC · PRIVATABRECHNUNG</span>
+    <h2>GOÄ-Rechnungen</h2>
+    <p>Ärztliche GOÄ-Entwürfe erstellen und prüfen – zentral im bestehenden Praxismanagement.</p>
   </div>
-  <div class="billing-command-state {% if data.settings.ready_for_issue %}is-ready{% endif %}">
-    {% if data.settings.ready_for_issue %}Bereit{% else %}Steuerdaten fehlen{% endif %}
-  </div>
+  <div class="goae-only-status">Nur ärztliche Entwürfe</div>
 </section>
-
-<section class="billing-stat-grid">
-  <article><span>AUSGESTELLT</span><strong>{{ data.stats.issued|default:0 }}</strong></article>
-  <article><span>ENTWÜRFE</span><strong>{{ data.stats.drafts|default:0 }}</strong></article>
-  <article><span>PREISE BEREIT</span><strong>{{ data.stats.configured_services|default:0 }}/{{ data.stats.active_services|default:0 }}</strong></article>
-  <article><span>NÄCHSTE NR.</span><strong>{{ data.settings.invoice_prefix }}{{ data.settings.next_sequence }}</strong></article>
-</section>
-
-<div class="billing-layout">
-  <section class="admin-panel app-core-panel billing-create-panel">
-    <div class="panel-head"><div><div class="eyebrow">NEUE RECHNUNG</div><h2>Rechnung erstellen</h2><p>Kunde, Leistungsdatum und Behandlung auswählen.</p></div></div>
-    <form method="post" class="billing-form" data-billing-create-form>{% csrf_token %}
-      <input type="hidden" name="action" value="billing_create">
-      <div class="billing-field">
-        <label>Kunde</label>
-        <input type="hidden" name="customer_id" value="" data-billing-customer-input>
-        <button type="button" class="billing-picker-trigger" data-billing-customer-open>
-          <span class="billing-picker-copy">
-            <strong data-billing-customer-name>Bitte Kunde wählen</strong>
-            <small data-billing-customer-meta>Name, E Mail oder Kundennummer suchen</small>
-          </span>
-          <span class="billing-picker-chevron" aria-hidden="true">⌄</span>
-        </button>
-        <div class="billing-field-error" data-billing-customer-error hidden>Bitte einen Kunden auswählen.</div>
-      </div>
-      <div class="billing-two">
-        <div class="billing-field">
-          <label>Leistungsdatum</label>
-          <input type="hidden" name="service_date" value="" data-billing-date-value>
-          <div class="billing-date-control">
-            <div class="billing-date-display">
-              <strong data-billing-date-label>TT.MM.JJJJ</strong>
-              <small>Datum auswählen</small>
-            </div>
-            <span class="billing-date-icon" aria-hidden="true">▣</span>
-            <input type="date" class="billing-date-native" data-billing-date-native aria-label="Leistungsdatum auswählen">
-          </div>
-          <div class="billing-field-error" data-billing-date-error hidden>Bitte ein Leistungsdatum auswählen.</div>
-        </div>
-        <label>Behandlung
-          <select name="service_id" required>
-            <option value="">Bitte wählen</option>
-            {% for service in data.services %}
-            <option value="{{ service.id }}" {% if not service.configured %}disabled{% endif %}>{{ service.name }} · {% if service.configured %}{{ service.price_label }}{% else %}Preis/MwSt offen{% endif %}</option>
-            {% endfor %}
-          </select>
-        </label>
-      </div>
-      <button class="billing-primary" type="submit">Rechnungsentwurf erstellen</button>
-    </form>
-  </section>
-
-  <section class="admin-panel app-core-panel billing-settings-panel">
-    <div class="panel-head"><div><div class="eyebrow">RECHNUNGSDATEN</div><h2>Steuer & Bank</h2><p>Diese Daten erscheinen auf der Rechnung.</p></div></div>
-    <details class="premium-settings-disclosure"><summary><span><strong>Steuer- und Bankdaten bearbeiten</strong><small>{% if data.settings.ready_for_issue %}Vollständig eingerichtet{% else %}Angaben vervollständigen{% endif %}</small></span><span aria-hidden="true">+</span></summary><div class="premium-disclosure-inner">
-    <form method="post" class="billing-form">{% csrf_token %}
-      <input type="hidden" name="action" value="billing_settings">
-      <input type="hidden" name="company_name" value="{{ data.settings.company_name }}">
-      <input type="hidden" name="street" value="{{ data.settings.street }}">
-      <input type="hidden" name="postal_code" value="{{ data.settings.postal_code }}">
-      <input type="hidden" name="city" value="{{ data.settings.city }}">
-      <input type="hidden" name="email" value="{{ data.settings.email }}">
-      <input type="hidden" name="phone" value="{{ data.settings.phone }}">
-      <div class="billing-two">
-        <label>Steuernummer<input name="tax_number" value="{{ data.settings.tax_number }}"></label>
-        <label>USt IdNr<input name="vat_id" value="{{ data.settings.vat_id }}"></label>
-      </div>
-      <label>Bank<input name="bank_name" value="{{ data.settings.bank_name }}"></label>
-      <label>IBAN<input name="iban" value="{{ data.settings.iban }}" autocomplete="off"></label>
-      <div class="billing-two">
-        <label>BIC<input name="bic" value="{{ data.settings.bic }}"></label>
-        <label>Präfix<input name="invoice_prefix" value="{{ data.settings.invoice_prefix }}"></label>
-      </div>
-      <label>Nächste laufende Nummer<input type="number" min="1" name="next_sequence" value="{{ data.settings.next_sequence }}" required></label>
-      <button class="billing-secondary" type="submit">Rechnungsdaten speichern</button>
-    </form>
-    </div></details>
-  </section>
-</div>
-
 {% include "booking/_billing_goae_form.html" %}
-
-<section class="admin-panel app-core-panel billing-services-panel">
-  <div class="panel-head">
-    <div><div class="eyebrow">LEISTUNGSKATALOG</div><h2>Behandlungen & Preise</h2>
-    <p>Eine Behandlung suchen und bei Bedarf zum Bearbeiten aufklappen. Preise werden zentral gespeichert.</p></div>
-    <span class="clinic-service-count">{{ data.services|length }} Leistungen</span>
+<section class="admin-panel app-core-panel goae-history" aria-label="GOÄ Rechnungsverlauf">
+  <div class="panel-head"><div><div class="eyebrow">GOÄ · VERLAUF</div><h2>GOÄ-Entwürfe und Rechnungen</h2>
+    <p>Bereits angelegte Dokumente bleiben erhalten. Die finale GOÄ-Ausstellung ist bis zur fachlichen Freigabe gesperrt.</p></div>
+    <span class="clinic-service-count">{{ goae_invoices|length }} Dokumente</span>
   </div>
-  <div class="clinic-service-toolbar">
-    <label for="clinic-service-search">Behandlung suchen
-      <input id="clinic-service-search" type="search" placeholder="z. B. Botox, Beratung, Infusion" autocomplete="off" data-clinic-service-search>
-    </label>
-    <output data-clinic-service-count aria-live="polite"></output>
-  </div>
-  <details class="premium-catalog-disclosure" data-premium-catalog><summary><span><strong>Behandlungskatalog öffnen</strong><small>Alle Leistungen ansehen und Preise bearbeiten</small></span><span aria-hidden="true">+</span></summary><div class="billing-service-list" data-clinic-service-list>
-    {% for service in data.services %}
-    <details class="billing-service-card clinic-service-card" data-clinic-service-card data-clinic-service-name="{{ service.name|lower }} {{ service.slug|lower }}">
-      <summary class="billing-service-head">
-        <span class="clinic-service-copy"><strong>{{ service.name }}</strong><small>{% if service.configured %}{{ service.price_label }} · {{ service.vat_rate }} % MwSt{% else %}Preis und MwSt festlegen{% endif %}</small></span>
-        <span class="clinic-service-status {% if service.configured %}is-ready{% endif %}">{% if service.configured %}Bereit{% else %}Offen{% endif %}</span>
-        <span class="clinic-service-chevron" aria-hidden="true">⌄</span>
-      </summary>
-      <form method="post" class="clinic-service-editor">{% csrf_token %}
-        <input type="hidden" name="action" value="billing_service">
-        <input type="hidden" name="service_id" value="{{ service.id }}">
-        <div class="billing-two">
-          <label>Bruttopreis in €<input name="price" inputmode="decimal" value="{{ service.price_input }}" placeholder="119,00"></label>
-          <label>MwSt in %<input name="vat_rate" inputmode="decimal" value="{{ service.vat_rate }}" placeholder="19"></label>
-        </div>
-        <button class="billing-small" type="submit">Änderungen speichern</button>
-      </form>
-    </details>
-    {% empty %}<div class="empty">Keine Behandlungen gefunden.</div>{% endfor %}
-  </div>
-  </details>
-  <p class="clinic-service-empty" data-clinic-service-empty hidden>Keine passende Behandlung gefunden.</p>
-</section>
-
-<section class="admin-panel app-core-panel billing-invoices-panel">
-  <div class="panel-head"><div><div class="eyebrow">VERLAUF</div><h2>Letzte Rechnungen</h2><p>Entwürfe und ausgestellte Rechnungen.</p></div></div>
   <div class="billing-invoice-list">
-    {% for invoice in data.invoices %}
-    <article class="billing-invoice-card">
-      <div><span>{{ invoice.status_label }}</span><strong>{{ invoice.number|default:"Entwurf" }} · {{ invoice.customer_name }}</strong><small>{{ invoice.service_date }} · {{ invoice.total }} € · {{ invoice.customer_email }}</small></div>
-      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end">
-        {% if invoice.status == 'draft' and invoice.billing_method == 'goae' %}
-          <a class="billing-small" href="/verwaltung/app/invoices/{{ invoice.id }}/pdf/" target="_blank" rel="noopener">GOÄ Entwurf PDF</a>
-        {% elif invoice.status == 'draft' %}
-          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="billing_finalize"><input type="hidden" name="invoice_id" value="{{ invoice.id }}"><button type="submit">Endgültig ausstellen</button></form>
-        {% elif invoice.status == 'issued' %}
-          <a class="billing-small" href="/verwaltung/app/invoices/{{ invoice.id }}/pdf/" target="_blank" rel="noopener">PDF ansehen</a>
-        {% else %}<b>✓</b>{% endif %}
-      </div>
-    </article>
-    {% empty %}<div class="empty">Noch keine Rechnungen.</div>{% endfor %}
+  {% for invoice in goae_invoices %}
+  <article class="billing-invoice-card">
+    <div><span>{{ invoice.status_label }}</span><strong>{{ invoice.number|default:"GOÄ-Entwurf" }} · {{ invoice.customer_name }}</strong>
+      <small>{{ invoice.service_date }} · {{ invoice.total }} € · {{ invoice.customer_email }}</small></div>
+    <div>{% if invoice.status == 'draft' or invoice.status == 'issued' %}
+      <a class="billing-small" href="/verwaltung/app/invoices/{{ invoice.id }}/pdf/" target="_blank" rel="noopener">{% if invoice.status == 'draft' %}Entwurf-PDF öffnen{% else %}Rechnung-PDF öffnen{% endif %}</a>
+    {% endif %}</div>
+  </article>
+  {% empty %}<p class="empty">Noch keine GOÄ-Dokumente vorhanden.</p>{% endfor %}
   </div>
 </section>
-<div class="billing-customer-modal" data-billing-customer-modal hidden>
-  <button type="button" class="billing-customer-backdrop" data-billing-customer-close aria-label="Kundenauswahl schließen"></button>
-  <section class="billing-customer-sheet" role="dialog" aria-modal="true" aria-labelledby="billingCustomerTitle">
-    <div class="billing-sheet-handle" aria-hidden="true"></div>
-    <header class="billing-sheet-head">
-      <div><span>KUNDE AUSWÄHLEN</span><h2 id="billingCustomerTitle">Kunden suchen</h2></div>
-      <button type="button" class="billing-sheet-close" data-billing-customer-close aria-label="Schließen">×</button>
-    </header>
-    <div class="billing-customer-search">
-      <span aria-hidden="true">⌕</span>
-      <input type="search" placeholder="Name, E Mail, Telefon oder Kundennummer" autocomplete="off" data-billing-customer-search>
-    </div>
-    <div class="billing-customer-list" data-billing-customer-list>
-      {% for customer in data.customers %}
-      <button type="button"
-              class="billing-customer-option"
-              data-billing-customer-option
-              data-customer-id="{{ customer.id }}"
-              data-customer-name="{{ customer.name }}"
-              data-customer-email="{{ customer.email }}"
-              data-customer-search="{{ customer.name|lower }} {{ customer.email|lower }} {{ customer.phone|lower }} {{ customer.member_number|lower }}">
-        <span class="billing-customer-avatar">{{ customer.name|slice:":1"|upper }}</span>
-        <span class="billing-customer-copy">
-          <strong>{{ customer.name }}</strong>
-          <small>{{ customer.email }}{% if customer.member_number %} · {{ customer.member_number }}{% endif %}</small>
-        </span>
-        {% if customer.address_complete %}
-          <em class="is-ready">Adresse vollständig</em>
-        {% else %}
-          <em>Adresse fehlt</em>
-        {% endif %}
-      </button>
-      {% empty %}<div class="billing-customer-empty">Keine Kunden gefunden.</div>{% endfor %}
-    </div>
-    <div class="billing-customer-empty" data-billing-customer-no-results hidden>Keine passenden Kunden gefunden.</div>
-  </section>
-</div>
+<style>
+  .goae-only-heading{margin-bottom:17px}
+  .goae-only-status{display:inline-flex;align-items:center;border:1px solid #b8a476;border-radius:999px;background:#f8efd9;color:#735d35;font-size:12px;font-weight:700;padding:10px 13px;white-space:nowrap}
+  .goae-only-heading h2{font-size:clamp(30px,4vw,42px)}
+  .goae-history{max-width:100%;margin:20px 0 30px}
+  .goae-history .billing-invoice-list{display:grid;gap:10px}
+  @media(max-width:650px){.goae-only-status{white-space:normal}.goae-only-heading{display:flex;flex-direction:column;gap:12px}}
+</style>
 {% elif section == 'hero' %}
 <nav class="hero-admin-nearby" aria-label="Patient App Inhalte"><a href="/verwaltung/mehr/#campaigns">Kampagnen</a><a href="/verwaltung/app/hero/" aria-current="page">Startseitenbilder</a></nav>
 <p class="hero-admin-intro">Hier kannst du die große Begrüßungsgrafik oben auf der Startseite verwalten. Die Auswahl erfolgt über die im Kundenprofil gespeicherte Anrede. Wenn kein passendes Bild eingestellt ist, wird automatisch das Standardbild verwendet.</p>
