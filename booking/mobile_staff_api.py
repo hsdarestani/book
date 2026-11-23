@@ -381,6 +381,8 @@ def _save_appointment(data, actor, providers, previous_item):
     service = Service.objects.filter(pk=int(data['service_id']), staff_members=staff).first() if staff else None
     if not staff or not customer or not service:
         raise ValidationError('Patient, Behandlung oder Behandler ist nicht verfügbar.')
+    if staff.display_name.startswith('A+ Esthetic (SimplyBook #') or service.slug.startswith('simplybook-event-'):
+        raise CommandConflict('Dieser Behandler oder diese Behandlung stammt aus SimplyBook. Bitte Reservierungen dort verwalten.')
     start = _slot(data.get('date'), data.get('start'))
     previous = appointment_snapshot(item) if item else None
     schedule_changed = not item or item.starts_at != start or item.service_id != service.pk or item.staff_id != staff.pk
@@ -430,6 +432,8 @@ def _save_block(data, providers):
     staff = providers.filter(pk=int(data['staff_id'])).first()
     if not staff:
         raise ValidationError('Ungültiger Behandler.')
+    if staff.display_name.startswith('A+ Esthetic (SimplyBook #'):
+        raise CommandConflict('Dieser Kalender wird aus SimplyBook synchronisiert. Bitte Sperrzeiten direkt dort verwalten.')
     operation = data.get('operation')
     if operation not in {'create', 'update', 'delete'}:
         raise ValidationError('Ungültige Kalenderaktion.')
