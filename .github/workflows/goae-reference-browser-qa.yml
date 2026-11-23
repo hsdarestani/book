@@ -7,6 +7,10 @@ on:
       - 'static/booking/goae-rechner-v2.js'
       - 'static/booking/goae-rechner-v2.css'
       - 'booking/app_management_views.py'
+      - 'booking/test_same_domain_invoices.py'
+      - 'booking/test_clinic_readable_ui.py'
+      - 'booking/test_premium_design.py'
+      - 'templates/booking/app_management.html'
       - 'scripts/test_goae_reference_browser.py'
       - '.github/workflows/goae-reference-browser-qa.yml'
   workflow_dispatch:
