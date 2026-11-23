@@ -4,6 +4,7 @@
 - Imported SimplyBook appointments: reschedule and cancel; admin role only.
 - Source-first via authenticated SimplyBook Admin API (editBook / cancelBooking). Both preflight and read-back required.
 - Reject stale Book data, wrong patient/source ID, mismatched service or missing credential.
+- Fail closed for paid/invoiced/promo bookings, source-specific locations and intake fields; SimplyBook API details may not expose invoice IDs, so `price` is checked explicitly.
 - Preserve original SimplyBook event/unit/client IDs. Never use generic imported Book staff ID as remote unit ID.
 - Fail closed when SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED is absent or false.
 - Existing SimplyBook -> Book ten-minute importer remains authoritative.
