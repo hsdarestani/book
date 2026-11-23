@@ -39,6 +39,8 @@ function rowData(line){
 function linesForServer(){
  const lines=$('.mlr-line').map(rowData),materialRaw=$('[data-material]').value.trim(),
        material=materialRaw?parseCents(materialRaw):0,vat=$('[data-vat]').value;
+ if(lines.some(item=>!item.clinical_confirmed))
+   return {error:'Jede GOÄ-Leistung muss von der behandelnden Ärztin oder dem behandelnden Arzt bestätigt werden.'};
  if(material===null)return {error:'Materialwert bitte mit höchstens zwei Nachkommastellen eingeben.'};
  if(material>0){
    const desc=$('[data-material-description]').value.trim();
