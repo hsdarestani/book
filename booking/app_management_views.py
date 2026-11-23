@@ -88,7 +88,7 @@ def _billing_api(request, endpoint, method='GET', payload=None):
 
     Both methods operate on the same App Invoice and InvoiceSettings tables.
     """
-    if _authorization(request):
+    if _authorization(request) and endpoint not in {'billing/goae/', 'billing/quote/'}:
         try:
             return _api(request, endpoint, method=method, payload=payload)
         except PermissionError:
