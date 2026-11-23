@@ -172,6 +172,7 @@ class WorkspaceTests(TestCase):
         block = next(row for row in self.client.get(url).json()['blocks'] if row['id'] == legacy.pk)
         self.assertTrue(block['editable'])
         self.assertTrue(block['source_managed'])
+        self.assertNotIn(marker, block['text'])
         result = self.post(
             'block', operation='update', id=legacy.pk, revision=block['revision'],
             staff_id=ariane.pk, date=self.day.isoformat(), end_date=self.day.isoformat(),
@@ -181,6 +182,8 @@ class WorkspaceTests(TestCase):
         override = MobileStaffBlockOverride.objects.get(source_marker=marker)
         self.assertEqual(override.actor_id, 42)
         self.assertFalse(override.deleted)
+        legacy.refresh_from_db()
+        self.assertEqual(legacy.reason.count(marker), 1)
         remote = [{
             'id': 712, 'note': 'External note', 'time_blocked': True,
             'start_date_time': self.day.strftime('%Y-%m-%d') + ' 15:00:00',
