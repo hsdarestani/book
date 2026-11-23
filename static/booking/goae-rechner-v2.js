@@ -6,8 +6,8 @@
 const root=document.querySelector('[data-mlr]');if(!root)return;
 const $=s=>root.querySelector(s), $$=s=>[...root.querySelectorAll(s)];
 const form=$('[data-goae-full]'), details=$('[data-mlr-details]'), list=$('#goaeLines');
-const catalog=JSON.parse($('#goaeTariffCatalog')?.textContent||'[]');
-const treatmentMap=JSON.parse($('#goaeTreatmentMap')?.textContent||'{}');
+const catalog=JSON.parse(document.getElementById('goaeTariffCatalog')?.textContent||'[]');
+const treatmentMap=JSON.parse(document.getElementById('goaeTreatmentMap')?.textContent||'{}');
 const catalogByCode=Object.fromEntries(catalog.map(x=>[String(x.number),x]));
 const treatmentLabels={
  botox:{title:'Botox',unit:'Behandlung',plural:'Behandlungen',hint:'Pro dokumentierter Behandlung'},
@@ -54,7 +54,7 @@ function linesForServer(){
 }
 function resetVerification(){sel.verified=null;sel.verifiedHash=null;render();$('#goaeLinesJson').value='';}
 function addLine(code){
- const t=$('#goaeLineTemplate');const line=t.content.firstElementChild.cloneNode(true),dropdown=field(line,'official');
+ const t=document.getElementById('goaeLineTemplate');const line=t.content.firstElementChild.cloneNode(true),dropdown=field(line,'official');
  for(const item of catalog){const opt=document.createElement('option');opt.value=item.number;opt.textContent=item.number+' · '+item.de;dropdown.append(opt);}
  if(code && catalogByCode[code]){
   const item=catalogByCode[code];dropdown.value=String(code);
