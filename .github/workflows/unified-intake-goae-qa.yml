@@ -11,6 +11,8 @@ on:
       - 'booking/test_same_domain_invoices.py'
       - 'booking/test_patient_tabs_v2.py'
       - 'booking/app_management_views.py'
+      - 'booking/invoice_bridge.py'
+      - 'booking/test_patient_visual_regression.py'
       - 'booking/goae_quote_views.py'
       - 'templates/booking/_billing_goae_form.html'
       - 'templates/booking/_office_intake_forms.html'
