@@ -111,5 +111,5 @@ class PatientTabVisibilityTests(SimpleTestCase):
                / "static/booking/clinic-patient-finish-v4.css").read_text()
         self.assertIn("position:static!important", css)
         self.assertIn("patient-tab-button", css)
-        self.assertIn("grid-template-columns:repeat(4", css)
+        self.assertIn("grid-template-columns:repeat(5", css)
         self.assertIn("patient-profile-single", html)
