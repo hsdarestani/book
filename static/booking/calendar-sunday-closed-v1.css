@@ -1,0 +1,81 @@
+/* A+ Esthetic — Sunday closed-day indication.
+   Presentation only. The canonical booking policy is enforced server-side.
+   Keep existing Sunday appointments visible and administratively inspectable. */
+@media(max-width:760px){
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-iphone-weekstrip .sb-iphone-day.is-sunday > strong{
+    background:#dce1e8!important;
+    color:#4d5868!important;
+    box-shadow:inset 0 0 0 1px #c2cbd6!important;
+    border-radius:50%!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-iphone-weekstrip .sb-iphone-day.is-sunday > span{
+    color:#6b7280!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-iphone-weekstrip .sb-iphone-day.is-sunday::after{
+    content:"Zu";
+    position:absolute!important;
+    bottom:-5px!important;
+    left:50%!important;
+    transform:translateX(-50%)!important;
+    background:#e1e5eb!important;
+    color:#485465!important;
+    font:650 9px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+    border-radius:4px!important;
+    padding:2px 5px!important;
+    z-index:4!important;
+    pointer-events:none!important;
+  }
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-iphone-weekstrip.is-week .sb-iphone-day.is-sunday > strong,
+  html[data-admin-page="calendar"] body.sb-calendar-pro
+  .sb-iphone-weekstrip .sb-iphone-day.is-sunday.is-active > strong{
+    background:#bfc8d4!important;
+    color:#334155!important;
+    box-shadow:inset 0 0 0 1px #909daa!important;
+  }
+}
+html[data-admin-page="calendar"] body.sb-calendar-pro
+.sb-calendar-shell .sb-calendar-day.is-sunday{
+  background:#f0f2f5!important;
+}
+html[data-admin-page="calendar"] body.sb-calendar-pro
+.sb-calendar-shell .sb-calendar-day.is-sunday .sb-day-head{
+  background:#e8ebef!important;
+  color:#566170!important;
+  border-bottom:1px solid #cbd2dc!important;
+  position:relative!important;
+}
+html[data-admin-page="calendar"] body.sb-calendar-pro
+.sb-calendar-shell .sb-calendar-day.is-sunday .sb-day-track{
+  background:repeating-linear-gradient(
+    135deg,#f1f3f6 0,#f1f3f6 13px,#e8ecf1 13px,#e8ecf1 14px
+  )!important;
+}
+html[data-admin-page="calendar"] body.sb-calendar-pro
+.sb-calendar-shell .sb-calendar-day.is-sunday .sb-working-segment{
+  display:none!important;
+}
+html[data-admin-page="calendar"] body.sb-calendar-pro
+.sb-calendar-shell .sb-calendar-day.is-sunday .sb-day-head .sb-sunday-closed-label{
+  position:absolute!important;
+  right:5px!important;
+  top:4px!important;
+  z-index:3!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  padding:3px 6px!important;
+  border-radius:5px!important;
+  background:#d5dbe4!important;
+  color:#455162!important;
+  font:650 10px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  pointer-events:none!important;
+  white-space:nowrap!important;
+}
+html[data-admin-page="calendar"] body.sb-calendar-pro
+.sb-calendar-shell .sb-calendar-day.is-sunday .sb-calendar-event{
+  position:absolute;
+  z-index:5!important;
+}
