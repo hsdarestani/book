@@ -2,11 +2,36 @@ from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
 
+def ensure_optional_birth_date(apps, schema_editor):
+    """Production may already have this field from earlier manual/partial rollout.
+
+    Preserve existing patient DOB values. On clean databases add the field.
+    Migration state is the same in both cases, so later migrations remain valid.
+    """
+    patient = apps.get_model('booking', 'Customer')
+    table = patient._meta.db_table
+    with schema_editor.connection.cursor() as cursor:
+        existing = {column.name for column in
+                    schema_editor.connection.introspection.get_table_description(cursor, table)}
+    if 'date_of_birth' in existing:
+        return
+    field = models.DateField('Geburtsdatum', null=True, blank=True)
+    field.set_attributes_from_name('date_of_birth')
+    field.model = patient
+    schema_editor.add_field(patient, field)
+
+
 class Migration(migrations.Migration):
     dependencies = [('booking','0025_block_qamar_until_2027'),
                     migrations.swappable_dependency(settings.AUTH_USER_MODEL)]
     operations = [
-        migrations.AddField(model_name='customer',name='date_of_birth',field=models.DateField(blank=True,null=True,verbose_name='Geburtsdatum')),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[migrations.RunPython(
+                ensure_optional_birth_date, reverse_code=migrations.RunPython.noop)],
+            state_operations=[migrations.AddField(
+                model_name='customer', name='date_of_birth',
+                field=models.DateField('Geburtsdatum', blank=True, null=True))],
+        ),
         migrations.CreateModel(
             name='OfficeIntakeForm',
             fields=[
