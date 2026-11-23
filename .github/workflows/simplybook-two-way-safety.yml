@@ -1,0 +1,24 @@
+name: SimplyBook two-way safety tests (no deploy, no remote writes)
+on:
+  push:
+    branches: [feature/simplybook-bidirectional-safe-writeback-20261123]
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    env:
+      DJANGO_DEBUG: '1'
+      SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Django checks, schema and mocked source-write regressions
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+          python manage.py test booking.test_simplybook_writeback booking.test_mobile_staff_workspace --verbosity 2
