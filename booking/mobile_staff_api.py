@@ -352,7 +352,7 @@ def _save_appointment(data, actor, providers, previous_item):
         raise ValidationError('Ungültige Terminaktion.')
     if item:
         if (item.idempotency_key or '').startswith('simplybook-'):
-            raise CommandConflict('Diesen Termin bitte im angebundenen Buchungssystem ändern.')
+            raise CommandConflict('Dieser Termin wird über SimplyBook synchronisiert. Bitte direkt in SimplyBook ändern.')
         if item.status == 'cancelled':
             if operation == 'cancel':
                 return item.pk
@@ -428,8 +428,10 @@ def _save_block(data, providers):
     item = None
     if operation != 'create':
         item = BlockedPeriod.objects.select_for_update().filter(pk=int(data['id']), staff=staff).first()
+        if item and (item.reason or '').count('\u2063') >= 2:
+            raise CommandConflict('Dieser Kalendereintrag wird über SimplyBook synchronisiert. Bitte direkt in SimplyBook ändern.')
         if not item or not MobileStaffCommand.objects.filter(action='block',object_id=item.pk).exists():
-            raise CommandConflict('Dieser Eintrag muss in der Desktop-Verwaltung bearbeitet werden.')
+            raise CommandConflict('Dieser Eintrag wird in der Book-Verwaltung verwaltet. Bitte dort ändern.')
         if operation == 'delete':
             ident = item.pk
             item.delete()
