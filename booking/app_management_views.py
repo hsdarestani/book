@@ -99,6 +99,10 @@ def _billing_api(request, endpoint, method='GET', payload=None):
         operation = 'settings'
     elif endpoint == 'billing/invoices/':
         operation = 'invoices'
+    elif endpoint == 'billing/goae/':
+        operation = 'goae'
+    elif endpoint == 'billing/quote/':
+        operation = 'quote'
     elif endpoint.startswith('billing/services/') and endpoint.endswith('/'):
         number = endpoint.removeprefix('billing/services/').strip('/')
         if not number.isdecimal():
@@ -471,6 +475,19 @@ def app_management(request, section='bookings'):
                 )
                 return _redirect('invoices', 'invoice')
 
+            if action == 'billing_create_goae_full':
+                raw_lines = request.POST.get('goae_lines_json') or '[]'
+                lines = json.loads(raw_lines)
+                if not isinstance(lines, list) or not 1 <= len(lines) <= 50:
+                    raise ValueError('Bitte eine bis 50 GOÄ Positionen angeben.')
+                payload = {
+                    'billing_method': 'goae',
+                    'customer_id': int(request.POST.get('customer_id')),
+                    'service_date': str(request.POST.get('service_date') or ''),
+                    'lines': lines,
+                }
+                _billing_api(request, 'billing/invoices/', method='POST', payload=payload)
+                return _redirect('invoices', 'goae_draft')
             if action == 'billing_create_goae':
                 payload = {
                     'billing_method': 'goae',
@@ -512,6 +529,10 @@ def app_management(request, section='bookings'):
             data = _api(request, 'reviews/')
         elif section == 'invoices':
             data = _billing_api(request, 'billing/')
+            try:
+                context['goae_catalog'] = _billing_api(request, 'billing/goae/').get('catalog', [])
+            except (RuntimeError, ValueError):
+                context['goae_catalog'] = []
         else:
             data = _api(request, 'referrals/')
         title, subtitle = SECTIONS[section]
