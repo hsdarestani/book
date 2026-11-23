@@ -8,7 +8,8 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/app.css{% else %}{% static 'booking/app.css' %}{% endif %}">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}?v=20261006-calendar-v20">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
-  <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261029-horizontal2"></script>
+  <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261122-sunday1"></script>
+  <script defer src="/static/booking/calendar-week-strip-swipe-v1.js?v=20261122-strip3" data-week-strip-swipe-capture></script>
   <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20261029-sheet-v3"></script>
   {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% else %}
   <link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header4">
@@ -24,7 +25,8 @@
 <link rel="stylesheet" href="/static/booking/admin-calendar-reference-v2.css?v=20261029-reference2" data-admin-calendar-reference-v2>
 <link rel="stylesheet" href="/static/booking/admin-calendar-sheet-fix-v3.css?v=20261029-v3" data-admin-calendar-sheet-fix-v3>
 <link rel="stylesheet" href="/static/booking/admin-calendar-mobile-finish-v4.css?v=20261029-finish-v4" data-admin-calendar-mobile-finish-v4>
-<link rel="stylesheet" href="/static/booking/admin-calendar-date-dock-v6.css?v=20261029-firsthour8" data-admin-calendar-dock-v6>
+<link rel="stylesheet" href="/static/booking/admin-calendar-date-dock-v6.css?v=20261122-strip2" data-admin-calendar-dock-v6>
+<link rel="stylesheet" href="/static/booking/calendar-sunday-closed-v1.css?v=20261122-sunday1" data-calendar-sunday-closed>
 <link rel="stylesheet" href="/static/booking/admin-calendar-view-modes-v1.css?v=20261029-modes1" data-admin-calendar-view-modes-v1>
 <link rel="stylesheet" href="/static/booking/admin-calendar-horizontal-v2.css?v=20261029-horizontal2" data-calendar-horizontal-v2>
 <script>try{history.scrollRestoration='manual'}catch(_e){}</script>
@@ -44,7 +46,7 @@
   </div>
   <nav class="sb-iphone-weekstrip" aria-label="Kalendertag auswählen">
     {% for day in calendar_strip_days %}
-    <button type="button" class="sb-iphone-day {% if day.selected %}is-active{% endif %} {% if day.today %}is-today{% endif %}" tabindex="-1" aria-hidden="true">
+    <button type="button" class="sb-iphone-day {% if day.selected %}is-active{% endif %} {% if day.today %}is-today{% endif %} {% if forloop.last %}is-sunday is-closed{% endif %}" {% if forloop.last %}title="Sonntag – geschlossen"{% endif %} tabindex="-1" aria-hidden="true">
       <span>{{ day.label }}</span><strong>{{ day.date|date:"j" }}</strong>
     </button>
     {% endfor %}
