@@ -2,16 +2,17 @@
 Isolated Django template rendered with synthetic data; NEVER posts or prints real patient data.
 """
 import os
+import sys
 from pathlib import Path
 
+ROOT=Path(__file__).resolve().parent.parent
+sys.path.insert(0,str(ROOT))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings')
 import django
 django.setup()
 
 from django.template.loader import get_template
 from playwright.sync_api import sync_playwright
-
-ROOT=Path(__file__).resolve().parent.parent
 template=get_template('booking/_billing_goae_form.html')
 html='<html lang="de"><head><meta charset="utf-8"></head><body>'+template.render({
  'csrf_token':'browser-test-only',
