@@ -1,0 +1,76 @@
+<section class="intake-command">
+<div><small>A+ ESTHETIC · PATIENTENVERWALTUNG</small><h2>Digitale Aufnahmebögen</h2>
+<p>Alle übermittelten Anamnesen und Unterschriften in der bestehenden Book-Verwaltung. Die Daten sind praxisintern.</p></div>
+<div class="intake-metrics"><span><strong>{{ form_total }}</strong> Gesamt</span><span><strong>{{ form_open }}</strong> Zu prüfen</span></div>
+</section>
+<form method="get" action="/verwaltung/app/forms/" class="intake-filters" role="search">
+<label>Patient suchen <input name="q" type="search" value="{{ form_query }}" placeholder="Name, E-Mail oder Telefon"></label>
+<label>Status<select name="status"><option value="">Alle</option><option value="linked" {% if form_status == 'linked' %}selected{% endif %}>Zugeordnet</option><option value="review" {% if form_status == 'review' %}selected{% endif %}>Zu prüfen</option></select></label>
+<label>Von<input type="date" name="from" value="{{ form_from }}"></label>
+<label>Bis<input type="date" name="to" value="{{ form_to }}"></label>
+<button type="submit">Filtern</button><a href="/verwaltung/app/forms/">Zurücksetzen</a>
+</form>
+<div class="intake-content-grid">
+<section class="intake-list" aria-label="Aufnahmebögen">
+{% for form in intake_forms %}
+<a class="intake-list-item {% if selected_intake_form.pk == form.pk %}selected{% endif %}" href="/verwaltung/app/forms/?form={{ form.pk }}{% if form_query %}&q={{ form_query|urlencode }}{% endif %}{% if form_status %}&status={{ form_status }}{% endif %}">
+<span><strong>{{ form.payload.identity.first_name }} {{ form.payload.identity.last_name }}</strong>
+<small>{{ form.payload.identity.email }} · {{ form.submitted_at|date:"d.m.Y H:i" }}</small></span>
+<span class="intake-status {% if form.status == 'review' %}needs-review{% endif %}">{% if form.status == 'linked' %}Zugeordnet{% else %}Prüfen{% endif %}</span></a>
+{% empty %}<p class="intake-empty">Keine Formulare für diese Filter gefunden.</p>{% endfor %}
+</section>
+<section class="intake-detail" aria-label="Aufnahmebogen Details">
+{% if selected_intake_form %}
+<div class="intake-detail-header"><div><small>AUFNAHMEBOGEN #{{ selected_intake_form.pk }}</small>
+<h3>{{ selected_intake_form.payload.identity.first_name }} {{ selected_intake_form.payload.identity.last_name }}</h3>
+<time>{{ selected_intake_form.submitted_at|date:"d.m.Y · H:i" }}</time></div>
+<span class="intake-status {% if selected_intake_form.status == 'review' %}needs-review{% endif %}">{{ selected_intake_form.get_status_display }}</span></div>
+{% if selected_intake_form.customer %}
+<p class="intake-associated"><strong>Patientenakte:</strong> <a href="/verwaltung/app/patients/?customer={{ selected_intake_form.customer.pk }}&tab=forms">{{ selected_intake_form.customer.full_name }} · Akte öffnen</a></p>
+{% if selected_intake_form.record %}<a class="intake-pdf" href="/verwaltung/patienten/{{ selected_intake_form.customer_id }}/datei/{{ selected_intake_form.record.public_id }}/ansicht/" target="_blank" rel="noopener">Aufnahmebogen-PDF öffnen (nur Personal)</a>{% endif %}
+{% else %}<p class="intake-review-banner">Automatische Zuordnung angehalten: kein eindeutiger Patient mit 3/5 Merkmalen. Bitte Identität prüfen.</p>{% endif %}
+<div class="intake-fields"><h4>Patienteninformationen</h4>
+{% for key,val in selected_intake_form.payload.identity.items %}
+<div><dt>{{ key }}</dt><dd>{{ val|default:"–" }}</dd></div>
+{% endfor %}</div>
+<div class="intake-fields"><h4>Anamnese & Ästhetik</h4>
+{% for key,val in selected_intake_form.payload.answers.items %}
+<div><dt>{{ key }}</dt><dd>{% if val %}{{ val|join:", " }}{% else %}–{% endif %}</dd></div>
+{% endfor %}</div>
+<div class="intake-privacy"><h4>Datenerhebung und Datenschutz – A+ Esthetic</h4><p>{{ selected_intake_form.payload.consent_text|linebreaksbr }}</p></div>
+<div class="intake-sign"><h4>Digitale Patientenunterschrift</h4><img src="{{ selected_intake_form.signature_png }}" alt="Digitale Unterschrift" loading="lazy"></div>
+{% if selected_intake_form.status == 'review' %}
+<form method="post" class="intake-review-form">{% csrf_token %}
+<input type="hidden" name="action" value="link_form"><input type="hidden" name="form_id" value="{{ selected_intake_form.pk }}">
+<h4>Manuelle Zuordnung</h4><p>Mindestens drei der fünf Datenpunkte müssen übereinstimmen. Vor Bestätigung Patient prüfen.</p>
+<label>Patientenakte<select name="customer_id" required><option value="">Patient auswählen</option>
+{% for candidate in link_candidates %}<option value="{{ candidate.pk }}">{{ candidate.full_name }} · {{ candidate.date_of_birth|date:"d.m.Y" }} · {{ candidate.email }}</option>{% endfor %}</select></label>
+<label class="intake-confirm"><input type="checkbox" name="confirmed_same_patient" required> Identität anhand der Angaben geprüft; dieselbe Person.</label>
+<button type="submit">Verifizierter Akte zuordnen</button></form>
+{% endif %}
+{% else %}
+<div class="intake-placeholder"><span>▤</span><h3>Formular auswählen</h3><p>Links einen Aufnahmebogen öffnen, um Anamnese, unterschriebene Erklärung und Patientenakte zu sehen.</p></div>
+{% endif %}
+</section>
+</div>
+<style>
+.intake-command{display:flex;align-items:center;justify-content:space-between;gap:22px;background:linear-gradient(130deg,#12252c,#2c4547);border-radius:20px;color:#fff;padding:27px;margin-bottom:20px}
+.intake-command small{color:#d8bd89;letter-spacing:.11em}.intake-command h2{font-size:26px;color:#fff;margin:8px 0}.intake-command p{color:#cdd5d5;margin:0;font-size:13px;line-height:1.5}.intake-metrics{display:flex;gap:10px;flex-shrink:0}.intake-metrics span{display:flex;flex-direction:column;background:#ffffff19;padding:12px 18px;border-radius:12px;font-size:11px}.intake-metrics strong{font-size:23px}
+.intake-filters{background:#fff;border:1px solid #e6e2d9;border-radius:16px;padding:15px;display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto auto;gap:11px;align-items:end;margin-bottom:20px}
+.intake-filters label,.intake-review-form label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:650}.intake-filters input,.intake-filters select,.intake-review-form select{width:100%;min-width:0;min-height:41px;border:1px solid #dad6cb;border-radius:10px;padding:9px;background:#fff}
+.intake-filters button,.intake-review-form button{background:#24484b;color:#fff;border:0;border-radius:10px;min-height:42px;padding:8px 15px;font-weight:700;cursor:pointer}.intake-filters>a{padding:11px;color:#766d5d;font-size:12px}
+.intake-content-grid{display:grid;grid-template-columns:minmax(220px,345px) minmax(0,1fr);gap:18px;align-items:start}
+.intake-list,.intake-detail{background:#fff;border:1px solid #e6e2d9;border-radius:17px;overflow:hidden}
+.intake-list-item{padding:15px 16px;display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid #ede8df;text-decoration:none!important;color:#2c3232!important}
+.intake-list-item.selected{background:#f1f6f3;box-shadow:inset 3px 0 #4e8873}.intake-list-item strong{display:block;font-size:14px}.intake-list-item small{display:block;color:#757a76;font-size:11px;overflow-wrap:anywhere;margin-top:5px}
+.intake-status{background:#e2f1e8;color:#236545;border-radius:40px;padding:7px 10px;font-size:11px;font-weight:700;white-space:nowrap}.intake-status.needs-review{background:#fff0d8;color:#916128}
+.intake-detail{padding:clamp(15px,2vw,25px)}.intake-detail-header{display:flex;justify-content:space-between;gap:12px;align-items:start;padding-bottom:17px;border-bottom:1px solid #eee7da}
+.intake-detail-header small{font-size:11px;color:#ad8551;letter-spacing:.09em}.intake-detail-header h3{font-size:23px;margin:7px 0;color:#26342e}.intake-detail-header time{font-size:12px;color:#787b78}
+.intake-associated,.intake-review-banner{background:#f0f8f2;border-radius:12px;padding:13px;font-size:13px;margin:17px 0}.intake-associated a{font-weight:700;color:#32664f}.intake-review-banner{background:#fff6e7;color:#79552b}.intake-pdf{display:inline-block;border:1px solid #b89d74;border-radius:11px;padding:10px 13px;margin-bottom:15px;text-decoration:none;font-weight:700}
+.intake-fields{margin-top:22px}.intake-fields h4,.intake-privacy h4,.intake-sign h4{font-size:16px;border-bottom:1px solid #eee8dc;padding-bottom:9px}.intake-fields>div{display:grid;grid-template-columns:165px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid #f3f0eb;font-size:13px}.intake-fields dt{color:#777;text-transform:capitalize;overflow-wrap:anywhere}.intake-fields dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.intake-privacy{margin-top:20px;padding:16px;background:#f9f5ec;border-radius:13px}.intake-privacy p{font-size:13px;line-height:1.65}.intake-sign{margin-top:20px}.intake-sign img{max-width:320px;width:100%;height:110px;object-fit:contain;background:#fffcf6;border:1px solid #ded6c5;border-radius:11px}
+.intake-review-form{margin-top:25px;padding:18px;border-radius:13px;background:#fff8e9}.intake-review-form h4{margin:0 0 5px}.intake-review-form p{font-size:12px;color:#816f55}.intake-review-form .intake-confirm{display:flex;flex-direction:row;gap:8px;margin:15px 0;align-items:flex-start}.intake-confirm input{width:18px;height:18px;accent-color:#326c55;flex-shrink:0}
+.intake-placeholder{text-align:center;padding:65px 20px;color:#7b7b73}.intake-placeholder span{font-size:50px}.intake-empty{padding:18px;color:#777}
+@media(max-width:1000px){.intake-filters{grid-template-columns:repeat(3,minmax(0,1fr))}.intake-filters label:first-child{grid-column:span 3}}
+@media(max-width:720px){.intake-command{align-items:flex-start;flex-direction:column}.intake-content-grid{grid-template-columns:1fr}.intake-filters{grid-template-columns:1fr 1fr}.intake-filters label:first-child{grid-column:span 2}.intake-fields>div{grid-template-columns:110px minmax(0,1fr)}}
+</style>
