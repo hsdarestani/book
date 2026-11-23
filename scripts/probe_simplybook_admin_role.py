@@ -58,6 +58,15 @@ def main():
                 print("SOURCE_SHAPE booking_row_keys=" + ",".join(sorted(sample.keys())) +
                      " details_keys=" + ",".join(detail_keys) +
                      " detail_type=" + type(detail).__name__)
+                start=(sample.get("start_date") or "")[:10]
+                if len(start)==10 and start[4]=='-':
+                    matrix=rpc("https://user-api.simplybook.me/admin","getStartTimeMatrix",
+                        [start,start,int(sample["event_id"]),int(sample["unit_id"]),1,
+                         int(sample["id"]),[]],headers)
+                    print("AVAILABILITY_SHAPE root_type="+type(matrix).__name__ +
+                        " root_keys="+(",".join(sorted(matrix.keys())) if isinstance(matrix,dict) else "")+
+                        " day_type="+type(matrix.get(start)).__name__ if isinstance(matrix,dict) else
+                        "AVAILABILITY_SHAPE root_type="+type(matrix).__name__)
         else:
             print("SOURCE_SHAPE no_upcoming_sample=yes")
         print("CAPABILITY_RESULT credential_config=present authenticated=yes admin_api=yes "
