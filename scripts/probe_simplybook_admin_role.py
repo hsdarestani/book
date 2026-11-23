@@ -45,6 +45,21 @@ def main():
         group = (details.get("group") or "unavailable") if isinstance(details, dict) else "unavailable"
         if group not in {"admin", "shop_user", "station_user", "viewer", "reseller_company_admin"}:
             group = "unknown"
+        from datetime import datetime, timedelta
+        today = datetime.now().date()
+        bookings = rpc("https://user-api.simplybook.me/admin", "getBookings",
+            [{"date_from": today.isoformat(), "date_to": (today+timedelta(days=45)).isoformat(),
+              "booking_type":"all", "order":"date_start_asc"}],headers)
+        if isinstance(bookings,list) and bookings:
+            sample=next((row for row in bookings if isinstance(row,dict) and row.get("id")),None)
+            if sample:
+                detail=rpc("https://user-api.simplybook.me/admin","getBookingDetails",[int(sample["id"])],headers)
+                detail_keys=sorted(detail.keys()) if isinstance(detail,dict) else []
+                print("SOURCE_SHAPE booking_row_keys=" + ",".join(sorted(sample.keys())) +
+                     " details_keys=" + ",".join(detail_keys) +
+                     " detail_type=" + type(detail).__name__)
+        else:
+            print("SOURCE_SHAPE no_upcoming_sample=yes")
         print("CAPABILITY_RESULT credential_config=present authenticated=yes admin_api=yes "
               "role=" + group + " full_admin=" + ("yes" if group == "admin" else "no") +
               " write_access=not_tested remote_changes=none")
