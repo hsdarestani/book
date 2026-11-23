@@ -268,6 +268,10 @@ def _read(request, actor, providers, action, ident, record_id):
         return _private({'ok': True, 'visit': _appointment(visit) | {'public_id': str(visit.public_id)}})
     if action == 'record':
         return _record_file(actor, providers, person, record_id)
+    appointment_page = min(10000, max(1, int(request.GET.get('appointment_page', '1'))))
+    appointment_offset = (appointment_page - 1) * 30
+    records = list(_records(actor, person, providers).order_by('-created_at', '-pk')[offset:offset+31])
+    visits = list(items.filter(customer=person).order_by('-starts_at', '-pk')[appointment_offset:appointment_offset+31])
     return _private({
         'ok': True, 'patient': _person(person) | ({'first_name': person.first_name, 'last_name': person.last_name,
                                      'date_of_birth': person.date_of_birth.isoformat() if person.date_of_birth else None}
@@ -275,9 +279,10 @@ def _read(request, actor, providers, action, ident, record_id):
         'records': [{
             'id': str(item.public_id), 'title': item.title, 'note': item.note,
             'date': item.created_at.isoformat(), 'has_file': item.has_file, 'filename': item.original_name,
-        } for item in _records(actor, person, providers).order_by('-created_at', '-pk')[offset:offset+31]][:30],
-        'has_more': _records(actor, person, providers).count() > offset+30,
-        'appointments': [_appointment(row) | {'public_id': str(row.public_id)} for row in items.filter(customer=person).order_by('-starts_at')[:20]],
+        } for item in records[:30]],
+        'has_more': len(records) > 30,
+        'appointments': [_appointment(row) | {'public_id': str(row.public_id)} for row in visits[:30]],
+        'has_more_appointments': len(visits) > 30,
     })
 
 
