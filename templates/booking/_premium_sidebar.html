@@ -7,10 +7,11 @@
   <nav class="premium-sidebar-nav" aria-label="Verwaltungsbereiche">
     <a href="/verwaltung/dashboard/" {% if active == 'dashboard' %}aria-current="page"{% endif %}><span aria-hidden="true">⌂</span>Dashboard</a>
     <a href="/verwaltung/kalender/" {% if active == 'calendar' %}aria-current="page"{% endif %}><span aria-hidden="true">▦</span>Kalender</a>
-    <a href="/verwaltung/app/patients/" {% if active == 'patients' %}aria-current="page"{% endif %}><span aria-hidden="true">♙</span>Kunden & Akten</a>
+    <a href="/verwaltung/app/patients/" {% if active == 'patients' %}aria-current="page"{% endif %}><span aria-hidden="true">♙</span>Patienten & Akten</a>
     {% if not view_only %}
     <a href="/verwaltung/app/wallet/" {% if active == 'wallet' %}aria-current="page"{% endif %}><span aria-hidden="true">◇</span>A+ Punkte</a>
     <a href="/verwaltung/app/reviews/" {% if active == 'reviews' %}aria-current="page"{% endif %}><span aria-hidden="true">☆</span>Bewertungen</a>
+    <a href="/verwaltung/app/forms/" {% if active == 'forms' %}aria-current="page"{% endif %}><span aria-hidden="true">▤</span>Aufnahmebögen</a>
     <a href="/verwaltung/app/invoices/" {% if active == 'invoices' %}aria-current="page"{% endif %}><span aria-hidden="true">▤</span>Rechnungen</a>
     <div class="premium-sidebar-rule" aria-hidden="true"></div>
     <a href="/verwaltung/app/referrals/" {% if active == 'referrals' %}aria-current="page"{% endif %}><span aria-hidden="true">♧</span>Empfehlungen</a>
