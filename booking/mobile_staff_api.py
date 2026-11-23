@@ -23,14 +23,13 @@ from django.views.decorators.http import require_http_methods
 
 from .app_admin_api import _day_bounds, _private, _service_payload
 from .calendar_admin_api import _block_payload
-from .block_conflict_alerts import resolve_block_conflicts
 from .doctor_views import _save_availability, _save_weekly, _time
 from .emails import send_customer_booking_email
 from .internal_api import _patient_path
 from .patient_uploads import save_patient_upload, PatientUploadError
 from .models import (
     Appointment, BlockedPeriod, Customer, DailyAvailabilityOverride, DoctorPatientAccess,
-    MobileStaffBlockOverride, MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour,
+    MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour,
 )
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
 from .services import effective_working_ranges
@@ -113,30 +112,9 @@ def _appointment(item):
     }
 
 
-def _external_block_marker(reason):
-    # SimplyBook importer encodes a stable invisible source ID in the reason.
-    # Preserve it when an admin takes ownership of an imported block.
-    sep = '\u2063'
-    pieces = (reason or '').rsplit(sep, 2)
-    if len(pieces) == 3 and pieces[-1] == '' and pieces[1] and set(pieces[1]) <= {'\u200b', '\u200c'}:
-        return sep + pieces[1] + sep
-    return None
-
-
-def _block_revision(item):
-    value = f'{item.pk}|{item.staff_id}|{item.starts_at.isoformat()}|{item.ends_at.isoformat()}|{item.reason}'
-    return hashlib.sha256(value.encode('utf-8')).hexdigest()[:24]
-
-
 def _block(item, editable):
-    marker = _external_block_marker(item.reason)
-    payload = _block_payload(item)
-    if marker:
-        payload['text'] = payload['text'].replace(marker, '').strip()
-    return payload | {
+    return _block_payload(item) | {
         'editable': editable,
-        'source_managed': bool(marker),
-        'revision': _block_revision(item),
         'start_at': timezone.localtime(item.starts_at).isoformat(),
         'end_at': timezone.localtime(item.ends_at).isoformat(),
     }
@@ -158,7 +136,7 @@ def _date(value):
     return day
 
 
-def _calendar(request, providers, actor):
+def _calendar(request, providers):
     start = _date(request.GET.get('start'))
     count = int(request.GET.get('days', '1'))
     if count not in (1, 7):
@@ -184,16 +162,13 @@ def _calendar(request, providers, actor):
                 'ranges': [{'start': a.strftime('%H:%M'), 'end': b.strftime('%H:%M')} for a, b in ranges],
             })
     blocks = list(BlockedPeriod.objects.filter(staff__in=providers, starts_at__lt=upper, ends_at__gt=lower))
-    editable = set(MobileStaffCommand.objects.filter(
-        action='block', actor_id=actor['id'], object_id__in=[row.pk for row in blocks],
-    ).values_list('object_id', flat=True))
+    editable = set(MobileStaffCommand.objects.filter(action='block', object_id__in=[row.pk for row in blocks])
+                   .values_list('object_id', flat=True))
     return _private({
         'ok': True, 'availability': availability,
         'appointments': [_appointment(item) for item in _appointments(providers)
                          .filter(starts_at__lt=upper, ends_at__gt=lower).exclude(status='cancelled')],
-        'blocks': [_block(item, actor['role'] == 'admin' or
-                           (item.pk in editable and not _external_block_marker(item.reason)))
-                   for item in blocks],
+        'blocks': [_block(item, item.pk in editable) for item in blocks],
     })
 
 
@@ -230,7 +205,7 @@ def _record_file(actor, providers, person, record_id):
 
 def _read(request, actor, providers, action, ident, record_id):
     if action == 'calendar':
-        return _calendar(request, providers, actor)
+        return _calendar(request, providers)
     if action == 'catalog':
         return _catalog(providers)
     items = _appointments(providers)
@@ -268,10 +243,6 @@ def _read(request, actor, providers, action, ident, record_id):
         return _private({'ok': True, 'visit': _appointment(visit) | {'public_id': str(visit.public_id)}})
     if action == 'record':
         return _record_file(actor, providers, person, record_id)
-    appointment_page = min(10000, max(1, int(request.GET.get('appointment_page', '1'))))
-    appointment_offset = (appointment_page - 1) * 30
-    records = list(_records(actor, person, providers).order_by('-created_at', '-pk')[offset:offset+31])
-    visits = list(items.filter(customer=person).order_by('-starts_at', '-pk')[appointment_offset:appointment_offset+31])
     return _private({
         'ok': True, 'patient': _person(person) | ({'first_name': person.first_name, 'last_name': person.last_name,
                                      'date_of_birth': person.date_of_birth.isoformat() if person.date_of_birth else None}
@@ -279,10 +250,9 @@ def _read(request, actor, providers, action, ident, record_id):
         'records': [{
             'id': str(item.public_id), 'title': item.title, 'note': item.note,
             'date': item.created_at.isoformat(), 'has_file': item.has_file, 'filename': item.original_name,
-        } for item in records[:30]],
-        'has_more': len(records) > 30,
-        'appointments': [_appointment(row) | {'public_id': str(row.public_id)} for row in visits[:30]],
-        'has_more_appointments': len(visits) > 30,
+        } for item in _records(actor, person, providers).order_by('-created_at', '-pk')[offset:offset+31]][:30],
+        'has_more': _records(actor, person, providers).count() > offset+30,
+        'appointments': [_appointment(row) | {'public_id': str(row.public_id)} for row in items.filter(customer=person).order_by('-starts_at')[:20]],
     })
 
 
@@ -440,12 +410,7 @@ def _save_appointment(data, actor, providers, previous_item):
     return item.pk
 
 
-def _save_block(data, providers, actor):
-    """Admin can maintain all Book blocks, including imported legacy entries.
-
-    Editing/deleting an imported SimplyBook note makes Book authoritative for
-    that entry. The importer honors the persistent override or tombstone.
-    """
+def _save_block(data, providers):
     staff = providers.filter(pk=int(data['staff_id'])).first()
     if not staff:
         raise ValidationError('Ungültiger Behandler.')
@@ -453,39 +418,17 @@ def _save_block(data, providers, actor):
     if operation not in {'create', 'update', 'delete'}:
         raise ValidationError('Ungültige Kalenderaktion.')
     item = None
-    original_marker = None
     if operation != 'create':
-        item = BlockedPeriod.objects.select_for_update().filter(
-            pk=int(data['id']), staff__in=providers,
-        ).first()
-        if not item:
-            raise CommandConflict('Kalendereintrag nicht mehr vorhanden.')
-        original_marker = _external_block_marker(item.reason)
-        if actor['role'] != 'admin' and (
-            original_marker or not MobileStaffCommand.objects.filter(
-                action='block', object_id=item.pk, actor_id=actor['id'],
-            ).exists()
-        ):
-            raise PermissionError
-        if str(data.get('revision') or '') != _block_revision(item):
-            raise CommandConflict('Der Kalendereintrag wurde inzwischen geändert. Bitte neu laden.')
+        item = BlockedPeriod.objects.select_for_update().filter(pk=int(data['id']), staff=staff).first()
+        if not item or not MobileStaffCommand.objects.filter(action='block',object_id=item.pk).exists():
+            raise CommandConflict('Dieser Eintrag muss in der Desktop-Verwaltung bearbeitet werden.')
         if operation == 'delete':
             ident = item.pk
-            if original_marker:
-                MobileStaffBlockOverride.objects.update_or_create(
-                    source_marker=original_marker,
-                    defaults={'block_id': ident, 'actor_id': actor['id'], 'deleted': True},
-                )
-            resolve_block_conflicts(item)
             item.delete()
             return ident
-
     start = _slot(data.get('date'), data.get('start'))
-    end = _slot(data.get('end_date') or data.get('date'), data.get('end'))
-    raw_text = str(data.get('text') or '').strip()
-    # The importer adds invisible provenance bytes at the end of its note.
-    # Never expose or duplicate those marker bytes in the editable text.
-    text = (raw_text.replace(original_marker, '') if original_marker else raw_text)[:120]
+    end = _slot(data.get('date'), data.get('end'))
+    text = str(data.get('text') or '').strip()[:120]
     is_note = data.get('kind') == 'note'
     if start >= end or (is_note and not text):
         raise ValidationError('Bitte Zeitraum und Text prüfen.')
@@ -493,33 +436,12 @@ def _save_block(data, providers, actor):
         staff=staff, status__in=['new', 'confirmed'], starts_at__lt=end, ends_at__gt=start,
     ).exists():
         raise CommandConflict('In diesem Zeitraum gibt es bereits einen Termin.')
-
-    # Preserve existing ALL/SERVICE scope on a legacy time edit.
-    scope_tag = '[STAFF]'
-    if item:
-        from .calendar_admin_api import _scope_from_reason
-        existing_scope, existing_service = _scope_from_reason(item.reason)
-        if existing_scope == 'all':
-            scope_tag = '[ALL]'
-        elif existing_scope == 'service':
-            scope_tag = f'[SERVICE:{existing_service}]'
-    prefix = ('[NOTE]' if is_note else '[BLOCKNOTE]') + scope_tag
-    suffix = original_marker or ''
-    maximum_text = max(0, 160 - len(prefix) - len(suffix) - 2)
-    reason = f'{prefix} {text[:maximum_text] or "Gesperrt"}{suffix}'
-    if item:
-        resolve_block_conflicts(item)
-    else:
-        item = BlockedPeriod()
-    item.staff = staff
-    item.starts_at, item.ends_at, item.reason = start, end, reason
+    prefix = '[NOTE][STAFF]' if is_note else '[BLOCKNOTE][STAFF]'
+    if not item:
+        item = BlockedPeriod(staff=staff)
+    item.starts_at, item.ends_at, item.reason = start, end, f'{prefix} {text or "Gesperrt"}'
     item.full_clean()
     item.save()
-    if original_marker:
-        MobileStaffBlockOverride.objects.update_or_create(
-            source_marker=original_marker,
-            defaults={'block_id': item.pk, 'actor_id': actor['id'], 'deleted': False},
-        )
     return item.pk
 
 
@@ -577,8 +499,8 @@ def _mutate(request, actor, providers, action):
             if 'staff_id' in data:
                 lock_ids.append(int(data['staff_id']))
             ident = data.get('id')
-            if action in {'appointment', 'block'} and ident:
-                original_staff = (_appointments(providers) if action == 'appointment' else BlockedPeriod.objects.filter(staff__in=providers)).filter(pk=int(ident)).values_list('staff_id', flat=True).first()
+            if action == 'appointment' and ident:
+                original_staff = _appointments(providers).filter(pk=int(ident)).values_list('staff_id', flat=True).first()
                 if not original_staff:
                     return _private({'ok': False, 'error': 'not_found'}, 404)
                 lock_ids.append(original_staff)
@@ -597,7 +519,7 @@ def _mutate(request, actor, providers, action):
                     raise CommandConflict('Der Termin wurde zwischenzeitlich geändert. Bitte neu laden.')
                 result = _save_appointment(data, actor, providers, item)
             elif action == 'block':
-                result = _save_block(data, providers, actor)
+                result = _save_block(data, providers)
             elif action == 'availability':
                 result = _save_hours(data, providers)
             elif action == 'service':
