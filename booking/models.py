@@ -341,6 +341,19 @@ class SimplyBookClientLink(models.Model):
         verbose_name_plural = 'SimplyBook-Kundenverknüpfungen'
 
 
+class MobileStaffBlockOverride(models.Model):
+    """Durable local ownership of a legacy SimplyBook note/block.
+
+    A deletion leaves a tombstone so a future SimplyBook import cannot
+    resurrect it. Updates retain the original invisible source marker.
+    """
+    source_marker = models.CharField(max_length=256, unique=True)
+    block_id = models.PositiveBigIntegerField(null=True, blank=True)
+    actor_id = models.PositiveBigIntegerField()
+    deleted = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class MobileStaffCommand(models.Model):
     """Audit and replay receipt for commands issued by the bundled app."""
     actor_id = models.PositiveBigIntegerField()
