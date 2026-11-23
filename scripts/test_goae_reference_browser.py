@@ -71,8 +71,11 @@ def smoke():
   assert 'Patient auswählen' in page.locator('[data-goae-feedback]').inner_text()
   page.locator('#goaePatient').select_option('1')
   page.locator('[data-goae-preview]').click()
+  print('DEBUG: preview feedback', repr(page.locator('[data-goae-feedback]').inner_text()),
+        'server requests',len(requests),'patient',page.locator('#goaePatient').input_value(),
+        'date',page.locator('#goaeDateGerman').input_value(), 'errors', errors, flush=True)
   assert len(requests)==0, 'Server must not quote clinically unconfirmed GOÄ positions'
-  assert 'behandelnden' in page.locator('[data-goae-feedback]').inner_text()
+  assert 'behandelnden' in page.locator('[data-goae-feedback]').inner_text(),page.locator('[data-goae-feedback]').inner_text()
   for checkbox in page.locator('[data-g="clinical_confirmed"]').all():
     checkbox.check()
   page.locator('[data-goae-preview]').click()
