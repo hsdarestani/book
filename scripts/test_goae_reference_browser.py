@@ -70,6 +70,11 @@ def smoke():
   assert 'Patient auswählen' in page.locator('[data-goae-feedback]').inner_text()
   page.locator('#goaePatient').select_option('1')
   page.locator('[data-goae-preview]').click()
+  assert len(requests)==0, 'Server must not quote clinically unconfirmed GOÄ positions'
+  assert 'behandelnden' in page.locator('[data-goae-feedback]').inner_text()
+  for checkbox in page.locator('[data-g="clinical_confirmed"]').all():
+    checkbox.check()
+  page.locator('[data-goae-preview]').click()
   assert len(requests)==1
   assert 'Synthetic quote rejected' in page.locator('[data-goae-feedback]').inner_text()
   assert page.locator('#goaeDateIso').input_value()=='2026-11-23'
