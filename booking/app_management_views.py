@@ -17,7 +17,8 @@ from django.views.decorators.http import require_http_methods
 from . import patient_portal
 from .invoice_bridge import _request_bridge
 from .patient_identity_review import approved_patient_groups, approved_patient_representatives, possible_duplicate_pairs
-from .models import Appointment, Customer, PatientRecord, WhatsAppTemplate
+from .models import Appointment, Customer, PatientRecord, OfficeIntakeForm, WhatsAppTemplate
+from .intake_forms import confirm_form_link
 
 
 AESTHETIC_ADMIN_API = 'https://esthetic.smarbiz.sbs/api/mobile/admin'
@@ -28,7 +29,8 @@ SECTIONS = {
     'wallet': ('A+ Punkte', 'Punktestände suchen, prüfen und manuell korrigieren'),
     'referrals': ('Empfehlungen', 'Empfehlungen an Freunde und Punkteaktivitäten im Blick behalten'),
     'hero': ('Startseitenbilder', 'Bilder für Damen, Herren und als Standard festlegen'),
-    'invoices': ('Rechnungen', 'Rechnungen, Preise, MwSt und Abrechnungsdaten direkt in der App verwalten'),
+    'invoices': ('Rechnungen', 'GOÄ und Rechnungen zentral im Praxismanagement verwalten'),
+    'forms': ('Aufnahmebögen', 'Alle digitalen Aufnahmeformulare, Zuordnung und Patientenakten'),
 }
 
 
@@ -167,6 +169,44 @@ def _booking_context(request):
     }
 
 
+def _forms_context(request):
+    """Only inside the authenticated first-party Book admin."""
+    q=str(request.GET.get('q') or '').strip()[:120]
+    status=str(request.GET.get('status') or '').strip()
+    since=str(request.GET.get('from') or '').strip()
+    until=str(request.GET.get('to') or '').strip()
+    qs=OfficeIntakeForm.objects.select_related('customer','record','reviewed_by')
+    if q:
+        qs=qs.filter(
+            Q(customer__first_name__icontains=q)|Q(customer__last_name__icontains=q)
+            |Q(customer__email__icontains=q)|Q(customer__phone__icontains=q)
+            |Q(payload__identity__first_name__icontains=q)
+            |Q(payload__identity__last_name__icontains=q)
+            |Q(payload__identity__email__icontains=q)
+            |Q(payload__identity__phone__icontains=q))
+    if status in {'linked','review'}:
+        qs=qs.filter(status=status)
+    else:status=''
+    from django.utils.dateparse import parse_date
+    start=parse_date(since) if since else None
+    end=parse_date(until) if until else None
+    if start:qs=qs.filter(submitted_at__date__gte=start)
+    if end:qs=qs.filter(submitted_at__date__lte=end)
+    results=list(qs.order_by('-submitted_at')[:250])
+    raw_id=str(request.GET.get('form') or '')
+    selected=OfficeIntakeForm.objects.select_related('customer','record').filter(pk=int(raw_id)).first() if raw_id.isdigit() else None
+    return {
+        'intake_forms':results,
+        'selected_intake_form':selected,
+        'form_query':q,'form_status':status,
+        'form_from':since if start else '',
+        'form_to':until if end else '',
+        'form_total':OfficeIntakeForm.objects.count(),
+        'form_open':OfficeIntakeForm.objects.filter(status='review').count(),
+        'link_candidates':Customer.objects.order_by('last_name','first_name')[:500] if selected and selected.status=='review' else [],
+    }
+
+
 def _patient_context(request):
     from .doctor_views import _doctor_staff, _own_customer_ids
     query = str(request.GET.get('q') or '').strip()
@@ -203,6 +243,7 @@ def _patient_context(request):
     selected = None
     selected_group = []
     records = []
+    patient_forms = []
     appointments = []
     points = None
     remote_customer_id = None
@@ -236,6 +277,7 @@ def _patient_context(request):
             .filter(customer_id__in=group_ids)
             .order_by('-starts_at')[:180]
         )
+        patient_forms=list(OfficeIntakeForm.objects.filter(customer_id__in=group_ids).order_by('-submitted_at')[:150])
         record_qs = (
             PatientRecord.objects.select_related('customer', 'appointment', 'uploaded_by')
             .filter(customer_id__in=group_ids)
@@ -314,6 +356,7 @@ def _patient_context(request):
         'selected_customer_profiles': selected_group,
         'selected_profile_count': len(selected_group),
         'patient_records': records,
+        'patient_forms': patient_forms,
         'patient_appointments': appointments,
         'selected_points': points,
         'remote_customer_id': remote_customer_id,
@@ -377,6 +420,13 @@ def app_management(request, section='bookings'):
                     payload['image_data'] = base64.b64encode(upload.read()).decode('ascii')
                 _api(request, 'dashboard-hero/', method='POST', payload=payload)
                 return _redirect('hero', 'image')
+            if section == 'forms' and action == 'link_form':
+                if request.POST.get('confirmed_same_patient') != 'on':
+                    raise ValueError('Bitte die Identität vor der Zuordnung bestätigen.')
+                confirmed=confirm_form_link(
+                    int(request.POST.get('form_id')),int(request.POST.get('customer_id')),
+                    request.user)
+                return _redirect('forms','linked',{'form':confirmed.pk})
             if action == 'patient_upload':
                 return patient_portal.staff_add_record(request, int(request.POST.get('customer_id')))
             if action == 'patient_salutation':
@@ -514,7 +564,7 @@ def app_management(request, section='bookings'):
         if section == 'patients':
             # Render exactly one patient tab on the server, not four sections
             # whose visibility depends on JS/CSS loading in the browser.
-            allowed_tabs = {'overview', 'appointments', 'records', 'points'}
+            allowed_tabs = {'overview', 'appointments', 'records', 'forms', 'points'}
             tab = str(request.GET.get('tab') or '').strip().lower()
             context['customer_tab'] = tab if tab in allowed_tabs else 'overview'
             context['max_upload_mb'] = max(1, settings.PATIENT_FILE_MAX_BYTES // (1024 * 1024))
@@ -527,6 +577,8 @@ def app_management(request, section='bookings'):
             context['hero_images'] = data.get('hero_images') or []
         elif section == 'reviews':
             data = _api(request, 'reviews/')
+        elif section == 'forms':
+            context.update(_forms_context(request))
         elif section == 'invoices':
             data = _billing_api(request, 'billing/')
             try:
