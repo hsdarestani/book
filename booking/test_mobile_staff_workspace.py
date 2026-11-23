@@ -116,6 +116,30 @@ class WorkspaceTests(TestCase):
             self.assertIsNotNone(MobileStaffCancellation.objects.get().completed_at)
             self.assertEqual(relay.call_count,2)
 
+    def test_full_patient_history_can_be_paged_beyond_initial_list(self):
+        for index in range(34):
+            start = timezone.make_aware(datetime.combine(self.day + timedelta(days=index+2), time(13)))
+            Appointment.objects.create(
+                staff=self.doctor, customer=self.patient, service=self.service,
+                starts_at=start, ends_at=start + timedelta(minutes=30), status='confirmed',
+            )
+            PatientRecord.objects.create(
+                customer=self.patient, title=f'QA case {index}', kind='note',
+            )
+        path = f'/api/mobile/staff/patient/{self.patient.pk}/'
+        first = self.client.get(path).json()
+        second = self.client.get(path+'?page=2&appointment_page=2').json()
+        self.assertEqual(len(first['appointments']), 30)
+        self.assertEqual(len(second['appointments']), 5)
+        self.assertTrue(first['has_more_appointments'])
+        self.assertFalse(second['has_more_appointments'])
+        self.assertEqual(len(first['records']), 30)
+        self.assertEqual(len(second['records']), 4)
+        self.assertTrue(first['has_more'])
+        self.assertFalse(second['has_more'])
+        self.assertTrue({r['id'] for r in first['records']}.isdisjoint(
+            {r['id'] for r in second['records']}))
+
     def test_availability_and_notes_respect_existing_bookings(self):
         values = dict(operation='create',staff_id=self.doctor.pk,date=self.day.isoformat(),start='10:00',end='10:30',text='Internal')
         self.assertEqual(self.post('block',kind='block',**values).status_code,409)
