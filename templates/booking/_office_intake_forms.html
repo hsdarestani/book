@@ -35,7 +35,7 @@
 {% endfor %}</div>
 <div class="intake-fields"><h4>Anamnese & Ästhetik</h4>
 {% for key,val in selected_intake_form.payload.answers.items %}
-<div><dt>{{ key }}</dt><dd>{% if val %}{{ val|join:", " }}{% else %}–{% endif %}</dd></div>
+<div><dt>{{ key }}</dt><dd>{% if val %}{{ val|default:"–" }}{% else %}–{% endif %}</dd></div>
 {% endfor %}</div>
 <div class="intake-privacy"><h4>Datenerhebung und Datenschutz – A+ Esthetic</h4><p>{{ selected_intake_form.payload.consent_text|linebreaksbr }}</p></div>
 <div class="intake-sign"><h4>Digitale Patientenunterschrift</h4><img src="{{ selected_intake_form.signature_png }}" alt="Digitale Unterschrift" loading="lazy"></div>
