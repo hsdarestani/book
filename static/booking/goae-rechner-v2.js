@@ -37,7 +37,7 @@ function rowData(line){
    goae_vat_rate:$('[data-vat]').value,clinical_confirmed:field(line,'clinical_confirmed').checked};
 }
 function linesForServer(){
- const lines=$('.mlr-line').map(rowData),materialRaw=$('[data-material]').value.trim(),
+ const lines=[...root.querySelectorAll('.mlr-line')].map(rowData),materialRaw=$('[data-material]').value.trim(),
        material=materialRaw?parseCents(materialRaw):0,vat=$('[data-vat]').value;
  if(lines.some(item=>!item.clinical_confirmed))
    return {error:'Jede GOÄ-Leistung muss von der behandelnden Ärztin oder dem behandelnden Arzt bestätigt werden.'};
