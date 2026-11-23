@@ -129,6 +129,19 @@ def write_existing_booking(item, *, operation, start=None, end=None):
             raise SourceConflict('Der neue Terminzeitraum ist ungültig.')
         if abs((new_end-new_start).total_seconds()-(item.ends_at-item.starts_at).total_seconds())>1:
             raise SourceConflict('Daueränderungen müssen separat in SimplyBook geprüft werden.')
+        # SimplyBook itself is the capacity authority: the imported generic
+        # provider is not reliable for availability/conflict checks.
+        available=_remote_call('getStartTimeMatrix',[
+            new_start.strftime('%Y-%m-%d'),new_start.strftime('%Y-%m-%d'),
+            int(remote['event_id']),int(remote['unit_id']),1,external_id,[]],headers)
+        date_key=new_start.strftime('%Y-%m-%d')
+        slots=available.get(date_key) if isinstance(available,dict) else None
+        if not isinstance(slots,list):
+            raise SourceUnavailable('SimplyBook-Verfügbarkeit konnte nicht überprüft werden.')
+        valid={str(slot)[:8].ljust(8,'0') if len(str(slot))==5 else str(slot)[:8] for slot in slots
+               if isinstance(slot,(str,int,float))}
+        if new_start.strftime('%H:%M:%S') not in valid:
+            raise SourceConflict('Der gewünschte Zeitraum ist in SimplyBook nicht verfügbar.')
         params=[
             external_id,int(remote['event_id']),int(remote['unit_id']),
             int(remote['client_id']),new_start.strftime('%Y-%m-%d'),
