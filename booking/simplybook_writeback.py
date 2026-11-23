@@ -133,7 +133,7 @@ def write_existing_booking(item, *, operation, start=None, end=None):
         # provider is not reliable for availability/conflict checks.
         available=_remote_call('getStartTimeMatrix',[
             new_start.strftime('%Y-%m-%d'),new_start.strftime('%Y-%m-%d'),
-            int(remote['event_id']),int(remote['unit_id']),1,external_id,[]],headers)
+            int(remote['event_id']),int(remote['unit_id']),1],headers)
         date_key=new_start.strftime('%Y-%m-%d')
         slots=available.get(date_key) if isinstance(available,dict) else None
         if not isinstance(slots,list):
