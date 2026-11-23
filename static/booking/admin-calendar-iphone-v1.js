@@ -354,6 +354,68 @@
     renderStrip();
     renderHead(selectedDate);
     renderWeekHeads();
+    // The fixed date strip navigates weeks in BOTH calendar views.
+    // Detect the swipe while the finger is moving: iOS can cancel an
+    // in-progress touch after native scroll arbitration, before touchend.
+    let stripStart=null;
+    let pointerStart=null;
+    let suppressStripClickUntil=0;
+    let lastStripSwipeAt=0;
+    function applyStripSwipe(dx,dy,elapsed){
+      if(elapsed>=1100 || Math.abs(dx)<55 || Math.abs(dx)<=Math.abs(dy)*1.4)return false;
+      if(Date.now()-lastStripSwipeAt<650)return true; // touch and pointer events can both fire
+      lastStripSwipeAt=Date.now();
+      suppressStripClickUntil=Date.now()+700;
+      changeWeek(dx<0?1:-1);
+      return true;
+    }
+    strip.addEventListener('touchstart',event=>{
+      if(event.touches.length!==1){stripStart=null;return;}
+      const touch=event.touches[0];
+      stripStart={id:touch.identifier,x:touch.clientX,y:touch.clientY,at:Date.now()};
+    },{passive:true});
+    strip.addEventListener('touchmove',event=>{
+      if(!stripStart || event.touches.length!==1)return;
+      const touch=event.touches[0];
+      if(touch.identifier!==stripStart.id)return;
+      const dx=touch.clientX-stripStart.x;
+      const dy=touch.clientY-stripStart.y;
+      if(Math.abs(dy)>35&&Math.abs(dy)>Math.abs(dx)){stripStart=null;return;}
+      if(Math.abs(dx)>=55&&Math.abs(dx)>Math.abs(dy)*1.4){
+        const start=stripStart;
+        stripStart=null; // only one week change per continuous gesture
+        if(event.cancelable)event.preventDefault();
+        applyStripSwipe(dx,dy,Date.now()-start.at);
+      }
+    },{passive:false});
+    strip.addEventListener('touchend',event=>{
+      if(!stripStart||!event.changedTouches?.length)return;
+      const touch=[...event.changedTouches].find(item=>item.identifier===stripStart.id);
+      if(!touch)return;
+      const start=stripStart;
+      stripStart=null;
+      applyStripSwipe(touch.clientX-start.x,touch.clientY-start.y,Date.now()-start.at);
+    },{passive:true});
+    strip.addEventListener('touchcancel',()=>{stripStart=null;},{passive:true});
+    // Pointer fallback covers trackpads and browsers that emit pointerup
+    // without a matching touchend; the deduplication prevents double navigation.
+    strip.addEventListener('pointerdown',event=>{
+      if(!event.isPrimary)return;
+      pointerStart={id:event.pointerId,x:event.clientX,y:event.clientY,at:Date.now()};
+    });
+    strip.addEventListener('pointerup',event=>{
+      if(!pointerStart||event.pointerId!==pointerStart.id)return;
+      const start=pointerStart;
+      pointerStart=null;
+      applyStripSwipe(event.clientX-start.x,event.clientY-start.y,Date.now()-start.at);
+    });
+    strip.addEventListener('pointercancel',()=>{pointerStart=null;});
+    strip.addEventListener('click',event=>{
+      if(Date.now()<suppressStripClickUntil){
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    },true);
     document.body.classList.add('sb-iphone-calendar-ready');
     document.body.classList.remove('sb-calendar-booting');
     resetOnInitialOpen();
@@ -393,21 +455,39 @@
       let pointerStart=null;
       shell.addEventListener('touchstart',event=>{
         const target=event.target;
-        if(isWeek()||isGrouped()||event.touches.length!==1||
-          target.closest('a,input,select,textarea,.sb-event-menu,.sb-day-hours-edit,.sb-fab')) {
+        if(isGrouped()||event.touches.length!==1||
+          target.closest('a,input,select,textarea,button,.sb-event-menu,.sb-day-hours-edit,.sb-fab')) {
           pointerStart=null;return;
         }
-        pointerStart={x:event.touches[0].clientX,y:event.touches[0].clientY,at:Date.now()};
+        const viewport=isWeek()?target.closest('.sb-horizontal-track-viewport'):null;
+        if(isWeek()&&!viewport){pointerStart=null;return;}
+        const maxScroll=viewport?Math.max(0,viewport.scrollWidth-viewport.clientWidth):0;
+        pointerStart={
+          x:event.touches[0].clientX,y:event.touches[0].clientY,at:Date.now(),
+          viewport,
+          atLeft:Boolean(viewport&&viewport.scrollLeft<=4),
+          atRight:Boolean(viewport&&viewport.scrollLeft>=maxScroll-4)
+        };
       },{passive:true});
       shell.addEventListener('touchend',event=>{
         if(!pointerStart||!event.changedTouches?.length)return;
-        const dx=event.changedTouches[0].clientX-pointerStart.x;
-        const dy=event.changedTouches[0].clientY-pointerStart.y;
-        const elapsed=Date.now()-pointerStart.at;
+        const gesture=pointerStart;
+        const dx=event.changedTouches[0].clientX-gesture.x;
+        const dy=event.changedTouches[0].clientY-gesture.y;
+        const elapsed=Date.now()-gesture.at;
         pointerStart=null;
-        if(elapsed<850&&Math.abs(dx)>65&&Math.abs(dx)>Math.abs(dy)*1.5){
-          navigateToDay(shift(selectedDate,dx<0?1:-1));
+        if(elapsed>=850||Math.abs(dx)<=65||Math.abs(dx)<=Math.abs(dy)*1.5)return;
+        if(isWeek()){
+          // Keep ordinary horizontal scrolling inside the week. Only an
+          // additional outward swipe at a visible boundary changes weeks.
+          const viewport=gesture.viewport;
+          if(!viewport)return;
+          const maxScroll=Math.max(0,viewport.scrollWidth-viewport.clientWidth);
+          if(dx<0&&gesture.atRight&&viewport.scrollLeft>=maxScroll-4)changeWeek(1);
+          else if(dx>0&&gesture.atLeft&&viewport.scrollLeft<=4)changeWeek(-1);
+          return;
         }
+        navigateToDay(shift(selectedDate,dx<0?1:-1));
       },{passive:true});
       shell.addEventListener('touchcancel',()=>{pointerStart=null;},{passive:true});
     }

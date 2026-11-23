@@ -92,6 +92,23 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         self.assertIn("Kalendertag auswählen", iphone)
         self.assertIn("picker.type='date'", iphone)
 
+    def test_week_swipes_are_enabled_without_hijacking_weekday_scrolling(self):
+        iphone = self.source("static/booking/admin-calendar-iphone-v1.js")
+        self.assertIn("strip.addEventListener('touchstart'", iphone)
+        self.assertIn("strip.addEventListener('touchend'", iphone)
+        self.assertIn("strip.addEventListener('touchmove'", iphone)
+        self.assertIn("strip.addEventListener('pointerup'", iphone)
+        self.assertIn("if(event.cancelable)event.preventDefault()", iphone)
+        self.assertIn("applyStripSwipe(dx,dy,Date.now()-start.at)", iphone)
+        self.assertNotIn("if(!isWeek()||event.touches.length", iphone)
+        self.assertIn("suppressStripClickUntil", iphone)
+        self.assertIn("const viewport=isWeek()?target.closest('.sb-horizontal-track-viewport'):null", iphone)
+        self.assertIn("if(dx<0&&gesture.atRight&&viewport.scrollLeft>=maxScroll-4)changeWeek(1)", iphone)
+        self.assertIn("else if(dx>0&&gesture.atLeft&&viewport.scrollLeft<=4)changeWeek(-1)", iphone)
+        self.assertNotIn("if(isWeek()||isGrouped()||event.touches.length!==1", iphone)
+        self.assertIn("20261122-strip2", self.source("static/booking/admin.js"))
+        self.assertIn("20261122-strip2", self.source("templates/booking/dashboard.html"))
+
     def test_visual_css_follows_reference_and_overrides_global_premium(self):
         css = self.source("static/booking/admin-calendar-reference-v2.css")
         for marker in (
