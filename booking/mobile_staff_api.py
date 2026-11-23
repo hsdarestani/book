@@ -33,7 +33,7 @@ from .models import (
 )
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
 from .services import effective_working_ranges
-from .simplybook_writeback import enabled as simplybook_write_enabled, write_existing_booking, SourceConflict, SourceUnavailable
+from .simplybook_writeback import enabled as simplybook_write_enabled, source_id as simplybook_source_id, write_existing_booking, SourceConflict, SourceUnavailable
 from .patient_identity_review import possible_duplicate_pairs
 from .patient_identity_views import process_decision
 
@@ -109,7 +109,7 @@ def _appointment(item):
         'date': start.date().isoformat(), 'start': start.strftime('%H:%M'), 'end': end.strftime('%H:%M'),
         'status': item.status, 'notes': item.notes_customer, 'revision': item.updated_at.isoformat(),
         'source_managed': (item.idempotency_key or '').startswith('simplybook-'),
-        'source_editable': (item.idempotency_key or '').startswith('simplybook-') and simplybook_write_enabled(),
+        'source_editable': bool(simplybook_source_id(item)) and item.status != 'cancelled' and simplybook_write_enabled(),
         'management_system': 'SimplyBook' if (item.idempotency_key or '').startswith('simplybook-') else 'Book',
         'credit_pending': hasattr(item, 'mobile_cancellation') and item.mobile_cancellation.completed_at is None,
     }
