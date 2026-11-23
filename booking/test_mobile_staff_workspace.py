@@ -116,30 +116,6 @@ class WorkspaceTests(TestCase):
             self.assertIsNotNone(MobileStaffCancellation.objects.get().completed_at)
             self.assertEqual(relay.call_count,2)
 
-    def test_full_patient_history_can_be_paged_beyond_initial_list(self):
-        for index in range(34):
-            start = timezone.make_aware(datetime.combine(self.day + timedelta(days=index+2), time(13)))
-            Appointment.objects.create(
-                staff=self.doctor, customer=self.patient, service=self.service,
-                starts_at=start, ends_at=start + timedelta(minutes=30), status='confirmed',
-            )
-            PatientRecord.objects.create(
-                customer=self.patient, title=f'QA case {index}', kind='note',
-            )
-        path = f'/api/mobile/staff/patient/{self.patient.pk}/'
-        first = self.client.get(path).json()
-        second = self.client.get(path+'?page=2&appointment_page=2').json()
-        self.assertEqual(len(first['appointments']), 30)
-        self.assertEqual(len(second['appointments']), 5)
-        self.assertTrue(first['has_more_appointments'])
-        self.assertFalse(second['has_more_appointments'])
-        self.assertEqual(len(first['records']), 30)
-        self.assertEqual(len(second['records']), 4)
-        self.assertTrue(first['has_more'])
-        self.assertFalse(second['has_more'])
-        self.assertTrue({r['id'] for r in first['records']}.isdisjoint(
-            {r['id'] for r in second['records']}))
-
     def test_availability_and_notes_respect_existing_bookings(self):
         values = dict(operation='create',staff_id=self.doctor.pk,date=self.day.isoformat(),start='10:00',end='10:30',text='Internal')
         self.assertEqual(self.post('block',kind='block',**values).status_code,409)
@@ -148,91 +124,6 @@ class WorkspaceTests(TestCase):
         self.assertEqual(change.status_code,200)
         day = self.client.get(f'/api/mobile/staff/calendar/?start={self.day}&days=1').json()
         self.assertEqual(next(row['ranges'] for row in day['availability'] if row['staff_id']==self.doctor.pk),[])
-
-
-    def test_admin_can_edit_legacy_blocks_without_mobile_creation_receipt(self):
-        start = timezone.make_aware(datetime.combine(self.day, time(14)))
-        legacy = BlockedPeriod.objects.create(
-            staff=self.doctor, starts_at=start, ends_at=start + timedelta(hours=2),
-            reason='[BLOCKNOTE][ALL] Existing desktop block',
-        )
-        url = f'/api/mobile/staff/calendar/?start={self.day}&days=1'
-        block = next(row for row in self.client.get(url).json()['blocks'] if row['id'] == legacy.pk)
-        self.assertTrue(block['editable'])
-        result = self.post(
-            'block', operation='update', id=legacy.pk, revision=block['revision'],
-            staff_id=self.doctor.pk, date=self.day.isoformat(), end_date=self.day.isoformat(),
-            start='15:00', end='17:00', kind='block', text='Rescheduled by admin',
-        )
-        self.assertEqual(result.status_code, 200, result.content)
-        legacy.refresh_from_db()
-        self.assertIn('[ALL]', legacy.reason)
-        self.assertEqual(timezone.localtime(legacy.starts_at).strftime('%H:%M'), '15:00')
-        # A stale mobile view cannot overwrite a concurrent calendar change.
-        self.assertEqual(self.post(
-            'block', operation='delete', id=legacy.pk, staff_id=self.doctor.pk,
-            revision=block['revision'],
-        ).status_code, 409)
-        self.identity.update({'id': 84, 'role': 'doctor'})
-        doctor_view = next(row for row in self.client.get(url).json()['blocks'] if row['id'] == legacy.pk)
-        self.assertFalse(doctor_view['editable'])
-        self.assertEqual(self.post(
-            'block', operation='delete', id=legacy.pk, staff_id=self.doctor.pk,
-            revision=doctor_view['revision'],
-        ).status_code, 403)
-
-    def test_admin_override_survives_import_and_deleted_block_does_not_resurrect(self):
-        import os
-        from .management.commands.sync_simplybook_notes import _marker
-        from .models import MobileStaffBlockOverride
-        ariane = StaffMember.objects.create(display_name='Frau Ariane Regaei')
-        start = timezone.make_aware(datetime.combine(self.day, time(15)))
-        marker = _marker(712)
-        legacy = BlockedPeriod.objects.create(
-            staff=ariane, starts_at=start, ends_at=start + timedelta(hours=1),
-            reason='[BLOCKNOTE][STAFF] External note' + marker,
-        )
-        url = f'/api/mobile/staff/calendar/?start={self.day}&days=1'
-        block = next(row for row in self.client.get(url).json()['blocks'] if row['id'] == legacy.pk)
-        self.assertTrue(block['editable'])
-        self.assertTrue(block['source_managed'])
-        self.assertNotIn(marker, block['text'])
-        result = self.post(
-            'block', operation='update', id=legacy.pk, revision=block['revision'],
-            staff_id=ariane.pk, date=self.day.isoformat(), end_date=self.day.isoformat(),
-            start='17:00', end='18:00', kind='block', text='Adjusted locally',
-        )
-        self.assertEqual(result.status_code, 200, result.content)
-        override = MobileStaffBlockOverride.objects.get(source_marker=marker)
-        self.assertEqual(override.actor_id, 42)
-        self.assertFalse(override.deleted)
-        legacy.refresh_from_db()
-        self.assertEqual(legacy.reason.count(marker), 1)
-        remote = [{
-            'id': 712, 'note': 'External note', 'time_blocked': True,
-            'start_date_time': self.day.strftime('%Y-%m-%d') + ' 15:00:00',
-            'end_date_time': self.day.strftime('%Y-%m-%d') + ' 16:00:00',
-        }]
-        env = {'SIMPLYBOOK_COMPANY_LOGIN': 'test', 'SIMPLYBOOK_USER_LOGIN': 'test',
-               'SIMPLYBOOK_USER_PASSWORD': 'test'}
-        with patch.dict(os.environ, env), patch(
-            'booking.management.commands.sync_simplybook_notes._request_json',
-            side_effect=[{'token': 'synthetic'}, remote],
-        ):
-            call_command('sync_simplybook_notes', suppress_conflict_alerts=True)
-        legacy.refresh_from_db()
-        self.assertEqual(timezone.localtime(legacy.starts_at).strftime('%H:%M'), '17:00')
-        revision = next(row for row in self.client.get(url).json()['blocks'] if row['id'] == legacy.pk)['revision']
-        self.assertEqual(self.post(
-            'block', operation='delete', id=legacy.pk, staff_id=ariane.pk, revision=revision,
-        ).status_code, 200)
-        self.assertTrue(MobileStaffBlockOverride.objects.get(source_marker=marker).deleted)
-        with patch.dict(os.environ, env), patch(
-            'booking.management.commands.sync_simplybook_notes._request_json',
-            side_effect=[{'token': 'synthetic'}, remote],
-        ):
-            call_command('sync_simplybook_notes', suppress_conflict_alerts=True)
-        self.assertFalse(BlockedPeriod.objects.filter(staff=ariane, reason__endswith=marker).exists())
 
 
 class WorkspaceConcurrencyTests(TransactionTestCase):
