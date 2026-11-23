@@ -152,6 +152,28 @@ class WorkspaceTests(TestCase):
         self.own.refresh_from_db()
         self.assertEqual(self.own.status,'confirmed')
 
+    def test_synced_simplybook_catalog_and_working_hours_cannot_be_mutated(self):
+        imported = StaffMember.objects.create(display_name='A+ Esthetic (SimplyBook #7)',role='team')
+        source_service = Service.objects.create(name='External treatment',slug='simplybook-event-7',
+                                                duration_minutes=30,buffer_minutes=0,bookable=False)
+        imported.services.add(source_service)
+        catalog=self.client.get('/api/mobile/staff/catalog/').json()
+        provider=next(x for x in catalog['providers'] if x['id']==imported.pk)
+        service=next(x for x in catalog['services'] if x['id']==source_service.pk)
+        self.assertEqual(provider['management_system'],'SimplyBook')
+        self.assertTrue(provider['source_managed'])
+        self.assertTrue(service['source_managed'])
+        self.assertEqual(self.post('service',id=source_service.pk,name='Changed').status_code,409)
+        self.assertEqual(self.post('availability',operation='daily',staff_id=imported.pk,
+                                   date=self.day.isoformat(),closed=True).status_code,409)
+        self.assertEqual(self.post('block',operation='create',staff_id=imported.pk,
+                                   date=self.day.isoformat(),start='15:00',end='16:00',kind='block').status_code,409)
+        response=self.post('appointment',operation='create',staff_id=imported.pk,
+                           customer_id=self.patient.pk,service_id=source_service.pk,
+                           date=self.day.isoformat(),start='15:00')
+        self.assertEqual(response.status_code,409)
+        self.assertEqual(Service.objects.get(pk=source_service.pk).name,'External treatment')
+
     def test_availability_and_notes_respect_existing_bookings(self):
         values = dict(operation='create',staff_id=self.doctor.pk,date=self.day.isoformat(),start='10:00',end='10:30',text='Internal')
         self.assertEqual(self.post('block',kind='block',**values).status_code,409)
