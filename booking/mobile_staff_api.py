@@ -180,13 +180,16 @@ def _calendar(request, providers, actor):
                 'ranges': [{'start': a.strftime('%H:%M'), 'end': b.strftime('%H:%M')} for a, b in ranges],
             })
     blocks = list(BlockedPeriod.objects.filter(staff__in=providers, starts_at__lt=upper, ends_at__gt=lower))
-    editable = set(MobileStaffCommand.objects.filter(action='block', object_id__in=[row.pk for row in blocks])
-                   .values_list('object_id', flat=True))
+    editable = set(MobileStaffCommand.objects.filter(
+        action='block', actor_id=actor['id'], object_id__in=[row.pk for row in blocks],
+    ).values_list('object_id', flat=True))
     return _private({
         'ok': True, 'availability': availability,
         'appointments': [_appointment(item) for item in _appointments(providers)
                          .filter(starts_at__lt=upper, ends_at__gt=lower).exclude(status='cancelled')],
-        'blocks': [_block(item, actor['role'] == 'admin' or item.pk in editable) for item in blocks],
+        'blocks': [_block(item, actor['role'] == 'admin' or
+                           (item.pk in editable and not _external_block_marker(item.reason)))
+                   for item in blocks],
     })
 
 
@@ -448,13 +451,15 @@ def _save_block(data, providers, actor):
         ).first()
         if not item:
             raise CommandConflict('Kalendereintrag nicht mehr vorhanden.')
-        if actor['role'] != 'admin' and not MobileStaffCommand.objects.filter(
-            action='block', object_id=item.pk,
-        ).exists():
+        original_marker = _external_block_marker(item.reason)
+        if actor['role'] != 'admin' and (
+            original_marker or not MobileStaffCommand.objects.filter(
+                action='block', object_id=item.pk, actor_id=actor['id'],
+            ).exists()
+        ):
             raise PermissionError
         if str(data.get('revision') or '') != _block_revision(item):
             raise CommandConflict('Der Kalendereintrag wurde inzwischen geändert. Bitte neu laden.')
-        original_marker = _external_block_marker(item.reason)
         if operation == 'delete':
             ident = item.pk
             if original_marker:
