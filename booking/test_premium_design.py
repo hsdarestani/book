@@ -104,18 +104,20 @@ class PremiumManagementDesignTests(SimpleTestCase):
         self.assertIn("color:#fffaf0!important", css)
         self.assertIn(".sb-calendar-block.is-blocked", css)
 
-    def test_invoice_workflow_is_usable_without_wall_of_forms(self):
+    def test_invoice_workflow_is_goae_only_without_unrelated_forms(self):
         source = get_template("booking/app_management.html").template.source
+        goae = get_template("booking/_billing_goae_form.html").template.source
         self.assertIn("{% if section != 'invoices' %}", source)
-        self.assertIn("<h2>Rechnungen verwalten</h2>", source)
-        self.assertIn('class="premium-settings-disclosure"', source)
-        self.assertIn('data-premium-catalog', source)
-        self.assertIn('data-clinic-service-list', source)
-        self.assertIn('data-billing-create-form', source)
-        self.assertIn('name="action" value="billing_settings"', source)
-        self.assertIn('name="action" value="billing_service"', source)
-        self.assertIn("catalog.open=true", source)
-        self.assertIn('billing-customer-modal', source)
+        self.assertIn("<h2>GOÄ-Rechnungen</h2>", source)
+        self.assertIn('booking/_billing_goae_form.html', source)
+        self.assertIn('goae_invoices', source)
+        self.assertIn('name="action" value="billing_create_goae_full"', goae)
+        self.assertIn('data-goae-preview', goae)
+        self.assertIn('goaeDateGerman', goae)
+        for removed in ('billing-settings-panel', 'data-billing-create-form',
+                        'billing-services-panel', 'billing-customer-modal',
+                        'name="action" value="billing_settings"'):
+            self.assertNotIn(removed, source)
 
     def test_one_context_header_for_premium_desktop(self):
         source = get_template("booking/_clinic_web_header_v3.html").template.source
@@ -226,7 +228,7 @@ class PremiumManagementDesignTests(SimpleTestCase):
                          'name="action" value="patient_upload"',
                          'data-admin-native-photo', 'name="shared_with_customer"',
                          'name="action" value="review_verify"',
-                         'name="action" value="billing_settings"'):
+                         'booking/_billing_goae_form.html'):
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, source)
         wallet = get_template("booking/app_wallet_management.html").template.source
