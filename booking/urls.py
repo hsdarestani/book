@@ -1,5 +1,5 @@
 from django.urls import path
-from . import email_cancellation, record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
+from . import email_cancellation, record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, goae_quote_views, intake_forms, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
@@ -21,6 +21,7 @@ urlpatterns = [
     path('verwaltung/app/identity-review/', patient_identity_views.identity_review, name='patient_identity_review'),
     path('verwaltung/app/<slug:section>/', app_management_views.app_management, name='app_management'),
     path('verwaltung/api/patient-form-notifications/', desktop_notifications.new_patient_forms, name='patient_form_notifications'),
+    path('verwaltung/api/goae-quote/', goae_quote_views.goae_quote, name='goae_quote'),
     path('verwaltung/app/invoices/<int:invoice_id>/pdf/', invoice_bridge.invoice_pdf, name='billing_invoice_pdf'),
     path('verwaltung/api/day-availability/', calendar_admin_api.day_availability, name='admin_day_availability'),
     path('verwaltung/api/calendar-day/', calendar_admin_api.calendar_day, name='admin_calendar_day'),
@@ -41,6 +42,7 @@ urlpatterns = [
     path('api/availability/overview/', api.availability_overview, name='availability_overview'),
     path('api/appointments/', api.appointments, name='appointments'),
     path('api/internal/patient-records/ingest/', internal_api.ingest_patient_record, name='patient_record_ingest'),
+    path('api/internal/patient-intake/ingest/', intake_forms.ingest_office_intake, name='office_intake_ingest'),
     path('api/internal/customer-sync/', internal_api.sync_customer, name='internal_customer_sync'),
     path('api/internal/billing-catalog/', internal_api.billing_catalog, name='internal_billing_catalog'),
     path('api/internal/app-mail/', internal_app_api.app_mail, name='internal_app_mail'),
