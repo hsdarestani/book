@@ -19,7 +19,7 @@ class PatientVisualRegressionTests(SimpleTestCase):
         self.assertIn('#patient-tab-nav.customer-profile-tabs .patient-tab-button', tpl)
         self.assertIn("text-decoration:none!important", tpl)
         self.assertIn("position:static!important", tpl)
-        self.assertIn("grid-template-columns:repeat(4", tpl)
+        self.assertIn("grid-template-columns:repeat(5", tpl)
         self.assertIn('<input type="hidden" name="tab" value="records">', tpl)
         self.assertIn('data-clinic-profile-build="4"', tpl)
         self.assertIn('class="patient-profile-single"', tpl)
