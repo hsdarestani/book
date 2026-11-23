@@ -36,6 +36,11 @@ def fixture():
 
 class WorkspaceTests(TestCase):
     def setUp(self):
+        # A threaded PostgreSQL lock regression in this module closes its
+        # worker connections; heal a stale pooled wrapper before using fixtures.
+        if not connection.is_usable():
+            connection.close()
+            connection.ensure_connection()
         (self.day, self.service, self.doctor, self.other, self.patient,
          self.outside, self.own, self.foreign) = fixture()
         self.identity = {'id': 42, 'role': 'admin'}
