@@ -95,6 +95,18 @@ class SimplyBookWritebackTests(TestCase):
         self.assertFalse(MobileStaffCancellation.objects.exists())
 
     @patch.dict(os.environ,{'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED':'true'})
+    def test_paid_booking_and_custom_fields_fail_closed_before_any_write(self):
+        for extra in ({'invoice_id':123},{'invoice_payment_received':'45.00'},
+                      {'deposit_is_enabled':True},{'additional_fields':[{'name':'consent','value':'yes'}]}):
+            detail={**self.before,**extra}
+            with patch('booking.simplybook_writeback._session',return_value={'fake':'token'}),patch(
+                'booking.simplybook_writeback._remote_call',return_value=detail) as remote:
+                with self.assertRaises(SourceConflict):
+                    write_existing_booking(self.appointment,operation='reschedule',
+                        start=self.start+timedelta(minutes=30),end=self.end+timedelta(minutes=30))
+                self.assertEqual(remote.call_count,1)
+
+    @patch.dict(os.environ,{'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED':'true'})
     def test_doctor_cannot_change_source_and_patient_must_match(self):
         from .mobile_staff_api import _save_synced_appointment
         from .models import SimplyBookClientLink
