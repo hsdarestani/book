@@ -22,7 +22,8 @@ class ReadableClinicUiTests(TestCase):
         self.assertNotIn("clinic-readable-ui-v1", get_template("booking/_shared_admin_calendar.html").template.source)
 
     def test_rechnungen_is_exclusively_goae_without_legacy_service_forms(self):
-        template = get_template("booking/app_management.html").template.source
+        full_template = get_template("booking/app_management.html").template.source
+        template = full_template.split("{% elif section == 'invoices' %}", 1)[1].split("{% elif section == 'hero' %}", 1)[0]
         goae = get_template("booking/_billing_goae_form.html").template.source
         self.assertIn('booking/_billing_goae_form.html', template)
         self.assertIn('GOÄ-Rechnungen', template)
