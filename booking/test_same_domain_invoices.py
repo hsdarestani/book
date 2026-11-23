@@ -41,7 +41,9 @@ class SameDomainInvoicesTests(TestCase):
         self.assertContains(res, "Rechnung nach GOÄ")
         self.assertContains(res, "/verwaltung/app/invoices/3/pdf/")
         self.assertNotIn("office.a-esthetic.de", res.content.decode("utf-8"))
-        billing.assert_called_once_with(res.wsgi_request, "billing/")
+        self.assertEqual(billing.call_count, 2)
+        self.assertEqual(billing.call_args_list[0].args[1], "billing/")
+        self.assertEqual(billing.call_args_list[1].args[1], "billing/goae/")
 
     @patch("booking.app_management_views._billing_api")
     def test_creates_physician_invoice_draft_on_same_domain(self, billing):
