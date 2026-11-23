@@ -1,6 +1,7 @@
 """Writeback isolation tests: no actual SimplyBook request and no patient notifications."""
 import os
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -13,7 +14,7 @@ from .mobile_staff_api import _save_synced_appointment
 
 class SimplyBookWritebackTests(TestCase):
     def setUp(self):
-        tz=timezone.get_current_timezone()
+        tz=ZoneInfo('Europe/Berlin')
         self.start=timezone.now().astimezone(tz).replace(hour=11,minute=0,second=0,microsecond=0)+timedelta(days=9)
         self.end=self.start+timedelta(minutes=30)
         self.customer=Customer.objects.create(first_name='Synthetic',last_name='QA',email='no-real-patient@example.test')
@@ -69,7 +70,7 @@ class SimplyBookWritebackTests(TestCase):
     @patch.dict(os.environ,{'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED':'true'})
     def test_remote_failure_never_writes_local_appointment(self):
         new_start=self.start+timedelta(minutes=30)
-        with patch('booking.simplybook_writeback.write_existing_booking',
+        with patch('booking.mobile_staff_api.write_existing_booking',
                    side_effect=SourceUnavailable('Remote failed')):
             from .mobile_staff_api import CommandConflict
             with self.assertRaises(CommandConflict):
