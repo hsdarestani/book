@@ -19,7 +19,33 @@ Run `manage.py reconcile_mobile_cancellations` on isolated staging first. For a 
 3. Start with a small internal cohort. Monitor relay latency, authorization failures, slot conflicts, pending queue age and verification failure rates.
 4. To roll back, halt native rollout and restore the previous app surface. Leave additive tables and reconciliation active until the pending queue drains. Keep existing booking, identity and credit history. A rollback across web deployment and existing native installations needs a staged rehearsal.
 
-The existing mobile desktop flow remains the fallback for advanced form/file administration, invoice work, patient identity review, source-managed appointment changes and older shared blocks. A new staff build must clear release review before being offered to production personnel.
+## Revised product requirement — complete native administration
+
+The owner explicitly requires the mobile app to become the authoritative,
+feature-complete admin console. Any desktop-only admin action is a **release
+parity gap**, not an acceptable permanent mobile limitation. The existing
+desktop interfaces stay operational solely as transition/rollback tools until
+native parity and live-data reconciliation are proven. See
+[A+ issue #83](https://github.com/hsdarestani/a_esthetic/issues/83)
+and [A+ PR #81](https://github.com/hsdarestani/a_esthetic/pull/81).
+
+**Historical blocked-time edits:** The A+ admin can now edit/delete legacy
+Book blocks using the same native editor; source-imported SimplyBook calendar
+notes are marked with a stable invisible ID. On an admin change, Book stores
+an audited local override or deletion tombstone, and the notes importer
+respects it. Editing a Book mirror does **not** update the SimplyBook
+source, and this distinction must stay visible in the UI until the external
+calendar is retired or upstream synchronization becomes writable and verified.
+
+**Source-managed SimplyBook appointments:** There is not yet a verified
+bidirectional mutation path. Existing rejection of native updates/cancels
+remains a safety gate: do not bypass it and silently diverge the canonical
+external booking from the local Book mirror. Complete safe upstream write
+support or formal ownership cutover before declaring mobile appointment
+parity.
+
+A new staff build must clear full feature-parity, role and security review
+on both platforms before being offered as a completed admin replacement.
 
 Remaining release work includes all-writer overlap checks against legacy desktop mutations, durable delivery for customer-side package reservation failures, provider and service assignment parity, and a physical-device role and gesture matrix.
 
