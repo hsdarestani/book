@@ -37,7 +37,8 @@ function rowData(line){
    goae_vat_rate:$('[data-vat]').value,clinical_confirmed:field(line,'clinical_confirmed').checked};
 }
 function linesForServer(){
- const lines=$$('.mlr-line').map(rowData),material=parseCents($('[data-material]').value),vat=$('[data-vat]').value;
+ const lines=$('.mlr-line').map(rowData),materialRaw=$('[data-material]').value.trim(),
+       material=materialRaw?parseCents(materialRaw):0,vat=$('[data-vat]').value;
  if(material===null)return {error:'Materialwert bitte mit höchstens zwei Nachkommastellen eingeben.'};
  if(material>0){
    const desc=$('[data-material-description]').value.trim();
