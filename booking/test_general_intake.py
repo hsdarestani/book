@@ -18,7 +18,8 @@ from .models import Customer, OfficeIntakeForm, PatientRecord
 FILES=tempfile.mkdtemp(prefix='book-office-forms-')
 
 
-@override_settings(PATIENT_SYNC_TOKEN='synthetic-test-token',
+@override_settings(STORAGES={'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}},
+                   PATIENT_SYNC_TOKEN='synthetic-test-token',
                    PATIENT_FILES_ROOT=FILES,
                    PATIENT_FILE_MAX_BYTES=10 * 1024 * 1024,
                    PATIENT_FILE_ALLOWED_EXTENSIONS={'.pdf','.jpg','.png'})
