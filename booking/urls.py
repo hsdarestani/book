@@ -1,4 +1,4 @@
-from . import mobile_staff_api
+from . import mobile_staff_api, goae_quote_views
 from django.urls import path
 from . import email_cancellation, record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
 
@@ -22,6 +22,7 @@ urlpatterns = [
     path('verwaltung/app/identity-review/', patient_identity_views.identity_review, name='patient_identity_review'),
     path('verwaltung/app/<slug:section>/', app_management_views.app_management, name='app_management'),
     path('verwaltung/api/patient-form-notifications/', desktop_notifications.new_patient_forms, name='patient_form_notifications'),
+    path('verwaltung/api/goae-quote/', goae_quote_views.goae_quote, name='goae_quote'),
     path('verwaltung/app/invoices/<int:invoice_id>/pdf/', invoice_bridge.invoice_pdf, name='billing_invoice_pdf'),
     path('verwaltung/api/day-availability/', calendar_admin_api.day_availability, name='admin_day_availability'),
     path('verwaltung/api/calendar-day/', calendar_admin_api.calendar_day, name='admin_calendar_day'),
