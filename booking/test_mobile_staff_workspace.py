@@ -149,7 +149,7 @@ class WorkspaceTests(TestCase):
             'block', operation='delete', id=legacy.pk, staff_id=self.doctor.pk,
             revision=block['revision'],
         ).status_code, 409)
-        self.identity['role'] = 'doctor'
+        self.identity.update({'id': 84, 'role': 'doctor'})
         doctor_view = next(row for row in self.client.get(url).json()['blocks'] if row['id'] == legacy.pk)
         self.assertFalse(doctor_view['editable'])
         self.assertEqual(self.post(
