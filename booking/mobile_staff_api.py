@@ -386,7 +386,8 @@ def _save_synced_appointment(data, actor, item):
     if (int(data.get('staff_id') or 0)!=item.staff_id or
         int(data.get('service_id') or 0)!=item.service_id or
         int(data.get('customer_id') or 0)!=item.customer_id or
-        str(data.get('status') or item.status)!=item.status):
+        str(data.get('status') or item.status)!=item.status or
+        ('notes' in data and str(data.get('notes') or '')!=str(item.notes_customer or ''))):
         raise CommandConflict('Für SimplyBook sind derzeit nur Terminzeit und Stornierung freigegeben.')
     start=_slot(data.get('date'),data.get('start'))
     end=start+(item.ends_at-item.starts_at)
