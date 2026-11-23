@@ -108,4 +108,4 @@ class GeneralIntakeTests(TestCase):
         patient=Customer.objects.get()
         file=self.client.get(f'/verwaltung/app/patients/?customer={patient.pk}&tab=forms')
         self.assertEqual(file.status_code,200)
-        self.assertContains(file,'Antworten & Unterschrift')
+        self.assertContains(file,'Antworten &amp; Unterschrift')
