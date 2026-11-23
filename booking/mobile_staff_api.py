@@ -33,6 +33,7 @@ from .models import (
 )
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
 from .services import effective_working_ranges
+from .simplybook_writeback import enabled as simplybook_write_enabled, source_id as simplybook_source_id, write_existing_booking, SourceConflict, SourceUnavailable
 from .patient_identity_review import possible_duplicate_pairs
 from .patient_identity_views import process_decision
 
@@ -108,6 +109,8 @@ def _appointment(item):
         'date': start.date().isoformat(), 'start': start.strftime('%H:%M'), 'end': end.strftime('%H:%M'),
         'status': item.status, 'notes': item.notes_customer, 'revision': item.updated_at.isoformat(),
         'source_managed': (item.idempotency_key or '').startswith('simplybook-'),
+        'source_editable': bool(simplybook_source_id(item)) and item.status != 'cancelled' and simplybook_write_enabled(),
+        'management_system': 'SimplyBook' if (item.idempotency_key or '').startswith('simplybook-') else 'Book',
         'credit_pending': hasattr(item, 'mobile_cancellation') and item.mobile_cancellation.completed_at is None,
     }
 
@@ -353,6 +356,60 @@ def _check_schedule(staff, start, end):
         raise CommandConflict('Die gewählte Zeit ist gesperrt.')
 
 
+def _save_synced_appointment(data, actor, item):
+    """A staff-only *reschedule or cancellation*, confirmed in SimplyBook first.
+
+    Never alter source service/provider/client via generic Book fields. Imported
+    provider represents multiple actual source units; remote unit_id is used.
+    """
+    if actor['role'] != 'admin':
+        raise PermissionError
+    if not simplybook_write_enabled():
+        raise CommandConflict('SimplyBook-Termine bleiben bis zur abgesicherten Freigabe schreibgeschützt.')
+    revision=parse_datetime(str(data.get('revision') or ''))
+    if revision != item.updated_at:
+        raise CommandConflict('Der Termin wurde zwischenzeitlich geändert. Bitte neu laden.')
+    if item.status == 'cancelled':
+        raise CommandConflict('Der Termin ist bereits abgesagt.')
+    operation=data.get('operation')
+    if operation not in ('update','cancel'):
+        raise CommandConflict('Unzulässige SimplyBook-Aktion.')
+    if operation=='cancel':
+        try:
+            write_existing_booking(item,operation='cancel')
+        except (SourceConflict,SourceUnavailable) as exc:
+            raise CommandConflict(str(exc)) from exc
+        item.status='cancelled'
+        item.save(update_fields=['status','updated_at'])
+        return item.pk
+
+    if (int(data.get('staff_id') or 0)!=item.staff_id or
+        int(data.get('service_id') or 0)!=item.service_id or
+        int(data.get('customer_id') or 0)!=item.customer_id or
+        str(data.get('status') or item.status)!=item.status or
+        ('notes' in data and str(data.get('notes') or '')!=str(item.notes_customer or ''))):
+        raise CommandConflict('Für SimplyBook sind derzeit nur Terminzeit und Stornierung freigegeben.')
+    start=_slot(data.get('date'),data.get('start'))
+    end=start+(item.ends_at-item.starts_at)
+    if start==item.starts_at:
+        return item.pk
+    previous=appointment_snapshot(item)
+    try:
+        write_existing_booking(item,operation='reschedule',start=start,end=end)
+    except (SourceConflict,SourceUnavailable) as exc:
+        raise CommandConflict(str(exc)) from exc
+    item.starts_at=start
+    item.ends_at=end
+    for field in ('reminder_24h_sent_at','reminder_1h_sent_at',
+                  'reminder_1h_admin_email_sent_at','reminder_1h_admin_push_sent_at'):
+        setattr(item,field,None)
+    item.save(update_fields=['starts_at','ends_at','updated_at','reminder_24h_sent_at',
+                            'reminder_1h_sent_at','reminder_1h_admin_email_sent_at',
+                            'reminder_1h_admin_push_sent_at'])
+    transaction.on_commit(lambda: _notify(notify_admin_changed,item,previous))
+    return item.pk
+
+
 def _save_appointment(data, actor, providers, previous_item):
     operation = data.get('operation')
     item = previous_item
@@ -360,7 +417,7 @@ def _save_appointment(data, actor, providers, previous_item):
         raise ValidationError('Ungültige Terminaktion.')
     if item:
         if (item.idempotency_key or '').startswith('simplybook-'):
-            raise CommandConflict('Dieser Termin wird über SimplyBook synchronisiert. Bitte direkt in SimplyBook ändern.')
+            return _save_synced_appointment(data,actor,item)
         if item.status == 'cancelled':
             if operation == 'cancel':
                 return item.pk
