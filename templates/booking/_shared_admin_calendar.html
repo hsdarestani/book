@@ -55,8 +55,8 @@
       {% if calendar_view != 'day' %}<div class="sb-horizontal-track-viewport" data-calendar-horizontal-viewport tabindex="0" aria-label="Kalenderspalten horizontal scrollen">{% endif %}
       <div class="sb-calendar-days" style="--day-count:{{ calendar_days|length }}">
         {% for day in calendar_days %}
-        <div class="sb-calendar-day {% if day.is_today %}is-today{% endif %}">
-          <div class="sb-day-head">{% if day.column_label %}<strong class="sb-reference-day-label" title="{{ day.column_label }}">{{ day.column_label }}</strong>{% else %}<span>{{ day.day_name }}</span><b>{{ day.date|date:"d.m." }}</b>{% endif %}</div>
+        <div class="sb-calendar-day {% if day.is_today %}is-today{% endif %}{% if day.date.weekday == 6 %} is-sunday is-closed-day{% endif %}">
+          <div class="sb-day-head">{% if day.column_label %}<strong class="sb-reference-day-label" title="{{ day.column_label }}">{{ day.column_label }}</strong>{% else %}<span>{{ day.day_name }}</span><b>{{ day.date|date:"d.m." }}</b>{% endif %}{% if day.date.weekday == 6 %}<small class="sb-sunday-closed-label" title="Keine Online-Buchungen an Sonntagen">Geschlossen</small>{% endif %}</div>
           <div class="sb-day-track">
             {% for segment in day.working_segments %}
             <div class="sb-working-segment" style="top:{{ segment.top }}%;height:{{ segment.height }}%;"><span>{{ segment.label }}</span></div>

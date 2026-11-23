@@ -92,6 +92,37 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         self.assertIn("Kalendertag auswählen", iphone)
         self.assertIn("picker.type='date'", iphone)
 
+    def test_week_swipes_are_enabled_without_hijacking_weekday_scrolling(self):
+        iphone = self.source("static/booking/admin-calendar-iphone-v1.js")
+        self.assertIn("strip.addEventListener('touchstart'", iphone)
+        self.assertIn("strip.addEventListener('touchend'", iphone)
+        self.assertIn("strip.addEventListener('touchmove'", iphone)
+        self.assertIn("strip.addEventListener('pointerup'", iphone)
+        self.assertIn("if(event.cancelable)event.preventDefault()", iphone)
+        self.assertIn("applyStripSwipe(dx,dy,Date.now()-start.at)", iphone)
+        self.assertNotIn("if(!isWeek()||event.touches.length", iphone)
+        self.assertIn("suppressStripClickUntil", iphone)
+        self.assertIn("const viewport=isWeek()?target.closest('.sb-horizontal-track-viewport'):null", iphone)
+        self.assertIn("if(dx<0&&gesture.atRight&&viewport.scrollLeft>=maxScroll-4)changeWeek(1)", iphone)
+        self.assertIn("else if(dx>0&&gesture.atLeft&&viewport.scrollLeft<=4)changeWeek(-1)", iphone)
+        self.assertNotIn("if(isWeek()||isGrouped()||event.touches.length!==1", iphone)
+        self.assertIn("20261122-sunday-ajax1", self.source("static/booking/admin.js"))
+        self.assertIn("20261122-strip2", self.source("templates/booking/dashboard.html"))
+
+    def test_closed_sundays_have_calendar_visual_markers(self):
+        dashboard = self.source("templates/booking/dashboard.html")
+        calendar = self.source("templates/booking/_shared_admin_calendar.html")
+        javascript = self.source("static/booking/admin-calendar-iphone-v1.js")
+        styles = self.source("static/booking/calendar-sunday-closed-v1.css")
+        self.assertIn("forloop.last %}is-sunday is-closed", dashboard)
+        self.assertIn("calendar-sunday-closed-v1.css?v=20261122-sunday1", dashboard)
+        self.assertIn("day.date.weekday == 6", calendar)
+        self.assertIn("sb-sunday-closed-label", calendar)
+        self.assertIn("Geschlossen", calendar)
+        self.assertIn("button.classList.toggle('is-sunday',i===6)", javascript)
+        self.assertIn(".sb-calendar-day.is-sunday .sb-day-track", styles)
+        self.assertIn(".sb-iphone-day.is-sunday > strong", styles)
+
     def test_visual_css_follows_reference_and_overrides_global_premium(self):
         css = self.source("static/booking/admin-calendar-reference-v2.css")
         for marker in (

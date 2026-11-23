@@ -425,6 +425,14 @@
       if (span) span.textContent = labels.month;
     }
 
+    // The AJAX renderer reuses one DOM column across different dates.
+    // Restore the clinic-wide Sunday closure indicators on every navigation,
+    // independently of day-availability overrides (data.closed). An open
+    // staff override cannot make Sundays publicly bookable.
+    const requestedDate = parseIsoDate(data.date);
+    const isSunday = Boolean(requestedDate && requestedDate.getDay() === 0);
+    dayNode.classList.toggle('is-sunday', isSunday);
+    dayNode.classList.toggle('is-closed-day', isSunday);
     const head = dayNode.querySelector('.sb-day-head');
     if (labels && head) {
       head.replaceChildren();
@@ -433,6 +441,13 @@
       const date = document.createElement('b');
       date.textContent = labels.shortDate;
       head.append(weekday, date);
+      if (isSunday) {
+        const closedLabel = document.createElement('small');
+        closedLabel.className = 'sb-sunday-closed-label';
+        closedLabel.textContent = 'Geschlossen';
+        closedLabel.title = 'Keine Online-Buchungen an Sonntagen';
+        head.appendChild(closedLabel);
+      }
     }
 
     dayNode.classList.toggle('is-today', Boolean(data.is_today));
