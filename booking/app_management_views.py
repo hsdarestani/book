@@ -569,6 +569,8 @@ def app_management(request, section='bookings'):
             context.update(_forms_context(request))
         elif section == 'invoices':
             data = _billing_api(request, 'billing/')
+            context['goae_invoices'] = [inv for inv in (data.get('invoices') or [])
+                if inv.get('billing_method') == 'goae']
             try:
                 context['goae_catalog'] = _billing_api(request,'billing/goae/').get('catalog',[])
             except (RuntimeError,ValueError,PermissionError):
