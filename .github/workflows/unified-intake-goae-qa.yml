@@ -37,3 +37,39 @@ jobs:
       - name: Run focused intake, patient-tab and invoice tests
         run: |
           python manage.py test booking.test_general_intake booking.test_same_domain_invoices booking.test_patient_tabs_v2 --verbosity 2
+
+  postgres-intake:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: intake_ci
+          POSTGRES_USER: intake_ci
+          POSTGRES_PASSWORD: synthetic_local_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U intake_ci -d intake_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DJANGO_DEBUG: '1'
+      DB_ENGINE: postgresql
+      DB_NAME: intake_ci
+      DB_USER: intake_ci
+      DB_PASSWORD: synthetic_local_only
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      PATIENT_SYNC_TOKEN: synthetic-testing-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Verify migrations and intake, billing, patient tabs on real PostgreSQL
+        run: |
+          python manage.py makemigrations --check --dry-run
+          python manage.py test booking.test_general_intake booking.test_same_domain_invoices booking.test_patient_tabs_v2 --verbosity 2
