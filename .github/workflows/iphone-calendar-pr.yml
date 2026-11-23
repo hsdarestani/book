@@ -7,6 +7,11 @@ on:
       - "static/booking/admin-calendar-plus.js"
       - "static/booking/admin-calendar-iphone-v1.*"
       - "booking/test_iphone_calendar.py"
+      - "booking/services.py"
+      - "booking/test_sunday_booking.py"
+      - "booking/test_mobile_staff_workspace.py"
+      - "booking/mobile_staff_api.py"
+      - "booking/migrations/**"
       - "booking/test_calendar_sheet_correctness.py"
       - "booking/test_premium_design.py"
       - "booking/admin_views.py"
@@ -39,5 +44,45 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Run complete Django regression suite before production merge
         run: python manage.py test
+      - name: Validate calendar JavaScript syntax
+        run: node --check static/booking/admin-calendar-iphone-v1.js && node --check static/booking/admin.js
       - name: Check Django system configuration
         run: python manage.py check
+
+  postgres-booking-integrity:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: book_ci
+          POSTGRES_USER: book_ci
+          POSTGRES_PASSWORD: book_ci_local_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U book_ci -d book_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DJANGO_DEBUG: "1"
+      DB_ENGINE: postgresql
+      DB_NAME: book_ci
+      DB_USER: book_ci
+      DB_PASSWORD: book_ci_local_only
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      PATIENT_SYNC_TOKEN: ""
+      PATIENT_SYNC_TOKEN_FILE: /tmp/book-ci-no-production-token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Validate schema and verify focused booking integrity on PostgreSQL
+        run: |
+          python manage.py makemigrations --check --dry-run
+          python manage.py test booking.test_mobile_staff_workspace booking.test_sunday_booking booking.test_returning_botox_duration --verbosity 2

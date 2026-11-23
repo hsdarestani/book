@@ -46,7 +46,7 @@ button.primary{background:#302a23;color:white;border-color:#302a23}
 </head><body><main>
 <header><div><span class="eyebrow">A+ ESTHETIC · VERWALTUNG</span><h1>Patientenabgleich</h1></div>
 <a href="/verwaltung/app/patients/">Zurück zu Patientenakten</a></header>
-<p class="hint">Profile mit identischem vollständigen Namen und Telefonnummer werden automatisch in der Verwaltungsansicht zusammen angezeigt. Unterschiedliche E-Mails bleiben erhalten.
+<p class="hint">Mindestens drei übereinstimmende Angaben kennzeichnen mögliche Duplikate. Erst eine geprüfte und bestätigte Identität verknüpft die Akten. Abweichende Angaben bleiben erhalten.
 Buchungen bleiben unter ihren ursprünglichen Profilen erhalten.
 Originalprofile, Arztzuordnungen, externe SimplyBook-IDs, Termine und Dateien bleiben unverändert. Entscheidungen lassen sich rückgängig machen.</p>
 {% if notice %}<p class="notice" role="status">Entscheidung gespeichert.</p>{% endif %}
@@ -58,12 +58,12 @@ Originalprofile, Arztzuordnungen, externe SimplyBook-IDs, Termine und Dateien bl
 <p class="evidence">{{ pair.reason }}</p>
 <div class="profiles">
 <section class="profile"><strong>{{ pair.left.full_name }}</strong>
-<p><b>E-Mail:</b> {{ pair.left.email }}</p><p><b>Telefon:</b> {{ pair.left.phone|default:"Nicht angegeben" }}</p>
+<p><b>E-Mail:</b> {{ pair.left.email }}</p><p><b>Telefon:</b> {{ pair.left.phone|default:"Nicht angegeben" }}</p><p><b>Geburtsdatum:</b> {{ pair.left.date_of_birth|date:"d.m.Y"|default:"Nicht angegeben" }}</p>
 <small>Profil #{{ pair.left.pk }} · {{ pair.left.review_appointments }} Termine · {{ pair.left.review_records }} Akteneinträge</small>
 <a class="back" href="/verwaltung/app/patients/?customer={{ pair.left.pk }}">Profil ansehen</a>
 </section>
 <section class="profile"><strong>{{ pair.right.full_name }}</strong>
-<p><b>E-Mail:</b> {{ pair.right.email }}</p><p><b>Telefon:</b> {{ pair.right.phone|default:"Nicht angegeben" }}</p>
+<p><b>E-Mail:</b> {{ pair.right.email }}</p><p><b>Telefon:</b> {{ pair.right.phone|default:"Nicht angegeben" }}</p><p><b>Geburtsdatum:</b> {{ pair.right.date_of_birth|date:"d.m.Y"|default:"Nicht angegeben" }}</p>
 <small>Profil #{{ pair.right.pk }} · {{ pair.right.review_appointments }} Termine · {{ pair.right.review_records }} Akteneinträge</small>
 <a class="back" href="/verwaltung/app/patients/?customer={{ pair.right.pk }}">Profil ansehen</a>
 </section>
@@ -90,7 +90,7 @@ Originalprofile, Arztzuordnungen, externe SimplyBook-IDs, Termine und Dateien bl
 {% for decision in latest_reviews %}
 <div class="history-card">
 <div><strong>{{ decision.left.full_name }} · {{ decision.right.full_name }}</strong>
-<small>{% if decision.action == 'approve' %}Verknüpft{% elif decision.action == 'reject' %}Nicht identisch{% else %}Verknüpfung / Ablehnung aufgehoben{% endif %} · {{ decision.created_at|date:"d.m.Y H:i" }} · {{ decision.reviewed_by.get_username }}</small></div>
+<small>{% if decision.action == 'approve' %}Verknüpft{% elif decision.action == 'reject' %}Nicht identisch{% else %}Verknüpfung / Ablehnung aufgehoben{% endif %} · {{ decision.created_at|date:"d.m.Y H:i" }} · {% if decision.reviewed_by %}{{ decision.reviewed_by.get_username }}{% else %}A+ Admin #{{ decision.reviewed_by_aesthetic_id }}{% endif %}</small></div>
 {% if decision.action != 'revoke' %}
 <form method="post" action="/verwaltung/app/identity-review/">
 {% csrf_token %}

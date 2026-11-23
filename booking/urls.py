@@ -1,3 +1,4 @@
+from . import mobile_staff_api, goae_quote_views, intake_forms
 from django.urls import path
 from . import email_cancellation, record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
 
@@ -21,6 +22,7 @@ urlpatterns = [
     path('verwaltung/app/identity-review/', patient_identity_views.identity_review, name='patient_identity_review'),
     path('verwaltung/app/<slug:section>/', app_management_views.app_management, name='app_management'),
     path('verwaltung/api/patient-form-notifications/', desktop_notifications.new_patient_forms, name='patient_form_notifications'),
+    path('verwaltung/api/goae-quote/', goae_quote_views.goae_quote, name='goae_quote'),
     path('verwaltung/app/invoices/<int:invoice_id>/pdf/', invoice_bridge.invoice_pdf, name='billing_invoice_pdf'),
     path('verwaltung/api/day-availability/', calendar_admin_api.day_availability, name='admin_day_availability'),
     path('verwaltung/api/calendar-day/', calendar_admin_api.calendar_day, name='admin_calendar_day'),
@@ -41,6 +43,7 @@ urlpatterns = [
     path('api/availability/overview/', api.availability_overview, name='availability_overview'),
     path('api/appointments/', api.appointments, name='appointments'),
     path('api/internal/patient-records/ingest/', internal_api.ingest_patient_record, name='patient_record_ingest'),
+    path('api/internal/patient-intake/ingest/', intake_forms.ingest_office_intake, name='office_intake_ingest'),
     path('api/internal/customer-sync/', internal_api.sync_customer, name='internal_customer_sync'),
     path('api/internal/billing-catalog/', internal_api.billing_catalog, name='internal_billing_catalog'),
     path('api/internal/app-mail/', internal_app_api.app_mail, name='internal_app_mail'),
@@ -54,6 +57,10 @@ urlpatterns = [
     path('api/mobile/booking/manageable/', mobile_api.mobile_manageable_appointments, name='mobile_manageable_appointments'),
     path('api/mobile/booking/<uuid:appointment_id>/change/', mobile_api.mobile_appointment_change, name='mobile_appointment_change'),
     path('api/mobile/referral-email/', referral_relay.referral_email, name='mobile_referral_email'),
+    path('api/mobile/staff/<slug:action>/', mobile_staff_api.workspace),
+    path('api/mobile/staff/patient/<int:ident>/', mobile_staff_api.workspace, {'action': 'patient'}),
+    path('api/mobile/staff/patient/<int:ident>/records/<uuid:record_id>/', mobile_staff_api.workspace, {'action': 'record'}),
+    path('api/mobile/staff/patient/<int:ident>/visits/<uuid:record_id>/', mobile_staff_api.workspace, {'action': 'visit'}),
     path('api/mobile/app-admin/overview/', app_admin_api.overview, name='app_admin_overview'),
     path('api/mobile/app-admin/calendar/', app_admin_api.calendar, name='app_admin_calendar'),
     path('api/mobile/app-admin/bookings/', app_admin_api.bookings, name='app_admin_bookings'),

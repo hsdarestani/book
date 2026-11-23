@@ -1,47 +1,117 @@
-<section class="admin-panel app-core-panel billing-goae-panel" style="margin:20px 0">
-  <details class="billing-goae-details">
-    <summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:19px 22px">
-      <span><strong style="display:block;font-size:17px">Rechnung nach GOÄ</strong>
-        <small style="display:block;margin-top:7px;color:#817364">Privatpraxis Ariane Regaei · Ärztlichen Entwurf erstellen</small></span>
-      <span aria-hidden="true" style="font-size:21px;color:#a78345">⌄</span>
-    </summary>
-    <div style="padding:0 22px 24px">
-      <p style="font-size:12px;line-height:1.6;color:#736c61">
-        GOÄ Ziffer, Einfachsatz, Steigerungsfaktor und Umsatzsteuer müssen durch die Praxis geprüft werden.
-        Bis zur Freigabe der endgültigen Vorlage bleibt die Rechnung ein Entwurf.
-      </p>
-      <form class="billing-form" method="post">
-        {% csrf_token %}<input type="hidden" name="action" value="billing_create_goae">
-        <div class="billing-two">
-          <label>Patient
-            <select name="customer_id" required>
-              <option value="">Patient auswählen</option>
-              {% for customer in data.customers %}
-                <option value="{{ customer.id }}">{{ customer.name }} · {{ customer.email }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label>Leistungsdatum<input name="service_date" type="date" required></label>
-        </div>
-        <div class="billing-two">
-          <label>GOÄ Nummer<input name="goae_number" maxlength="24" required placeholder="GOÄ Ziffer"></label>
-          <label>Steigerungsfaktor<input name="goae_factor" inputmode="decimal" placeholder="2,30" required></label>
-        </div>
-        <label>Leistungsbeschreibung<input name="goae_description" maxlength="220" placeholder="Ärztliche Leistung" required></label>
-        <div class="billing-two">
-          <label>GOÄ Einfachsatz in €<input name="goae_base_eur" inputmode="decimal" required placeholder="10,00"></label>
-          <label>Umsatzsteuerstatus
-            <select name="goae_vat_rate" required>
-              <option value="">Bitte prüfen</option>
-              <option value="0">0 %</option><option value="7">7 %</option><option value="19">19 %</option>
-            </select>
-          </label>
-        </div>
-        <label>Individuelle Begründung bei erhöhtem Faktor
-          <textarea name="goae_justification" rows="2" maxlength="1500" placeholder="Medizinische Begründung"></textarea>
-        </label>
-        <button class="billing-primary" type="submit">GOÄ Entwurf erstellen</button>
-      </form>
+{% load static %}
+<section class="admin-panel app-core-panel goae-workspace" id="goae-rechnung">
+  <div class="goae-head">
+    <div><span class="eyebrow">PRIVATPRAXIS ARIANE REGAEI</span>
+      <h2>Rechnung nach GOÄ</h2><p><strong>GOÄ-Rechnungsstudio</strong></p>
+      <p>Ein einheitlicher GOÄ-Rechner für Web und App. Leistungen, Faktoren, Auslagen und Umsatzsteuer werden vom gleichen Server validiert.</p></div>
+    <div class="goae-safety"><strong>Ärztlicher Entwurf</strong><small>Keine finale Ausstellung ohne medizinisch-rechtliche Freigabe</small></div>
+  </div>
+  <form method="post" id="goaeFullForm" data-goae-full>
+    {% csrf_token %}
+    <input type="hidden" name="action" value="billing_create_goae_full">
+    <input type="hidden" name="goae_lines_json" id="goaeLinesJson">
+    <div class="goae-patient-row">
+      <label>Patient <select name="customer_id" required id="goaePatient">
+        <option value="">Patient auswählen</option>
+        {% for patient in data.customers %}
+          <option value="{{ patient.id }}">{{ patient.name }} · {{ patient.email }}</option>
+        {% endfor %}
+      </select></label>
+      <label>Leistungsdatum <input type="date" name="service_date" required></label>
     </div>
-  </details>
+    <div class="goae-section-label"><div><h3>Leistungspositionen</h3><p>Jede Position einzeln prüfen. Die amtliche GOÄ-Ziffer ersetzt keine medizinische Beurteilung.</p></div><button type="button" data-goae-add>+ Position</button></div>
+    <div id="goaeLines"></div>
+    <div class="goae-actions">
+      <button type="button" class="goae-preview-btn" data-goae-preview>Berechnung prüfen</button>
+      <button type="submit" class="billing-primary">GOÄ-Entwurf speichern</button>
+    </div>
+    <div class="goae-feedback" role="status" aria-live="polite" data-goae-feedback>Vor dem Speichern bitte die Berechnung prüfen.</div>
+  </form>
 </section>
+
+<template id="goaeLineTemplate">
+  <article class="goae-line">
+    <header><strong class="goae-position-name">Position</strong><button type="button" data-goae-remove aria-label="Position entfernen">Entfernen</button></header>
+    <div class="goae-line-grid">
+      <label class="goae-kind">Typ<select data-g="kind"><option value="service">GOÄ-Leistung</option><option value="material">Auslage (§ 10)</option></select></label>
+      <label>Amtliche Ziffer (optional)<select data-g="official">
+        <option value="">Manuell erfassen</option>
+      </select></label>
+      <label>GOÄ-Nummer<input data-g="goae_number" maxlength="24" placeholder="z. B. 1"></label>
+      <label class="goae-description">Leistungsbeschreibung<input data-g="goae_description" maxlength="220" placeholder="Tatsächlich erbrachte Leistung" required></label>
+      <label>Anzahl<input data-g="quantity" type="number" min="1" max="100" step="1" value="1" required></label>
+      <label>Punkte (alternativ Einfachsatz)<input data-g="goae_points" type="number" min="1" step="1" placeholder="GOÄ Punkte"></label>
+      <label>Einfachsatz / Auslage (€)<input data-g="goae_base_eur" type="text" inputmode="decimal" placeholder="z. B. 12,50"></label>
+      <label>Faktor<input data-g="goae_factor" type="text" inputmode="decimal" value="2,30"></label>
+      <label>Gebührenkategorie<select data-g="goae_category"><option value="general">Ärztliche Leistung</option><option value="technical">Technische Leistung</option><option value="laboratory">Labor</option></select></label>
+      <label>MwSt – ausdrücklich prüfen<select data-g="goae_vat_rate" required><option value="">Bitte wählen</option><option value="0">0 %</option><option value="7">7 %</option><option value="19">19 %</option></select></label>
+      <label class="goae-material-receipt">Auslagenbeleg<input data-g="material_receipt_reference" maxlength="250" placeholder="Belegnummer"></label>
+      <label class="goae-justification">Individuelle Begründung (bei erhöhtem Faktor)<textarea data-g="goae_justification" maxlength="1500" rows="2"></textarea></label>
+    </div>
+    <label class="goae-confirmation"><input type="checkbox" data-g="clinical_confirmed"> Ich bestätige, dass diese Leistung tatsächlich erbracht und der Ansatz geprüft wurde.</label>
+    <label class="goae-confirmation"><input type="checkbox" data-g="material_eligible"> Nur für Auslagen: Berechnungsfähigkeit gemäß § 10 und Originalbeleg bestätigt.</label>
+  </article>
+</template>
+{{ goae_catalog|json_script:"goaeTariffCatalog" }}
+<style>
+.goae-workspace{margin:24px 0;padding:clamp(18px,3vw,32px);border:1px solid #e0d9cb;border-radius:22px;background:linear-gradient(145deg,#fffefa,#f7f4ec)}
+.goae-head{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;margin-bottom:24px}.goae-head h2{font-size:clamp(22px,3vw,30px);margin:7px 0}.goae-head p{max-width:670px;color:#756f66;line-height:1.55;margin:0}
+.goae-safety{display:flex;flex-direction:column;max-width:185px;border:1px solid #dfd0ad;border-radius:14px;padding:12px;background:#fff8e9;color:#715b32;font-size:12px;line-height:1.4}
+.goae-safety small{margin-top:5px}.goae-patient-row{display:grid;grid-template-columns:1.6fr 1fr;gap:14px}.goae-workspace label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:600;color:#555048}
+.goae-workspace input:not([type=checkbox]),.goae-workspace select,.goae-workspace textarea{width:100%;padding:11px 12px;border-radius:10px;border:1px solid #d8d0c3;background:#fff;color:#292520;min-width:0;font:inherit}
+.goae-section-label{display:flex;justify-content:space-between;align-items:center;gap:15px;border-top:1px solid #e5dfd5;margin-top:24px;padding-top:18px}
+.goae-section-label h3{margin:0 0 5px;font-size:17px}.goae-section-label p{font-size:12px;margin:0;color:#777}
+.goae-section-label button,.goae-line header button,.goae-preview-btn{border:1px solid #c6ae86;padding:10px 14px;border-radius:10px;background:#fff;color:#6f552e;cursor:pointer;font:inherit;font-weight:650}
+.goae-line{padding:19px 18px;margin-top:14px;border-radius:15px;border:1px solid #e4dfd5;background:#fff;box-shadow:0 8px 24px rgba(45,39,27,.04)}
+.goae-line header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.goae-line header strong{font-size:14px}.goae-line-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}.goae-line-grid .goae-description,.goae-line-grid .goae-justification{grid-column:span 2}
+.goae-confirmation{display:flex!important;flex-direction:row!important;align-items:flex-start;margin-top:12px;font-size:12px!important;line-height:1.55;font-weight:500!important}.goae-confirmation input{margin-top:3px;accent-color:#8b703f}
+.goae-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:12px;margin-top:20px}.goae-feedback{margin-top:15px;padding:13px 15px;background:#f1eee6;border-radius:12px;font-size:13px;color:#48453f;line-height:1.6}
+.goae-feedback.is-error{background:#fff0ef;color:#a1362c}.goae-feedback.is-ready{background:#edf8ef;color:#215b35}
+@media(max-width:850px){.goae-line-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:590px){.goae-head{flex-direction:column}.goae-patient-row,.goae-line-grid{grid-template-columns:1fr}.goae-line-grid .goae-description,.goae-line-grid .goae-justification{grid-column:span 1}.goae-actions button{width:100%}}
+</style>
+<script>
+(()=>{'use strict';
+const form=document.querySelector('[data-goae-full]');if(!form)return;
+const root=document.getElementById('goaeLines'),tmpl=document.getElementById('goaeLineTemplate');
+const catalog=JSON.parse(document.getElementById('goaeTariffCatalog').textContent||'[]');
+const feedback=form.querySelector('[data-goae-feedback]');let lastPreview=null;
+const field=(line,key)=>line.querySelector('[data-g="'+key+'"]');
+const add=()=>{
+const line=tmpl.content.firstElementChild.cloneNode(true),official=field(line,'official');
+for(const item of catalog){const el=document.createElement('option');el.value=item.number;el.textContent=item.number+' · '+item.de;official.append(el)}
+official.addEventListener('change',()=>{const x=catalog.find(c=>c.number===official.value);if(x){
+ field(line,'goae_number').value=x.number;field(line,'goae_description').value=x.de;
+ field(line,'goae_category').value=x.category;field(line,'goae_points').value=x.points;
+ field(line,'goae_base_eur').value='';}
+ lastPreview=null});
+field(line,'kind').addEventListener('change',()=>{lastPreview=null});
+line.querySelector('[data-goae-remove]').addEventListener('click',()=>{if(root.children.length>1){line.remove();renumber();lastPreview=null;}});
+root.append(line);renumber();};
+const renumber=()=>[...root.children].forEach((el,i)=>el.querySelector('.goae-position-name').textContent='Position '+(i+1));
+const serialize=()=>[...root.querySelectorAll('.goae-line')].map(line=>{
+const val=k=>field(line,k)?.value?.trim()||'';
+const kind=val('kind'),official=val('official'),isMaterial=kind==='material';
+return {kind,tariff_source:official?'official_catalog':'manual',goae_number:val('goae_number'),
+goae_description:val('goae_description'),quantity:val('quantity'),goae_points:val('goae_points'),
+goae_base_eur:val('goae_base_eur'),goae_factor:val('goae_factor'),goae_category:val('goae_category'),
+goae_vat_rate:val('goae_vat_rate'),goae_justification:val('goae_justification'),
+clinical_confirmed:field(line,'clinical_confirmed').checked,material_eligible:isMaterial&&field(line,'material_eligible').checked,
+material_receipt_reference:val('material_receipt_reference')};
+});
+const status=(msg,ok)=>{feedback.textContent=msg;feedback.className='goae-feedback '+(ok?'is-ready':'is-error')};
+async function preview(){const lines=serialize();if(lines.some(l=>!l.goae_vat_rate)){status('Umsatzsteuerstatus bei jeder Position auswählen.',false);return false}
+const res=await fetch('/verwaltung/api/goae-quote/',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':form.querySelector('[name=csrfmiddlewaretoken]').value},body:JSON.stringify({lines})});
+const data=await res.json();if(!res.ok||!data.ok){status(data.message||'Berechnung nicht möglich. Bitte alle GOÄ-Angaben prüfen.',false);return false}
+lastPreview=JSON.stringify(lines);const euro=n=>(n/100).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+status('Serverberechnung geprüft · Netto '+euro(data.subtotal_cents)+' · MwSt '+euro(data.tax_cents)+' · Gesamt '+euro(data.total_cents)+' · NUR ENTWURF',true);return true}
+form.querySelector('[data-goae-add]').addEventListener('click',add);
+form.querySelector('[data-goae-preview]').addEventListener('click',()=>preview().catch(()=>status('Der GOÄ-Server ist momentan nicht erreichbar.',false)));
+form.addEventListener('input',()=>{lastPreview=null});
+form.addEventListener('submit',async e=>{e.preventDefault();const lines=serialize();if(!form.reportValidity())return;
+try{if(JSON.stringify(lines)!==lastPreview){if(!await preview())return;}
+document.getElementById('goaeLinesJson').value=JSON.stringify(lines);
+HTMLFormElement.prototype.submit.call(form);
+}catch(_){status('Berechnung nicht erreichbar; der Entwurf wurde nicht gespeichert.',false)}});
+add();
+})();
+</script>

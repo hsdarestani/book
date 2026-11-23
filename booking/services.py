@@ -25,6 +25,11 @@ def effective_working_ranges(staff, day):
 
 
 def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None):
+    # Clinic-wide public booking policy: every Sunday is closed, even when a
+    # stale weekly working hour or a per-day availability override says open.
+    # Staff-entered historical appointments are preserved.
+    if day.weekday() == 6:
+        return []
     if not service.active or not service.bookable or not staff.active:
         return []
     if not staff.services.filter(pk=service.pk).exists():

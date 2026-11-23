@@ -3,6 +3,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 
 class Service(models.Model):
@@ -114,6 +115,7 @@ class Customer(models.Model):
     salutation = models.CharField('Anrede', max_length=10, choices=SALUTATION, blank=True, default='')
     phone = models.CharField('Telefon', max_length=40, blank=True)
     email = models.EmailField('E-Mail')
+    date_of_birth = models.DateField('Geburtsdatum', null=True, blank=True)
     created_at = models.DateTimeField('Erstellt am', auto_now_add=True)
     updated_at = models.DateTimeField('Aktualisiert am', auto_now=True)
 
@@ -154,6 +156,29 @@ class PatientRecord(models.Model):
     @property
     def is_image(self): return self.mime_type.startswith('image/') if self.mime_type else False
     def __str__(self): return f'{self.customer} – {self.title}'
+
+
+class OfficeIntakeForm(models.Model):
+    """Private general Aufnahmebogen; never exposed by the patient portal."""
+    STATUS = [('linked','Zugeordnet'),('review','Prüfung nötig')]
+    source_id = models.UUIDField(unique=True, editable=False)
+    customer = models.ForeignKey(Customer, null=True, blank=True, on_delete=models.PROTECT,
+                                 related_name='office_intake_forms')
+    record = models.OneToOneField(PatientRecord, null=True, blank=True, on_delete=models.SET_NULL,
+                                  related_name='office_intake_form')
+    payload = models.JSONField(default=dict)
+    signature_png = models.TextField(blank=True)
+    consent_version = models.CharField(max_length=40, default='intake-2026-11')
+    status = models.CharField(max_length=10, choices=STATUS, default='review', db_index=True)
+    match_count = models.PositiveSmallIntegerField(default=0)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.SET_NULL, related_name='reviewed_office_forms')
+    submitted_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    class Meta:
+        ordering = ['-submitted_at']
+        verbose_name = 'Aufnahmebogen'
+        verbose_name_plural = 'Aufnahmebögen'
 
 
 class Appointment(models.Model):
@@ -260,7 +285,9 @@ class PatientIdentityDecision(models.Model):
     action = models.CharField(max_length=12, choices=ACTIONS)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='patient_identity_decisions',
+        null=True, blank=True,
     )
+    reviewed_by_aesthetic_id = models.PositiveBigIntegerField(null=True, blank=True)
     reason = models.CharField(max_length=120)
     snapshot = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -272,6 +299,11 @@ class PatientIdentityDecision(models.Model):
             models.CheckConstraint(
                 condition=Q(left__lt=models.F('right')),
                 name='patient_decision_ordered_pair',
+            ),
+            models.CheckConstraint(
+                condition=(Q(reviewed_by__isnull=False, reviewed_by_aesthetic_id__isnull=True) |
+                           Q(reviewed_by__isnull=True, reviewed_by_aesthetic_id__isnull=False)),
+                name='patient_decision_verified_actor',
             ),
         ]
         verbose_name = 'Prüfung möglicher Patienten-Duplikate'
@@ -330,3 +362,27 @@ class SimplyBookClientLink(models.Model):
     class Meta:
         verbose_name = 'SimplyBook-Kundenverknüpfung'
         verbose_name_plural = 'SimplyBook-Kundenverknüpfungen'
+
+
+class MobileStaffCommand(models.Model):
+    """Audit and replay receipt for commands issued by the bundled app."""
+    actor_id = models.PositiveBigIntegerField()
+    key = models.UUIDField()
+    fingerprint = models.CharField(max_length=64)
+    action = models.CharField(max_length=32)
+    object_id = models.PositiveBigIntegerField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['actor_id', 'key'], name='mobile_staff_command_actor_key')]
+
+
+class MobileStaffCancellation(models.Model):
+    """Durable delivery of an idempotent package release after Book commits."""
+    appointment = models.OneToOneField(
+        Appointment, null=True, on_delete=models.SET_NULL, related_name='mobile_cancellation',
+    )
+    booking_public_id = models.UUIDField(unique=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    completed_at = models.DateTimeField(null=True)
