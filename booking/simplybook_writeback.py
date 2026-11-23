@@ -138,7 +138,7 @@ def write_existing_booking(item, *, operation, start=None, end=None):
         slots=available.get(date_key) if isinstance(available,dict) else None
         if not isinstance(slots,list):
             raise SourceUnavailable('SimplyBook-Verfügbarkeit konnte nicht überprüft werden.')
-        valid={str(slot)[:8].ljust(8,'0') if len(str(slot))==5 else str(slot)[:8] for slot in slots
+        valid={(str(slot)+':00') if len(str(slot))==5 else str(slot)[:8] for slot in slots
                if isinstance(slot,(str,int,float))}
         if new_start.strftime('%H:%M:%S') not in valid:
             raise SourceConflict('Der gewünschte Zeitraum ist in SimplyBook nicht verfügbar.')
