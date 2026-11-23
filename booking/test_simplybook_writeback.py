@@ -111,7 +111,10 @@ class SimplyBookWritebackTests(TestCase):
     @patch.dict(os.environ,{'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED':'true'})
     def test_paid_booking_and_custom_fields_fail_closed_before_any_write(self):
         for extra in ({'invoice_id':123},{'invoice_payment_received':'45.00'},
-                      {'deposit_is_enabled':True},{'additional_fields':[{'name':'consent','value':'yes'}]}):
+                      {'deposit_is_enabled':True},{'price':[{'amount':'40.00'}]},
+                      {'promo':{'code':'TEST'}},
+                      {'location':{'id':'12'}},
+                      {'additional_fields':[{'name':'consent','value':'yes'}]}):
             detail={**self.before,**extra}
             with patch('booking.simplybook_writeback._session',return_value={'fake':'token'}),patch(
                 'booking.simplybook_writeback._remote_call',return_value=detail) as remote:
@@ -119,6 +122,20 @@ class SimplyBookWritebackTests(TestCase):
                     write_existing_booking(self.appointment,operation='reschedule',
                         start=self.start+timedelta(minutes=30),end=self.end+timedelta(minutes=30))
                 self.assertEqual(remote.call_count,1)
+
+    @patch.dict(os.environ,{'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED':'true'})
+    def test_unsupported_source_note_edit_is_rejected_before_remote_call(self):
+        from .mobile_staff_api import CommandConflict
+        new_start=self.start+timedelta(minutes=30)
+        data={'operation':'update','revision':self.appointment.updated_at.isoformat(),
+              'staff_id':self.staff.pk,'service_id':self.service.pk,
+              'customer_id':self.customer.pk,'status':'confirmed',
+              'notes':'not allowed','date':new_start.date().isoformat(),
+              'start':new_start.strftime('%H:%M')}
+        with patch('booking.mobile_staff_api.write_existing_booking') as write:
+            with self.assertRaises(CommandConflict):
+                _save_synced_appointment(data,{'role':'admin'},self.appointment)
+            write.assert_not_called()
 
     @patch.dict(os.environ,{'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED':'true'})
     def test_doctor_cannot_change_source_and_patient_must_match(self):
