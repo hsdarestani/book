@@ -1,0 +1,26 @@
+name: SimplyBook account-role capability probe (read-only)
+on:
+  push:
+    branches: [audit/simplybook-admin-write-capability-20261123]
+    paths:
+      - scripts/probe_simplybook_admin_role.py
+      - .github/workflows/probe-simplybook-admin-role.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    env:
+      SIMPLYBOOK_COMPANY_LOGIN: ${{ secrets.SIMPLYBOOK_COMPANY_LOGIN }}
+      SIMPLYBOOK_USER_LOGIN: ${{ secrets.SIMPLYBOOK_USER_LOGIN }}
+      SIMPLYBOOK_API_USER_KEY: ${{ secrets.SIMPLYBOOK_API_USER_KEY }}
+      SIMPLYBOOK_USER_PASSWORD: ${{ secrets.SIMPLYBOOK_USER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Authenticate and read role only (no writes)
+        run: python scripts/probe_simplybook_admin_role.py
