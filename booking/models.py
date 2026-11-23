@@ -158,6 +158,29 @@ class PatientRecord(models.Model):
     def __str__(self): return f'{self.customer} – {self.title}'
 
 
+class OfficeIntakeForm(models.Model):
+    """Private general Aufnahmebogen; never exposed by the patient portal."""
+    STATUS = [('linked','Zugeordnet'),('review','Prüfung nötig')]
+    source_id = models.UUIDField(unique=True, editable=False)
+    customer = models.ForeignKey(Customer, null=True, blank=True, on_delete=models.PROTECT,
+                                 related_name='office_intake_forms')
+    record = models.OneToOneField(PatientRecord, null=True, blank=True, on_delete=models.SET_NULL,
+                                  related_name='office_intake_form')
+    payload = models.JSONField(default=dict)
+    signature_png = models.TextField(blank=True)
+    consent_version = models.CharField(max_length=40, default='intake-2026-11')
+    status = models.CharField(max_length=10, choices=STATUS, default='review', db_index=True)
+    match_count = models.PositiveSmallIntegerField(default=0)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.SET_NULL, related_name='reviewed_office_forms')
+    submitted_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    class Meta:
+        ordering = ['-submitted_at']
+        verbose_name = 'Aufnahmebogen'
+        verbose_name_plural = 'Aufnahmebögen'
+
+
 class Appointment(models.Model):
     STATUS=[('new','Neu'),('confirmed','Bestätigt'),('cancelled','Abgesagt'),('completed','Abgeschlossen'),('no_show','Nicht erschienen')]
     SOURCE=[('web','Webseite'),('app','App'),('admin','Verwaltung')]
