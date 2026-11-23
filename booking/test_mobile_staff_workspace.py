@@ -116,6 +116,42 @@ class WorkspaceTests(TestCase):
             self.assertIsNotNone(MobileStaffCancellation.objects.get().completed_at)
             self.assertEqual(relay.call_count,2)
 
+    def test_external_source_blocks_and_appointments_are_read_only(self):
+        from .management.commands.sync_simplybook_notes import _marker
+        from .models import MobileStaffCommand
+        start = timezone.make_aware(datetime.combine(self.day, time(15)))
+        marker = _marker(194)
+        synced = BlockedPeriod.objects.create(
+            staff=self.doctor, starts_at=start, ends_at=start + timedelta(hours=1),
+            reason='[BLOCKNOTE][STAFF] Synced consultation' + marker,
+        )
+        # Even a stale mobile command receipt must never enable SimplyBook changes.
+        MobileStaffCommand.objects.create(
+            actor_id=42, key=uuid4(), fingerprint='0'*64, action='block', object_id=synced.pk,
+        )
+        payload = self.client.get(f'/api/mobile/staff/calendar/?start={self.day}&days=1').json()
+        entry = next(x for x in payload['blocks'] if x['id']==synced.pk)
+        self.assertFalse(entry['editable'])
+        self.assertTrue(entry['source_managed'])
+        self.assertEqual(entry['management_system'], 'SimplyBook')
+        self.assertNotIn(marker, entry['text'])
+        changed = self.post('block',operation='update',id=synced.pk,staff_id=self.doctor.pk,
+                            date=self.day.isoformat(),start='16:00',end='17:00',kind='block')
+        self.assertEqual(changed.status_code,409)
+        self.assertIn('SimplyBook',changed.json()['message'])
+        self.assertEqual(self.post('block',operation='delete',id=synced.pk,
+                                   staff_id=self.doctor.pk).status_code,409)
+        synced.refresh_from_db()
+        self.assertEqual(timezone.localtime(synced.starts_at).strftime('%H:%M'),'15:00')
+        self.own.idempotency_key='simplybook-194'
+        self.own.save(update_fields=['idempotency_key'])
+        response=self.post('appointment',operation='cancel',id=self.own.pk,
+                           revision=self.own.updated_at.isoformat(),staff_id=self.doctor.pk)
+        self.assertEqual(response.status_code,409)
+        self.assertIn('SimplyBook',response.json()['message'])
+        self.own.refresh_from_db()
+        self.assertEqual(self.own.status,'confirmed')
+
     def test_availability_and_notes_respect_existing_bookings(self):
         values = dict(operation='create',staff_id=self.doctor.pk,date=self.day.isoformat(),start='10:00',end='10:30',text='Internal')
         self.assertEqual(self.post('block',kind='block',**values).status_code,409)
