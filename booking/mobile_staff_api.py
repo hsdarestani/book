@@ -129,9 +129,13 @@ def _block_revision(item):
 
 
 def _block(item, editable):
-    return _block_payload(item) | {
+    marker = _external_block_marker(item.reason)
+    payload = _block_payload(item)
+    if marker:
+        payload['text'] = payload['text'].replace(marker, '').strip()
+    return payload | {
         'editable': editable,
-        'source_managed': bool(_external_block_marker(item.reason)),
+        'source_managed': bool(marker),
         'revision': _block_revision(item),
         'start_at': timezone.localtime(item.starts_at).isoformat(),
         'end_at': timezone.localtime(item.ends_at).isoformat(),
@@ -473,7 +477,10 @@ def _save_block(data, providers, actor):
 
     start = _slot(data.get('date'), data.get('start'))
     end = _slot(data.get('end_date') or data.get('date'), data.get('end'))
-    text = str(data.get('text') or '').strip()[:120]
+    raw_text = str(data.get('text') or '').strip()
+    # The importer adds invisible provenance bytes at the end of its note.
+    # Never expose or duplicate those marker bytes in the editable text.
+    text = (raw_text.replace(original_marker, '') if original_marker else raw_text)[:120]
     is_note = data.get('kind') == 'note'
     if start >= end or (is_note and not text):
         raise ValidationError('Bitte Zeitraum und Text prüfen.')
