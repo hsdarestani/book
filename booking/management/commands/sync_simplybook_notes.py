@@ -10,7 +10,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from booking.models import BlockedPeriod, StaffMember
+from booking.models import BlockedPeriod, MobileStaffBlockOverride, StaffMember
 from booking.block_conflict_alerts import (
     enqueue_block_conflicts, process_pending_block_conflict_alerts, resolve_block_conflicts,
 )
@@ -181,6 +181,11 @@ class Command(BaseCommand):
                 item = BlockedPeriod.objects.select_for_update().filter(
                     staff=ariane, reason__endswith=marker,
                 ).order_by('pk').first()
+                # An authenticated app administrator can take ownership of a
+                # legacy entry. Respect their edit or deletion tombstone even
+                # when the upstream SimplyBook note still exists.
+                if MobileStaffBlockOverride.objects.filter(source_marker=marker).exists():
+                    continue
                 if item:
                     was_blocking = (item.reason or '').startswith('[BLOCKNOTE]')
                     period_changed = item.starts_at != starts_at or item.ends_at != ends_at
@@ -215,7 +220,9 @@ class Command(BaseCommand):
                 reason = item.reason or ''
                 marker_start = reason.rfind(MARKER_SEP, 0, max(0, len(reason) - 1))
                 marker = reason[marker_start:] if marker_start >= 0 else ''
-                if marker and marker not in seen_markers:
+                if marker and marker not in seen_markers and not MobileStaffBlockOverride.objects.filter(
+                    source_marker=marker,
+                ).exists():
                     stale.append(item.pk)
             deleted = len(stale)
             if stale:
