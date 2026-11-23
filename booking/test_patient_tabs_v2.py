@@ -94,11 +94,11 @@ class PatientTabVisibilityTests(SimpleTestCase):
         self.assertIn('<input type="hidden" name="tab" value="records">', html)
         self.assertIn('name="q" value="Sophie"', html)
         self.assertIn('name="customer" value="1123"', html)
-        self.assertEqual(html.count('class="patient-tab-form"'), 4)
+        self.assertEqual(html.count('class="patient-tab-form"'), 5)
         self.assertNotIn('type="submit" name="tab"', html)
         # Shared submit handler may disable the clicked button before browser
         # serializes controls; hidden tab inputs must survive that behavior.
-        for key in ("overview", "appointments", "records", "points"):
+        for key in ("overview", "appointments", "records", "forms", "points"):
             self.assertIn('<input type="hidden" name="tab" value="' + key + '">', html)
         js = (Path(__file__).resolve().parent.parent
               / "static/booking/admin-wait-ux-v16.js").read_text()
