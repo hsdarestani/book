@@ -86,7 +86,16 @@ class WorkspaceTests(TestCase):
             self.assertFalse(record.metadata['shared_with_customer'])
             content = self.client.get(f'/api/mobile/staff/patient/{self.patient.pk}/records/{record.public_id}/')
             self.assertEqual(content.status_code, 200)
-            content.close()
+            # FileResponse.close() sends request_finished. In Django TestCase
+            # its close_old_connections receiver may close the still-active
+            # class transaction; keep that test fixture connection alive.
+            from django.core.signals import request_finished
+            from django.db import close_old_connections
+            request_finished.disconnect(close_old_connections)
+            try:
+                content.close()
+            finally:
+                request_finished.connect(close_old_connections)
 
     def test_create_replay_collision_and_slot_overlap(self):
         payload = dict(operation='create',staff_id=self.doctor.pk,customer_id=self.patient.pk,
