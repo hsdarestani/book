@@ -1,4 +1,4 @@
-from . import mobile_staff_api, goae_quote_views
+from . import mobile_staff_api, goae_quote_views, intake_forms
 from django.urls import path
 from . import email_cancellation, record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
 
@@ -43,6 +43,7 @@ urlpatterns = [
     path('api/availability/overview/', api.availability_overview, name='availability_overview'),
     path('api/appointments/', api.appointments, name='appointments'),
     path('api/internal/patient-records/ingest/', internal_api.ingest_patient_record, name='patient_record_ingest'),
+    path('api/internal/patient-intake/ingest/', intake_forms.ingest_office_intake, name='office_intake_ingest'),
     path('api/internal/customer-sync/', internal_api.sync_customer, name='internal_customer_sync'),
     path('api/internal/billing-catalog/', internal_api.billing_catalog, name='internal_billing_catalog'),
     path('api/internal/app-mail/', internal_app_api.app_mail, name='internal_app_mail'),
