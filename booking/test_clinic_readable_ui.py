@@ -21,12 +21,18 @@ class ReadableClinicUiTests(TestCase):
         self.assertIn("display:none!important", css)
         self.assertNotIn("clinic-readable-ui-v1", get_template("booking/_shared_admin_calendar.html").template.source)
 
-    def test_rechnungen_has_searchable_collapsed_service_editors(self):
+    def test_rechnungen_is_exclusively_goae_without_legacy_service_forms(self):
         template = get_template("booking/app_management.html").template.source
-        self.assertIn("data-clinic-service-search", template)
-        self.assertIn("<details class=\"billing-service-card clinic-service-card\"", template)
-        self.assertIn("clinic-readable-ui-v1.js", template)
-        self.assertIn("data-clinic-service-count", template)
+        goae = get_template("booking/_billing_goae_form.html").template.source
+        self.assertIn('booking/_billing_goae_form.html', template)
+        self.assertIn('GOÄ-Rechnungen', template)
+        self.assertIn('GOÄ-Entwürfe und Rechnungen', template)
+        self.assertNotIn('data-billing-create-form', template)
+        self.assertNotIn('data-premium-catalog', template)
+        self.assertNotIn('billing-settings-panel', template)
+        self.assertIn('placeholder="TT.MM.JJJJ"', goae)
+        self.assertIn('name="service_date"', goae)
+        self.assertIn('data-goae-full', goae)
 
     @patch("booking.app_wallet_views._wallet_api")
     def test_desktop_wallet_works_without_native_app_login(self, api):
