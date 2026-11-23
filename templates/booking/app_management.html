@@ -1,5 +1,5 @@
 {% load static %}
-<!doctype html><html data-clinic-navigation="unified" data-clinic-design="premium" lang="de" data-admin-page="{{ section }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light">{% if section == 'patients' %}<script>(function(){var h=location.hash.replace(/^#/,'');if(!/^(overview|appointments|records|points)$/.test(h))return;var u=new URL(location.href);if(u.searchParams.get('tab')!==h){u.searchParams.set('tab',h);u.hash='';location.replace(u.pathname+u.search)}})();</script>{% endif %}<title>{{ section_title }} | A+ Esthetic Verwaltung</title><link rel="stylesheet" href="{% static 'booking/admin.css' %}?v=20260923-v19"><link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}"><link rel="stylesheet" href="{% static 'booking/app-management.css' %}"><link rel="stylesheet" href="{% static 'booking/app-billing-v1.css' %}?v=20261006-v2"><link rel="stylesheet" href="{% static 'booking/admin-patient-v11.css' %}?v=20261006-v12"><link rel="stylesheet" href="{% static 'booking/admin-app-inset-v5.css' %}?v=20260912-v20"><link rel="stylesheet" href="{% static 'booking/admin-scroll-recovery-v9.css' %}?v=20260911-scroll-v11"><link rel="stylesheet" href="{% static 'booking/admin-wait-ux-v16.css' %}?v=20260914"><style>
+<!doctype html><html data-clinic-navigation="unified" data-clinic-design="premium" lang="de" data-admin-page="{{ section }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light">{% if section == 'patients' %}<script>(function(){var h=location.hash.replace(/^#/,'');if(!/^(overview|appointments|records|forms|points)$/.test(h))return;var u=new URL(location.href);if(u.searchParams.get('tab')!==h){u.searchParams.set('tab',h);u.hash='';location.replace(u.pathname+u.search)}})();</script>{% endif %}<title>{{ section_title }} | A+ Esthetic Verwaltung</title><link rel="stylesheet" href="{% static 'booking/admin.css' %}?v=20260923-v19"><link rel="stylesheet" href="{% static 'booking/admin-simply.css' %}"><link rel="stylesheet" href="{% static 'booking/app-management.css' %}"><link rel="stylesheet" href="{% static 'booking/app-billing-v1.css' %}?v=20261006-v2"><link rel="stylesheet" href="{% static 'booking/admin-patient-v11.css' %}?v=20261006-v12"><link rel="stylesheet" href="{% static 'booking/admin-app-inset-v5.css' %}?v=20260912-v20"><link rel="stylesheet" href="{% static 'booking/admin-scroll-recovery-v9.css' %}?v=20260911-scroll-v11"><link rel="stylesheet" href="{% static 'booking/admin-wait-ux-v16.css' %}?v=20260914"><style>
 .hero-admin-intro{max-width:760px;color:#71695d;line-height:1.65;margin-bottom:20px}
 .hero-admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:18px;margin:18px 0 28px}
 .hero-admin-card{background:#fff;border:1px solid #e7dcc7;border-radius:22px;box-shadow:0 8px 24px rgba(54,40,19,.06);padding:20px;min-width:0}
@@ -442,6 +442,12 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
     <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
       <input type="hidden" name="customer" value="{{ selected_customer.id }}">
       {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
+      <input type="hidden" name="tab" value="forms">
+      <button type="submit" data-customer-tab="forms" class="patient-tab-button {% if customer_tab == 'forms' %}is-active{% endif %}" aria-current="{% if customer_tab == 'forms' %}page{% else %}false{% endif %}">Formulare</button>
+    </form>
+    <form method="get" action="/verwaltung/app/patients/" class="patient-tab-form">
+      <input type="hidden" name="customer" value="{{ selected_customer.id }}">
+      {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
       <input type="hidden" name="tab" value="points">
       <button type="submit" data-customer-tab="points" class="patient-tab-button {% if customer_tab == 'points' %}is-active{% endif %}" aria-current="{% if customer_tab == 'points' %}page{% else %}false{% endif %}">Punkte</button>
     </form>
@@ -468,6 +474,20 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
   {% if customer_tab == 'appointments' %}
   <section class="admin-panel app-core-panel patient-appointments-panel" data-customer-panel="appointments"><div class="panel-head"><div><div class="eyebrow">RESERVIERUNGEN</div><h2>Termine</h2><p>Alle Reservierungen dieses Patienten.</p></div></div><div class="patient-appointment-list">{% for appt in patient_appointments %}<article><time><b>{{ appt.starts_at|date:"d" }}</b><span>{{ appt.starts_at|date:"M Y" }}</span><small>{{ appt.starts_at|date:"H:i" }}</small></time><div><strong>{{ appt.service.name }}</strong><span>{{ appt.service.duration_minutes }} Min. · {{ appt.staff.display_name }}</span><small>{{ appt.get_status_display }}</small></div></article>{% empty %}<div class="empty">Noch keine Termine.</div>{% endfor %}</div></section>
 
+  {% endif %}
+  {% if customer_tab == 'forms' %}
+  <section class="admin-panel app-core-panel patient-forms-panel" data-customer-panel="forms" style="padding:22px;border:1px solid #e6dfd2;border-radius:17px;background:#fff">
+    <div class="panel-head"><div><div class="eyebrow">DIGITALE FORMULARE</div><h2>Aufnahmebögen</h2><p>Alle signierten Formulare dieser Patientenakte. Die Dokumente sind praxisintern und werden nicht automatisch an Patienten ausgegeben.</p></div></div>
+    {% for form in patient_forms %}
+      <article style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:15px 0;border-top:1px solid #eee8df">
+        <div><strong>Allgemeiner Aufnahmebogen</strong><small style="display:block;color:#78736b;margin-top:5px">{{ form.submitted_at|date:"d.m.Y H:i" }} · {{ form.get_status_display }}</small></div>
+        <div style="display:flex;gap:9px;flex-wrap:wrap">
+          <a href="/verwaltung/app/forms/?form={{ form.pk }}" style="padding:9px 13px;border:1px solid #c7b8a0;border-radius:9px">Antworten & Unterschrift</a>
+          {% if form.record %}<a href="/verwaltung/patienten/{{ form.customer_id }}/datei/{{ form.record.public_id }}/ansicht/" style="padding:9px 13px;border:1px solid #c7b8a0;border-radius:9px">Internes PDF</a>{% endif %}
+        </div>
+      </article>
+    {% empty %}<p class="empty">Noch kein allgemeiner Aufnahmebogen für diese Akte vorhanden.</p>{% endfor %}
+  </section>
   {% endif %}
   {% if customer_tab == 'records' %}
   <div class="app-patient-layout" data-customer-panel="records">
@@ -859,6 +879,8 @@ html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-custom
     </div>
   </section>
   {% endif %}
+{% elif section == 'forms' %}
+{% include "booking/_office_intake_forms.html" %}
 {% elif section == 'invoices' %}
 <section class="billing-command">
   <div class="billing-command-copy">
