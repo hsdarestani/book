@@ -882,14 +882,6 @@ html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-custom
 {% elif section == 'forms' %}
 {% include "booking/_office_intake_forms.html" %}
 {% elif section == 'invoices' %}
-<section class="billing-command goae-only-heading">
-  <div class="billing-command-copy">
-    <span>A+ ESTHETIC · PRIVATABRECHNUNG</span>
-    <h2>GOÄ-Rechnungen</h2>
-    <p>Ärztliche GOÄ-Entwürfe erstellen und prüfen – zentral im bestehenden Praxismanagement.</p>
-  </div>
-  <div class="goae-only-status">Nur ärztliche Entwürfe</div>
-</section>
 {% include "booking/_billing_goae_form.html" %}
 <section class="admin-panel app-core-panel goae-history" aria-label="GOÄ Rechnungsverlauf">
   <div class="panel-head"><div><div class="eyebrow">GOÄ · VERLAUF</div><h2>GOÄ-Entwürfe und Rechnungen</h2>
