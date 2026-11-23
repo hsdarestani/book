@@ -48,14 +48,28 @@ class SimplyBookWritebackTests(TestCase):
         changed_end=self.end+timedelta(minutes=30)
         with patch('booking.simplybook_writeback._session',return_value={'fake':'token'}),patch(
             'booking.simplybook_writeback._remote_call',side_effect=[
-              self.before,True,self.detail(changed_start,changed_end)]) as call:
+              self.before,{changed_start.strftime('%Y-%m-%d'):[changed_start.strftime('%H:%M:%S')]},
+              True,self.detail(changed_start,changed_end)]) as call:
             write_existing_booking(self.appointment,operation='reschedule',start=changed_start,end=changed_end)
         self.assertEqual([x.args[0] for x in call.call_args_list],
-                         ['getBookingDetails','editBook','getBookingDetails'])
-        fields=call.call_args_list[1].args[1]
+                         ['getBookingDetails','getStartTimeMatrix','editBook','getBookingDetails'])
+        fields=call.call_args_list[2].args[1]
         self.assertEqual(fields[:4],[501,7,8,101])
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.starts_at,self.start)
+
+    @patch.dict(os.environ,{'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED':'true'})
+    def test_unavailable_source_slot_prevents_mutation(self):
+        changed_start=self.start+timedelta(minutes=30)
+        changed_end=self.end+timedelta(minutes=30)
+        with patch('booking.simplybook_writeback._session',return_value={'fake':'token'}),patch(
+            'booking.simplybook_writeback._remote_call',side_effect=[
+             self.before,{changed_start.strftime('%Y-%m-%d'): []}]) as remote:
+            with self.assertRaises(SourceConflict):
+                write_existing_booking(self.appointment,operation='reschedule',
+                                       start=changed_start,end=changed_end)
+            self.assertEqual([call.args[0] for call in remote.call_args_list],
+                             ['getBookingDetails','getStartTimeMatrix'])
 
     @patch.dict(os.environ,{'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED':'true'})
     def test_source_changed_rejects_before_remote_mutation(self):
