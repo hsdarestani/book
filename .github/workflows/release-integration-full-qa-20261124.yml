@@ -1,0 +1,98 @@
+name: Persist integrated candidate after full QA (no deployment)
+on:
+  push:
+    branches: ['release/integration-qa-20261124']
+    paths: ['.github/workflows/release-integration-full-qa-20261124.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  full-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DJANGO_DEBUG: '1'
+      PATIENT_SYNC_TOKEN: synthetic-testing-only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 79a07d3a82d4f5e905b41246e4de5eff185c22e7
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: reconciled-candidate-patch
+          path: /tmp/release-candidate
+          run-id: 45374656286
+          github-token: ${{ github.token }}
+      - name: Apply exact reviewed application patch
+        run: |
+          set -euo pipefail
+          git apply --index /tmp/release-candidate/reconciled.patch
+          # Keep the current release automation separate from application source.
+          git restore --source=HEAD --staged --worktree .github/workflows
+          git diff --cached --check
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Full Django regression
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+          python manage.py migrate --noinput
+          python manage.py test --verbosity 1
+      - name: Persist exact integrated application source on separate branch
+        run: |
+          set -euo pipefail
+          git config user.name 'Release Integration QA'
+          git config user.email 'integration-qa@users.noreply.github.com'
+          git commit -m 'Integrate native staff, signed Office intake, GOAE and guarded SimplyBook writeback'
+          git push origin HEAD:refs/heads/release/integrated-20261124
+          echo "INTEGRATED_RELEASE_COMMIT $(git rev-parse HEAD)"
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: integration_ci
+          POSTGRES_USER: integration_ci
+          POSTGRES_PASSWORD: synthetic_local_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U integration_ci -d integration_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DJANGO_DEBUG: '1'
+      DB_ENGINE: postgresql
+      DB_NAME: integration_ci
+      DB_USER: integration_ci
+      DB_PASSWORD: synthetic_local_only
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      PATIENT_SYNC_TOKEN: synthetic-testing-only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 79a07d3a82d4f5e905b41246e4de5eff185c22e7
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: reconciled-candidate-patch
+          path: /tmp/release-candidate
+          run-id: 45374656286
+          github-token: ${{ github.token }}
+      - run: git apply --index /tmp/release-candidate/reconciled.patch
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Check candidate schema and targeted tests with PostgreSQL
+        run: |
+          python manage.py makemigrations --check --dry-run
+          python manage.py migrate --noinput
+          python manage.py test booking.test_general_intake booking.test_same_domain_invoices booking.test_patient_tabs_v2 booking.test_mobile_staff_workspace booking.test_simplybook_writeback --verbosity 1
