@@ -1,0 +1,36 @@
+name: V4 production read-only safety preflight
+on:
+  push:
+    branches: ['ops/admin-v4-production-preflight-20261124']
+    paths: ['.github/workflows/admin-v4-production-preflight.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            systemctl show aesthetic-book.service -p ActiveState -p WorkingDirectory -p CanReload --no-pager
+            if [ -d .git ]; then git rev-parse HEAD; git status --porcelain -- booking/mobile_staff_api.py booking/urls.py booking/models.py booking/intake_forms.py; fi
+            for file in booking/mobile_staff_api.py booking/urls.py booking/models.py booking/intake_forms.py; do if [ -f "$file" ]; then sha256sum "$file"; else printf 'MISSING %s\n' "$file"; fi; done
+            df -h "/opt/aesthetic-book/app" | tail -1
+            set -a
+            source /etc/aesthetic-book.env
+            set +a
+            /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            from django.db import connection
+            tables=set(connection.introspection.table_names())
+            print('DB_VENDOR',connection.vendor)
+            for name in ["booking_officeintakeform","booking_mobilestaffcommand","booking_patientrecord"]:
+                print('TABLE',name, 'present' if name in tables else 'missing')
+            PY
