@@ -12,6 +12,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 14
+    env:
+      BOOKING_ADMIN_PASSWORD: ${{ secrets.BOOKING_ADMIN_PASSWORD }}
     steps:
       - uses: appleboy/ssh-action@v1.2.0
         with:
@@ -20,6 +22,7 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 10m
+          envs: BOOKING_ADMIN_PASSWORD
           script: |
             set -euo pipefail
             ROOT=/opt/aesthetic-book
@@ -90,37 +93,57 @@ jobs:
               sleep 2
             done
             test "$healthy" = 1
-            # Test the actual public HTTP response using a short-lived authorized staff session.
-            # Never log rendered patient information, session credentials or full HTML.
-            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec /opt/aesthetic-book/venv/bin/python -' <<'PY'
-            import os,re,urllib.request
+            # Verify the real template origin and local response, then public response.
+            systemctl show "$SERVICE" -p WorkingDirectory -p MainPID
+            runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec /opt/aesthetic-book/venv/bin/python -' <<'PY'
+            import os,re,urllib.request,urllib.parse,http.cookiejar
             os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings')
             import django
             django.setup()
-            from django.conf import settings
-            from django.contrib.auth import get_user_model
+            from django.template.loader import get_template
             from django.test import Client
-            u=get_user_model().objects.filter(is_active=True,is_staff=True,is_superuser=True).order_by('pk').first()
-            assert u is not None,'No authorized staff for read-only live smoke'
-            client=Client()
-            client.force_login(u)
-            session=client.session
+            for n in ('_office_intake_forms.html','_shared_admin_calendar.html','dashboard.html'):
+                template=get_template('booking/'+n)
+                print('TEMPLATE_ORIGIN',n,template.origin.name,flush=True)
+            checks={
+                'forms':('/verwaltung/app/forms/','<h2 style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important">Digitale Aufnahmebögen</h2>'),
+                'calendar':('/verwaltung/kalender/','book-desktop-mobile-strip-fix-20261124'),
+            }
+            password=os.environ.get('BOOKING_ADMIN_PASSWORD','')
+            assert password,'Configured admin credential unavailable'
+            client=Client(HTTP_HOST='book.a-esthetic.de')
+            assert client.login(username='admin',password=password),'Configured admin login failed'
             try:
-                cookie=client.cookies[settings.SESSION_COOKIE_NAME].value
-                def get(path):
-                    request=urllib.request.Request('https://book.a-esthetic.de'+path,headers={'Cookie':settings.SESSION_COOKIE_NAME+'='+cookie,'Cache-Control':'no-cache','User-Agent':'Book-Production-Contrast-Smoke'})
-                    with urllib.request.urlopen(request,timeout=30) as response:
-                        assert response.status==200 and '/login/' not in response.geturl(),'authenticated route unavailable'
-                        return response.read().decode('utf-8')
-                forms=get('/verwaltung/app/forms/?contrast_check=20261124')
-                assert re.search(r'<h2[^>]*style="[^"]*color:#fffaf0!important[^"]*"[^>]*>Digitale Aufnahmebögen</h2>',forms),'live intake style missing'
-                print('LIVE_INTAKE_HEADING_STYLE_CONFIRMED')
-                cal=get('/verwaltung/kalender/?contrast_check=20261124')
-                assert 'book-desktop-mobile-strip-fix-20261124' in cal,'live desktop strip guard missing'
-                assert re.search(r'<b style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important">',cal),'live selected provider style missing'
-                print('LIVE_SELECTED_PROVIDER_AND_DESKTOP_STRIP_GUARD_CONFIRMED')
+                for name,(path,marker) in checks.items():
+                    resp=client.get(path,secure=True)
+                    html=resp.content.decode('utf-8')
+                    print('DJANGO_LOCAL',name,resp.status_code,'marker',marker in html,'page',('intake-command' in html if name=='forms' else 'doctor-pill' in html),flush=True)
+                    assert resp.status_code==200 and marker in html, 'local response marker missing: '+name
+                    if name=='calendar': assert '<b style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important">' in html
             finally:
-                session.delete()
+                client.logout()
+            origin='https://book.a-esthetic.de'
+            jar=http.cookiejar.CookieJar()
+            opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPCookieProcessor(jar))
+            def fetch(path,data=None):
+                req=urllib.request.Request(origin+path,data=data,headers={'Cache-Control':'no-cache','User-Agent':'APlus-Book-Contrast-Smoke','Referer':origin+'/verwaltung/login/'})
+                with opener.open(req,timeout=30) as resp:
+                    return resp.status,urllib.parse.urlparse(resp.geturl()).path,resp.read().decode('utf-8')
+            try:
+                status,location,html=fetch('/verwaltung/login/')
+                csrf=next((x.value for x in jar if x.name=='csrftoken'),None)
+                assert csrf,'login csrf missing'
+                data=urllib.parse.urlencode({'username':'admin','password':password,'csrfmiddlewaretoken':csrf,'next':'/verwaltung/app/forms/'}).encode()
+                status,location,html=fetch('/verwaltung/login/',data)
+                assert '/login/' not in location,'public login failed'
+                for name,(path,marker) in checks.items():
+                    status,location,html=fetch(path+'?contrast_check=direct2')
+                    print('PUBLIC_HTTP',name,status,location,'marker',marker in html,'page',('intake-command' in html if name=='forms' else 'doctor-pill' in html),flush=True)
+                    assert status==200 and location==path and marker in html,'public response marker missing: '+name
+                    if name=='calendar': assert '<b style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important">' in html
+            finally:
+                try: fetch('/verwaltung/logout/')
+                except Exception: pass
             PY
             trap - ERR
             printf '%s\n' "$TARGET" > "$backup/deployed-sha.txt"
