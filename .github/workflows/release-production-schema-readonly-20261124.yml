@@ -1,0 +1,42 @@
+name: Read-only production migration and route preflight
+on:
+  push:
+    branches: ['release/integration-qa-20261124']
+    paths: ['.github/workflows/release-production-schema-readonly-20261124.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Read only schema and migration metadata via existing deploy SSH key
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 4m
+          script: |
+            set -euo pipefail
+            systemctl show aesthetic-book.service -p ActiveState -p WorkingDirectory --no-pager
+            cd /opt/aesthetic-book/app
+            git rev-parse HEAD || true
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from django.conf import settings
+            from django.db import connection
+            from django.db.migrations.recorder import MigrationRecorder
+            for app, name in sorted(MigrationRecorder(connection).applied_migrations()):
+                if app == 'booking':
+                    print('APPLIED', app, name)
+            tables = set(connection.introspection.table_names())
+            for name in sorted(tables):
+                if name.startswith(('booking_office','booking_mobilestaff')) or name in {'booking_customer','booking_patientidentitydecision'}:
+                    with connection.cursor() as cursor:
+                        cols = [c.name for c in connection.introspection.get_table_description(cursor,name)]
+                    print('SCHEMA',name,','.join(cols))
+            print('WRITEBACK_ENABLED',bool(getattr(settings,'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED',False)))
+            PY
+            curl -sS -o /dev/null -w 'BOOK_STAFF_HTTP %{http_code}\n' --max-time 15 https://book.a-esthetic.de/api/mobile/staff/catalog/
