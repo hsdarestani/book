@@ -1,0 +1,41 @@
+name: V4 Book production schema recheck (read-only service identity)
+on:
+  push:
+    branches: ['ops/admin-v4-production-preflight-20261124']
+    paths: ['.github/workflows/admin-v4-book-schema-recheck.yml']
+permissions: {contents: read}
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            test "$(systemctl show aesthetic-book.service -p User --value)" = aestheticbook
+            test "$(git rev-parse HEAD)" = 4ee22e1a05ab1a91e3ea7e06fc832a70c58e32d2
+            test -z "$(git status --porcelain -- booking config)"
+            echo BASELINE_MAIN_MATCH
+            systemctl show aesthetic-book.service -p ActiveState -p User -p CanReload --no-pager
+            ps -p "$(systemctl show aesthetic-book.service -p MainPID --value)" -o comm=
+            pg_dump --version
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from django.db import connection
+            from django.db.migrations.recorder import MigrationRecorder
+            print('DB_VENDOR',connection.vendor)
+            for app,name in sorted(MigrationRecorder(connection).applied_migrations()):
+                if app=='booking':print('APPLIED',app,name)
+            for name in ('booking_customer','booking_patientidentitydecision','booking_mobilestaffcommand','booking_mobilestaffcancellation','booking_officeintakeform','booking_appointment'):
+                if name not in connection.introspection.table_names():
+                    print('MISSING_TABLE',name);continue
+                with connection.cursor() as cursor:
+                    cols=[f.name for f in connection.introspection.get_table_description(cursor,name)]
+                print('SCHEMA',name,','.join(cols))
+            PY
