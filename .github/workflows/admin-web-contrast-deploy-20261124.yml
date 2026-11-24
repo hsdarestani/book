@@ -1,0 +1,110 @@
+name: Deploy Book web admin foreground contrast only
+on:
+  push:
+    branches: ['ops/admin-v4-production-preflight-20261124']
+    paths: ['.github/workflows/admin-web-contrast-deploy-20261124.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 7m
+          script: |
+            set -euo pipefail
+            ROOT=/opt/aesthetic-book
+            APP="$ROOT/app"
+            BASE=a03c7f6a483381185c220ff2f6d5ef58339da9f0
+            MAIN=4ee22e1a05ab1a91e3ea7e06fc832a70c58e32d2
+            TARGET=dfc6c007a767921ec907e22c45f83b01d45fef00
+            SERVICE=aesthetic-book.service
+            exec 9>"$ROOT/.admin-v4-deploy.lock"
+            flock -n 9
+            systemctl is-active --quiet "$SERVICE"
+            master=$(systemctl show "$SERVICE" -p MainPID --value)
+            ps -p "$master" -o comm= | grep -qi gunicorn
+            git -C "$APP" fetch origin "$TARGET" "$BASE" "$MAIN"
+            files=(templates/booking/_premium_sidebar.html templates/booking/_shared_admin_calendar.html)
+            test "$(git -C "$APP" diff --name-only "$BASE" "$TARGET" | wc -l)" -eq 2
+            for f in "${files[@]}"; do
+              git -C "$APP" diff --name-only "$BASE" "$TARGET" | grep -Fx "$f"
+              if ! cmp -s "$APP/$f" <(git -C "$APP" show "$BASE:$f") && ! cmp -s "$APP/$f" <(git -C "$APP" show "$MAIN:$f"); then
+                echo "UNEXPECTED_LIVE_TEMPLATE $f"; exit 1
+              fi
+            done
+            umask 077
+            backup="$ROOT/v4-backups/${{ github.run_id }}"
+            install -d -m 0700 "$backup"
+            for f in "${files[@]}"; do cp -a "$APP/$f" "$backup/$(basename "$f")"; done
+            stage=$(mktemp -d)
+            trap 'rm -rf "$stage"' EXIT
+            for f in "${files[@]}"; do
+              git -C "$APP" show "$BASE:$f" > "$stage/$(basename "$f").base"
+              git -C "$APP" show "$TARGET:$f" > "$stage/$(basename "$f").target"
+            done
+            # Apply only the added CSS, preserving the actual live calendar markup.
+            python3 - "$APP" "$stage" <<'PY'
+            import pathlib, sys
+            app,stage=map(pathlib.Path,sys.argv[1:])
+            for name in ('_premium_sidebar.html','_shared_admin_calendar.html'):
+                original=(stage/(name+'.base')).read_text()
+                target=(stage/(name+'.target')).read_text()
+                live=(app/'templates/booking'/name).read_text()
+                if name=='_premium_sidebar.html':
+                    assert target.startswith(original)
+                    addition=target[len(original):]
+                    assert 'clinic-contrast-20261124' in addition and addition.count('<style')==1
+                    result=live+addition
+                else:
+                    assert original.count('</style>')==1
+                    before,after=original.split('</style>',1)
+                    assert target.startswith(before) and target.endswith('</style>'+after)
+                    addition=target[len(before):len(target)-len('</style>'+after)]
+                    assert 'selected doctor label contrast' in addition
+                    assert live.count('</style>')==1
+                    result=live.replace('</style>',addition+'</style>',1)
+                (stage/name).write_text(result)
+            PY
+            rollback() {
+              rc=$?; trap - ERR; set +e
+              for f in "${files[@]}"; do
+                tmp=$(mktemp "$APP/templates/booking/.contrast-rollback.XXXXXX")
+                cp -a "$backup/$(basename "$f")" "$tmp" && mv -f "$tmp" "$APP/$f"
+              done
+              kill -HUP "$master" 2>/dev/null
+              echo WEB_CONTRAST_ROLLED_BACK
+              exit "$rc"
+            }
+            trap rollback ERR
+            for f in "${files[@]}"; do
+              tmp=$(mktemp "$APP/templates/booking/.contrast-fix.XXXXXX")
+              cat "$stage/$(basename "$f")" > "$tmp"
+              chmod --reference="$APP/$f" "$tmp"
+              chown --reference="$APP/$f" "$tmp"
+              mv -f "$tmp" "$APP/$f"
+            done
+            cd "$APP"
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py check; /opt/aesthetic-book/venv/bin/python manage.py shell -c "from django.template.loader import get_template; [get_template(n) for n in (\"booking/_premium_sidebar.html\",\"booking/_shared_admin_calendar.html\",\"booking/app_management.html\",\"booking/dashboard.html\")]; print(\"TEMPLATES_COMPILED\")"'
+            kill -HUP "$master"
+            healthy=0
+            for attempt in $(seq 1 15); do
+              status=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/health/ || true)
+              auth=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/mobile/staff/catalog/ || true)
+              if [ "$status" = 200 ] && [ "$auth" = 401 ]; then healthy=1; break; fi
+              sleep 2
+            done
+            test "$healthy" = 1
+            for f in "${files[@]}"; do cmp -s "$APP/$f" "$stage/$(basename "$f")"; done
+            trap - ERR
+            printf '%s\n' "$TARGET" > "$backup/deployed-sha.txt"
+            echo WEB_CONTRAST_PRODUCTION_HEALTHY
