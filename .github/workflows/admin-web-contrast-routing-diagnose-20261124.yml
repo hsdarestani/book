@@ -1,0 +1,41 @@
+name: Diagnose actual Book production HTTP routing
+on:
+  push:
+    branches: ['ops/admin-v4-production-preflight-20261124']
+    paths: ['.github/workflows/admin-web-contrast-routing-diagnose-20261124.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            echo BOOK_SERVICE
+            systemctl show aesthetic-book.service -p WorkingDirectory -p MainPID -p FragmentPath
+            echo LISTENERS
+            ss -ltnp | grep -E ':(80|443|8017|8018|8000|8001)[[:space:]]' || true
+            echo DOMAIN_DNS
+            getent ahostsv4 book.a-esthetic.de | awk '{print $1}' | sort -u
+            echo SERVER_IPV4
+            ip -4 -o addr show scope global | awk '{print $4}'
+            echo PROXY_ROUTE
+            if command -v nginx >/dev/null; then
+              nginx -T 2>/dev/null | awk '/^# configuration file /{file=$0} /server_name.*book[.]a-esthetic[.]de/{print file; print; remaining=35;next} remaining>0{if($0 ~ /proxy_pass |fastcgi_pass |listen |location |root |server_name /)print;remaining--}' || true
+            fi
+            if [ -f /etc/caddy/Caddyfile ]; then
+              awk '/^book[.]a-esthetic[.]de[[:space:]]*\{/{remaining=35;print;next} remaining>0{if($0 ~ /reverse_proxy|handle|root |file_server/)print;remaining--}' /etc/caddy/Caddyfile
+            fi
+            echo HTTP_HEALTH
+            for url in http://127.0.0.1:8017/api/health/ https://book.a-esthetic.de/api/health/; do
+              curl -sS --max-time 10 -H 'Host: book.a-esthetic.de' -o /dev/null -w 'http=%{http_code} remote=%{remote_ip}\n' "$url"
+            done
+            echo ROUTING_DIAGNOSTICS_COMPLETE
