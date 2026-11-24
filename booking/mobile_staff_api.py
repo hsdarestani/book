@@ -5,6 +5,7 @@ import binascii
 import hashlib
 import json
 import logging
+from io import BytesIO
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 from urllib.error import HTTPError, URLError
@@ -224,6 +225,14 @@ def _record_file(actor, providers, person, record_id):
     return response
 
 
+def _record_editable(actor, item):
+    return item.kind=='note' and item.source=='mobile_staff' and (actor['role']=='admin' or item.metadata.get('actor_id')==actor['id'])
+
+
+def _record_revision(item):
+    return hashlib.sha256(json.dumps([item.title,item.note,len(item.metadata.get('native_revisions',[]))],ensure_ascii=False).encode()).hexdigest()
+
+
 def _read(request, actor, providers, action, ident, record_id):
     if action == 'calendar':
         return _calendar(request, providers)
@@ -277,6 +286,7 @@ def _read(request, actor, providers, action, ident, record_id):
             'id': str(item.public_id), 'title': item.title, 'note': item.note,
             'date': item.created_at.isoformat(), 'has_file': item.has_file, 'filename': item.original_name,
             'kind': item.kind, 'mime_type': item.mime_type, 'source': item.source,
+            'editable':_record_editable(actor,item),'revision':_record_revision(item) if _record_editable(actor,item) else '',
         } for item in _records(actor, person, providers).order_by('-created_at', '-pk')[offset:offset+31]][:30],
         'has_more': _records(actor, person, providers).count() > offset+30,
         'appointments': [_appointment(row) | {'public_id': str(row.public_id)} for row in items.filter(customer=person).order_by('-starts_at')[:20]],
@@ -313,7 +323,11 @@ def _forms(request, actor, action, ident):
         form = forms.filter(pk=ident).first()
         if not form: return _private({'ok':False,'error':'not_found'},404)
         if action == 'form-pdf':
-            result = HttpResponse(build_intake_pdf(form),content_type='application/pdf')
+            try:
+                raw = build_intake_pdf(form)
+            except (ValueError, OSError):
+                return _private({'ok':False,'error':'form_pdf_unavailable'},422)
+            result = HttpResponse(raw,content_type='application/pdf')
             result['Cache-Control']='private, no-store, max-age=0'
             result['Content-Disposition']='attachment; filename="aufnahmebogen.pdf"'
             return result
@@ -379,7 +393,7 @@ def workspace(request, action, ident=None, record_id=None):
             return _private({'ok': True, 'id': review.pk})
         if request.method == 'GET' and action in {'calendar', 'catalog', 'overview', 'appointments', 'patients', 'patient', 'record', 'visit'}:
             return _read(request, actor, providers, action, ident, record_id)
-        if request.method == 'POST' and action in {'appointment', 'block', 'availability', 'service', 'record-note', 'record-upload'}:
+        if request.method == 'POST' and action in {'appointment', 'block', 'availability', 'service', 'record-note', 'record-upload','record-edit'}:
             return _mutate(request, actor, providers, action)
     except (ValidationError, TypeError, ValueError, OverflowError) as exc:
         message = ' '.join(exc.messages) if isinstance(exc, ValidationError) else 'Die Eingaben sind ungültig.'
@@ -682,18 +696,31 @@ def _mutate(request, actor, providers, action):
                 if action == 'record-upload':
                     # Only the explicitly selected patient's authorized timeline.
                     filename = str(data.get('filename') or '').strip()
-                    if not filename.lower().endswith('.pdf') or len(filename) > 200 or '/' in filename or '\\' in filename:
-                        raise ValidationError('Nur PDF-Dateien sind zulässig.')
+                    if not filename.lower().endswith(('.pdf','.jpg','.jpeg','.png')) or len(filename) > 200 or '/' in filename or '\\' in filename:
+                        raise ValidationError('Nur PDF-, JPEG- und PNG-Dateien sind zulässig.')
                     try:
                         content = base64.b64decode(str(data.get('base64') or ''), validate=True)
                     except (ValueError, binascii.Error):
-                        raise ValidationError('Ungültige PDF-Datei.')
-                    if not content.startswith(b'%PDF-') or not 0 < len(content) <= 6 * 1024 * 1024:
-                        raise ValidationError('PDF-Datei darf maximal 6 MB groß sein.')
+                        raise ValidationError('Ungültige Datei.')
+                    if not 0 < len(content) <= 6 * 1024 * 1024:
+                        raise ValidationError('Datei darf maximal 6 MB groß sein.')
+                    if filename.lower().endswith('.pdf'):
+                        if not content.startswith(b'%PDF-'):raise ValidationError('Ungültige PDF-Datei.')
+                        mime='application/pdf'
+                    else:
+                        from PIL import Image
+                        try:
+                            with Image.open(BytesIO(content)) as image:
+                                expected='PNG' if filename.lower().endswith('.png') else 'JPEG'
+                                if image.format!=expected or max(image.size)>6000:raise ValueError('Invalid photo')
+                                image.verify()
+                        except (ValueError,OSError,SyntaxError,Image.DecompressionBombError):
+                            raise ValidationError('Ungültige Bilddatei.')
+                        mime='image/png' if expected=='PNG' else 'image/jpeg'
                     appointment = _appointments(providers).filter(customer=person).order_by('-starts_at').first() if actor['role'] == 'doctor' else None
                     try:
                         uploaded = save_patient_upload(user=None, customer=person,
-                            files=[SimpleUploadedFile(filename, content, content_type='application/pdf')],
+                            files=[SimpleUploadedFile(filename, content, content_type=mime)],
                             kind='document', appointment=appointment, shared=False, source='mobile_staff')[0]
                     except PatientUploadError:
                         raise ValidationError('Datei konnte nicht gespeichert werden.')
@@ -702,6 +729,22 @@ def _mutate(request, actor, providers, action):
                     receipt.object_id = uploaded.pk
                     receipt.save(update_fields=['object_id'])
                     return _private({'ok': True, 'id': uploaded.pk})
+                if action=='record-edit':
+                    item=_records(actor,person,providers).select_for_update().filter(public_id=UUID(str(data['record_id']))).first()
+                    if not item or not _record_editable(actor,item):raise PermissionError
+                    if data.get('revision')!=_record_revision(item):
+                        raise CommandConflict('Akteneintrag wurde zwischenzeitlich geändert.')
+                    title=str(data.get('title') or '').strip();note=str(data.get('note') or '').strip()
+                    if not title or not note or len(title)>180 or len(note)>6000:
+                        raise ValidationError('Bitte Titel und Notiz prüfen.')
+                    prior=list(item.metadata.get('native_revisions',[]))
+                    if len(prior)>=100:raise CommandConflict('Bitte ergänzende Notiz statt weiterer Korrektur anlegen.')
+                    prior.append({'title':item.title,'note':item.note,'actor_id':actor['id'],'changed_at':timezone.now().isoformat()})
+                    item.title,item.note=title,note
+                    item.metadata={**item.metadata,'native_revisions':prior}
+                    item.save(update_fields=['title','note','metadata'])
+                    receipt.object_id=item.pk;receipt.save(update_fields=['object_id'])
+                    return _private({'ok':True,'id':item.pk})
                 note = str(data.get('note') or '').strip()
                 title = str(data.get('title') or '').strip()
                 if not note or len(note) > 6000 or not title or len(title) > 180:

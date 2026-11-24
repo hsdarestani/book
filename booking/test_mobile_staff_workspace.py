@@ -1,5 +1,6 @@
 import json
 import base64
+from io import BytesIO
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, time, timedelta
@@ -47,6 +48,11 @@ class WorkspaceTests(TestCase):
         mocked = patch('booking.mobile_staff_api._verify', side_effect=lambda req: (self.identity, 200))
         mocked.start()
         self.addCleanup(mocked.stop)
+        # Never relay synthetic test bookings or patient information to live
+        # integrations, including the retired legacy notification host.
+        notifications = patch('booking.notifications._post_internal',return_value={'ok':True})
+        notifications.start()
+        self.addCleanup(notifications.stop)
 
     def post(self, endpoint, **data):
         data.setdefault('key', str(uuid4()))
@@ -60,10 +66,13 @@ class WorkspaceTests(TestCase):
         overview = self.client.get('/api/mobile/staff/overview/').json()
         self.assertGreaterEqual(overview['upcoming_count'], 2)
         self.assertTrue(any(row['id']==self.doctor.pk for row in overview['provider_today']))
+        from PIL import Image
+        signature = BytesIO()
+        Image.new('RGB',(20,10),'white').save(signature,format='PNG')
         form = OfficeIntakeForm.objects.create(source_id=uuid4(), status='review',
             payload={'identity':{'first_name':'Own','last_name':'Patient','email':self.patient.email},
                      'answers':{'allergies':'Synthetic'},'consent_text':'Synthetic consent'},
-            signature_png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==')
+            signature_png='data:image/png;base64,'+base64.b64encode(signature.getvalue()).decode())
         root='/api/mobile/staff/forms/'
         listing=self.client.get(root+'?q=Own&status=review').json()
         self.assertEqual(listing['items'][0]['id'],form.pk)
@@ -77,6 +86,13 @@ class WorkspaceTests(TestCase):
         self.assertEqual(self.post('forms/'+str(form.pk)+'/link',customer_id=self.patient.pk,confirmed_same_patient=True).status_code,403)
         self.identity['role']='admin'
         self.assertEqual(self.post('forms/'+str(form.pk)+'/link',customer_id=self.patient.pk,confirmed_same_patient=False).status_code,409)
+        with tempfile.TemporaryDirectory() as directory, override_settings(PATIENT_FILES_ROOT=directory):
+            linked=self.post('forms/'+str(form.pk)+'/link',customer_id=self.patient.pk,confirmed_same_patient=True)
+            self.assertEqual(linked.status_code,200,linked.content)
+            form.refresh_from_db()
+            self.assertEqual(form.customer_id,self.patient.pk)
+            self.assertIsNotNone(form.record_id)
+            self.assertEqual(form.reviewed_by.username,'aplus_app_admin_42')
 
     def test_doctor_scope_applies_to_calendar_people_records_and_writes(self):
         self.identity['role'] = 'doctor'
@@ -118,6 +134,31 @@ class WorkspaceTests(TestCase):
                 content.close()
             finally:
                 request_finished.connect(close_old_connections)
+
+    def test_private_photo_and_note_correction_are_scoped_and_revision_safe(self):
+        from PIL import Image
+        self.identity['role']='doctor'
+        photo=BytesIO()
+        Image.new('RGB',(40,20),'white').save(photo,format='JPEG')
+        data={'customer_id':self.patient.pk,'filename':'synthetic.jpg','base64':base64.b64encode(photo.getvalue()).decode()}
+        with tempfile.TemporaryDirectory() as directory, override_settings(PATIENT_FILES_ROOT=directory):
+            result=self.post('record-upload',**data)
+            self.assertEqual(result.status_code,200,result.content)
+            record=PatientRecord.objects.get(pk=result.json()['id'])
+            self.assertEqual(record.kind,'photo')
+            self.assertFalse(record.metadata['shared_with_customer'])
+            self.assertEqual(self.post('record-upload',**(data|{'base64':base64.b64encode(b'not-an-image').decode()})).status_code,400)
+        create=self.post('record-note',customer_id=self.patient.pk,title='Test note',note='Original synthetic note')
+        self.assertEqual(create.status_code,200)
+        note=PatientRecord.objects.get(pk=create.json()['id'])
+        payload=self.client.get(f'/api/mobile/staff/patient/{self.patient.pk}/').json()
+        revision=next(row['revision'] for row in payload['records'] if row['id']==str(note.public_id))
+        correction={'customer_id':self.patient.pk,'record_id':str(note.public_id),'revision':revision,'title':'Corrected note','note':'Corrected synthetic note'}
+        self.assertEqual(self.post('record-edit',**correction).status_code,200)
+        self.assertEqual(self.post('record-edit',**correction).status_code,409)
+        note.refresh_from_db()
+        self.assertEqual(note.metadata['native_revisions'][0]['note'],'Original synthetic note')
+        self.assertEqual(self.post('record-edit',**(correction|{'customer_id':self.outside.pk})).status_code,403)
 
     def test_create_replay_collision_and_slot_overlap(self):
         payload = dict(operation='create',staff_id=self.doctor.pk,customer_id=self.patient.pk,
