@@ -1,0 +1,146 @@
+name: Deploy web contrast to actual live Book upstream 8019
+on:
+  push:
+    branches: ['ops/admin-v4-production-preflight-20261124']
+    paths: ['.github/workflows/admin-web-contrast-live8019-deploy.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    env:
+      BOOKING_ADMIN_PASSWORD: ${{ secrets.BOOKING_ADMIN_PASSWORD }}
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 10m
+          envs: BOOKING_ADMIN_PASSWORD
+          script: |
+            set -euo pipefail
+            ROOT=/opt/aesthetic-book
+            REPO="$ROOT/app"
+            BASE=dfc6c007a767921ec907e22c45f83b01d45fef00
+            TARGET=69750ebb94d1db1a75747181e625db558414fd2b
+            # Resolve the actual upstream without changing Nginx or switching databases.
+            nginx -T 2>/dev/null | grep -F 'proxy_pass http://127.0.0.1:8019;' >/dev/null
+            pids=$(ss -ltnp 'sport = :8019' | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+            test -n "$pids"
+            units=$(for pid in $pids; do grep -oE '[^/]+\.service' /proc/$pid/cgroup; done | sort -u)
+            test "$(printf '%s\n' "$units" | wc -l)" -eq 1
+            SERVICE="$units"
+            case "$SERVICE" in *book*.service|*Book*.service) ;; *) echo "Unexpected service"; exit 1;; esac
+            systemctl is-active --quiet "$SERVICE"
+            master=$(systemctl show "$SERVICE" -p MainPID --value)
+            printf '%s\n' "$pids" | grep -Fx "$master"
+            ps -p "$master" -o comm= | grep -qi gunicorn
+            APP=$(readlink -f "/proc/$master/cwd")
+            case "$APP" in /opt/*) ;; *) echo "Unexpected live application path"; exit 1;; esac
+            test -f "$APP/manage.py"
+            test -f "$APP/booking/app_management_views.py"
+            echo "LIVE_TARGET $SERVICE $APP"
+            exec 9>"$ROOT/.admin-v4-deploy.lock"
+            flock -n 9
+            systemctl is-active --quiet "$SERVICE"
+            git -C "$REPO" fetch origin "$TARGET" "$BASE"
+            files=(templates/booking/_office_intake_forms.html templates/booking/_shared_admin_calendar.html templates/booking/dashboard.html)
+            test "$(git -C "$REPO" diff --name-only "$BASE" "$TARGET" | wc -l)" -eq 3
+            umask 077
+            backup="$ROOT/v4-backups/${{ github.run_id }}"
+            install -d -m 0700 "$backup"
+            stage=$(mktemp -d)
+            trap 'rm -rf "$stage"' EXIT
+            for f in "${files[@]}"; do
+              git -C "$REPO" diff --name-only "$BASE" "$TARGET" | grep -Fx "$f"
+              cp -a "$APP/$f" "$backup/$(basename "$f")"
+              git -C "$REPO" show "$BASE:$f" > "$stage/$(basename "$f").base"
+              git -C "$REPO" show "$TARGET:$f" > "$stage/$(basename "$f").target"
+            done
+            python3 - "$APP" "$stage" <<'PY'
+            import pathlib, sys
+            app,stage=map(pathlib.Path,sys.argv[1:])
+            for name,old in (
+                ('_office_intake_forms.html','<h2>Digitale Aufnahmebögen</h2>'),
+                ('_shared_admin_calendar.html','<b>{{ member.display_name }}</b>'),
+                ('dashboard.html','</head>')):
+                src=(stage/(name+'.base')).read_text()
+                dst=(stage/(name+'.target')).read_text()
+                live=(app/'templates/booking'/name).read_text()
+                assert src.count(old)==1 and live.count(old)==1,name
+                before,after=src.split(old,1)
+                assert dst.startswith(before) and dst.endswith(after),name
+                replacement=dst[len(before):len(dst)-len(after)] if after else dst[len(before):]
+                assert replacement!=old,name
+                (stage/name).write_text(live.replace(old,replacement,1))
+            PY
+            rollback() {
+              rc=$?; trap - ERR; set +e
+              for f in "${files[@]}"; do
+                tmp=$(mktemp "$APP/templates/booking/.contrast-rollback.XXXXXX")
+                cp -a "$backup/$(basename "$f")" "$tmp" && mv -f "$tmp" "$APP/$f"
+              done
+              systemctl restart "$SERVICE"
+              echo DIRECT_CONTRAST_ROLLED_BACK
+              exit "$rc"
+            }
+            trap rollback ERR
+            for f in "${files[@]}"; do
+              tmp=$(mktemp "$APP/templates/booking/.contrast-direct.XXXXXX")
+              cat "$stage/$(basename "$f")" > "$tmp"
+              chmod --reference="$APP/$f" "$tmp"
+              chown --reference="$APP/$f" "$tmp"
+              mv -f "$tmp" "$APP/$f"
+            done
+            # Validate only the targeted template edits; public smoke below checks rendering.
+            for f in "${files[@]}"; do cmp -s "$APP/$f" "$stage/$(basename "$f")"; done
+            systemctl restart "$SERVICE"
+            healthy=0
+            for attempt in $(seq 1 20); do
+              status=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/health/ || true)
+              auth=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/mobile/staff/catalog/ || true)
+              if [ "$status" = 200 ] && [ "$auth" = 401 ]; then healthy=1; break; fi
+              sleep 2
+            done
+            test "$healthy" = 1
+            # Use the ordinary authorized login; never print page contents or credentials.
+            python3 - <<'PY'
+            import os,urllib.request,urllib.parse,http.cookiejar
+            password=os.environ.get('BOOKING_ADMIN_PASSWORD','')
+            assert password,'Configured admin credential unavailable'
+            checks={
+                'forms':('/verwaltung/app/forms/','<h2 style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important">Digitale Aufnahmebögen</h2>'),
+                'calendar':('/verwaltung/kalender/','book-desktop-mobile-strip-fix-20261124'),
+            }
+            origin='https://book.a-esthetic.de'
+            jar=http.cookiejar.CookieJar()
+            opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPCookieProcessor(jar))
+            def fetch(path,data=None):
+                req=urllib.request.Request(origin+path,data=data,headers={'Cache-Control':'no-cache','User-Agent':'APlus-Book-Contrast-Smoke','Referer':origin+'/verwaltung/login/'})
+                with opener.open(req,timeout=30) as resp:
+                    return resp.status,urllib.parse.urlparse(resp.geturl()).path,resp.read().decode('utf-8')
+            try:
+                status,location,html=fetch('/verwaltung/login/')
+                csrf=next((x.value for x in jar if x.name=='csrftoken'),None)
+                assert csrf,'login csrf missing'
+                data=urllib.parse.urlencode({'username':'admin','password':password,'csrfmiddlewaretoken':csrf,'next':'/verwaltung/app/forms/'}).encode()
+                status,location,html=fetch('/verwaltung/login/',data)
+                assert '/login/' not in location,'public login failed'
+                for name,(path,marker) in checks.items():
+                    status,location,html=fetch(path+'?contrast_check=direct2')
+                    print('PUBLIC_HTTP',name,status,location,'marker',marker in html,'page',('intake-command' in html if name=='forms' else 'doctor-pill' in html),flush=True)
+                    assert status==200 and location==path and marker in html,'public response marker missing: '+name
+                    if name=='calendar': assert '<b style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important">' in html
+            finally:
+                try: fetch('/verwaltung/logout/')
+                except Exception: pass
+            PY
+            trap - ERR
+            printf '%s\n' "$TARGET" > "$backup/deployed-sha.txt"
+            echo DIRECT_CONTRAST_PRODUCTION_LIVE_HTTP_CONFIRMED
