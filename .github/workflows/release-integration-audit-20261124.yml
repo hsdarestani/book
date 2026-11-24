@@ -29,6 +29,8 @@ jobs:
           git ls-files -u > /tmp/integration-report/conflict-stages.txt
           git ls-files 'booking/migrations/*.py' > /tmp/integration-report/migrations.txt
           cat /tmp/integration-report/merge.txt /tmp/integration-report/conflicts.txt /tmp/integration-report/migrations.txt
+          git diff --cc > /tmp/integration-report/conflict-diff.txt
+          cat /tmp/integration-report/conflict-diff.txt
           git merge --abort || true
       - uses: actions/upload-artifact@v4
         with:
