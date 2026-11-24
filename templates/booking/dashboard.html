@@ -31,6 +31,17 @@
 <link rel="stylesheet" href="/static/booking/admin-calendar-horizontal-v2.css?v=20261029-horizontal2" data-calendar-horizontal-v2>
 <link rel="stylesheet" href="/static/booking/calendar-mobile-sticky-day-header-v1.css?v=20261122-header2" data-calendar-sticky-day-heading>
 <script>try{history.scrollRestoration='manual'}catch(_e){}</script>
+<style id="book-desktop-mobile-strip-fix-20261124">
+@media(min-width:761px){
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-reference-date-dock,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-reference-date-preview,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-weekstrip,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-iphone-day,
+  html[data-admin-page="calendar"] body.sb-calendar-pro .sb-calendar-dock-space{
+    display:none!important;visibility:hidden!important;
+  }
+}
+</style>
 </head>
 <body data-calendar-mode="{{ calendar_view }}" class="admin-body sb-admin-body sb-calendar-pro sb-calendar-booting" {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
 

@@ -35,7 +35,7 @@ html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .
 
     <div class="doctor-switcher sb-provider-switcher" role="navigation" aria-label="Behandler wählen">
       {% for member in staff_members %}
-      <a href="{% if doctor_mode %}?date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender{% else %}/verwaltung/?staff={{ member.pk }}&date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender{% endif %}" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b>{{ member.display_name }}</b><small class="sb-doctor-booking-count">{% if member.calendar_period_count == 1 %}1 Termin{% else %}{{ member.calendar_period_count }} Termine{% endif %}</small></a>
+      <a href="{% if doctor_mode %}?date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender{% else %}/verwaltung/?staff={{ member.pk }}&date={{ calendar_date|date:'Y-m-d' }}&cal_view={{ calendar_view }}#kalender{% endif %}" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b{% if selected_staff and member.pk == selected_staff.pk %} style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important"{% endif %}>{{ member.display_name }}</b><small class="sb-doctor-booking-count">{% if member.calendar_period_count == 1 %}1 Termin{% else %}{{ member.calendar_period_count }} Termine{% endif %}</small></a>
       {% endfor %}
     </div>
 
