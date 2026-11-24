@@ -1,0 +1,36 @@
+name: Release integration conflict and migration audit (no deployment)
+on:
+  push:
+    branches: ['release/integration-qa-20261124']
+    paths: ['.github/workflows/release-integration-audit-20261124.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Inspect real merge and migration collisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Integration QA'
+          git config user.email 'integration-qa@users.noreply.github.com'
+          git cat-file -t 2abd8534ad616acefc292ad4d7272e3de087dc25
+          mkdir -p /tmp/integration-report
+          git merge --no-commit --no-ff 2abd8534ad616acefc292ad4d7272e3de087dc25 > /tmp/integration-report/merge.txt 2>&1 || true
+          git status --short > /tmp/integration-report/status.txt
+          git diff --name-only --diff-filter=U > /tmp/integration-report/conflicts.txt
+          git ls-files -u > /tmp/integration-report/conflict-stages.txt
+          git ls-files 'booking/migrations/*.py' > /tmp/integration-report/migrations.txt
+          cat /tmp/integration-report/merge.txt /tmp/integration-report/conflicts.txt /tmp/integration-report/migrations.txt
+          git merge --abort || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-integration-audit
+          path: /tmp/integration-report/
