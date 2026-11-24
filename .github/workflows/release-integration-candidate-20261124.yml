@@ -1,0 +1,68 @@
+name: Reconcile release candidate and run tests (isolated; no deployment)
+on:
+  push:
+    branches: ['release/integration-qa-20261124']
+    paths: ['.github/workflows/release-integration-candidate-20261124.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      DJANGO_DEBUG: '1'
+      PATIENT_SYNC_TOKEN: synthetic-testing-only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reconcile the pinned source with current web release
+        run: |
+          set -euo pipefail
+          git config user.name 'Integration QA'
+          git config user.email 'integration-qa@users.noreply.github.com'
+          git merge --no-commit --no-ff 2abd8534ad616acefc292ad4d7272e3de087dc25 || true
+          python - <<'PY'
+          import json, re, subprocess
+          from pathlib import Path
+          config = json.loads("{\"whole\":[\".github/workflows/unified-intake-goae-qa.yml\",\"templates/booking/_billing_goae_form.html\"],\"hunks\":{\"booking/app_management_views.py\":[0,0,0,0,0,0,0,0],\"booking/test_general_intake.py\":[0],\"templates/booking/app_management.html\":[0,0]},\"edits\":[[\"booking/migrations/0026_mobile_staff_commands.py\",\"('booking', '0025_block_qamar_until_2027')\",\"('booking', '0026_office_intake_forms')\"]],\"noops\":[\"booking/migrations/0028_customer_date_of_birth.py\",\"booking/migrations/0030_office_intake_forms.py\"]}")
+          conflicts = subprocess.check_output(['git','diff','--name-only','--diff-filter=U'],text=True).splitlines()
+          expected = set(config['whole']) | set(config['hunks'])
+          assert set(conflicts)==expected, (conflicts,expected)
+          for filename in config['whole']:
+              subprocess.run(['git','checkout','--ours','--',filename],check=True)
+          for filename, selections in config['hunks'].items():
+              p=Path(filename); data=p.read_text()
+              pattern=re.compile(r'^<<<<<<< HEAD\n(.*?)^=======\n(.*?)^>>>>>>> [^\n]+\n',re.M|re.S)
+              assert len(list(pattern.finditer(data)))==len(selections), filename
+              choices=iter(selections)
+              p.write_text(pattern.sub(lambda m:m.group(1+next(choices)),data))
+          for filename, before, after in config['edits']:
+              p=Path(filename); data=p.read_text(); assert data.count(before)==1,filename; p.write_text(data.replace(before,after))
+          for filename in config['noops']:
+              p=Path(filename); data=p.read_text(); assert data.count('    operations = [')==1,filename
+              p.write_text(data.split('    operations = [')[0]+'    # Equivalent schema already provided by the deployed web intake migration.\n    operations = []\n')
+          subprocess.run(['git','add','-A'],check=True)
+          assert not subprocess.check_output(['git','diff','--name-only','--diff-filter=U'],text=True)
+          print('CANDIDATE_CONFLICTS_RESOLVED')
+          PY
+          mkdir -p /tmp/release-candidate
+          git diff --cached --binary HEAD > /tmp/release-candidate/reconciled.patch
+          git diff --cached --stat HEAD
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Check candidate migration state and Django configuration
+        run: |
+          python manage.py makemigrations --check --dry-run
+          python manage.py check
+      - name: Run focused regression on synthetic database
+        run: python manage.py test booking.test_general_intake booking.test_same_domain_invoices booking.test_patient_tabs_v2 booking.test_mobile_staff_workspace booking.test_simplybook_writeback --verbosity 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reconciled-candidate-patch
+          path: /tmp/release-candidate/
