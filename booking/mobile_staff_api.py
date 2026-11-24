@@ -730,7 +730,9 @@ def _mutate(request, actor, providers, action):
                     receipt.save(update_fields=['object_id'])
                     return _private({'ok': True, 'id': uploaded.pk})
                 if action=='record-edit':
-                    item=_records(actor,person,providers).select_for_update().filter(public_id=UUID(str(data['record_id']))).first()
+                    # Doctor record scoping may join a nullable appointment;
+                    # PostgreSQL can lock only the actual PatientRecord row.
+                    item=_records(actor,person,providers).select_for_update(of=('self',)).filter(public_id=UUID(str(data['record_id']))).first()
                     if not item or not _record_editable(actor,item):raise PermissionError
                     if data.get('revision')!=_record_revision(item):
                         raise CommandConflict('Akteneintrag wurde zwischenzeitlich geändert.')
