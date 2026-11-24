@@ -1,0 +1,63 @@
+name: SimplyBook source readiness and synthetic booking discovery (read-only)
+on:
+  push:
+    branches: ['release/integration-qa-20261124']
+    paths: ['.github/workflows/release-simplybook-live-preflight-20261124.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  source-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 6m
+          script: |
+            set -euo pipefail
+            test -r /etc/aesthetic-simplybook-credentials.env
+            systemctl is-active aesthetic-simplybook-sync.timer || true
+            systemctl show aesthetic-simplybook-sync.service -p Result -p ExecMainStatus --no-pager
+            cd /opt/aesthetic-book/app
+            set -a
+            source /etc/aesthetic-book.env
+            source /etc/aesthetic-simplybook-credentials.env
+            set +a
+            /opt/aesthetic-book/venv/bin/python manage.py shell <<'PY'
+            import os, re
+            from datetime import date, timedelta
+            from booking.management.commands.simplybook_import import rpc, ADMIN_URL, LOGIN_URL
+            company=os.getenv('SIMPLYBOOK_COMPANY_LOGIN','').strip()
+            user=os.getenv('SIMPLYBOOK_USER_LOGIN','').strip()
+            key=(os.getenv('SIMPLYBOOK_API_USER_KEY') or os.getenv('SIMPLYBOOK_USER_PASSWORD') or '').strip()
+            print('SOURCE_CREDENTIALS_PRESENT',bool(company and user and key))
+            assert company and user and key
+            token=rpc(LOGIN_URL,'getUserToken',[company,user,key],timeout=20)
+            assert token
+            h={'X-Company-Login':company,'X-User-Token':token}
+            print('ADMIN_API_READ_AUTH_OK')
+            services=rpc(ADMIN_URL,'getEventList',[False,True,None,''],headers=h,timeout=20) or []
+            providers=rpc(ADMIN_URL,'getUnitList',[False,True,None,''],headers=h,timeout=20) or []
+            clients=rpc(ADMIN_URL,'getClientList',['',None],headers=h,timeout=30) or []
+            qa=lambda x: bool(re.search(r'(?i)(^|\b)(qa|sandbox|synthetic|testbuchung|testtermin|test service|test provider|integration test)(\b|$)',str(x or '')))
+            safe_email=lambda x: bool(re.search(r'(?i)@(example\.(invalid|test)|[a-z0-9.-]+\.invalid|[a-z0-9.-]+\.test)$',str(x or '').strip()))
+            test_services={str(x.get('id')) for x in services if isinstance(x,dict) and qa(x.get('name') or x.get('title'))}
+            test_providers={str(x.get('id')) for x in providers if isinstance(x,dict) and qa(x.get('name') or x.get('title'))}
+            test_clients={str(x.get('id')) for x in clients if isinstance(x,dict) and safe_email(x.get('email')) and qa(x.get('name') or x.get('client_name') or (str(x.get('first_name') or '')+' '+str(x.get('last_name') or '')))}
+            start=date.today().isoformat(); end=(date.today()+timedelta(days=60)).isoformat()
+            rows=rpc(ADMIN_URL,'getBookings',[{'date_from':start,'date_to':end,'booking_type':'all','order':'date_start_asc'}],headers=h,timeout=30) or []
+            print('QA_SERVICE_COUNT',len(test_services),'QA_PROVIDER_COUNT',len(test_providers),'QA_CLIENT_COUNT',len(test_clients))
+            candidates=[r for r in rows if isinstance(r,dict) and str(r.get('client_id')) in test_clients and str(r.get('event_id')) in test_services and str(r.get('unit_id')) in test_providers]
+            print('ISOLATED_QA_BOOKING_COUNT',len(candidates))
+            for r in candidates[:3]:
+                # Log only opaque IDs of clearly synthetic QA fixtures, never real client details.
+                detail=rpc(ADMIN_URL,'getBookingDetails',[int(r['id'])],headers=h,timeout=15)
+                if not isinstance(detail,dict): continue
+                print('QA_BOOKING_ID',r['id'],'CONFIRMED',str(detail.get('is_confirmed')).lower() in ('1','true'),
+                      'HAS_PAYMENT_OR_FIELDS',bool(detail.get('price') or detail.get('invoice_id') or detail.get('promo') or detail.get('additional_fields') or detail.get('location')))
+            print('READ_ONLY_COMPLETE')
+            PY
