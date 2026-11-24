@@ -1,0 +1,96 @@
+name: Deploy verified V4 Book API to existing production
+on:
+  push:
+    branches: ['ops/admin-v4-production-preflight-20261124']
+    paths: ['.github/workflows/admin-v4-book-production-deploy.yml']
+permissions: {contents: read}
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            set -euo pipefail
+            APP=/opt/aesthetic-book/app
+            ROOT=/opt/aesthetic-book
+            BASE=4ee22e1a05ab1a91e3ea7e06fc832a70c58e32d2
+            TARGET=1fe0d05723730707b52e26b0d6a11574c0153b5e
+            SERVICE=aesthetic-book.service
+            exec 9>"$ROOT/.admin-v4-deploy.lock"
+            flock -n 9
+            test "$(git -C "$APP" rev-parse HEAD)" = "$BASE"
+            test -z "$(git -C "$APP" status --porcelain -- booking config)"
+            test "$(systemctl show "$SERVICE" -p User --value)" = aestheticbook
+            systemctl is-active --quiet "$SERVICE"
+            master=$(systemctl show "$SERVICE" -p MainPID --value)
+            ps -p "$master" -o comm= | grep -qi gunicorn
+            git -C "$APP" fetch origin "$TARGET"
+            git -C "$APP" merge-base --is-ancestor "$BASE" "$TARGET"
+            stage=$(mktemp -d "$ROOT/v4-source.XXXXXXXX")
+            chmod 755 "$stage"
+            git -C "$APP" archive "$TARGET" | tar -x -C "$stage"
+            git -C "$APP" diff --name-only --diff-filter=AM "$BASE" "$TARGET" -- booking | grep -v '/test_' > "$stage/runtime-files.txt"
+            test -s "$stage/runtime-files.txt"
+            while IFS= read -r f; do case "$f" in booking/*.py) ;; *) exit 1;; esac; test -f "$stage/$f"; done < "$stage/runtime-files.txt"
+            cd "$stage"
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py check; /opt/aesthetic-book/venv/bin/python manage.py migrate --check --noinput'
+            echo STAGED_SCHEMA_AND_CODE_OK
+            umask 077
+            backup="$ROOT/v4-backups/${{ github.run_id }}"
+            install -d -m 0700 "$backup/source" "$backup/unactivated"
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec pg_dump --format=custom --no-owner --dbname="${DB_NAME:-aestheticbook}" --username="${DB_USER:-aestheticbook}"' > "$backup/book.pgcustom"
+            test -s "$backup/book.pgcustom"
+            pg_restore --list "$backup/book.pgcustom" >/dev/null
+            cp "$stage/runtime-files.txt" "$backup/runtime-files.txt"
+            while IFS= read -r f; do
+              if [ -f "$APP/$f" ]; then install -d -m 0700 "$backup/source/$(dirname "$f")"; cp -a "$APP/$f" "$backup/source/$f"; fi
+            done < "$stage/runtime-files.txt"
+            echo PRIVATE_DATABASE_AND_SOURCE_BACKUP_VERIFIED
+            rollback() {
+              rc=$?
+              trap - ERR
+              set +e
+              while IFS= read -r f; do
+                if [ -f "$backup/source/$f" ]; then
+                  temp=$(mktemp "$APP/$(dirname "$f")/.v4-rollback.XXXXXX")
+                  cp -a "$backup/source/$f" "$temp" && mv -f "$temp" "$APP/$f"
+                elif [ -f "$APP/$f" ]; then
+                  install -d -m 0700 "$backup/unactivated/$(dirname "$f")"; mv "$APP/$f" "$backup/unactivated/$f"
+                fi
+              done < "$backup/runtime-files.txt"
+              kill -HUP "$master" 2>/dev/null
+              echo 'V4 Book code rollback executed; original database retained'
+              exit "$rc"
+            }
+            trap rollback ERR
+            while IFS= read -r f; do
+              temp=$(mktemp "$APP/$(dirname "$f")/.v4-code.XXXXXX")
+              install -m 0644 -o aestheticbook -g aestheticbook "$stage/$f" "$temp"
+              mv -f "$temp" "$APP/$f"
+            done < "$stage/runtime-files.txt"
+            cd "$APP"
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py check; /opt/aesthetic-book/venv/bin/python manage.py migrate --check --noinput'
+            kill -HUP "$master"
+            healthy=0
+            for attempt in $(seq 1 15); do
+              status=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/health/ || true)
+              auth=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/mobile/staff/catalog/ || true)
+              if [ "$status" = 200 ] && [ "$auth" = 401 ]; then healthy=1; break; fi
+              sleep 2
+            done
+            test "$healthy" = 1
+            systemctl is-active --quiet "$SERVICE"
+            trap - ERR
+            printf '%s\n' "$TARGET" > "$backup/deployed-sha.txt"
+            echo BOOK_V4_PRODUCTION_HEALTHY
+            echo "Book source commit $TARGET; private backup preserved; no database mutation and no write-back toggle."
