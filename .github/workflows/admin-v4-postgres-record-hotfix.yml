@@ -1,0 +1,72 @@
+name: Deploy PostgreSQL record-correction compatibility fix
+on:
+  push:
+    branches: ['ops/admin-v4-production-preflight-20261124']
+    paths: ['.github/workflows/admin-v4-postgres-record-hotfix.yml']
+permissions: {contents: read}
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            ROOT=/opt/aesthetic-book
+            APP="$ROOT/app"
+            FILE=booking/mobile_staff_api.py
+            PREVIOUS=1fe0d05723730707b52e26b0d6a11574c0153b5e
+            TARGET=a03c7f6a483381185c220ff2f6d5ef58339da9f0
+            SERVICE=aesthetic-book.service
+            exec 9>"$ROOT/.admin-v4-deploy.lock"
+            flock -n 9
+            cmp -s "$APP/$FILE" <(git -C "$APP" show "$PREVIOUS:$FILE")
+            git -C "$APP" fetch origin "$TARGET"
+            test "$(git -C "$APP" diff --name-only "$PREVIOUS" "$TARGET")" = "$FILE"
+            systemctl is-active --quiet "$SERVICE"
+            master=$(systemctl show "$SERVICE" -p MainPID --value)
+            ps -p "$master" -o comm= | grep -qi gunicorn
+            umask 077
+            backup="$ROOT/v4-backups/${{ github.run_id }}"
+            install -d -m 0700 "$backup"
+            cp -a "$APP/$FILE" "$backup/mobile_staff_api.py.previous"
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec pg_dump --format=custom --no-owner --dbname="${DB_NAME:-aestheticbook}" --username="${DB_USER:-aestheticbook}"' > "$backup/book.pgcustom"
+            test -s "$backup/book.pgcustom"
+            pg_restore --list "$backup/book.pgcustom" >/dev/null
+            temp=$(mktemp "$APP/booking/.v4-record-fix.XXXXXX")
+            git -C "$APP" show "$TARGET:$FILE" > "$temp"
+            /opt/aesthetic-book/venv/bin/python -m py_compile "$temp"
+            chmod 0644 "$temp"; chown --reference="$APP/$FILE" "$temp"
+            rollback() {
+              rc=$?; trap - ERR; set +e
+              restored=$(mktemp "$APP/booking/.v4-rollback.XXXXXX")
+              cp -a "$backup/mobile_staff_api.py.previous" "$restored" && mv -f "$restored" "$APP/$FILE"
+              kill -HUP "$master" 2>/dev/null
+              echo BOOK_RECORD_FIX_ROLLED_BACK
+              exit "$rc"
+            }
+            trap rollback ERR
+            mv -f "$temp" "$APP/$FILE"
+            cd "$APP"
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py check; /opt/aesthetic-book/venv/bin/python manage.py migrate --check --noinput'
+            kill -HUP "$master"
+            healthy=0
+            for attempt in $(seq 1 15); do
+              status=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/health/ || true)
+              auth=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/mobile/staff/catalog/ || true)
+              if [ "$status" = 200 ] && [ "$auth" = 401 ]; then healthy=1; break; fi
+              sleep 2
+            done
+            test "$healthy" = 1
+            trap - ERR
+            printf '%s\n' "$TARGET" > "$backup/deployed-sha.txt"
+            echo BOOK_POSTGRES_RECORD_FIX_PRODUCTION_HEALTHY
