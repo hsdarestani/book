@@ -11,11 +11,12 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
-from django.db.models import Prefetch, Q
-from django.http import FileResponse
+from django.db.models import Prefetch, Q, Count
+from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.csrf import csrf_exempt
@@ -29,8 +30,9 @@ from .internal_api import _patient_path
 from .patient_uploads import save_patient_upload, PatientUploadError
 from .models import (
     Appointment, BlockedPeriod, Customer, DailyAvailabilityOverride, DoctorPatientAccess,
-    MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour,
+    MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour, OfficeIntakeForm,
 )
+from .intake_forms import build_intake_pdf, confirm_form_link
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
 from .services import effective_working_ranges
 from .simplybook_writeback import enabled as simplybook_write_enabled, source_id as simplybook_source_id, write_existing_booking, SourceConflict, SourceUnavailable
@@ -231,9 +233,14 @@ def _read(request, actor, providers, action, ident, record_id):
     if action == 'overview':
         today, tomorrow = _day_bounds(timezone.localdate())
         active = items.exclude(status='cancelled')
-        return _private({'ok': True, 'today': active.filter(starts_at__gte=today, starts_at__lt=tomorrow).count(),
-                         'upcoming': [_appointment(row) for row in active.filter(
-                             starts_at__gte=timezone.now()).order_by('starts_at')[:12]]})
+        daily = active.filter(starts_at__gte=today, starts_at__lt=tomorrow)
+        upcoming = active.filter(starts_at__gte=timezone.now())
+        counts = dict(daily.values('staff_id').annotate(total=Count('pk')).values_list('staff_id','total'))
+        return _private({'ok': True, 'today': daily.count(), 'upcoming_count': upcoming.count(),
+                         'patient_count': _people(actor, providers).count(), 'provider_count': providers.count(),
+                         'provider_today': [{'id': p.pk, 'name': p.display_name, 'count': counts.get(p.pk,0)} for p in providers],
+                         **({'intake_review_count': OfficeIntakeForm.objects.filter(status='review').count()} if actor['role']=='admin' else {}),
+                         'upcoming': [_appointment(row) for row in upcoming.order_by('starts_at')[:12]]})
     query = request.GET.get('q', '').strip()[:100]
     page = min(10000, max(1, int(request.GET.get('page', '1'))))
     offset = (page - 1) * 30
@@ -269,10 +276,69 @@ def _read(request, actor, providers, action, ident, record_id):
         'records': [{
             'id': str(item.public_id), 'title': item.title, 'note': item.note,
             'date': item.created_at.isoformat(), 'has_file': item.has_file, 'filename': item.original_name,
+            'kind': item.kind, 'mime_type': item.mime_type, 'source': item.source,
         } for item in _records(actor, person, providers).order_by('-created_at', '-pk')[offset:offset+31]][:30],
         'has_more': _records(actor, person, providers).count() > offset+30,
         'appointments': [_appointment(row) | {'public_id': str(row.public_id)} for row in items.filter(customer=person).order_by('-starts_at')[:20]],
     })
+
+def _forms(request, actor, action, ident):
+    if actor['role'] != 'admin':
+        return _private({'ok': False, 'error': 'admin_required'}, 403)
+    forms = OfficeIntakeForm.objects.select_related('customer','record')
+    if request.method == 'GET' and action == 'forms':
+        query = request.GET.get('q','').strip()[:100]
+        status = request.GET.get('status','')
+        for term in query.split():
+            forms = forms.filter(Q(payload__identity__first_name__icontains=term) |
+                                 Q(payload__identity__last_name__icontains=term) |
+                                 Q(payload__identity__email__icontains=term) |
+                                 Q(payload__identity__phone__icontains=term))
+        if status:
+            if status not in {'linked','review'}: raise ValueError('Invalid status')
+            forms = forms.filter(status=status)
+        for field, lookup in [('from','submitted_at__date__gte'),('to','submitted_at__date__lte')]:
+            if request.GET.get(field):
+                day = parse_date(request.GET[field])
+                if day is None: raise ValueError('Invalid date')
+                forms = forms.filter(**{lookup:day})
+        page = max(1,min(10000,int(request.GET.get('page','1'))))
+        rows = list(forms.defer('signature_png').order_by('-submitted_at','-pk')[(page-1)*30:page*30+1])
+        def item(f):
+            identity=f.payload.get('identity') or {}
+            return {'id':f.pk,'name':' '.join(str(identity.get(k,'')) for k in ('first_name','last_name')).strip(),
+                    'email':identity.get('email',''),'created_at':f.submitted_at.isoformat(),'status':f.status}
+        return _private({'ok':True,'items':[item(f) for f in rows[:30]],'has_more':len(rows)>30})
+    if request.method == 'GET' and action in {'form','form-pdf'}:
+        form = forms.filter(pk=ident).first()
+        if not form: return _private({'ok':False,'error':'not_found'},404)
+        if action == 'form-pdf':
+            result = HttpResponse(build_intake_pdf(form),content_type='application/pdf')
+            result['Cache-Control']='private, no-store, max-age=0'
+            result['Content-Disposition']='attachment; filename="aufnahmebogen.pdf"'
+            return result
+        return _private({'ok':True,'submission':{'id':form.pk,'identity':form.payload.get('identity',{}),
+            'answers':form.payload.get('answers',{}),'consent_text':form.payload.get('consent_text',''),
+            'signature_png':form.signature_png,'created_at':form.submitted_at.isoformat(),'status':form.status,
+            'book_customer_id':form.customer_id,'book_record_id':str(form.record.public_id) if form.record_id else ''}})
+    if request.method == 'POST' and action == 'form-link':
+        if len(request.body)>8000: raise ValueError('Invalid form')
+        data=json.loads(request.body)
+        if not isinstance(data,dict) or data.get('confirmed_same_patient') is not True:
+            return _private({'ok':False,'error':'identity_verification_required'},409)
+        if not forms.filter(pk=ident).exists() or not Customer.objects.filter(pk=int(data.get('customer_id',0))).exists():
+            return _private({'ok':False,'error':'not_found'},404)
+        # Retain the verified external reviewer in the same private audit
+        # identity used by Book SSO; never grant this shadow login privileges.
+        reviewer,created=get_user_model().objects.get_or_create(username=f"aplus_app_admin_{int(actor['id'])}")
+        if created:
+            reviewer.set_unusable_password();reviewer.save(update_fields=['password'])
+        try:
+            form=confirm_form_link(ident,int(data['customer_id']),reviewer)
+        except ValueError as exc:
+            return _private({'ok':False,'error':'identity_review_conflict','message':str(exc)},409)
+        return _private({'ok':True,'customer_id':form.customer_id,'status':form.status})
+    return _private({'ok':False,'error':'method_not_allowed'},405)
 
 
 @csrf_exempt
@@ -285,6 +351,8 @@ def workspace(request, action, ident=None, record_id=None):
     if actor['role'] == 'doctor' and providers.count() != 1:
         return _private({'ok': False, 'error': 'doctor_not_configured'}, 403)
     try:
+        if action in {'forms','form','form-pdf','form-link'}:
+            return _forms(request,actor,action,ident)
         if action == 'identity-review':
             if actor['role'] != 'admin':
                 return _private({'ok': False, 'error': 'admin_required'}, 403)

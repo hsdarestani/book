@@ -11,7 +11,7 @@ from django.db import connection, connections
 from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 
-from .models import Appointment, BlockedPeriod, Customer, MobileStaffCancellation, PatientRecord, Service, StaffMember, WorkingHour
+from .models import Appointment, BlockedPeriod, Customer, MobileStaffCancellation, OfficeIntakeForm, PatientRecord, Service, StaffMember, WorkingHour
 
 
 def fixture():
@@ -55,6 +55,28 @@ class WorkspaceTests(TestCase):
     def test_calendar_with_no_bearer_is_unauthorized(self):
         with patch('booking.mobile_staff_api._verify', return_value=(None,401)):
             self.assertEqual(self.client.get('/api/mobile/staff/catalog/').status_code, 401)
+
+    def test_premium_overview_and_private_signed_form_routes(self):
+        overview = self.client.get('/api/mobile/staff/overview/').json()
+        self.assertGreaterEqual(overview['upcoming_count'], 2)
+        self.assertTrue(any(row['id']==self.doctor.pk for row in overview['provider_today']))
+        form = OfficeIntakeForm.objects.create(source_id=uuid4(), status='review',
+            payload={'identity':{'first_name':'Own','last_name':'Patient','email':self.patient.email},
+                     'answers':{'allergies':'Synthetic'},'consent_text':'Synthetic consent'},
+            signature_png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==')
+        root='/api/mobile/staff/forms/'
+        listing=self.client.get(root+'?q=Own&status=review').json()
+        self.assertEqual(listing['items'][0]['id'],form.pk)
+        self.assertNotIn('signature_png',listing['items'][0])
+        detail=self.client.get(root+str(form.pk)+'/').json()['submission']
+        self.assertEqual(detail['answers']['allergies'],'Synthetic')
+        self.assertEqual(self.client.get(root+str(form.pk)+'/pdf/').content[:5],b'%PDF-')
+        self.identity['role']='doctor'
+        for path in (root,root+str(form.pk)+'/',root+str(form.pk)+'/pdf/'):
+            self.assertEqual(self.client.get(path).status_code,403)
+        self.assertEqual(self.post('forms/'+str(form.pk)+'/link',customer_id=self.patient.pk,confirmed_same_patient=True).status_code,403)
+        self.identity['role']='admin'
+        self.assertEqual(self.post('forms/'+str(form.pk)+'/link',customer_id=self.patient.pk,confirmed_same_patient=False).status_code,409)
 
     def test_doctor_scope_applies_to_calendar_people_records_and_writes(self):
         self.identity['role'] = 'doctor'
