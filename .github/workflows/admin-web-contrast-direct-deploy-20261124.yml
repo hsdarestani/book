@@ -1,0 +1,127 @@
+name: Fix actual Book web contrast and desktop date-strip leak
+on:
+  push:
+    branches: ['ops/admin-v4-production-preflight-20261124']
+    paths: ['.github/workflows/admin-web-contrast-direct-deploy-20261124.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            ROOT=/opt/aesthetic-book
+            APP="$ROOT/app"
+            BASE=dfc6c007a767921ec907e22c45f83b01d45fef00
+            TARGET=69750ebb94d1db1a75747181e625db558414fd2b
+            SERVICE=aesthetic-book.service
+            exec 9>"$ROOT/.admin-v4-deploy.lock"
+            flock -n 9
+            systemctl is-active --quiet "$SERVICE"
+            git -C "$APP" fetch origin "$TARGET" "$BASE"
+            files=(templates/booking/_office_intake_forms.html templates/booking/_shared_admin_calendar.html templates/booking/dashboard.html)
+            test "$(git -C "$APP" diff --name-only "$BASE" "$TARGET" | wc -l)" -eq 3
+            umask 077
+            backup="$ROOT/v4-backups/${{ github.run_id }}"
+            install -d -m 0700 "$backup"
+            stage=$(mktemp -d)
+            trap 'rm -rf "$stage"' EXIT
+            for f in "${files[@]}"; do
+              git -C "$APP" diff --name-only "$BASE" "$TARGET" | grep -Fx "$f"
+              cp -a "$APP/$f" "$backup/$(basename "$f")"
+              git -C "$APP" show "$BASE:$f" > "$stage/$(basename "$f").base"
+              git -C "$APP" show "$TARGET:$f" > "$stage/$(basename "$f").target"
+            done
+            python3 - "$APP" "$stage" <<'PY'
+            import pathlib, sys
+            app,stage=map(pathlib.Path,sys.argv[1:])
+            for name,old in (
+                ('_office_intake_forms.html','<h2>Digitale Aufnahmebögen</h2>'),
+                ('_shared_admin_calendar.html','<b>{{ member.display_name }}</b>'),
+                ('dashboard.html','</head>')):
+                src=(stage/(name+'.base')).read_text()
+                dst=(stage/(name+'.target')).read_text()
+                live=(app/'templates/booking'/name).read_text()
+                assert src.count(old)==1 and live.count(old)==1,name
+                before,after=src.split(old,1)
+                assert dst.startswith(before) and dst.endswith(after),name
+                replacement=dst[len(before):len(dst)-len(after)] if after else dst[len(before):]
+                assert replacement!=old,name
+                (stage/name).write_text(live.replace(old,replacement,1))
+            PY
+            rollback() {
+              rc=$?; trap - ERR; set +e
+              for f in "${files[@]}"; do
+                tmp=$(mktemp "$APP/templates/booking/.contrast-rollback.XXXXXX")
+                cp -a "$backup/$(basename "$f")" "$tmp" && mv -f "$tmp" "$APP/$f"
+              done
+              systemctl restart "$SERVICE"
+              echo DIRECT_CONTRAST_ROLLED_BACK
+              exit "$rc"
+            }
+            trap rollback ERR
+            for f in "${files[@]}"; do
+              tmp=$(mktemp "$APP/templates/booking/.contrast-direct.XXXXXX")
+              cat "$stage/$(basename "$f")" > "$tmp"
+              chmod --reference="$APP/$f" "$tmp"
+              chown --reference="$APP/$f" "$tmp"
+              mv -f "$tmp" "$APP/$f"
+            done
+            cd "$APP"
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py check; /opt/aesthetic-book/venv/bin/python manage.py shell -c "from django.template.loader import get_template; [get_template(n) for n in (\"booking/_office_intake_forms.html\",\"booking/_shared_admin_calendar.html\",\"booking/dashboard.html\")]; print(\"TEMPLATES_COMPILED\")"'
+            systemctl restart "$SERVICE"
+            healthy=0
+            for attempt in $(seq 1 20); do
+              status=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/health/ || true)
+              auth=$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/mobile/staff/catalog/ || true)
+              if [ "$status" = 200 ] && [ "$auth" = 401 ]; then healthy=1; break; fi
+              sleep 2
+            done
+            test "$healthy" = 1
+            # Test the actual public HTTP response using a short-lived authorized staff session.
+            # Never log rendered patient information, session credentials or full HTML.
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec /opt/aesthetic-book/venv/bin/python -' <<'PY'
+            import os,re,urllib.request
+            os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings')
+            import django
+            django.setup()
+            from django.conf import settings
+            from django.contrib.auth import get_user_model
+            from django.test import Client
+            u=get_user_model().objects.filter(is_active=True,is_staff=True,is_superuser=True).order_by('pk').first()
+            assert u is not None,'No authorized staff for read-only live smoke'
+            client=Client()
+            client.force_login(u)
+            session=client.session
+            try:
+                cookie=client.cookies[settings.SESSION_COOKIE_NAME].value
+                def get(path):
+                    request=urllib.request.Request('https://book.a-esthetic.de'+path,headers={'Cookie':settings.SESSION_COOKIE_NAME+'='+cookie,'Cache-Control':'no-cache','User-Agent':'Book-Production-Contrast-Smoke'})
+                    with urllib.request.urlopen(request,timeout=30) as response:
+                        assert response.status==200 and '/login/' not in response.geturl(),'authenticated route unavailable'
+                        return response.read().decode('utf-8')
+                forms=get('/verwaltung/app/forms/?contrast_check=20261124')
+                assert re.search(r'<h2[^>]*style="[^"]*color:#fffaf0!important[^"]*"[^>]*>Digitale Aufnahmebögen</h2>',forms),'live intake style missing'
+                print('LIVE_INTAKE_HEADING_STYLE_CONFIRMED')
+                cal=get('/verwaltung/kalender/?contrast_check=20261124')
+                assert 'book-desktop-mobile-strip-fix-20261124' in cal,'live desktop strip guard missing'
+                assert re.search(r'<b style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important">',cal),'live selected provider style missing'
+                print('LIVE_SELECTED_PROVIDER_AND_DESKTOP_STRIP_GUARD_CONFIRMED')
+            finally:
+                session.delete()
+            PY
+            trap - ERR
+            printf '%s\n' "$TARGET" > "$backup/deployed-sha.txt"
+            echo DIRECT_CONTRAST_PRODUCTION_LIVE_HTTP_CONFIRMED
