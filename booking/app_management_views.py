@@ -216,7 +216,8 @@ def _patient_context(request):
         for item in group:
             group_by_customer_id[item.pk] = ids
 
-    customers = approved_patient_representatives(all_customers, query=query)[:250]
+    matching_customers = approved_patient_representatives(all_customers, query=query)
+    customers = matching_customers[:250]
 
     all_ids = [item.pk for item in all_customers]
     appointment_counts = {
@@ -346,6 +347,7 @@ def _patient_context(request):
     return {
         'query': query,
         'patients': customers,
+        'matching_patient_count': len(matching_customers),
         'selected_customer': selected,
         'selected_customer_profiles': selected_group,
         'selected_profile_count': len(selected_group),
@@ -384,6 +386,12 @@ def app_management(request, section='bookings'):
         return HttpResponseForbidden('A+ App Management ist nur über eine bestätigte A+ Admin-Sitzung verfügbar.')
     if section not in {'invoices','forms'} and local_view_only and not request.session.get('aplus_app_admin') and section != 'patients':
         return redirect('/verwaltung/app/patients/')
+
+    if section == 'patients' and request.method == 'GET' and 'export' in request.GET:
+        if local_view_only or request.session.get('aplus_app_admin') is not True:
+            return HttpResponseForbidden('Kundenexport nur für bestätigte Administratoren.')
+        from .customer_export import customer_csv_export
+        return customer_csv_export(request)
 
     try:
         if request.method == 'POST':
