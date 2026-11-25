@@ -205,43 +205,94 @@ function setStatus(title,description,variant='warning'){
  const area=$('[data-law-status]');area.className='mlr-status mlr-status-'+variant;
  area.querySelector('strong').textContent=title;area.querySelector('span').textContent=description;
 }
-const reasonOptions={
- botox:['Individuell erschwerte Injektionsplanung aufgrund dokumentierter Asymmetrie','Erhöhter Zeitaufwand durch patientenspezifische anatomische Verhältnisse','Zusätzliche Unterbrechungen aufgrund dokumentierter Behandlungsumstände'],
- hyaluron:['Erhöhter Zeitaufwand durch dokumentierte Gewebebeschaffenheit','Besondere Präzisionsanforderung aufgrund patientenspezifischer Anatomie','Erschwerte Volumenkorrektur bei dokumentierter Asymmetrie'],
- prp:['Erhöhter Aufwand bei dokumentiertem ausgedehntem Behandlungsareal','Erschwerte Behandlung aufgrund individueller anatomischer Verhältnisse'],
- lipolysis:['Erhöhter Planungsaufwand aufgrund dokumentierter ungleichmäßiger Fettverteilung','Erhöhter Zeitaufwand durch patientenspezifische Behandlungsumstände']
+// Reference option catalogue, grouped by actual billed number and treatment.
+const reasonOptions=[
+ ['1','Ausführliche Beratung zu Alternativen und Risiken bei Erstbehandlung'],
+ ['1','Erhöhter Beratungsbedarf nach Vorbehandlungen mit anderen Präparaten'],
+ ['1','Erschwerte Verständigung (Sprachbarriere), verlängertes Gespräch'],
+ ['1','Ausgeprägte Behandlungsangst, verlängertes Aufklärungsgespräch'],
+ ['1','Erhöhter Beratungsaufwand wegen relevanter Medikation'],
+ ['5','Mimikanalyse mehrerer Gesichtsregionen in Ruhe und Bewegung'],
+ ['5','Erschwerte Untersuchung bei ausgeprägter Gesichtsasymmetrie'],
+ ['5','Kontrolle auf Restmaterial oder Knötchen nach Vorbehandlung'],
+ ['5','Narben oder Voroperationen im Behandlungsgebiet'],
+ ['252','Ausgeprägte Muskelaktivität, dadurch erhöhte Injektionszahl und Präzisionsanforderung','botox'],
+ ['252','Asymmetrische Muskelaktivität, seitengetrennte Dosierung erforderlich','botox'],
+ ['252','Injektion nahe Gefäßen und Nerven (z. B. periorbital), erhöhte Präzision','botox'],
+ ['252','Viele Injektionspunkte auf engem Raum, erhöhter Zeitaufwand'],
+ ['252','Dünne, vulnerable Haut mit Hämatomneigung, besonders vorsichtiges Vorgehen'],
+ ['252','Ungleichmäßige Fettverteilung, individuelle Injektionsplanung','lipolysis'],
+ ['2442','Erhöhtes Gefäßrisiko im Areal (z. B. Nasolabial, Glabella), Kanülentechnik, verlängerte Behandlungszeit'],
+ ['2442','Ausgeprägter Volumenverlust, Unterfütterung in mehreren Ebenen'],
+ ['2442','Korrektur einer Asymmetrie, seitengetrennte Dosierung'],
+ ['2442','Narbiges oder fibrotisches Gewebe, erhöhter Injektionswiderstand'],
+ ['2442','Vorbehandlung mit Fremdmaterial, erschwerte Applikation'],
+ ['2442','Lippenkonturierung mit hoher Präzisionsanforderung'],
+ ['250','Erschwerte Venenpunktion, mehrere Punktionsversuche'],
+ ['268','Behandlung großer Areale (z. B. gesamte Kopfhaut), erhöhter Zeitaufwand'],
+ ['268','Mehrere Injektionsebenen in einer Sitzung'],
+ ['*','Erhöhte Schmerzempfindlichkeit, Behandlung in Etappen mit Pausen'],
+ ['*','Vasovagale Reaktion, Unterbrechung und verlängerte Behandlungszeit'],
+ ['*','Erhöhte Blutungsneigung, aufwendige Blutstillung'],
+ ['*','Eingeschränkte Lagerung oder Mobilität, erschwerte Behandlungsbedingungen']
+];
+const diagnoses={
+ aest:['Ästhetische Behandlung auf Wunsch, keine medizinische Indikation','Mimische Falten (Stirn / Glabella / periorbital), ästhetische Indikation','Altersbedingter Volumenverlust, ästhetische Indikation','Lokalisierte Fettansammlung, ästhetische Indikation','Hautalterung / Elastizitätsverlust, ästhetische Indikation'],
+ med:['R61.0 Hyperhidrose, umschrieben','F45.8 Bruxismus','L91.0 Hypertrophe Narbe / Keloid','L90.5 Narben und Fibrosen der Haut','L64.9 Alopecia androgenetica (PRP Kopfhaut)']
 };
-function updateReason(){
- const chosen=[...$('[data-reason-options]').querySelectorAll('input:checked')].map(x=>x.value);
- const custom=$('[data-reason-custom]').value.trim();
- sel.reasonText=[...chosen,custom].filter(Boolean).join('; ');
- const main=$$('.mlr-line').find(l=>field(l,'goae_number').value===treatmentLabels[sel.treatment].code);
- if(main){field(main,'goae_justification').value=sel.reasonText;field(main,'clinical_confirmed').checked=false;}
+function localISO(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
+function addDays(iso,n){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return localISO(d)}
+function buildDiagnoses(){
+ const med=$('[data-vat]').value==='0',select=$('[data-diagnosis]');
+ select.replaceChildren();
+ if(med)select.append(new Option('Bitte wählen …',''));
+ for(const text of diagnoses[med?'med':'aest'])select.append(new Option(text,text));
+ select.append(new Option('Eigener Text …','custom'));
+ if(!med)select.append(new Option('Keine Angabe',''));
+ $('[data-diagnosis-custom-wrap]').hidden=true;$('[data-diagnosis-custom]').value='';
+}
+function diagnosisText(){const v=$('[data-diagnosis]').value;return v==='custom'?$('[data-diagnosis-custom]').value.trim():v}
+const threshold=code=>code==='250'?1.8:2.3;
+const ceiling=code=>code==='250'?2.5:3.5;
+function reasonChanged(code,box){
+ const values=sel.reasonValues[code]={selected:[...box.querySelectorAll('input[type=checkbox]:checked')].map(e=>e.value),custom:box.querySelector('[data-reason-custom]').value};
+ const reason=[...values.selected,values.custom.trim()].filter(Boolean).join('; ');
+ const line=$$('.mlr-line').find(l=>field(l,'goae_number').value===code);
+ if(line){field(line,'goae_justification').value=reason;field(line,'clinical_confirmed').checked=false;}
  resetVerification();
 }
 function renderAdditional(p){
- const meta=treatmentLabels[sel.treatment];
+ const meta=treatmentLabels[sel.treatment],inj=$('[data-injection-count]');
  $('[data-injection-wrap]').hidden=!meta.injections;
- const inj=$('[data-injection-count]');
  if(meta.injections){inj.max=String(meta.injMax*sel.qty);if(document.activeElement!==inj)inj.value=String(sel.injections??meta.injections*sel.qty);}
- const show=!p.impossible&&p.factor>2.3;
- $('[data-agreement-evidence]').hidden=!show||p.factor<=3.5||sel.treatment==='prp';
- $('[data-reason-section]').hidden=!show;
- $('[data-reason-status]').textContent='Nr. '+meta.code+' · Faktor '+decimalFactor(p.factor)+(p.factor>3.5?' · Vereinbarung erforderlich':' · Begründung erforderlich');
- if(sel.reasonTreatment!==sel.treatment){
-  sel.reasonTreatment=sel.treatment;
-  $('[data-reason-options]').replaceChildren();
-  $('[data-reason-custom]').value='';
-  for(const reason of reasonOptions[sel.treatment]){
-   const label=document.createElement('label'), input=document.createElement('input');
-   input.type='checkbox';input.value=reason;input.addEventListener('change',updateReason);
-   label.append(input,document.createTextNode(' '+reason));label.style.display='block';
-   $('[data-reason-options]').append(label);
+ const needed=p.impossible?[]:p.proposals.filter(x=>x.factor>threshold(x.code)+1e-9);
+ const high=needed.some(x=>x.factor>ceiling(x.code));
+ $('[data-agreement-evidence]').hidden=!high||sel.treatment==='prp';
+ $('[data-reason-section]').hidden=!needed.length;
+ $('[data-reason-status]').textContent=needed.map(x=>'Nr. '+x.code+' · Faktor '+decimalFactor(x.factor)+(x.factor>ceiling(x.code)?' · Vereinbarung erforderlich':' · Begründung erforderlich')).join(' · ');
+ const sig=sel.treatment+'|'+needed.map(x=>x.code).join(',');
+ if(sig!==sel.reasonSignature){
+  sel.reasonSignature=sig;const wrap=$('[data-reason-options]');wrap.replaceChildren();
+  for(const entry of needed){
+   const code=entry.code,values=sel.reasonValues[code]||{selected:[],custom:''};
+   const box=document.createElement('div');box.dataset.reasonCode=code;box.style.marginBottom='12px';
+   const title=document.createElement('strong');title.textContent='Nr. '+code;box.append(title);
+   const dd=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Begründung wählen …';dd.append(summary);
+   for(const [number,text,treatment] of reasonOptions.filter(([n,_,t])=>(n===code||n==='*')&&(!t||t===sel.treatment))){
+    const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=text;input.checked=values.selected.includes(text);
+    input.addEventListener('change',()=>reasonChanged(code,box));label.append(input,document.createTextNode(' '+text));label.style.display='block';dd.append(label);
+   }
+   box.append(dd);const custom=document.createElement('input');custom.type='text';custom.dataset.reasonCustom='';custom.maxLength=100;custom.placeholder='Eigene Begründung Nr. '+code;custom.value=values.custom;custom.addEventListener('input',()=>reasonChanged(code,box));box.append(custom);wrap.append(box);
   }
  }
- const maxPrice=f=>Math.floor((p.base*f+p.fixedFee+p.material)*(1+p.vat)/100)*100;
- $('[data-price-boundaries]').textContent=p.impossible?'Eingaben prüfen.':'Ohne Begründung (Hauptziffer): bis '+euro(maxPrice(2.3))+' · Ohne Honorarvereinbarung: bis '+euro(maxPrice(3.5));
- $('[data-agreement-preview]').hidden=!show||p.factor<=3.5;
+ const maxPrice=f=>{
+  const fixed=p.proposals.slice(1).reduce((sum,x)=>sum+Math.round(referenceBase(x.code)*Math.min(x.factor,f===2.3?threshold(x.code):ceiling(x.code))),0);
+  return Math.floor((p.base*f+fixed+p.material)*(1+p.vat)/100)*100;
+ };
+ const valid=Number.isFinite(p.base)&&Number.isFinite(p.fixedFee)&&p.base>0;
+ $('[data-price-boundaries]').textContent=valid?'Ohne Begründung: bis '+euro(maxPrice(2.3))+' · Ohne Honorarvereinbarung: bis '+euro(maxPrice(3.5)):'Eingaben prüfen.';
+ for(const button of $$('[data-boundary]')){button.disabled=!valid;button.dataset.price=String(maxPrice(Number(button.dataset.boundary))/100);}
+ $('[data-agreement-preview]').hidden=!high;
 }
 function printAgreement(){
  const p=fiscalPreview(),meta=treatmentLabels[sel.treatment],patient=$('#goaePatient');
@@ -285,14 +336,16 @@ function render(){
  }else if(calculated.impossible){
   setStatus('Preis oder Material prüfen','Der Wunschbetrag deckt Material und Mindestsätze nicht oder die Eingabe ist ungültig. Rechnerischer Mindestbetrag: '+euro(calculated.minimum)+'.','error');
  }else{
-  const f=calculated.factor, code=treatmentLabels[sel.treatment].code;
+  const main=calculated.proposals[0],f=calculated.factor, code=treatmentLabels[sel.treatment].code;
+  const high=calculated.proposals.some(x=>x.factor>ceiling(x.code));
+  const reasonNeeded=calculated.proposals.some(x=>x.factor>threshold(x.code)&&x.factor<=ceiling(x.code));
   const note=' Nr. '+code+' · Faktor '+decimalFactor(f)+'. '+(calculated.illustration?'Material ist ein Referenzwert, kein bestätigter Einkaufspreis. ':'')+'Nur Vorschlag; ärztliche Prüfung erforderlich.';
-  if(f>3.5)setStatus('Honorarvereinbarung nötig',note+' Vor Behandlung gesondert schriftlich vereinbaren. Speichern nur nach Prüfung des bereits unterzeichneten Dokuments und serverseitiger Berechnung.'+(f>10?' Faktor ungewöhnlich hoch; bitte prüfen.':''),'error');
-  else if(f>2.3)setStatus('Begründung nötig',note+' Individuelle Begründung dokumentieren.','warning');
+  if(high)setStatus('Honorarvereinbarung nötig',note+' Vor Behandlung gesondert schriftlich vereinbaren. Speichern nur nach Prüfung des bereits unterzeichneten Dokuments und serverseitiger Berechnung.'+(f>10?' Faktor ungewöhnlich hoch; bitte prüfen.':''),'error');
+  else if(reasonNeeded)setStatus('Begründung nötig',note+' Individuelle Begründung dokumentieren.','warning');
   else setStatus('Im Regelrahmen (Vorschau)',note,'ok');
  }
  renderPaper(preview);
- $('[data-material-notice]').hidden=!(calculated.material/sel.qty>2556);
+ $('[data-material-notice]').hidden=!calculated.materials.some(m=>m.cost>2556);
 }
 function setMessage(msg,kind='error'){const el=$('[data-goae-feedback]');el.textContent=msg;el.className='mlr-feedback '+kind;}
 async function verify(){
@@ -345,13 +398,22 @@ $('[data-goae-add]').addEventListener('click',()=>{addLine('');sel.clinicalTouch
 $('[data-goae-preview]').addEventListener('click',()=>verify());
 $('[data-injection-count]').addEventListener('input',e=>{sel.injections=e.target.value===''?0:Number(e.target.value);resetClinicalProposal()});
 $('[data-material-add]').addEventListener('click',addMaterial);
+$('[data-diagnosis]').addEventListener('change',()=>{$('[data-diagnosis-custom-wrap]').hidden=$('[data-diagnosis]').value!=='custom';resetVerification()});
+$('[data-diagnosis-custom]').addEventListener('input',resetVerification);
+$$('[data-invoice-date],[data-due-date]').forEach(x=>x.addEventListener('change',resetVerification));
+$('[data-vat]').addEventListener('change',()=>{buildDiagnoses();resetVerification()});
+$$('[data-boundary]').forEach(button=>button.addEventListener('click',()=>{
+ const cap=Number(button.dataset.boundary);
+ for(const input of $$('[data-fixed-code]')){const code=input.dataset.fixedCode,max=cap===2.3?threshold(code):ceiling(code);const old=Number(input.value.replace(',','.'));if(old>max){input.value=String(max).replace('.',',');sel.fixed[code]=input.value;}}
+ $('[data-target-input]').value=button.dataset.price;syncSlider();resetClinicalProposal();
+}));
 $('[data-standard-values]').addEventListener('click',()=>{resetMaterials();buildFixed();sel.injections=null;sel.reasonValues={};sel.reasonSignature='';resetClinicalProposal()});
 $('[data-agreement-preview]').addEventListener('click',printAgreement);
 $$('[data-agreement-document],[data-agreement-date],[data-agreement-amount],[data-agreement-confirm]').forEach(el=>el.addEventListener('input',()=>{if(!el.matches('[data-agreement-confirm]'))$('[data-agreement-confirm]').checked=false;resetVerification()}));
 $('[data-open-details]').addEventListener('click',()=>{details.open=true;details.scrollIntoView({behavior:'smooth',block:'start'})});
 $('[data-reset]').addEventListener('click',()=>{
  $('[data-agreement-confirm]').checked=false;$('[data-agreement-document]').value='';$('[data-agreement-date]').value='';$('[data-agreement-amount]').value='';sel.qty=1;sel.injections=null;sel.reasonText='';sel.reasonTreatment=null;sel.clinicalTouched=false;$('[data-qty]').textContent='1';
- $('[data-target-input]').value='260';$('[data-target-slider]').value='260';
+ $('[data-target-input]').value='260';$('[data-target-slider]').value='260';$('[data-vat]').value='19';buildDiagnoses();$('[data-invoice-date]').value=localISO(new Date());$('[data-due-date]').value='';
  $('[data-material]').value='';$('[data-material-receipt]').value='';$('[data-material-description]').value='';$('[data-material-confirm]').checked=false;
  list.replaceChildren();changeTreatment('hyaluron');setMessage('Alle Beispielwerte zurückgesetzt; Patientendaten bleiben erhalten.','');
 });
