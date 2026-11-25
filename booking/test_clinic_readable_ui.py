@@ -62,3 +62,11 @@ class ReadableClinicUiTests(TestCase):
         self.assertTrue(res["Location"].startswith("/verwaltung/app/wallet/"))
         self.assertEqual(api.call_args.args[1], "customers/4/")
         self.assertEqual(api.call_args.kwargs["payload"], {"coin_delta": 50})
+
+    def test_verified_dark_header_and_calendar_contrast_survive_releases(self):
+        forms = get_template("booking/_office_intake_forms.html").template.source
+        calendar = get_template("booking/_shared_admin_calendar.html").template.source
+        dashboard = get_template("booking/dashboard.html").template.source
+        self.assertIn('<h2 style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important">Digitale Aufnahmebögen</h2>', forms)
+        self.assertIn('style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important"', calendar)
+        self.assertIn('book-desktop-mobile-strip-fix-20261124', dashboard)
