@@ -36,6 +36,16 @@ jobs:
           python manage.py test
           python manage.py collectstatic --noinput
 
+      - name: Check GOÄ reference calculator in Chromium
+        env:
+          DJANGO_DEBUG: '1'
+          DJANGO_ALLOWED_HOSTS: '127.0.0.1,localhost,testserver,aesthetic-synthetic.test'
+        run: |
+          node --check static/booking/goae-rechner-v2.js
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+          python scripts/test_goae_reference_browser.py
+
   deploy:
     needs: test
     runs-on: ubuntu-latest
