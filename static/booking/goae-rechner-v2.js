@@ -10,10 +10,10 @@ const catalog=JSON.parse(document.getElementById('goaeTariffCatalog')?.textConte
 const treatmentMap=JSON.parse(document.getElementById('goaeTreatmentMap')?.textContent||'{}');
 const catalogByCode=Object.fromEntries(catalog.map(x=>[String(x.number),x]));
 const treatmentLabels={
- botox:{title:'Botox',unit:'Behandlung',plural:'Behandlungen',hint:'Pro dokumentierter Behandlung'},
- hyaluron:{title:'Hyaluron',unit:'Spritze',plural:'Spritzen',hint:'à 1 ml'},
- prp:{title:'PRP',unit:'Sitzung',plural:'Sitzungen',hint:'Pro dokumentierter Sitzung'},
- lipolysis:{title:'Lipolyse',unit:'Behandlung',plural:'Behandlungen',hint:'Pro dokumentierter Behandlung'}
+ botox:{title:'Botox',unit:'Zone',plural:'Zonen',hint:'Beispiel: 10 Injektionen je Zone; tatsächliche Anzahl prüfen',max:4,cost:9552,code:'252',injections:10},
+ hyaluron:{title:'Hyaluron',unit:'Spritze',plural:'Spritzen',hint:'à 1 ml',max:6,cost:7643,code:'2442'},
+ prp:{title:'PRP',unit:'Kit',plural:'Kits',hint:'PRP-Kits; analoge Bewertung ärztlich prüfen',max:3,cost:6000,code:'268',extra:['250']},
+ lipolysis:{title:'Lipolyse',unit:'Ampulle',plural:'Ampullen',hint:'Beispiel: 10 Injektionen je Ampulle; tatsächliche Anzahl prüfen',max:6,cost:4000,code:'252',injections:10}
 };
 const euro=c=>(Math.round(Number(c||0))/100).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
 const parseCents=v=>{const str=String(v||'').trim().replace(/\s/g,'').replace(/€/g,'');
@@ -77,15 +77,16 @@ function addLine(code){
 function renumber(){$$('.mlr-line').forEach((line,i)=>{line.querySelector('[data-line-title]').textContent='Position '+(i+1)})}
 function changeTreatment(t){
  if(!treatmentLabels[t])return;
- sel.treatment=t;
+ sel.treatment=t;sel.qty=Math.min(sel.qty,treatmentLabels[t].max);$('[data-qty]').textContent=sel.qty;
  $$('.mlr-treatment').forEach(button=>{const active=button.dataset.treatment===t;
   button.classList.toggle('is-active',active);button.setAttribute('aria-pressed',String(active));});
  const meta=treatmentLabels[t];
- $('[data-quantity-label]').textContent=t==='hyaluron'?'Wie viele Spritzen?':(t==='prp'?'Wie viele Sitzungen?':'Wie viele Behandlungen?');
+ $('[data-quantity-label]').textContent='Wie viele '+meta.plural+'?';
  $('[data-quantity-hint]').textContent=meta.hint;
- if(!sel.clinicalTouched){
+ if(sel.clinicalTouched){sel.clinicalTouched=false;$('[data-material-confirm]').checked=false;}
+ {
   list.replaceChildren();
-  const codes=treatmentMap[t]||[];
+  const codes=[meta.code,...(meta.extra||[]),'5','1'];
   for(const code of codes)addLine(code);
   if(!list.children.length)addLine('');
  }
@@ -93,18 +94,47 @@ function changeTreatment(t){
 }
 function desiredTotal(){return parseCents($('[data-target-input]').value)}
 function targetOrZero(){return desiredTotal()??0}
-function fiscalPreview(){
- const total=targetOrZero(),vat=Number($('[data-vat]').value)||0;
- // Invoice VAT classification is explicit. Backwards math is illustrative only.
- const net= Math.round(total*100/(100+vat)),tax=total-net;
- const enteredCost=parseCents($('[data-material]').value);
- const illustration=!$('[data-material]').value.trim()&&sel.treatment==='hyaluron';
- // 76,43 EUR from the user's supplied screenshot is an example, NEVER a clinical default.
- const material=illustration?7643*sel.qty:(enteredCost||0)*sel.qty;
- const bounded=Math.min(material,net);
- return {total,fee:Math.max(0,net-bounded),material:bounded,tax,illustration,
-  impossible:material>net};
-}
+// Reference-style backwards calculation, exclusively for non-binding proposals.
+ // Official clinical and server confirmation remains mandatory before a draft can be saved.
+ const referencePoints={'1':80,'5':80,'250':40,'252':40,'268':130,'2442':900};
+ const referenceBase=code=>referencePoints[code]*5.82873;
+ const decimalFactor=f=>Number(f).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:4,useGrouping:false});
+ function fiscalPreview(){
+  const total=targetOrZero(),vat=Number($('[data-vat]').value)/100;
+  const meta=treatmentLabels[sel.treatment],raw=$('[data-material]').value.trim();
+  const entered=parseCents(raw),illustration=!raw;
+  const material=(illustration?meta.cost:(entered??0))*sel.qty;
+  const fixed=['5','1',...(meta.extra||[])].map(code=>({code,qty:1,factor:2.3,cents:Math.round(referenceBase(code)*2.3)}));
+  const n=meta.injections?meta.injections*sel.qty:1;
+  const base=referenceBase(meta.code)*n,fixedFee=fixed.reduce((a,l)=>a+l.cents,0);
+  const center=Math.round(total/(1+vat))-material;
+  let best=null;
+  for(let delta=-4;delta<=4;delta++){
+   const fee=center+delta,tax=Math.round(fee*vat)+Math.round(material*vat);
+   const gap=Math.abs(fee+material+tax-total);
+   if(!best||gap<best.gap)best={fee,tax,gap};
+  }
+  const factor=(best.fee-fixedFee)/base;
+  const minimum=Math.ceil((Math.ceil(base)+fixedFee+material)*(1+vat));
+  const impossible=!!raw&&entered===null||factor<1||total<5000||total>300000;
+  // A cent adjustment in a proposal is never carried into an issued invoice.
+  const tax=total-material-best.fee;
+  const proposals=[{code:meta.code,qty:n,factor,cents:best.fee-fixedFee},...fixed];
+  return {total,fee:best.fee,material,tax,illustration,impossible,minimum,factor,proposals};
+ }
+ function syncProposals(p){
+  if(p.impossible||sel.clinicalTouched||sel.verified)return;
+  const meta=treatmentLabels[sel.treatment];
+  for(const line of $$('.mlr-line')){
+   const code=field(line,'goae_number').value;
+   const proposal=p.proposals.find(x=>x.code===code);
+   if(!proposal||!catalogByCode[code])continue;
+   // PRP analog description must be individually selected, never silently classified.
+   if(sel.treatment==='prp'&&code===meta.code)continue;
+   field(line,'quantity').value=String(proposal.qty);
+   field(line,'goae_factor').value=decimalFactor(proposal.factor);
+  }
+ }
 function renderPaper(preview){
  $('[data-paper-fee]').textContent=euro(preview.fee);
  $('[data-paper-material]').textContent=euro(preview.material);
@@ -121,7 +151,9 @@ function renderPaper(preview){
   });
  }else{
   const row=document.createElement('tr');const col=document.createElement('td');col.colSpan=5;
-  col.textContent='Vorschau aus dem Gesamtpreis. GOÄ-Positionen müssen noch ärztlich geprüft werden.';row.append(col);rows.append(row);
+  if(!preview.impossible&&preview.proposals){
+   preview.proposals.forEach(p=>{const tr=document.createElement('tr');const label=catalogByCode[p.code]?.de||'GOÄ-Vorschlag';[p.code,label+(sel.treatment==='prp'&&p.code==='268'?' (analog, zu prüfen)':''),String(p.qty),decimalFactor(p.factor),euro(p.cents)].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td)});rows.append(tr)});
+  }else{col.textContent='Vorschau nicht berechenbar. Eingaben prüfen.';row.append(col);rows.append(row);}
  }
 }
 function setStatus(title,description,variant='warning'){
@@ -129,28 +161,31 @@ function setStatus(title,description,variant='warning'){
  area.querySelector('strong').textContent=title;area.querySelector('span').textContent=description;
 }
 function render(){
- const target=desiredTotal();const calculated=fiscalPreview();
+ const target=desiredTotal();const calculated=fiscalPreview();syncProposals(calculated);
  $('[data-total]').textContent=euro(calculated.total);
  $('[data-treatment-summary]').textContent=treatmentLabels[sel.treatment].title+' · '+sel.qty+' '+(sel.qty===1?treatmentLabels[sel.treatment].unit:treatmentLabels[sel.treatment].plural)+'\nÄsthetisch, inkl. '+$('[data-vat]').value+' % USt.';
- const preview=sel.verified?sel.verified:calculated;
+ const preview=sel.verified?sel.verified:(calculated.impossible?{...calculated,fee:0,tax:0}:calculated);
  $('[data-fee]').textContent=euro(preview.fee);$('[data-material-total]').textContent=euro(preview.material);$('[data-tax]').textContent=euro(preview.tax);
  for(const [part,key] of [['fee','fee'],['material','material'],['tax','tax']]){
   $('[data-bar-'+part+']').style.width=(preview.total?Math.max(0,100*preview[key]/preview.total):0)+'%';
  }
- if(target===null||target<100){
+ if(target===null||target<5000||target>300000){
   setStatus('Betrag eingeben','Bitte einen gültigen Gesamtbetrag in Euro angeben.','error');
  }else if(sel.verified){
   const gap=Math.abs(sel.verified.total-target);
   setStatus(gap<=1?'✓ GOÄ-Entwurf rechnerisch geprüft':'Gesamtbetrag weicht ab',
    gap<=1?'Positionen wurden serverseitig geprüft. Ärztliche und steuerliche Prüfung bleibt notwendig.':'Die ausgewählten GOÄ-Positionen ergeben '+euro(sel.verified.total)+' statt '+euro(target)+'. Faktoren/Positionen prüfen; keine automatische Anpassung.',''+(gap<=1?'ok':'error'));
  }else if(calculated.impossible){
-  setStatus('Auslagen übersteigen den Nettobetrag','Tatsächliche Materialkosten können nicht auf den Wunschpreis umverteilt werden.','error');
+  setStatus('Preis oder Material prüfen','Der Wunschbetrag deckt Material und Mindestsätze nicht oder die Eingabe ist ungültig. Rechnerischer Mindestbetrag: '+euro(calculated.minimum)+'.','error');
  }else{
-  setStatus(calculated.illustration?'ⓘ Beispiel-Aufteilung aus Referenz':'ⓘ Unverbindliche Rückwärtsrechnung',
-   calculated.illustration?'Material 76,43 € je Spritze stammt nur aus dem Referenzbild. Kein verifizierter Einkaufspreis.':'Die Verteilung des Wunschpreises ist noch KEINE bestätigte GOÄ-Berechnung. Auslagen und ärztliche Leistungen dürfen nicht frei passend gerechnet werden.','warning');
+  const f=calculated.factor, code=treatmentLabels[sel.treatment].code;
+  const note=' Nr. '+code+' · Faktor '+decimalFactor(f)+'. '+(calculated.illustration?'Material ist ein Referenzwert, kein bestätigter Einkaufspreis. ':'')+'Nur Vorschlag; ärztliche Prüfung erforderlich.';
+  if(f>3.5)setStatus('Honorarvereinbarung nötig',note+' Vor Behandlung gesondert schriftlich vereinbaren.'+(f>10?' Faktor ungewöhnlich hoch; bitte prüfen.':''),'error');
+  else if(f>2.3)setStatus('Begründung nötig',note+' Individuelle Begründung dokumentieren.','warning');
+  else setStatus('Im Regelrahmen (Vorschau)',note,'ok');
  }
  renderPaper(preview);
- $('[data-material-notice]').hidden=false;
+ $('[data-material-notice]').hidden=!(calculated.material/sel.qty>2556);
 }
 function setMessage(msg,kind='error'){const el=$('[data-goae-feedback]');el.textContent=msg;el.className='mlr-feedback '+kind;}
 async function verify(){
@@ -158,6 +193,7 @@ async function verify(){
  if(!$('#goaePatient').value){setMessage('Patient auswählen.');details.open=true;$('#goaePatient').focus();return false;}
  const date=toISO($('#goaeDateGerman').value);$('#goaeDateIso').value=date;
  if(!date){setMessage('Leistungsdatum bitte als TT.MM.JJJJ eingeben.');details.open=true;$('#goaeDateGerman').focus();return false;}
+ if(!$('[data-material]').value.trim()){setMessage('Tatsächlichen Materialwert eingeben (0,00 falls keine Auslage).');details.open=true;return false;}
  const source=linesForServer();if(source.error){setMessage(source.error);details.open=true;return false;}
  if(!source.lines.length){setMessage('Mindestens eine tatsächlich erbrachte Leistung wählen.');return false;}
  const sig=JSON.stringify(source.lines);
@@ -180,7 +216,7 @@ async function verify(){
 function syncSlider(){const value=desiredTotal();if(value!==null&&value>=50){$('[data-target-slider]').value=Math.max(50,Math.min(1000,value/100));}}
 $$('.mlr-treatment').forEach(b=>b.addEventListener('click',()=>changeTreatment(b.dataset.treatment)));
 $('[data-qty-minus]').addEventListener('click',()=>{sel.qty=Math.max(1,sel.qty-1);$('[data-qty]').textContent=sel.qty;resetVerification()});
-$('[data-qty-plus]').addEventListener('click',()=>{sel.qty=Math.min(50,sel.qty+1);$('[data-qty]').textContent=sel.qty;resetVerification()});
+$('[data-qty-plus]').addEventListener('click',()=>{sel.qty=Math.min(treatmentLabels[sel.treatment].max,sel.qty+1);$('[data-qty]').textContent=sel.qty;resetVerification()});
 $('[data-target-input]').addEventListener('input',()=>{syncSlider();resetVerification()});
 $('[data-target-slider]').addEventListener('input',e=>{$('[data-target-input]').value=String(e.target.value);resetVerification()});
 $$('[data-preset]').forEach(b=>b.addEventListener('click',()=>{$('[data-target-input]').value=b.dataset.preset;syncSlider();resetVerification()}));
