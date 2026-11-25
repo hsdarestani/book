@@ -54,7 +54,27 @@ def smoke():
   assert '79,83' in page.locator('[data-tax]').inner_text()
   assert '6,1439' in page.locator('[data-law-status]').inner_text()
   assert 'Honorarvereinbarung nötig' in page.locator('[data-law-status]').inner_text()
+  assert page.locator('[data-reason-code="2442"] input[type=checkbox]').count()==10
   page.locator('[data-target-input]').fill('260')
+  page.locator('#goaeDetails>summary').click()
+  page.locator('[data-material]').fill('76,43')
+  page.locator('[data-material-add]').click()
+  page.locator('[data-m-description]').fill('Synthetisches Material')
+  page.locator('[data-m-qty]').fill('2')
+  page.locator('[data-m-cost]').fill('10,00')
+  assert '96,43' in page.locator('[data-material-total]').inner_text()
+  page.locator('[data-target-input]').fill('500')
+  assert page.locator('[data-paper-rows] tr').count()==5
+  page.locator('[data-fixed-code="1"]').fill('3,0')
+  assert page.locator('[data-reason-code="1"] input[type=checkbox]').count()==9
+  page.locator('[data-material-remove]').click()
+  assert '76,43' in page.locator('[data-material-total]').inner_text()
+  page.locator('[data-vat]').select_option('0')
+  assert page.locator('[data-diagnosis] option').count()==7
+  page.locator('[data-vat]').select_option('19')
+  page.locator('[data-standard-values]').click()
+  page.locator('[data-target-input]').fill('260')
+  page.locator('#goaeDetails>summary').click()
   assert page.locator('#goaeDetails').get_attribute('open') is None
   page.locator('[data-qty-plus]').click()
   assert '2' in page.locator('[data-qty]').inner_text()
