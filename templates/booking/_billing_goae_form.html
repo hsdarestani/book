@@ -2,7 +2,7 @@
 <link rel="stylesheet" href="{% static 'booking/goae-rechner-v2.css' %}?v=20261123-v1">
 <section class="mlr" id="goae-rechnung" data-mlr>
  <header class="mlr-head"><p class="mlr-overline">A+ ESTHETIC · PRIVATPRAXIS · Rechnung nach GOÄ</p><h2>GOÄ-Rechner</h2>
-  <p>Drei Angaben – sofortige Kostenvorschau. GOÄ-Ziffern und Material werden vor dem Speichern ärztlich geprüft.</p></header>
+  <p>Drei Angaben – sofortiger GOÄ-Berechnungsvorschlag mit Faktor. Tatsächliche Leistungen, Material und Vereinbarungen müssen vor dem Speichern geprüft werden.</p></header>
  <form method="post" id="goaeFullForm" data-goae-full novalidate>
   {% csrf_token %}
   <input type="hidden" name="action" value="billing_create_goae_full">
@@ -40,13 +40,13 @@
      </select></label>
      <div class="mlr-date"><label for="goaeDateGerman">Behandlungsdatum</label><input type="text" id="goaeDateGerman" placeholder="TT.MM.JJJJ" inputmode="numeric" maxlength="10" required pattern="[0-9]{2}\.[0-9]{2}\.[0-9]{4}"><input type="date" data-native-date class="mlr-native-date" aria-label="Datum auswählen"><button type="button" data-open-calendar aria-label="Kalender öffnen">▣</button></div>
      <label>Umsatzsteuerstatus <select data-vat><option value="19" selected>19 % · Ästhetisch / steuerpflichtig</option><option value="0">0 % · Bitte steuerlich prüfen</option><option value="7">7 % · Bitte steuerlich prüfen</option></select></label>
-     <label>Tatsächliches Material je Einheit (netto €) <input type="text" data-material placeholder="0,00" value="" inputmode="decimal"></label>
+     <label>Tatsächliches Material je Einheit (netto €; 0,00 falls keine Auslage) <input type="text" data-material placeholder="0,00" value="" inputmode="decimal"></label>
      <label>Belegreferenz § 10 GOÄ <input type="text" data-material-receipt maxlength="250" placeholder="Einkaufsbeleg / Nachweis"></label>
      <label>Beschreibung der Auslage <input type="text" data-material-description maxlength="220" placeholder="Nur tatsächlich berechnungsfähiges Material"></label>
      <label class="mlr-confirm"><input type="checkbox" data-material-confirm> Tatsächliche Berechnungsfähigkeit der Auslage geprüft (§ 10 GOÄ)</label>
     </div>
-    <p class="mlr-legal-line">Material ist nicht frei auf den Wunschbetrag anpassbar. Nur tatsächlich entstandene, nach § 10 GOÄ berechnungsfähige Auslagen dürfen angesetzt werden.</p>
-    <div class="mlr-lines-title"><div><h3>GOÄ-Leistungsziffern</h3><p>Vorschläge sind keine automatische Bestätigung der Behandlung. Nur tatsächlich erbrachte Leistungen erfassen.</p></div><button type="button" data-goae-add>+ Position</button></div>
+    <p class="mlr-legal-line">Die Beispielwerte im Rechner sind keine bestätigten Einkaufspreise. Material ist nicht frei auf den Wunschbetrag anpassbar. Nur tatsächlich entstandene, nach § 10 GOÄ berechnungsfähige Auslagen dürfen angesetzt werden.</p>
+    <div class="mlr-lines-title"><div><h3>GOÄ-Leistungsziffern</h3><p>Vorschläge sind keine automatische Bestätigung der Behandlung. Nur tatsächlich erbrachte Leistungen erfassen. Faktoren über dem zulässigen Satz und Analogabrechnungen erfordern gesonderte Prüfung.</p></div><button type="button" data-goae-add>+ Position</button></div>
     <div id="goaeLines"></div>
     <button type="button" data-goae-preview class="mlr-verify">GOÄ-Berechnung prüfen</button>
     <div role="status" aria-live="polite" data-goae-feedback class="mlr-feedback">Ärztliche Prüfung vor dem Speichern erforderlich.</div>
@@ -95,4 +95,4 @@
 </template>
 {{ goae_catalog|json_script:"goaeTariffCatalog" }}
 {{ goae_treatments|json_script:"goaeTreatmentMap" }}
-<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261123-v1" defer></script>
+<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261125-goae-reference1" defer></script>
