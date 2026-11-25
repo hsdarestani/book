@@ -53,6 +53,10 @@ function linesForServer(){
  return {lines};
 }
 function resetVerification(){sel.verified=null;sel.verifiedHash=null;render();$('#goaeLinesJson').value='';}
+function resetClinicalProposal(){
+ for(const line of $('.mlr-line'))field(line,'clinical_confirmed').checked=false;
+ sel.clinicalTouched=false;resetVerification();
+}
 function addLine(code){
  const t=document.getElementById('goaeLineTemplate');const line=t.content.firstElementChild.cloneNode(true),dropdown=field(line,'official');
  for(const item of catalog){const opt=document.createElement('option');opt.value=item.number;opt.textContent=item.number+' · '+item.de;dropdown.append(opt);}
@@ -182,7 +186,7 @@ function render(){
  }else{
   const f=calculated.factor, code=treatmentLabels[sel.treatment].code;
   const note=' Nr. '+code+' · Faktor '+decimalFactor(f)+'. '+(calculated.illustration?'Material ist ein Referenzwert, kein bestätigter Einkaufspreis. ':'')+'Nur Vorschlag; ärztliche Prüfung erforderlich.';
-  if(f>3.5)setStatus('Honorarvereinbarung nötig',note+' Vor Behandlung gesondert schriftlich vereinbaren.'+(f>10?' Faktor ungewöhnlich hoch; bitte prüfen.':''),'error');
+  if(f>3.5)setStatus('Honorarvereinbarung nötig',note+' Vor Behandlung gesondert schriftlich vereinbaren. Die Erstellung eines solchen Entwurfs ist in diesem System noch nicht freigegeben.'+(f>10?' Faktor ungewöhnlich hoch; bitte prüfen.':''),'error');
   else if(f>2.3)setStatus('Begründung nötig',note+' Individuelle Begründung dokumentieren.','warning');
   else setStatus('Im Regelrahmen (Vorschau)',note,'ok');
  }
@@ -198,7 +202,7 @@ async function verify(){
  const source=linesForServer();if(source.error){setMessage(source.error);details.open=true;return false;}
  if(!$('[data-material]').value.trim()){setMessage('Tatsächlichen Materialwert eingeben (0,00 falls keine Auslage).');details.open=true;return false;}
  if(!source.lines.length){setMessage('Mindestens eine tatsächlich erbrachte Leistung wählen.');return false;}
- const sig=JSON.stringify(source.lines);
+ const sig=JSON.stringify(source.lines), patientId=$('#goaePatient').value;
  setMessage('GOÄ-Berechnung wird geprüft …','');
  let response,data;
  try{
@@ -206,6 +210,8 @@ async function verify(){
   data=await response.json();
  }catch(err){setMessage('GOÄ-Rechner momentan nicht erreichbar.');return false;}
  if(!response.ok||!data.ok){setMessage(data.message||'GOÄ-Positionen oder Auslagen nicht zulässig.');return false;}
+ const current=linesForServer();
+ if(current.error||JSON.stringify(current.lines)!==sig||desiredTotal()!==target||$('#goaePatient').value!==patientId||toISO($('#goaeDateGerman').value)!==date){setMessage('Eingaben wurden geändert. Bitte erneut prüfen.');return false;}
  const total=Number(data.total_cents)||0,fee=(data.items||[]).reduce((sum,x)=>sum+(x.goae_number?x.net_cents:0),0);
  const material=(data.items||[]).reduce((sum,x)=>sum+(!x.goae_number?x.net_cents:0),0);
  const tax=Number(data.tax_cents)||0;
@@ -217,17 +223,18 @@ async function verify(){
 }
 function syncSlider(){const value=desiredTotal();if(value!==null&&value>=50){$('[data-target-slider]').value=Math.max(50,Math.min(1000,value/100));}}
 $$('.mlr-treatment').forEach(b=>b.addEventListener('click',()=>changeTreatment(b.dataset.treatment)));
-$('[data-qty-minus]').addEventListener('click',()=>{sel.qty=Math.max(1,sel.qty-1);$('[data-qty]').textContent=sel.qty;resetVerification()});
-$('[data-qty-plus]').addEventListener('click',()=>{sel.qty=Math.min(treatmentLabels[sel.treatment].max,sel.qty+1);$('[data-qty]').textContent=sel.qty;resetVerification()});
-$('[data-target-input]').addEventListener('input',()=>{syncSlider();resetVerification()});
-$('[data-target-slider]').addEventListener('input',e=>{$('[data-target-input]').value=String(e.target.value);resetVerification()});
-$$('[data-preset]').forEach(b=>b.addEventListener('click',()=>{$('[data-target-input]').value=b.dataset.preset;syncSlider();resetVerification()}));
+$('[data-qty-minus]').addEventListener('click',()=>{sel.qty=Math.max(1,sel.qty-1);$('[data-qty]').textContent=sel.qty;resetClinicalProposal()});
+$('[data-qty-plus]').addEventListener('click',()=>{sel.qty=Math.min(treatmentLabels[sel.treatment].max,sel.qty+1);$('[data-qty]').textContent=sel.qty;resetClinicalProposal()});
+$('[data-target-input]').addEventListener('input',()=>{syncSlider();resetClinicalProposal()});
+$('[data-target-slider]').addEventListener('input',e=>{$('[data-target-input]').value=String(e.target.value);resetClinicalProposal()});
+$$('[data-preset]').forEach(b=>b.addEventListener('click',()=>{$('[data-target-input]').value=b.dataset.preset;syncSlider();resetClinicalProposal()}));
 $$('[data-material],[data-vat],[data-material-confirm],[data-material-receipt],[data-material-description]').forEach(el=>{
- el.addEventListener('input',()=>{if(el.matches('[data-material]'))sel.materialsExplicit=true;resetVerification()});
- el.addEventListener('change',resetVerification);
+ const changed=()=>{if(el.matches('[data-material],[data-vat]')){if(el.matches('[data-material]')){$('[data-material-confirm]').checked=false;sel.materialsExplicit=true;}resetClinicalProposal();}else resetVerification();};
+ el.addEventListener('input',changed);
+ el.addEventListener('change',changed);
 });
-$('#goaePatient').addEventListener('change',render);
-$('#goaeDateGerman').addEventListener('input',()=>{$('#goaeDateIso').value='';resetVerification()});
+$('#goaePatient').addEventListener('change',()=>{for(const line of $('.mlr-line'))field(line,'clinical_confirmed').checked=false;$('[data-material-confirm]').checked=false;resetVerification()});
+$('#goaeDateGerman').addEventListener('input',()=>{$('#goaeDateIso').value='';for(const line of $('.mlr-line'))field(line,'clinical_confirmed').checked=false;resetVerification()});
 $('[data-native-date]').addEventListener('change',e=>{if(e.target.value)$('#goaeDateGerman').value=fmtDate(e.target.value);resetVerification()});
 $('[data-open-calendar]').addEventListener('click',()=>{
  const input=$('[data-native-date]');input.value=toISO($('#goaeDateGerman').value);
