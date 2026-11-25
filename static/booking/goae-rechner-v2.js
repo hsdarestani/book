@@ -77,6 +77,8 @@ function addLine(code){
 function renumber(){$$('.mlr-line').forEach((line,i)=>{line.querySelector('[data-line-title]').textContent='Position '+(i+1)})}
 function changeTreatment(t){
  if(!treatmentLabels[t])return;
+ if(t===sel.treatment&&list.children.length)return;
+ if(t!==sel.treatment){$('[data-material]').value='';$('[data-material-description]').value='';$('[data-material-receipt]').value='';$('[data-material-confirm]').checked=false;}
  sel.treatment=t;sel.qty=Math.min(sel.qty,treatmentLabels[t].max);$('[data-qty]').textContent=sel.qty;
  $$('.mlr-treatment').forEach(button=>{const active=button.dataset.treatment===t;
   button.classList.toggle('is-active',active);button.setAttribute('aria-pressed',String(active));});
@@ -163,7 +165,7 @@ function setStatus(title,description,variant='warning'){
 function render(){
  const target=desiredTotal();const calculated=fiscalPreview();syncProposals(calculated);
  $('[data-total]').textContent=euro(calculated.total);
- $('[data-treatment-summary]').textContent=treatmentLabels[sel.treatment].title+' · '+sel.qty+' '+(sel.qty===1?treatmentLabels[sel.treatment].unit:treatmentLabels[sel.treatment].plural)+'\nÄsthetisch, inkl. '+$('[data-vat]').value+' % USt.';
+ $('[data-treatment-summary]').textContent=treatmentLabels[sel.treatment].title+' · '+sel.qty+' '+(sel.qty===1?treatmentLabels[sel.treatment].unit:treatmentLabels[sel.treatment].plural)+'\n'+($('[data-vat]').value==='0'?'Medizinisch / steuerfrei (zu prüfen)':'Ästhetisch, inkl. '+$('[data-vat]').value+' % USt.');
  const preview=sel.verified?sel.verified:(calculated.impossible?{...calculated,fee:0,tax:0}:calculated);
  $('[data-fee]').textContent=euro(preview.fee);$('[data-material-total]').textContent=euro(preview.material);$('[data-tax]').textContent=euro(preview.tax);
  for(const [part,key] of [['fee','fee'],['material','material'],['tax','tax']]){
@@ -193,8 +195,8 @@ async function verify(){
  if(!$('#goaePatient').value){setMessage('Patient auswählen.');details.open=true;$('#goaePatient').focus();return false;}
  const date=toISO($('#goaeDateGerman').value);$('#goaeDateIso').value=date;
  if(!date){setMessage('Leistungsdatum bitte als TT.MM.JJJJ eingeben.');details.open=true;$('#goaeDateGerman').focus();return false;}
- if(!$('[data-material]').value.trim()){setMessage('Tatsächlichen Materialwert eingeben (0,00 falls keine Auslage).');details.open=true;return false;}
  const source=linesForServer();if(source.error){setMessage(source.error);details.open=true;return false;}
+ if(!$('[data-material]').value.trim()){setMessage('Tatsächlichen Materialwert eingeben (0,00 falls keine Auslage).');details.open=true;return false;}
  if(!source.lines.length){setMessage('Mindestens eine tatsächlich erbrachte Leistung wählen.');return false;}
  const sig=JSON.stringify(source.lines);
  setMessage('GOÄ-Berechnung wird geprüft …','');
@@ -238,7 +240,7 @@ $('[data-reset]').addEventListener('click',()=>{
  sel.qty=1;sel.clinicalTouched=false;$('[data-qty]').textContent='1';
  $('[data-target-input]').value='260';$('[data-target-slider]').value='260';
  $('[data-material]').value='';$('[data-material-receipt]').value='';$('[data-material-description]').value='';$('[data-material-confirm]').checked=false;
- changeTreatment('hyaluron');setMessage('Alle Beispielwerte zurückgesetzt; Patientendaten bleiben erhalten.','');
+ list.replaceChildren();changeTreatment('hyaluron');setMessage('Alle Beispielwerte zurückgesetzt; Patientendaten bleiben erhalten.','');
 });
 $('[data-print-simulation]').addEventListener('click',()=>{render();window.print()});
 form.addEventListener('submit',async ev=>{
