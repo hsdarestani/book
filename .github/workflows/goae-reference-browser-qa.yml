@@ -13,6 +13,13 @@ on:
       - 'templates/booking/app_management.html'
       - 'scripts/test_goae_reference_browser.py'
       - '.github/workflows/goae-reference-browser-qa.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'templates/booking/_billing_goae_form.html'
+      - 'static/booking/goae-rechner-v2.js'
+      - 'scripts/test_goae_reference_browser.py'
+      - '.github/workflows/goae-reference-browser-qa.yml'
   workflow_dispatch:
 permissions: {contents: read}
 jobs:
