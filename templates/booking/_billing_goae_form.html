@@ -28,7 +28,7 @@
    <section class="mlr-step">
     <h3><span class="mlr-circle">3</span> Was zahlt die Patientin / der Patient? <span title="Gewünschter Gesamtbetrag, keine GOÄ-Freigabe" class="mlr-info">ⓘ</span></h3>
     <div class="mlr-price-entry"><input data-target-input aria-label="Gewünschter Gesamtbetrag in Euro" type="text" inputmode="decimal" value="260" placeholder="260"><span>€</span></div>
-    <input type="range" class="mlr-price-slider" data-target-slider min="50" max="1000" step="10" value="260" aria-label="Betrag auswählen">
+    <input type="range" class="mlr-price-slider" data-target-slider min="50" max="1500" step="10" value="260" aria-label="Betrag auswählen">
     <div class="mlr-price-presets"><button type="button" data-preset="200">200 €</button><button type="button" data-preset="300">300 €</button><button type="button" data-preset="400">400 €</button><button type="button" data-preset="500">500 €</button><button type="button" data-preset="600">600 €</button></div>
     <p class="mlr-note">Gewünschter Endbetrag inklusive Material und gewählter Umsatzsteuer. Eine rechtlich prüfbare GOÄ-Rechnung braucht konkrete Leistungen und Belege.</p>
    </section>
@@ -36,7 +36,7 @@
     <h3><span class="mlr-circle">4</span> Begründung für den Faktor</h3>
     <p class="mlr-note" data-reason-status></p>
     <div data-reason-options></div>
-    <label>Individuelle Ergänzung <input type="text" data-reason-custom maxlength="1500" placeholder="Nur dokumentierte Umstände"></label>
+    
     <p class="mlr-note">Nur tatsächlich zutreffende und in der Patientenakte dokumentierte Gründe auswählen.</p>
    </section>
   </div>
@@ -49,14 +49,29 @@
      </select></label>
      <div class="mlr-date"><label for="goaeDateGerman">Behandlungsdatum</label><input type="text" id="goaeDateGerman" placeholder="TT.MM.JJJJ" inputmode="numeric" maxlength="10" required pattern="[0-9]{2}\.[0-9]{2}\.[0-9]{4}"><input type="date" data-native-date class="mlr-native-date" aria-label="Datum auswählen"><button type="button" data-open-calendar aria-label="Kalender öffnen">▣</button></div>
      <label>Umsatzsteuerstatus <select data-vat><option value="19" selected>19 % · Ästhetisch / steuerpflichtig</option><option value="0">0 % · Bitte steuerlich prüfen</option><option value="7">7 % · Bitte steuerlich prüfen</option></select></label>
-     <label>Tatsächliches Material je Einheit (netto €; 0,00 falls keine Auslage) <input type="text" data-material placeholder="0,00" value="" inputmode="decimal"></label>
-     <label>Belegreferenz § 10 GOÄ <input type="text" data-material-receipt maxlength="250" placeholder="Einkaufsbeleg / Nachweis"></label>
-     <label>Beschreibung der Auslage <input type="text" data-material-description maxlength="220" placeholder="Nur tatsächlich berechnungsfähiges Material"></label>
-     <label class="mlr-confirm"><input type="checkbox" data-material-confirm> Tatsächliche Berechnungsfähigkeit der Auslage geprüft (§ 10 GOÄ)</label>
+     <label>Diagnose / Behandlungsanlass <select data-diagnosis></select></label>
+     <label data-diagnosis-custom-wrap hidden>Eigener Text <input type="text" data-diagnosis-custom maxlength="100"></label>
+     <label>Rechnungsdatum (Vorschau) <input type="date" data-invoice-date></label>
+     <label>Zahlbar bis (Vorschau; leer = 14 Tage) <input type="date" data-due-date></label>
+    </div>
+    <div class="mlr-lines-title"><div><h3>Material</h3><p>Jede Zeile wird eine eigene Rechnungsposition. Beispielwerte vor dem Speichern durch tatsächliche Auslagen ersetzen.</p></div><button type="button" data-material-add>+ Material</button></div>
+    <div class="mlr-material-line" data-material-primary>
+     <div class="mlr-field-grid">
+      <label>Bezeichnung <input type="text" data-material-description maxlength="100" placeholder="Material"></label>
+      <label>Anzahl <input type="number" min="1" max="20" step="1" data-material-qty value="1"></label>
+      <label>€ netto/Stk. (0,00 falls keine Auslage) <input type="text" data-material placeholder="0,00" value="" inputmode="decimal"></label>
+      <label>Belegreferenz § 10 GOÄ <input type="text" data-material-receipt maxlength="250" placeholder="Einkaufsbeleg / Nachweis"></label>
+      <label class="mlr-confirm"><input type="checkbox" data-material-confirm> Tatsächliche Berechnungsfähigkeit der Auslage geprüft (§ 10 GOÄ)</label>
+     </div>
+    </div>
+    <div data-extra-materials></div>
+    <div class="mlr-field-grid">
+      <div><strong>Faktoren der festen Ziffern</strong><div data-fixed-factors></div><p class="mlr-note">Die Hauptziffer erhält den rechnerischen Restbetrag.</p></div>
+      <div><button type="button" data-standard-values>Auf Standardwerte zurücksetzen</button></div>
     </div>
     <p class="mlr-legal-line">Die Beispielwerte im Rechner sind keine bestätigten Einkaufspreise. Material ist nicht frei auf den Wunschbetrag anpassbar. Nur tatsächlich entstandene, nach § 10 GOÄ berechnungsfähige Auslagen dürfen angesetzt werden.</p>
     <div class="mlr-field-grid">
-      <div><strong>Preisgrenzen (rechnerische Vorschau)</strong><p class="mlr-note" data-price-boundaries></p></div>
+      <div><strong>Preisgrenzen (rechnerische Vorschau)</strong><p class="mlr-note" data-price-boundaries></p><div class="mlr-price-presets"><button type="button" data-boundary="2.3">Ohne Begründung</button><button type="button" data-boundary="3.5">Ohne Honorarvereinbarung</button></div></div>
     </div>
     <fieldset data-agreement-evidence hidden>
      <legend>Bereits unterzeichnete Honorarvereinbarung (§ 2 GOÄ)</legend>
@@ -93,14 +108,25 @@
     <div class="mlr-paper-address"><div><small>{{ data.settings.company_name }}</small><strong data-paper-patient>Patient: bitte auswählen</strong><span>Patientenanschrift aus der Akte</span></div>
      <div><dl><dt>Rechnungs-Nr.</dt><dd>ENTWURF</dd><dt>Rechnungsdatum</dt><dd data-today>–</dd><dt>Behandlungsdatum</dt><dd data-paper-date>–</dd><dt>Steuernummer</dt><dd>{{ data.settings.tax_number|default:"Zu ergänzen" }}</dd></dl></div></div>
     <h3>Rechnung – ENTWURF</h3>
-    <p>Behandlungsanlass: ästhetische Behandlung auf Wunsch; medizinische Indikation nur nach ärztlicher Feststellung.</p>
+    <p data-paper-diagnosis></p>
     <table class="mlr-preview-table"><thead><tr><th>GOÄ-Nr.</th><th>Leistung / Auslage</th><th>Anz.</th><th>Faktor</th><th>Betrag</th></tr></thead><tbody data-paper-rows><tr><td>–</td><td>GOÄ-Leistungsziffern noch nicht geprüft</td><td>–</td><td>–</td><td>–</td></tr></tbody></table>
     <div class="mlr-paper-totals"><div><span>Ärztliche Leistungen</span><strong data-paper-fee>–</strong></div><div><span>Material / Auslagen</span><strong data-paper-material>–</strong></div><div><span>Umsatzsteuer</span><strong data-paper-tax>–</strong></div><div class="mlr-grand"><span>Gesamtbetrag</span><strong data-paper-total>260,00 €</strong></div></div>
-    <p class="mlr-paper-foot">Unverbindliche Vorschau. Nur der nach ärztlicher Prüfung gespeicherte GOÄ-Entwurf enthält abrechnungsfähige Positionen. Nicht zur Zahlung verwenden.</p>
+    <p data-paper-due></p><p class="mlr-paper-foot">Unverbindliche Vorschau. Nur der nach ärztlicher Prüfung gespeicherte GOÄ-Entwurf enthält abrechnungsfähige Positionen. Nicht zur Zahlung verwenden.</p>
     <strong class="mlr-watermark">ENTWURF</strong>
    </article></div>
  </form>
 </section>
+<template id="goaeMaterialTemplate">
+ <article class="mlr-material-line" data-extra-material><header><strong>Weitere Auslage</strong><button type="button" data-material-remove>Entfernen</button></header>
+  <div class="mlr-field-grid">
+   <label>Bezeichnung <input data-m-description type="text" maxlength="100"></label>
+   <label>Anzahl <input data-m-qty type="number" min="1" max="20" step="1" value="1"></label>
+   <label>€ netto/Stk. <input data-m-cost type="text" inputmode="decimal"></label>
+   <label>Belegreferenz <input data-m-receipt type="text" maxlength="250"></label>
+   <label class="mlr-confirm"><input data-m-confirm type="checkbox"> Tatsächliche Auslage geprüft</label>
+  </div>
+ </article>
+</template>
 <template id="goaeLineTemplate">
  <article class="mlr-line"><header><strong data-line-title>Position</strong><button type="button" data-goae-remove>Entfernen</button></header>
   <div class="mlr-line-grid">
@@ -120,4 +146,4 @@
 </template>
 {{ goae_catalog|json_script:"goaeTariffCatalog" }}
 {{ goae_treatments|json_script:"goaeTreatmentMap" }}
-<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261125-goae-reference2" defer></script>
+<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261125-goae-reference3" defer></script>
