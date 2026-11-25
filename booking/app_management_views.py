@@ -524,6 +524,7 @@ def app_management(request, section='bookings'):
                 _billing_api(request,'billing/invoices/',method='POST',payload={
                     'billing_method':'goae','customer_id':int(request.POST.get('customer_id')),
                     'service_date':str(request.POST.get('service_date') or ''),'lines':lines,
+                    **({'target_total_cents':int(request.POST['goae_target_cents'])} if request.POST.get('goae_target_cents') else {}),
                 })
                 return _redirect('invoices','goae_draft')
             if action == 'billing_create_goae':
