@@ -58,7 +58,7 @@ function linesForServer(){
 function resetVerification(){sel.verified=null;sel.verifiedHash=null;render();$('#goaeLinesJson').value='';}
 function resetClinicalProposal(){
  $('[data-agreement-confirm]').checked=false;
- for(const line of $('.mlr-line'))field(line,'clinical_confirmed').checked=false;
+ for(const line of $$('.mlr-line'))field(line,'clinical_confirmed').checked=false;
  sel.clinicalTouched=false;resetVerification();
 }
 function addLine(code){
@@ -181,7 +181,7 @@ function updateReason(){
  const chosen=[...$('[data-reason-options]').querySelectorAll('input:checked')].map(x=>x.value);
  const custom=$('[data-reason-custom]').value.trim();
  sel.reasonText=[...chosen,custom].filter(Boolean).join('; ');
- const main=$('.mlr-line').find(l=>field(l,'goae_number').value===treatmentLabels[sel.treatment].code);
+ const main=$$('.mlr-line').find(l=>field(l,'goae_number').value===treatmentLabels[sel.treatment].code);
  if(main){field(main,'goae_justification').value=sel.reasonText;field(main,'clinical_confirmed').checked=false;}
  resetVerification();
 }
@@ -226,7 +226,7 @@ function printAgreement(){
  add('p','Zahlungspflichtige Person: '+patient.selectedOptions[0].textContent.trim().split(' · ')[0]);
  const table=doc.createElement('table');doc.body.append(table);
  const headers=doc.createElement('tr');table.append(headers);['Nr.','Leistung','Anzahl','Faktor','Vereinbarter Betrag (netto)'].forEach(x=>add('th',x,headers));
- const main=p.proposals[0],row=doc.createElement('tr');table.append(row);[code,label,String(main.qty),decimalFactor(main.factor),euro(main.cents)].forEach(x=>add('td',x,row));
+ const main=p.proposals[0],row=doc.createElement('tr');table.append(row);const f=Math.round(main.factor*10000)/10000, agreed=Math.round(referenceBase(code)*f)*main.qty;[code,label,String(main.qty),decimalFactor(f),euro(agreed)].forEach(x=>add('td',x,row));
  add('p','Eine vollständige Erstattung der vereinbarten Vergütung durch Erstattungsstellen ist möglicherweise nicht gewährleistet.');
  add('p','Ort, Datum: __________________________________');
  add('p','Unterschrift Ärztin / Arzt: __________________________');
@@ -246,8 +246,8 @@ function render(){
   setStatus('Betrag eingeben','Bitte einen gültigen Gesamtbetrag in Euro angeben.','error');
  }else if(sel.verified){
   const gap=Math.abs(sel.verified.total-target);
-  setStatus(gap<=1?'✓ GOÄ-Entwurf rechnerisch geprüft':'Gesamtbetrag weicht ab',
-   gap<=1?'Positionen wurden serverseitig geprüft. Ärztliche und steuerliche Prüfung bleibt notwendig.':'Die ausgewählten GOÄ-Positionen ergeben '+euro(sel.verified.total)+' statt '+euro(target)+'. Faktoren/Positionen prüfen; keine automatische Anpassung.',''+(gap<=1?'ok':'error'));
+  setStatus(gap===0?'✓ GOÄ-Entwurf rechnerisch geprüft':'Gesamtbetrag weicht ab',
+   gap===0?'Positionen wurden serverseitig geprüft. Ärztliche und steuerliche Prüfung bleibt notwendig.':'Die ausgewählten GOÄ-Positionen ergeben '+euro(sel.verified.total)+' statt '+euro(target)+'. Faktoren/Positionen prüfen; keine automatische Anpassung.',''+(gap===0?'ok':'error'));
  }else if(calculated.impossible){
   setStatus('Preis oder Material prüfen','Der Wunschbetrag deckt Material und Mindestsätze nicht oder die Eingabe ist ungültig. Rechnerischer Mindestbetrag: '+euro(calculated.minimum)+'.','error');
  }else{
@@ -284,7 +284,7 @@ async function verify(){
  const tax=Number(data.tax_cents)||0;
  sel.verified={total,fee,material,tax,items:data.items,lines:source.lines};
  sel.verifiedHash=sig;render();
- const matched=Math.abs(total-target)<=1;
+ const matched=total===target;
  setMessage(matched?'Serverberechnung erfolgreich. GOÄ-Entwurf kann gespeichert werden.':'Rechnerisch geprüft, aber Wunschpreis und GOÄ-Positionen stimmen nicht überein: '+euro(total)+' statt '+euro(target)+'. Bitte Faktoren und Angaben prüfen.',matched?'ok':'error');
  return matched;
 }
@@ -300,8 +300,8 @@ $$('[data-material],[data-vat],[data-material-confirm],[data-material-receipt],[
  el.addEventListener('input',changed);
  el.addEventListener('change',changed);
 });
-$('#goaePatient').addEventListener('change',()=>{$('[data-agreement-confirm]').checked=false;$('[data-agreement-document]').value='';$('[data-agreement-date]').value='';$('[data-agreement-amount]').value='';for(const line of $('.mlr-line'))field(line,'clinical_confirmed').checked=false;$('[data-material-confirm]').checked=false;resetVerification()});
-$('#goaeDateGerman').addEventListener('input',()=>{$('#goaeDateIso').value='';for(const line of $('.mlr-line'))field(line,'clinical_confirmed').checked=false;resetVerification()});
+$('#goaePatient').addEventListener('change',()=>{$('[data-agreement-confirm]').checked=false;$('[data-agreement-document]').value='';$('[data-agreement-date]').value='';$('[data-agreement-amount]').value='';for(const line of $$('.mlr-line'))field(line,'clinical_confirmed').checked=false;$('[data-material-confirm]').checked=false;resetVerification()});
+$('#goaeDateGerman').addEventListener('input',()=>{$('#goaeDateIso').value='';$('[data-agreement-confirm]').checked=false;for(const line of $$('.mlr-line'))field(line,'clinical_confirmed').checked=false;resetVerification()});
 $('[data-native-date]').addEventListener('change',e=>{if(e.target.value)$('#goaeDateGerman').value=fmtDate(e.target.value);resetVerification()});
 $('[data-open-calendar]').addEventListener('click',()=>{
  const input=$('[data-native-date]');input.value=toISO($('#goaeDateGerman').value);
@@ -312,7 +312,7 @@ $('[data-goae-preview]').addEventListener('click',()=>verify());
 $('[data-injection-count]').addEventListener('input',e=>{sel.injections=e.target.value===''?0:Number(e.target.value);resetClinicalProposal()});
 $('[data-reason-custom]').addEventListener('input',updateReason);
 $('[data-agreement-preview]').addEventListener('click',printAgreement);
-$('[data-agreement-document],[data-agreement-date],[data-agreement-amount],[data-agreement-confirm]').forEach(el=>el.addEventListener('change',resetVerification));
+$$('[data-agreement-document],[data-agreement-date],[data-agreement-amount],[data-agreement-confirm]').forEach(el=>el.addEventListener('input',()=>{if(!el.matches('[data-agreement-confirm]'))$('[data-agreement-confirm]').checked=false;resetVerification()}));
 $('[data-open-details]').addEventListener('click',()=>{details.open=true;details.scrollIntoView({behavior:'smooth',block:'start'})});
 $('[data-reset]').addEventListener('click',()=>{
  $('[data-agreement-confirm]').checked=false;$('[data-agreement-document]').value='';$('[data-agreement-date]').value='';$('[data-agreement-amount]').value='';sel.qty=1;sel.injections=null;sel.reasonText='';sel.reasonTreatment=null;sel.clinicalTouched=false;$('[data-qty]').textContent='1';
@@ -325,7 +325,7 @@ form.addEventListener('submit',async ev=>{
  ev.preventDefault();if(sel.working)return;
  const data=linesForServer();if(data.error){setMessage(data.error);details.open=true;return;}
  const sig=JSON.stringify(data.lines||[]);
- if(!sel.verified||sel.verifiedHash!==sig||Math.abs(sel.verified.total-targetOrZero())>1){
+ if(!sel.verified||sel.verifiedHash!==sig||sel.verified.total!==targetOrZero()){
   details.open=true;if(!await verify())return;
  }
  if(!form.reportValidity()){details.open=true;form.reportValidity();return;}
@@ -333,6 +333,7 @@ form.addEventListener('submit',async ev=>{
  const button=form.querySelector('.mlr-save');button.disabled=true;sel.working=true;
  $('#goaeDateIso').value=toISO($('#goaeDateGerman').value);
  $('#goaeLinesJson').value=JSON.stringify(data.lines);
+ $('#goaeTargetCents').value=String(targetOrZero());
  HTMLFormElement.prototype.submit.call(form);
 });
 const today=new Date();$('[data-today]').textContent=today.toLocaleDateString('de-DE');
