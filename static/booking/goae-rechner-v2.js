@@ -30,7 +30,9 @@ const field=(line,key)=>line.querySelector('[data-g="'+key+'"]');
 const csrf=form.querySelector('input[name=csrfmiddlewaretoken]');
 function rowData(line){
  const val=k=>field(line,k)?.value?.trim()||'';
- return {kind:'service',tariff_source:val('official')?'official_catalog':'manual',
+ const main=val('goae_number')===treatmentLabels[sel.treatment].code;
+ const agreement=main&&Number(val('goae_factor').replace(',','.'))>3.5?{agreement_confirmed:$('[data-agreement-confirm]').checked,agreement_document_id:$('[data-agreement-document]').value,agreement_date:$('[data-agreement-date]').value,agreement_amount_eur:$('[data-agreement-amount]').value}:{};
+ return {...agreement,analog:field(line,'analog').checked,analog_confirmed:field(line,'analog_confirmed').checked,kind:'service',tariff_source:val('official')?'official_catalog':'manual',
    goae_number:val('goae_number'),goae_description:val('goae_description'),quantity:val('quantity'),
    goae_points:val('goae_points'),goae_base_eur:val('goae_base_eur'),goae_factor:val('goae_factor'),
    goae_category:val('goae_category'),goae_justification:val('goae_justification'),
@@ -39,6 +41,7 @@ function rowData(line){
 function linesForServer(){
  const lines=[...root.querySelectorAll('.mlr-line')].map(rowData),materialRaw=$('[data-material]').value.trim(),
        material=materialRaw?parseCents(materialRaw):0,vat=$('[data-vat]').value;
+ if(lines.some(item=>item.analog&&!item.analog_confirmed))return {error:'Analogleistung und Gleichwertigkeit ärztlich bestätigen.'};
  if(lines.some(item=>!item.clinical_confirmed))
    return {error:'Jede GOÄ-Leistung muss von der behandelnden Ärztin oder dem behandelnden Arzt bestätigt werden.'};
  if(material===null)return {error:'Materialwert bitte mit höchstens zwei Nachkommastellen eingeben.'};
@@ -54,6 +57,7 @@ function linesForServer(){
 }
 function resetVerification(){sel.verified=null;sel.verifiedHash=null;render();$('#goaeLinesJson').value='';}
 function resetClinicalProposal(){
+ $('[data-agreement-confirm]').checked=false;
  for(const line of $('.mlr-line'))field(line,'clinical_confirmed').checked=false;
  sel.clinicalTouched=false;resetVerification();
 }
@@ -65,6 +69,7 @@ function addLine(code){
   field(line,'goae_number').value=String(code);field(line,'goae_description').value=item.de;
   field(line,'goae_points').value=item.points;field(line,'goae_category').value=item.category;
   field(line,'goae_base_eur').value='';
+  if(code==='268'&&sel.treatment==='prp'){field(line,'analog').checked=true;field(line,'goae_description').value='';}
  }
  dropdown.addEventListener('change',()=>{const item=catalogByCode[dropdown.value];
   if(item){field(line,'goae_number').value=item.number;field(line,'goae_description').value=item.de;
@@ -83,7 +88,7 @@ function changeTreatment(t){
  if(!treatmentLabels[t])return;
  if(t===sel.treatment&&list.children.length)return;
  if(t!==sel.treatment){$('[data-material]').value='';$('[data-material-description]').value='';$('[data-material-receipt]').value='';$('[data-material-confirm]').checked=false;}
- sel.treatment=t;sel.injections=null;sel.reasonText='';sel.reasonTreatment=null;sel.qty=Math.min(sel.qty,treatmentLabels[t].max);$('[data-qty]').textContent=sel.qty;
+ $('[data-agreement-confirm]').checked=false;sel.treatment=t;sel.injections=null;sel.reasonText='';sel.reasonTreatment=null;sel.qty=Math.min(sel.qty,treatmentLabels[t].max);$('[data-qty]').textContent=sel.qty;
  $$('.mlr-treatment').forEach(button=>{const active=button.dataset.treatment===t;
   button.classList.toggle('is-active',active);button.setAttribute('aria-pressed',String(active));});
  const meta=treatmentLabels[t];
@@ -136,7 +141,7 @@ function targetOrZero(){return desiredTotal()??0}
    const proposal=p.proposals.find(x=>x.code===code);
    if(!proposal||!catalogByCode[code])continue;
    // PRP analog description must be individually selected, never silently classified.
-   if(sel.treatment==='prp'&&code===meta.code)continue;
+   // Analog status is explicit and the physician must supply the actual service description.
    field(line,'quantity').value=String(proposal.qty);
    field(line,'goae_factor').value=decimalFactor(proposal.factor);
   }
@@ -186,6 +191,7 @@ function renderAdditional(p){
  const inj=$('[data-injection-count]');
  if(meta.injections){inj.max=String(meta.injMax*sel.qty);if(document.activeElement!==inj)inj.value=String(sel.injections??meta.injections*sel.qty);}
  const show=!p.impossible&&p.factor>2.3;
+ $('[data-agreement-evidence]').hidden=!show||p.factor<=3.5||sel.treatment==='prp';
  $('[data-reason-section]').hidden=!show;
  $('[data-reason-status]').textContent='Nr. '+meta.code+' · Faktor '+decimalFactor(p.factor)+(p.factor>3.5?' · Vereinbarung erforderlich':' · Begründung erforderlich');
  if(sel.reasonTreatment!==sel.treatment){
@@ -247,7 +253,7 @@ function render(){
  }else{
   const f=calculated.factor, code=treatmentLabels[sel.treatment].code;
   const note=' Nr. '+code+' · Faktor '+decimalFactor(f)+'. '+(calculated.illustration?'Material ist ein Referenzwert, kein bestätigter Einkaufspreis. ':'')+'Nur Vorschlag; ärztliche Prüfung erforderlich.';
-  if(f>3.5)setStatus('Honorarvereinbarung nötig',note+' Vor Behandlung gesondert schriftlich vereinbaren. Die Erstellung eines solchen Entwurfs ist in diesem System noch nicht freigegeben.'+(f>10?' Faktor ungewöhnlich hoch; bitte prüfen.':''),'error');
+  if(f>3.5)setStatus('Honorarvereinbarung nötig',note+' Vor Behandlung gesondert schriftlich vereinbaren. Speichern nur nach Prüfung des bereits unterzeichneten Dokuments und serverseitiger Berechnung.'+(f>10?' Faktor ungewöhnlich hoch; bitte prüfen.':''),'error');
   else if(f>2.3)setStatus('Begründung nötig',note+' Individuelle Begründung dokumentieren.','warning');
   else setStatus('Im Regelrahmen (Vorschau)',note,'ok');
  }
@@ -267,7 +273,7 @@ async function verify(){
  setMessage('GOÄ-Berechnung wird geprüft …','');
  let response,data;
  try{
-  response=await fetch('/verwaltung/api/goae-quote/',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrf.value},body:JSON.stringify({lines:source.lines})});
+  response=await fetch('/verwaltung/api/goae-quote/',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrf.value},body:JSON.stringify({lines:source.lines,customer_id:patientId,service_date:date})});
   data=await response.json();
  }catch(err){setMessage('GOÄ-Rechner momentan nicht erreichbar.');return false;}
  if(!response.ok||!data.ok){setMessage(data.message||'GOÄ-Positionen oder Auslagen nicht zulässig.');return false;}
@@ -294,7 +300,7 @@ $$('[data-material],[data-vat],[data-material-confirm],[data-material-receipt],[
  el.addEventListener('input',changed);
  el.addEventListener('change',changed);
 });
-$('#goaePatient').addEventListener('change',()=>{for(const line of $('.mlr-line'))field(line,'clinical_confirmed').checked=false;$('[data-material-confirm]').checked=false;resetVerification()});
+$('#goaePatient').addEventListener('change',()=>{$('[data-agreement-confirm]').checked=false;$('[data-agreement-document]').value='';$('[data-agreement-date]').value='';$('[data-agreement-amount]').value='';for(const line of $('.mlr-line'))field(line,'clinical_confirmed').checked=false;$('[data-material-confirm]').checked=false;resetVerification()});
 $('#goaeDateGerman').addEventListener('input',()=>{$('#goaeDateIso').value='';for(const line of $('.mlr-line'))field(line,'clinical_confirmed').checked=false;resetVerification()});
 $('[data-native-date]').addEventListener('change',e=>{if(e.target.value)$('#goaeDateGerman').value=fmtDate(e.target.value);resetVerification()});
 $('[data-open-calendar]').addEventListener('click',()=>{
@@ -306,9 +312,10 @@ $('[data-goae-preview]').addEventListener('click',()=>verify());
 $('[data-injection-count]').addEventListener('input',e=>{sel.injections=e.target.value===''?0:Number(e.target.value);resetClinicalProposal()});
 $('[data-reason-custom]').addEventListener('input',updateReason);
 $('[data-agreement-preview]').addEventListener('click',printAgreement);
+$('[data-agreement-document],[data-agreement-date],[data-agreement-amount],[data-agreement-confirm]').forEach(el=>el.addEventListener('change',resetVerification));
 $('[data-open-details]').addEventListener('click',()=>{details.open=true;details.scrollIntoView({behavior:'smooth',block:'start'})});
 $('[data-reset]').addEventListener('click',()=>{
- sel.qty=1;sel.injections=null;sel.reasonText='';sel.reasonTreatment=null;sel.clinicalTouched=false;$('[data-qty]').textContent='1';
+ $('[data-agreement-confirm]').checked=false;$('[data-agreement-document]').value='';$('[data-agreement-date]').value='';$('[data-agreement-amount]').value='';sel.qty=1;sel.injections=null;sel.reasonText='';sel.reasonTreatment=null;sel.clinicalTouched=false;$('[data-qty]').textContent='1';
  $('[data-target-input]').value='260';$('[data-target-slider]').value='260';
  $('[data-material]').value='';$('[data-material-receipt]').value='';$('[data-material-description]').value='';$('[data-material-confirm]').checked=false;
  list.replaceChildren();changeTreatment('hyaluron');setMessage('Alle Beispielwerte zurückgesetzt; Patientendaten bleiben erhalten.','');
