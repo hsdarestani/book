@@ -7,6 +7,7 @@
   {% csrf_token %}
   <input type="hidden" name="action" value="billing_create_goae_full">
   <input type="hidden" name="goae_lines_json" id="goaeLinesJson">
+  <input type="hidden" name="goae_target_cents" id="goaeTargetCents">
   <input type="hidden" name="service_date" id="goaeDateIso">
   <div class="mlr-steps">
    <section class="mlr-step">
@@ -22,6 +23,7 @@
     <h3><span class="mlr-circle">2</span> <span data-quantity-label>Wie viele Spritzen?</span></h3>
     <div class="mlr-stepper"><button type="button" data-qty-minus aria-label="Weniger">−</button><output data-qty>1</output><button type="button" data-qty-plus aria-label="Mehr">+</button></div>
     <p class="mlr-note" data-quantity-hint>à 1 ml</p>
+    <label data-injection-wrap hidden>Tatsächliche Anzahl Injektionen <input type="number" min="1" max="100" step="1" data-injection-count aria-label="Anzahl Injektionen"></label>
    </section>
    <section class="mlr-step">
     <h3><span class="mlr-circle">3</span> Was zahlt die Patientin / der Patient? <span title="Gewünschter Gesamtbetrag, keine GOÄ-Freigabe" class="mlr-info">ⓘ</span></h3>
@@ -29,6 +31,13 @@
     <input type="range" class="mlr-price-slider" data-target-slider min="50" max="1000" step="10" value="260" aria-label="Betrag auswählen">
     <div class="mlr-price-presets"><button type="button" data-preset="200">200 €</button><button type="button" data-preset="300">300 €</button><button type="button" data-preset="400">400 €</button><button type="button" data-preset="500">500 €</button><button type="button" data-preset="600">600 €</button></div>
     <p class="mlr-note">Gewünschter Endbetrag inklusive Material und gewählter Umsatzsteuer. Eine rechtlich prüfbare GOÄ-Rechnung braucht konkrete Leistungen und Belege.</p>
+   </section>
+   <section class="mlr-step" data-reason-section hidden>
+    <h3><span class="mlr-circle">4</span> Begründung für den Faktor</h3>
+    <p class="mlr-note" data-reason-status></p>
+    <div data-reason-options></div>
+    <label>Individuelle Ergänzung <input type="text" data-reason-custom maxlength="1500" placeholder="Nur dokumentierte Umstände"></label>
+    <p class="mlr-note">Nur tatsächlich zutreffende und in der Patientenakte dokumentierte Gründe auswählen.</p>
    </section>
   </div>
   <details class="mlr-details" id="goaeDetails" data-mlr-details>
@@ -46,6 +55,19 @@
      <label class="mlr-confirm"><input type="checkbox" data-material-confirm> Tatsächliche Berechnungsfähigkeit der Auslage geprüft (§ 10 GOÄ)</label>
     </div>
     <p class="mlr-legal-line">Die Beispielwerte im Rechner sind keine bestätigten Einkaufspreise. Material ist nicht frei auf den Wunschbetrag anpassbar. Nur tatsächlich entstandene, nach § 10 GOÄ berechnungsfähige Auslagen dürfen angesetzt werden.</p>
+    <div class="mlr-field-grid">
+      <div><strong>Preisgrenzen (rechnerische Vorschau)</strong><p class="mlr-note" data-price-boundaries></p></div>
+    </div>
+    <fieldset data-agreement-evidence hidden>
+     <legend>Bereits unterzeichnete Honorarvereinbarung (§ 2 GOÄ)</legend>
+     <p class="mlr-note">Nur nach persönlicher Absprache und vor Behandlungsbeginn. Das unterschriebene Dokument muss in der Patientenakte hinterlegt sein.</p>
+     <div class="mlr-field-grid">
+      <label>Dokument-ID aus der Patientenakte <input type="number" min="1" step="1" data-agreement-document></label>
+      <label>Datum der Vereinbarung <input type="date" data-agreement-date></label>
+      <label>Vereinbarter Netto-Gebührenbetrag der Hauptziffer (€) <input type="text" inputmode="decimal" data-agreement-amount></label>
+      <label class="mlr-confirm"><input type="checkbox" data-agreement-confirm> Unterzeichnete, vor der Behandlung geschlossene Vereinbarung und vereinbarte Leistung, Faktor und Betrag ärztlich geprüft.</label>
+     </div>
+    </fieldset>
     <div class="mlr-lines-title"><div><h3>GOÄ-Leistungsziffern</h3><p>Vorschläge sind keine automatische Bestätigung der Behandlung. Nur tatsächlich erbrachte Leistungen erfassen. Faktoren über dem zulässigen Satz und Analogabrechnungen erfordern gesonderte Prüfung.</p></div><button type="button" data-goae-add>+ Position</button></div>
     <div id="goaeLines"></div>
     <button type="button" data-goae-preview class="mlr-verify">GOÄ-Berechnung prüfen</button>
@@ -61,6 +83,7 @@
   </section>
   <div class="mlr-evidence" data-material-notice>ⓘ <div><strong>Beleg beifügen</strong><p>Für einzeln berechnete Auslagen über 25,56 € ist ein Beleg oder gleichwertiger Nachweis erforderlich (§ 12 Abs. 2 Nr. 5 GOÄ).</p></div></div>
   <div class="mlr-toolbar">
+   <button type="button" class="mlr-print" data-agreement-preview hidden>Honorarvereinbarung als Entwurf drucken</button>
    <button type="button" class="mlr-print" data-print-simulation><span>▣</span> Vorschau drucken / als PDF</button>
    <button type="submit" class="mlr-save">Geprüften GOÄ-Entwurf speichern</button>
   </div>
@@ -90,9 +113,11 @@
    <label>Einfachsatz (€) <input data-g="goae_base_eur" type="text" inputmode="decimal"></label>
    <label>Kategorie <select data-g="goae_category"><option value="general">Ärztliche Leistung</option><option value="technical">Technische Leistung</option><option value="laboratory">Labor</option></select></label>
    <label>Erhöhten Faktor begründen <input type="text" data-g="goae_justification" maxlength="1500" placeholder="Individuelle Begründung"></label>
+  <label class="mlr-confirm"><input type="checkbox" data-g="analog"> Analogabrechnung (§ 6 Abs. 2 GOÄ)</label>
+   <label class="mlr-confirm"><input type="checkbox" data-g="analog_confirmed"> Tatsächliche Analogleistung und Gleichwertigkeit ärztlich bestätigt.</label>
   </div><label class="mlr-confirm"><input type="checkbox" data-g="clinical_confirmed"> Ich bestätige diese tatsächlich erbrachte Leistung und ihre GOÄ-Zuordnung.</label>
  </article>
 </template>
 {{ goae_catalog|json_script:"goaeTariffCatalog" }}
 {{ goae_treatments|json_script:"goaeTreatmentMap" }}
-<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261125-goae-reference1" defer></script>
+<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261125-goae-reference2" defer></script>
