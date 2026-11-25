@@ -57,6 +57,16 @@
     <div class="mlr-field-grid">
       <div><strong>Preisgrenzen (rechnerische Vorschau)</strong><p class="mlr-note" data-price-boundaries></p></div>
     </div>
+    <fieldset data-agreement-evidence hidden>
+     <legend>Bereits unterzeichnete Honorarvereinbarung (§ 2 GOÄ)</legend>
+     <p class="mlr-note">Nur nach persönlicher Absprache und vor Behandlungsbeginn. Das unterschriebene Dokument muss in der Patientenakte hinterlegt sein.</p>
+     <div class="mlr-field-grid">
+      <label>Dokument-ID aus der Patientenakte <input type="number" min="1" step="1" data-agreement-document></label>
+      <label>Datum der Vereinbarung <input type="date" data-agreement-date></label>
+      <label>Vereinbarter Netto-Gebührenbetrag der Hauptziffer (€) <input type="text" inputmode="decimal" data-agreement-amount></label>
+      <label class="mlr-confirm"><input type="checkbox" data-agreement-confirm> Unterzeichnete, vor der Behandlung geschlossene Vereinbarung und vereinbarte Leistung, Faktor und Betrag ärztlich geprüft.</label>
+     </div>
+    </fieldset>
     <div class="mlr-lines-title"><div><h3>GOÄ-Leistungsziffern</h3><p>Vorschläge sind keine automatische Bestätigung der Behandlung. Nur tatsächlich erbrachte Leistungen erfassen. Faktoren über dem zulässigen Satz und Analogabrechnungen erfordern gesonderte Prüfung.</p></div><button type="button" data-goae-add>+ Position</button></div>
     <div id="goaeLines"></div>
     <button type="button" data-goae-preview class="mlr-verify">GOÄ-Berechnung prüfen</button>
