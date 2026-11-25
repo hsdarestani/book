@@ -47,7 +47,14 @@ def smoke():
   assert '142,06' in page.locator('[data-fee]').inner_text(),page.locator('[data-fee]').inner_text()
   assert '76,43' in page.locator('[data-material-total]').inner_text()
   assert '41,51' in page.locator('[data-tax]').inner_text()
-  assert page.locator('.mlr-summary .mlr-status-warning').count()==1
+  assert page.locator('.mlr-summary .mlr-status-ok').count()==1
+  page.locator('[data-preset="500"]').click()
+  assert '343,74' in page.locator('[data-fee]').inner_text()
+  assert '76,43' in page.locator('[data-material-total]').inner_text()
+  assert '79,83' in page.locator('[data-tax]').inner_text()
+  assert '6,1439' in page.locator('[data-law-status]').inner_text()
+  assert 'Honorarvereinbarung nötig' in page.locator('[data-law-status]').inner_text()
+  page.locator('[data-target-input]').fill('260')
   assert page.locator('#goaeDetails').get_attribute('open') is None
   page.locator('[data-qty-plus]').click()
   assert '2' in page.locator('[data-qty]').inner_text()
@@ -81,6 +88,7 @@ def smoke():
         'date',page.locator('#goaeDateGerman').input_value(), 'errors', errors, flush=True)
   assert len(requests)==0, 'Server must not quote clinically unconfirmed GOÄ positions'
   assert 'behandelnden' in page.locator('[data-goae-feedback]').inner_text(),page.locator('[data-goae-feedback]').inner_text()
+  page.locator('[data-material]').fill('0,00')
   for checkbox in page.locator('[data-g="clinical_confirmed"]').all():
     checkbox.check()
   page.locator('[data-goae-preview]').click()

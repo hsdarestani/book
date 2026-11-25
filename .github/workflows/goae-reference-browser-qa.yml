@@ -1,7 +1,7 @@
 name: GOÄ MediLogin reference browser QA — no deployment
 on:
   push:
-    branches: [feature/medi-login-goae-rechner-parity-20261123]
+    branches: [feature/medi-login-goae-rechner-parity-20261123, fix/goae-reference-calculation]
     paths:
       - 'templates/booking/_billing_goae_form.html'
       - 'static/booking/goae-rechner-v2.js'
@@ -11,6 +11,13 @@ on:
       - 'booking/test_clinic_readable_ui.py'
       - 'booking/test_premium_design.py'
       - 'templates/booking/app_management.html'
+      - 'scripts/test_goae_reference_browser.py'
+      - '.github/workflows/goae-reference-browser-qa.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'templates/booking/_billing_goae_form.html'
+      - 'static/booking/goae-rechner-v2.js'
       - 'scripts/test_goae_reference_browser.py'
       - '.github/workflows/goae-reference-browser-qa.yml'
   workflow_dispatch:
