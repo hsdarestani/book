@@ -1,7 +1,7 @@
 name: GOÄ MediLogin reference browser QA — no deployment
 on:
   push:
-    branches: [feature/medi-login-goae-rechner-parity-20261123]
+    branches: [feature/medi-login-goae-rechner-parity-20261123, fix/goae-reference-calculation]
     paths:
       - 'templates/booking/_billing_goae_form.html'
       - 'static/booking/goae-rechner-v2.js'
