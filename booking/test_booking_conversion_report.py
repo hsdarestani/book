@@ -66,3 +66,32 @@ class BookingConversionReportTests(TestCase):
         with self.assertRaises(CommandError):
             self.report(start="2026-12-01", end="2026-11-30")
         self.assertEqual(self.report()["online_created"], 0)
+
+
+class BookingConversionDashboardTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.manager = User.objects.create_user(username="report-manager", is_staff=True, is_superuser=True)
+        self.staff_user = User.objects.create_user(username="report-staff", is_staff=True)
+        self.normal_user = User.objects.create_user(username="report-normal")
+        self.url = "/verwaltung/buchungsstatistik/"
+
+    def test_anonymous_and_non_manager_cannot_access(self):
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+        for user in (self.normal_user, self.staff_user):
+            self.client.force_login(user)
+            self.assertIn(self.client.get(self.url).status_code, (302, 403))
+
+    def test_manager_can_view_aggregate_and_cache_is_disabled(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(self.url, {"start": "2026-11-01", "end": "2026-11-30"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Buchungsstatistik")
+        self.assertIn("no-store", response.headers["Cache-Control"])
+        self.assertEqual(response.context["report"]["online_created"], 0)
+
+    def test_invalid_range_and_post_rejected(self):
+        self.client.force_login(self.manager)
+        self.assertEqual(self.client.get(self.url, {"start": "2026-12-01", "end": "2026-11-30"}).status_code, 400)
+        self.assertEqual(self.client.post(self.url).status_code, 405)
