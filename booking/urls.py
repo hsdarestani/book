@@ -1,8 +1,17 @@
 from django.urls import path
+
+from . import mobile_staff_api
 from . import email_cancellation, record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, goae_quote_views, intake_forms, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
 
 app_name = 'booking'
 urlpatterns = [
+    path('api/mobile/staff/<slug:action>/', mobile_staff_api.workspace),
+    path('api/mobile/staff/forms/<int:ident>/', mobile_staff_api.workspace, {'action':'form'}),
+    path('api/mobile/staff/forms/<int:ident>/pdf/', mobile_staff_api.workspace, {'action':'form-pdf'}),
+    path('api/mobile/staff/forms/<int:ident>/link/', mobile_staff_api.workspace, {'action':'form-link'}),
+    path('api/mobile/staff/patient/<int:ident>/', mobile_staff_api.workspace, {'action': 'patient'}),
+    path('api/mobile/staff/patient/<int:ident>/records/<uuid:record_id>/', mobile_staff_api.workspace, {'action': 'record'}),
+    path('api/mobile/staff/patient/<int:ident>/visits/<uuid:record_id>/', mobile_staff_api.workspace, {'action': 'visit'}),
     path('', views.booking_page, name='home'),
     path('termin/<uuid:appointment_id>/kalender.ics', calendar.appointment_calendar, name='appointment_calendar'),
     path('termin/<uuid:appointment_id>/stornieren/', email_cancellation.cancel_from_email, name='email_booking_cancel'),
