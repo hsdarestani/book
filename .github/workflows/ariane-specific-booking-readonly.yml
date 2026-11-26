@@ -79,5 +79,20 @@ jobs:
                 print('MANDATORY_ANSWERS=verified')
             except Exception as exc:
                 print('MANDATORY_ANSWERS='+category(exc))
+            from booking.services import available_slots
+            from booking.clinical_time import add_elapsed
+            alternative=parse_clinic_wall_time('2026-12-30','16:00')
+            duration=item.reserved_duration
+            local_ok=alternative in available_slots(item.service,item.staff,alternative.astimezone(__import__('booking.clinical_time',fromlist=['CLINIC_TZ']).CLINIC_TZ).date(),exclude_appointment_id=item.public_id,reserved_duration=duration)
+            print('ALTERNATIVE_LOCAL_AVAILABLE='+str(local_ok).lower())
+            item.starts_at=alternative
+            item.ends_at=add_elapsed(alternative,duration)
+            try:
+                client=_get_client(call,item.customer,apply=False)
+                existing=_verify_availability(call,item,event,client)
+                print('ALTERNATIVE_REMOTE_AVAILABLE='+str(not bool(existing)).lower())
+                print('ALTERNATIVE_ALREADY_LINKABLE='+str(bool(existing)).lower())
+            except Exception as exc:
+                print('ALTERNATIVE_REMOTE_CONFLICT='+category(exc))
             print('SOURCE_WRITES=none')
             PY
