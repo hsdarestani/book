@@ -175,7 +175,7 @@ class ConcurrentIntakeTests(TransactionTestCase):
                     HTTP_X_AESTHETIC_PATIENT_SYNC='synthetic-test-token',
                 ).status_code
             finally:
-                close_old_connections()
+                connection.close()
 
         with tempfile.TemporaryDirectory() as root, override_settings(
             PATIENT_SYNC_TOKEN='synthetic-test-token', PATIENT_FILES_ROOT=root,
