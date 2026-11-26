@@ -1,0 +1,61 @@
+name: Read-only Ariane specific booking reconciliation preflight
+on:
+  push:
+    branches: [release/admin-batch-runner-20261126]
+    paths: ['.github/workflows/ariane-specific-booking-readonly.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; cd /opt/aesthetic-book/app; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            import logging
+            from booking.models import Appointment
+            from booking.clinical_time import parse_clinic_wall_time
+            from booking.simplybook_outbound import session, _verify_catalog, _get_client, _verify_availability, _additional_answers, SyncConflict, SERVICE_MAP
+            logging.disable(logging.CRITICAL)
+            start = parse_clinic_wall_time('2026-12-30','16:15')
+            candidates = list(Appointment.objects.select_related('staff','service','customer').filter(staff__display_name='Frau Ariane Regaei',service__slug='aesthetische-erstberatung',starts_at=start,source='app',status__in=['new','confirmed'])[:2])
+            print('EXACT_LOCAL_MATCH_COUNT=' + str(len(candidates)))
+            if len(candidates) != 1: raise SystemExit(0)
+            item = candidates[0]
+            state = item.simplybook_sync_state
+            print('SYNC_STATE=' + (state if state in {'sending','review','linked'} else 'unattempted' if not state else 'other'))
+            print('LOCAL_REMOTE_ID_PRESENT=' + str(bool(item.simplybook_booking_id)).lower())
+            print('MAPPING_PRESENT=' + str(item.service.slug in SERVICE_MAP).lower())
+            print('LOCAL_REFERRAL_ANSWER_PRESENT=' + str(bool(item.referral_source)).lower())
+            print('LOCAL_RETURNING_POSITIVE_PRESENT=' + str(bool(item.returning_customer)).lower())
+            allowed={'unsupported_appointment','already_source_managed','unmapped_service','unexpected_timezone','unexpected_provider_catalog','source_service_mismatch','missing_credentials','empty_token','ambiguous_client_identity','linked_client_not_verified','source_client_readback_failed','source_client_link_owned_by_other','source_additional_answer_required','source_additional_choice_changed','unexpected_additional_field','unexpected_additional_fields_shape','unexpected_bookings_shape','source_slot_unavailable','source_reserved_interval_conflict','unexpected_reserved_shape','duplicate_source_bookings'}
+            def category(error):
+                return str(error) if isinstance(error, SyncConflict) and str(error) in allowed else 'source_unavailable_or_unexpected'
+            try:
+                call=session()
+                event=_verify_catalog(call,item)
+                print('REMOTE_CATALOG=verified')
+            except Exception as exc:
+                print('REMOTE_CATALOG='+category(exc)); raise SystemExit(0)
+            try:
+                client=_get_client(call,item.customer,apply=False)
+                previous=_verify_availability(call,item,event,client)
+                print('REMOTE_EXACT_BOOKING_FOUND='+str(bool(previous)).lower())
+                print('REMOTE_AVAILABILITY=verified')
+            except Exception as exc:
+                print('REMOTE_RECONCILIATION='+category(exc))
+            try:
+                _additional_answers(call,item,event)
+                print('MANDATORY_ANSWERS=verified')
+            except Exception as exc:
+                print('MANDATORY_ANSWERS='+category(exc))
+            print('SOURCE_WRITES=none')
+            PY
