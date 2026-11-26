@@ -54,6 +54,23 @@ jobs:
                 print('REMOTE_AVAILABILITY=verified')
             except Exception as exc:
                 print('REMOTE_RECONCILIATION='+category(exc))
+            # Only report fixed diagnostic categories, never raw remote objects.
+            try:
+                day='2026-12-30'
+                matrix=call('getStartTimeMatrix',[day,day,event,2,1])
+                times=matrix.get(day) if isinstance(matrix,dict) else None
+                print('MATRIX_DAY_PRESENT='+str(isinstance(times,list)).lower())
+                print('MATRIX_TIME_STRING='+str(isinstance(times,list) and all(isinstance(t,str) for t in times)).lower())
+                print('MATRIX_1615_PRESENT='+str(isinstance(times,list) and any(str(t)[:5]=='16:15' for t in times)).lower())
+                fields=call('getAdditionalFields',[event])
+                from booking.customer_identity import normalize_name
+                from booking.management.commands.simplybook_import import as_bool
+                for key,title in [('RETURNING','warst du schon einmal bei uns?'),('REFERRAL','wie bist du auf uns aufmerksam geworden?')]:
+                    found=[f for f in fields if normalize_name(f.get('title'))==title] if isinstance(fields,list) else []
+                    print(key+'_FIELD_PRESENT='+str(bool(found)).lower())
+                    print(key+'_REQUIRED_FLAG='+str(any(as_bool(f.get(k)) for f in found for k in ('required','is_required','mandatory','is_mandatory'))).lower())
+            except Exception:
+                print('EXTRA_PREFLIGHT=unavailable')
             try:
                 _additional_answers(call,item,event)
                 print('MANDATORY_ANSWERS=verified')
