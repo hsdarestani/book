@@ -1,0 +1,63 @@
+name: Guarded Book Phase A release
+
+on:
+  push:
+    branches: [release/phase-a-scoped-20261126]
+    paths: ['.github/workflows/book-phase-a-scoped.yml']
+
+permissions:
+  contents: read
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+
+env:
+  BOOK_BASELINE: 84a6f34b3cf8db84c332f81da225be596f6e8ede
+  BOOK_TARGET: 0a9a020dfe608711d496a129964a831af7e6c516
+  BOOK_TOOLS_REF: ${{ github.sha }}
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-24.04
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Verify checkout restore and preservation in isolation
+        run: bash scripts/test_book_phase_a_rollback.sh
+      - name: Verify additive schema and synthetic calendar
+        run: |
+          python manage.py migrate --noinput --verbosity 0
+          python manage.py migrate booking 0031_merge_native_and_simplybook --noinput --verbosity 0
+          python manage.py shell < scripts/check_phase_a_migration.py
+          python manage.py migrate booking 0032_appointment_treatment_duration --noinput --verbosity 0
+          python manage.py shell < scripts/book_phase_a_smoke.py
+          python manage.py test booking.test_clinical_time booking.test_booking_reservation_duration
+
+  release:
+    needs: rehearse
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 15m
+          envs: BOOK_BASELINE,BOOK_TARGET,BOOK_TOOLS_REF
+          script: |
+            set -euo pipefail
+            app=/opt/aesthetic-book/app
+            git -C "$app" fetch --no-tags origin "$BOOK_TOOLS_REF" "$BOOK_TARGET"
+            tools="$(mktemp -d)"
+            trap 'rm -rf -- "$tools"' EXIT
+            for name in book_phase_a_release.sh check_phase_a_migration.py book_phase_a_smoke.py; do
+              git -C "$app" show "$BOOK_TOOLS_REF:scripts/$name" > "$tools/$name"
+            done
+            bash "$tools/book_phase_a_release.sh" "$BOOK_BASELINE" "$BOOK_TARGET"
