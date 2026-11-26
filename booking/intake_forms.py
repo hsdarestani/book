@@ -24,8 +24,8 @@ from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Tabl
 from xml.sax.saxutils import escape
 
 from .internal_api import _authorized, _store_bytes
-from .intake_identity import locate_unique_intake_patient, match_score
-from .models import Customer, OfficeIntakeForm, PatientRecord
+from .intake_identity import identity_values, locate_unique_intake_patient, match_score
+from .models import Customer, OfficeIntakeAssignmentLock, OfficeIntakeForm, PatientRecord
 
 CONSENT_TEXT = (
     "Datenerhebung und Datenschutz – A+ Esthetic\n"
@@ -134,8 +134,12 @@ def ingest_office_intake(request):
         if not all(str(identity.get(k) or '').strip() for k in
                    ('first_name','last_name','phone','email','date_of_birth')):
             raise ValueError
+        if not all(identity_values(identity)):
+            raise ValueError
         email=str(identity['email']).strip()
-        if '@' not in email:raise ValueError
+        limits = {'first_name': 80, 'last_name': 80, 'email': 254, 'phone': 40}
+        if any(len(str(identity[field]).strip()) > limit for field, limit in limits.items()):
+            raise ValueError
         dob=parse_date(str(identity['date_of_birth']))
         if not dob or dob>timezone.localdate() or dob<date(1900,1,1):raise ValueError
         if data.get('consent_accepted') is not True:raise ValueError
@@ -144,8 +148,16 @@ def ingest_office_intake(request):
     except (ValueError,KeyError,TypeError,UnicodeError,json.JSONDecodeError):
         return _json_error('invalid_intake')
     with transaction.atomic():
+        # Take the write lock as the first statement. A second request will
+        # see the first patient's committed identity before resolving its own.
+        if not OfficeIntakeAssignmentLock.objects.filter(pk=1).update(id=1):
+            raise RuntimeError('Office intake assignment lock is missing')
         existing=OfficeIntakeForm.objects.select_for_update().filter(source_id=source_id).first()
         if existing:
+            if (existing.payload.get('identity') != identity
+                    or existing.payload.get('answers') != answers
+                    or existing.signature_png != signature):
+                return _json_error('source_id_payload_mismatch', 409)
             return JsonResponse({'ok':True,'status':existing.status,
                 'customer_id':existing.customer_id,'record_id':str(existing.record.public_id) if existing.record else None,
                 'replayed':True})

@@ -18,6 +18,7 @@ from . import patient_portal
 from .invoice_bridge import _request_bridge
 from .patient_identity_review import approved_patient_groups, approved_patient_representatives, possible_duplicate_pairs
 from .models import Appointment, Customer, PatientRecord, OfficeIntakeForm, WhatsAppTemplate
+from .intake_identity import intake_review_candidates
 from .intake_forms import confirm_form_link
 
 
@@ -198,7 +199,8 @@ def _forms_context(request):
         'form_to':until if end else '',
         'form_total':OfficeIntakeForm.objects.count(),
         'form_open':OfficeIntakeForm.objects.filter(status='review').count(),
-        'link_candidates':Customer.objects.order_by('last_name','first_name')[:500] if selected and selected.status=='review' else []}
+        'link_candidates': intake_review_candidates(selected.payload.get('identity') or {})
+                            if selected and selected.status == 'review' else []}
 
 
 def _patient_context(request):
