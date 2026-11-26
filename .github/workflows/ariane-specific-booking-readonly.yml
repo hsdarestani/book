@@ -38,6 +38,7 @@ jobs:
                 rows=obj.get(day,[]) if isinstance(obj,dict) else []
                 print(method+': root='+type(obj).__name__+', day='+type(rows).__name__+', count='+str(len(rows)))
                 if method=='getReservedTimeIntervals' and isinstance(rows,list):
+                    print('vendor_interval_types='+repr([(row.get('type'),type(row.get('intervals')).__name__,[list(i) if isinstance(i,dict) else type(i).__name__ for i in (row.get('intervals') or [])]) for row in rows if isinstance(row,dict) and re.fullmatch(r'[a-z_]{1,28}',str(row.get('type') or ''))]))
                     print('vendor_row_field_names='+repr([[k for k in row if re.fullmatch(r'[a-z_]{1,24}', k)] for row in rows if isinstance(row,dict)]))
                     print('reserved_rows_dict='+str(sum(isinstance(row,dict) for row in rows)))
                     print('reserved_rows_without_time='+str(sum(isinstance(row,dict) and 'reserved_time' not in row for row in rows)))
