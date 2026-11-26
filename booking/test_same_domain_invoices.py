@@ -1,4 +1,5 @@
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
@@ -62,6 +63,29 @@ class SameDomainInvoicesTests(TestCase):
         self.assertEqual(args[1], "billing/invoices/")
         self.assertEqual(kwargs["payload"]["billing_method"], "goae")
         self.assertEqual(kwargs["payload"]["customer_id"], 1)
+
+    @patch("booking.app_management_views._request_bridge")
+    def test_idempotent_draft_uses_private_bridge_and_preserves_json_error_state(self, bridge):
+        self.client.force_login(self.staff)
+        key = str(uuid4())
+        payload = {
+            "action": "billing_create_goae_full", "customer_id": 1,
+            "service_date": "2026-10-20", "goae_lines_json": '[{"goae_number":"1"}]',
+            "goae_target_cents": 2300,
+        }
+        response = self.client.post(self.url, payload, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 400)
+        bridge.assert_not_called()
+        payload["draft_request_id"] = key
+        bridge.side_effect = RuntimeError("internal transport detail")
+        response = self.client.post(self.url, payload, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 502)
+        self.assertNotContains(response, "internal transport detail", status_code=502)
+        bridge.side_effect = None
+        response = self.client.post(self.url, payload, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.json(), {"ok": True, "location": self.url + "?notice=goae_draft"})
+        self.assertEqual([entry.args[1] for entry in bridge.call_args_list], ["draft", "draft"])
+        self.assertEqual([entry.kwargs["payload"]["draft_request_id"] for entry in bridge.call_args_list], [key, key])
 
     @patch("booking.invoice_bridge._request_bridge", return_value=b"%PDF-1.4\nTEST")
     def test_invoice_pdf_stays_authenticated_on_booking(self, bridge):

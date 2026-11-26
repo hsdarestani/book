@@ -26,7 +26,7 @@ const fmtDate=iso=>{let p=iso.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p
 const toISO=v=>{const m=/^(\d{2})\.(\d{2})\.(\d{4})$/.exec(v.trim());if(!m)return '';
  const iso=m[3]+'-'+m[2]+'-'+m[1],d=new Date(iso+'T12:00:00');
  return Number.isFinite(d.getTime())&&d.getDate()===Number(m[1])&&d.getMonth()===Number(m[2])-1&&d.getFullYear()===Number(m[3])?iso:'';};
-const sel={fixed:{},reasonValues:{},reasonSignature:'',injections:null,reasonText:'',reasonTreatment:null,treatment:'hyaluron',qty:1,verified:null,verifiedHash:null,materialsExplicit:false,clinicalTouched:false,working:false};
+const sel={fixed:{},reasonValues:{},reasonSignature:'',injections:null,reasonText:'',reasonTreatment:null,treatment:'hyaluron',qty:1,verified:null,verifiedHash:null,materialsExplicit:false,clinicalTouched:false,working:false,quoting:false,revision:0};
 const field=(line,key)=>line.querySelector('[data-g="'+key+'"]');
 const csrf=form.querySelector('input[name=csrfmiddlewaretoken]');
 function rowData(line){
@@ -85,7 +85,7 @@ function buildFixed(){
   input.addEventListener('input',()=>{sel.fixed[code]=input.value;resetClinicalProposal()});wrap.append(label);
  }
 }
-function resetVerification(){sel.verified=null;sel.verifiedHash=null;render();$('#goaeLinesJson').value='';}
+function resetVerification(){sel.revision++;sel.verified=null;sel.verifiedHash=null;render();$('#goaeLinesJson').value='';}
 function resetClinicalProposal(){
  $('[data-agreement-confirm]').checked=false;
  for(const line of $$('.mlr-line'))field(line,'clinical_confirmed').checked=false;
@@ -348,6 +348,25 @@ function render(){
  $('[data-material-notice]').hidden=!calculated.materials.some(m=>m.cost>2556);
 }
 function setMessage(msg,kind='error'){const el=$('[data-goae-feedback]');el.textContent=msg;el.className='mlr-feedback '+kind;}
+const saveButton=form.querySelector('.mlr-save');
+const previewButton=$('[data-goae-preview]');
+const draftRequests=new Map();
+function setBusy(){
+ const busy=sel.working||sel.quoting;
+ saveButton.disabled=busy;
+ saveButton.setAttribute('aria-busy',String(busy));
+ previewButton.disabled=busy;
+}
+async function fetchBilling(url, options){
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(), 25000);
+ try{
+  const response=await fetch(url,{...options,credentials:'same-origin',signal:controller.signal});
+  if(response.redirected)return {ok:false,message:'Bitte erneut im Praxismanagement anmelden.'};
+  const data=await response.json();
+  return {...data,ok:response.ok&&data.ok};
+ }finally{clearTimeout(timer);}
+}
 async function verify(){
  const target=desiredTotal();if(target===null||target<100){setMessage('Zuerst einen gültigen Gesamtbetrag eingeben.');return false;}
  if(!$('#goaePatient').value){setMessage('Patient auswählen.');details.open=true;$('#goaePatient').focus();return false;}
@@ -356,16 +375,23 @@ async function verify(){
  const source=linesForServer();if(source.error){setMessage(source.error);details.open=true;return false;}
  if(!$('[data-material]').value.trim()){setMessage('Tatsächlichen Materialwert eingeben (0,00 falls keine Auslage).');details.open=true;return false;}
  if(!source.lines.length){setMessage('Mindestens eine tatsächlich erbrachte Leistung wählen.');return false;}
- const sig=JSON.stringify(source.lines), patientId=$('#goaePatient').value;
+ const sig=JSON.stringify(source.lines), patientId=$('#goaePatient').value, revision=sel.revision;
+ sel.quoting=true;
+ setBusy();
  setMessage('GOÄ-Berechnung wird geprüft …','');
- let response,data;
+ let data;
  try{
-  response=await fetch('/verwaltung/api/goae-quote/',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrf.value},body:JSON.stringify({lines:source.lines,customer_id:patientId,service_date:date})});
-  data=await response.json();
- }catch(err){setMessage('GOÄ-Rechner momentan nicht erreichbar.');return false;}
- if(!response.ok||!data.ok){setMessage(data.message||'GOÄ-Positionen oder Auslagen nicht zulässig.');return false;}
+  data=await fetchBilling('/verwaltung/api/goae-quote/',{
+   method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':csrf.value},
+   body:JSON.stringify({lines:source.lines,customer_id:patientId,service_date:date})
+  });
+ }catch(err){
+  setMessage('GOÄ-Berechnung konnte nicht geladen werden. Bitte erneut prüfen.');
+  return false;
+ }finally{sel.quoting=false;setBusy();}
  const current=linesForServer();
- if(current.error||JSON.stringify(current.lines)!==sig||desiredTotal()!==target||$('#goaePatient').value!==patientId||toISO($('#goaeDateGerman').value)!==date){setMessage('Eingaben wurden geändert. Bitte erneut prüfen.');return false;}
+ if(sel.revision!==revision||current.error||JSON.stringify(current.lines)!==sig||desiredTotal()!==target||$('#goaePatient').value!==patientId||toISO($('#goaeDateGerman').value)!==date){setMessage('Eingaben wurden geändert. Bitte erneut prüfen.');return false;}
+ if(!data.ok){setMessage(data.message||'GOÄ-Positionen oder Auslagen nicht zulässig.');return false;}
  const total=Number(data.total_cents)||0,fee=(data.items||[]).reduce((sum,x)=>sum+(x.goae_number?x.net_cents:0),0);
  const material=(data.items||[]).reduce((sum,x)=>sum+(!x.goae_number?x.net_cents:0),0);
  const tax=Number(data.tax_cents)||0;
@@ -395,7 +421,7 @@ $('[data-open-calendar]').addEventListener('click',()=>{
  if(typeof input.showPicker==='function')input.showPicker();else{input.focus();input.click()}
 });
 $('[data-goae-add]').addEventListener('click',()=>{addLine('');sel.clinicalTouched=true;resetVerification()});
-$('[data-goae-preview]').addEventListener('click',()=>verify());
+previewButton.addEventListener('click',()=>{if(!sel.working&&!sel.quoting)verify();});
 $('[data-injection-count]').addEventListener('input',e=>{sel.injections=e.target.value===''?0:Number(e.target.value);resetClinicalProposal()});
 $('[data-material-add]').addEventListener('click',addMaterial);
 $('[data-diagnosis]').addEventListener('change',()=>{$('[data-diagnosis-custom-wrap]').hidden=$('[data-diagnosis]').value!=='custom';resetVerification()});
@@ -419,19 +445,36 @@ $('[data-reset]').addEventListener('click',()=>{
 });
 $('[data-print-simulation]').addEventListener('click',()=>{render();window.print()});
 form.addEventListener('submit',async ev=>{
- ev.preventDefault();if(sel.working)return;
- const data=linesForServer();if(data.error){setMessage(data.error);details.open=true;return;}
- const sig=JSON.stringify(data.lines||[]);
- if(!sel.verified||sel.verifiedHash!==sig||sel.verified.total!==targetOrZero()){
-  details.open=true;if(!await verify())return;
- }
- if(!form.reportValidity()){details.open=true;form.reportValidity();return;}
- if(!toISO($('#goaeDateGerman').value)){setMessage('Ungültiges Leistungsdatum.');return;}
- const button=form.querySelector('.mlr-save');button.disabled=true;sel.working=true;
- $('#goaeDateIso').value=toISO($('#goaeDateGerman').value);
- $('#goaeLinesJson').value=JSON.stringify(data.lines);
- $('#goaeTargetCents').value=String(targetOrZero());
- HTMLFormElement.prototype.submit.call(form);
+ ev.preventDefault();
+ if(sel.working||sel.quoting)return;
+ sel.working=true;
+ setBusy();
+ try{
+  const data=linesForServer();
+  if(data.error){setMessage(data.error);details.open=true;return;}
+  const sig=JSON.stringify(data.lines||[]);
+  if(!sel.verified||sel.verifiedHash!==sig||sel.verified.total!==targetOrZero()){
+   details.open=true;
+   if(!await verify())return;
+  }
+  if(!form.checkValidity()){details.open=true;form.reportValidity();return;}
+  const date=toISO($('#goaeDateGerman').value);
+  if(!date){setMessage('Ungültiges Leistungsdatum.');return;}
+  $('#goaeDateIso').value=date;
+  $('#goaeLinesJson').value=sig;
+  $('#goaeTargetCents').value=String(targetOrZero());
+  const payload=new FormData(form);
+  const signature=JSON.stringify([payload.get('customer_id'),date,sig,payload.get('goae_target_cents')]);
+  if(!draftRequests.has(signature))draftRequests.set(signature,crypto.randomUUID());
+  payload.set('draft_request_id',draftRequests.get(signature));
+  setMessage('GOÄ-Entwurf wird gespeichert …','');
+  const url=form.getAttribute('action')||window.location.pathname;
+  const result=await fetchBilling(url,{method:'POST',headers:{'Accept':'application/json'},body:payload});
+  if(!result.ok){setMessage(result.message||'Der Entwurf konnte nicht gespeichert werden.');return;}
+  window.location.assign(result.location);
+ }catch(err){
+  setMessage('Speicherung konnte nicht bestätigt werden. Bitte mit denselben Angaben erneut versuchen.');
+ }finally{sel.working=false;setBusy();}
 });
 const today=new Date();
 $('[data-invoice-date]').value=localISO(today);buildDiagnoses();$('[data-today]').textContent=today.toLocaleDateString('de-DE');

@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Q
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -395,6 +395,11 @@ def app_management(request, section='bookings'):
         from .customer_export import customer_csv_export
         return customer_csv_export(request)
 
+    goae_draft_json = (
+        section == 'invoices' and request.method == 'POST'
+        and request.headers.get('Accept') == 'application/json'
+        and request.POST.get('action') == 'billing_create_goae_full'
+    )
     try:
         if request.method == 'POST':
             action = str(request.POST.get('action') or '')
@@ -531,12 +536,24 @@ def app_management(request, section='bookings'):
                 lines=json.loads(request.POST.get('goae_lines_json') or '[]')
                 if not isinstance(lines,list) or not 1 <= len(lines) <= 50:
                     raise ValueError('Bitte eine bis 50 GOÄ Positionen angeben.')
-                _billing_api(request,'billing/invoices/',method='POST',payload={
-                    'billing_method':'goae','customer_id':int(request.POST.get('customer_id')),
-                    'service_date':str(request.POST.get('service_date') or ''),'lines':lines,
-                    **({'target_total_cents':int(request.POST['goae_target_cents'])} if request.POST.get('goae_target_cents') else {}),
-                })
-                return _redirect('invoices','goae_draft')
+                payload = {
+                    'billing_method': 'goae', 'customer_id': int(request.POST.get('customer_id')),
+                    'service_date': str(request.POST.get('service_date') or ''), 'lines': lines,
+                    **({'target_total_cents': int(request.POST['goae_target_cents'])}
+                       if request.POST.get('goae_target_cents') else {}),
+                }
+                request_id = request.POST.get('draft_request_id')
+                if request_id or goae_draft_json:
+                    if not request_id:
+                        raise ValueError('Entwurfsanfrage fehlt. Bitte Seite neu laden.')
+                    payload['draft_request_id'] = request_id
+                    _request_bridge(request, 'draft', method='POST', payload=payload)
+                else:
+                    _billing_api(request, 'billing/invoices/', method='POST', payload=payload)
+                result = _redirect('invoices', 'goae_draft')
+                if goae_draft_json:
+                    return JsonResponse({'ok': True, 'location': result.url})
+                return result
             if action == 'billing_create_goae':
                 payload = {
                     'billing_method': 'goae',
@@ -603,6 +620,8 @@ def app_management(request, section='bookings'):
         })
         return render(request, 'booking/app_management.html', context)
     except PermissionError as exc:
+        if goae_draft_json:
+            return JsonResponse({'ok': False, 'message': str(exc)}, status=403)
         return render(request, 'booking/app_management.html', {
             'section': section,
             'section_title': SECTIONS[section][0],
@@ -614,6 +633,10 @@ def app_management(request, section='bookings'):
             'view_only': local_view_only,
         }, status=403)
     except (RuntimeError, ValueError, TypeError, Customer.DoesNotExist) as exc:
+        if goae_draft_json:
+            if isinstance(exc, (ValueError, TypeError)):
+                return JsonResponse({'ok': False, 'message': str(exc)}, status=400)
+            return JsonResponse({'ok': False, 'message': 'Speicherung konnte nicht bestätigt werden. Bitte erneut versuchen.'}, status=502)
         hero_slots = []
         if section == 'hero' and isinstance(exc, ValueError):
             # Input errors stay on the editable form, instead of a generic 502.

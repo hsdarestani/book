@@ -26,7 +26,7 @@ def _request_bridge(request, operation, method="GET", payload=None, binary=False
     token = _sync_token()
     if not token:
         raise RuntimeError("Rechnungsanbindung nicht konfiguriert. Bitte Serververbindung prüfen.")
-    if operation not in {"overview", "settings", "invoices", "goae", "quote"} and not (
+    if operation not in {"overview", "settings", "invoices", "goae", "quote", "draft"} and not (
         operation.startswith("services/") or operation.startswith("finalize/")
         or operation.startswith("pdf/")
     ):
