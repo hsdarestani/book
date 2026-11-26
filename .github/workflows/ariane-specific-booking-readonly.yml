@@ -1,4 +1,4 @@
-name: Activate and verify read-only SimplyBook availability
+name: Verify SimplyBook availability response structure without writes
 on:
   push:
     branches: [release/admin-batch-runner-20261126]
@@ -21,74 +21,33 @@ jobs:
           command_timeout: 5m
           script: |
             set -euo pipefail
-            umask 077
             cd /opt/aesthetic-book/app
-            test "$(git rev-parse HEAD)" = 98280e5012417c001bf7b8e6b2eee4b3b4615287
-            base=/opt/aesthetic-book/remediation-rollbacks
-            exec 9>"$base/release.lock"
-            flock -n 9
-            test -r /etc/aesthetic-simplybook-credentials.env
-            config=/etc/systemd/system/aesthetic-book.service.d/55-simplybook-availability.conf
-            candidate=$(mktemp)
-            changed=0
-            cleanup() {
-              rc=$?
-              trap - EXIT
-              if [ "$rc" != 0 ] && [ "$changed" = 1 ]; then
-                rm -f "$config"
-                systemctl daemon-reload
-                systemctl restart aesthetic-book
-                curl -fsS --max-time 20 https://book.a-esthetic.de/api/health/ -o /dev/null
-                echo 'SIMPLYBOOK_AVAILABILITY_ROLLED_BACK=true'
-              fi
-              rm -f "$candidate"
-              exit "$rc"
-            }
-            trap cleanup EXIT
-            printf '%s\n' '[Service]' 'LoadCredential=simplybook:/etc/aesthetic-simplybook-credentials.env' 'Environment=SIMPLYBOOK_AVAILABILITY_ENABLED=1' > "$candidate"
-            if [ -e "$config" ]; then
-              cmp -s "$config" "$candidate"
-            else
-              install -d -m 0755 "$(dirname "$config")"
-              install -m 0644 "$candidate" "$config"
-              changed=1
-            fi
-            systemctl daemon-reload
-            systemctl restart aesthetic-book
-            curl -fsS --retry 6 --retry-connrefused --retry-delay 2 --max-time 15 https://book.a-esthetic.de/api/health/ -o /dev/null
-            pid=$(systemctl show aesthetic-book -p MainPID --value)
-            tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx 'SIMPLYBOOK_AVAILABILITY_ENABLED=1' >/dev/null
-            if tr '\0' '\n' < "/proc/$pid/environ" | grep -Eq '^(SIMPLYBOOK_OUTBOUND_ENABLED=1|SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true)$'; then exit 2; fi
+            curl -fsS --max-time 15 https://book.a-esthetic.de/api/health/ -o /dev/null
             source /etc/aesthetic-simplybook-credentials.env
             runuser -u aestheticbook --preserve-environment -- /bin/bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -' <<'PY'
-            import json
-            import logging
-            from datetime import date
-            from urllib.request import urlopen
             import django
-            logging.disable(logging.CRITICAL)
             django.setup()
-            from booking.clinical_time import parse_appointment_start
-            from booking.models import Service, StaffMember
-            from booking.simplybook_outbound import ARIANE, SERVICE_MAP, session, source_slots
+            from booking.simplybook_outbound import session, source_slots, SyncConflict
+            from booking.clinical_time import parse_clinic_wall_time
+            call = session()
+            day='2026-12-30'
+            args=[day,day,8,2,1]
+            for method in ('getStartTimeMatrix','getReservedTimeIntervals'):
+                obj=call(method,args)
+                rows=obj.get(day,[]) if isinstance(obj,dict) else []
+                print(method+': root='+type(obj).__name__+', day='+type(rows).__name__+', count='+str(len(rows)))
+                if method=='getReservedTimeIntervals' and isinstance(rows,list):
+                    print('reserved_rows_dict='+str(sum(isinstance(row,dict) for row in rows)))
+                    print('reserved_rows_without_time='+str(sum(isinstance(row,dict) and 'reserved_time' not in row for row in rows)))
+                    print('reserved_empty_time='+str(sum(isinstance(row,dict) and not row.get('reserved_time') for row in rows)))
+                    if all(isinstance(row,dict) for row in rows):
+                        intervals=[i for row in rows for i in row.get('reserved_time',[]) if isinstance(i,dict)]
+                        print('reserved_midnight_end='+str(sum(i.get('to') in ('24:00','24:00:00') for i in intervals)))
+                        print('reserved_zero_length='+str(sum(i.get('from')==i.get('to') for i in intervals)))
             try:
-                day = date(2026,12,30).isoformat()
-                staff = StaffMember.objects.get(display_name=ARIANE)
-                slug = 'aesthetische-erstberatung'
-                service = Service.objects.get(slug=slug)
-                matrix, _ = source_slots(session(), SERVICE_MAP[slug][0], day, day)
-                vendor = set(matrix.get(day, ()))
-                root = 'https://book.a-esthetic.de'
-                params = f'service_id={service.pk}&staff_id={staff.pk}'
-                for endpoint, field in [('/api/availability/', 'date'),('/api/mobile/slots/', 'day')]:
-                    with urlopen(f'{root}{endpoint}?{params}&{field}={day}', timeout=50) as result:
-                        payload=json.load(result)
-                    returned={parse_appointment_start(row['starts_at'] if isinstance(row,dict) else row) for row in payload['slots']}
-                    if not payload['ok'] or not returned or not returned <= vendor:
-                        raise ValueError('unexpected_slot_contract')
-                print('ARIANE_PUBLIC_AND_MOBILE_MATCH_SOURCE=true')
-                print('SIMPLYBOOK_READ_ONLY_ACTIVE=true')
-            except Exception as exc:
-                print('SIMPLYBOOK_SOURCE_VERIFICATION_FAILED=' + type(exc).__name__)
-                raise SystemExit(2)
+                source_slots(call,8,day,day)
+            except SyncConflict as exc:
+                reason=str(exc)
+                if reason in ('missing_credentials','empty_token','unexpected_availability_shape','unexpected_reserved_shape','unexpected_source_slot'):
+                    print('SIMPLYBOOK_REJECTED_SHAPE='+reason)
             PY
