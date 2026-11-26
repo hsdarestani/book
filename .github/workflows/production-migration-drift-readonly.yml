@@ -1,0 +1,30 @@
+name: Production migration drift read-only
+on:
+  push:
+    branches: [audit/ariane-qa-live-pilot-20261126]
+    paths: ['.github/workflows/production-migration-drift-readonly.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            git status --short --untracked-files=all -- booking/migrations
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from django.db import connection
+            from django.db.migrations.loader import MigrationLoader
+            l=MigrationLoader(connection,ignore_no_migrations=True)
+            print("LEAVES",l.graph.leaf_nodes("booking"))
+            for key,m in sorted(l.disk_migrations.items()):
+                if key[0]=="booking" and key[1]>="0026":
+                    print("MIGRATION",key,"applied",key in l.applied_migrations,"deps",m.dependencies,"operations",[(type(o).__name__,getattr(o,"model_name",None),getattr(o,"name",None)) for o in m.operations])
+            PY
