@@ -85,6 +85,20 @@ class SimplyBookOutboundPilotTests(TestCase):
         args=[c.args[1] for c in self.call.call_args_list if c.args[0]=='book'][0]
         self.assertEqual(args[8],{'returning-id':'Ja','referral-id':'Google'})
 
+    def test_explicit_negative_answer_is_preserved_in_queued_booking(self):
+        self.item.returning_customer_answered = True
+        self.item.referral_source = 'Google'
+        self.item.simplybook_sync_state = 'queued'
+        self.item.save(update_fields=['returning_customer_answered','referral_source','simplybook_sync_state'])
+        self.responses['isPluginActivated'] = True
+        self.responses['getAdditionalFields'] = [
+            {'name':'returning-id','title':'Warst du schon einmal bei uns?','values':'Ja,Nein','required':True},
+            {'name':'referral-id','title':'Wie bist du auf uns aufmerksam geworden?','values':'Google,Sonstiges','required':True},
+        ]
+        self.assertEqual(sync_existing(self.item.pk,apply=True,call=self.call)['result'],'linked')
+        args=[c.args[1] for c in self.call.call_args_list if c.args[0]=='book'][0]
+        self.assertEqual(args[8],{'returning-id':'Nein','referral-id':'Google'})
+
     def test_unanswered_mandatory_field_never_mutates_source(self):
         self.responses['isPluginActivated']=True
         self.responses['getAdditionalFields']=[{'name':'interest-id','title':'Für welche Behandlung interessierst du dich?','values':'Botox-Behandlung,RF-Microneedling','required':True}]

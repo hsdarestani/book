@@ -142,6 +142,28 @@ class BookingApiTests(TestCase):
         self.assertEqual(listing.json()['next_appointment']['id'], str(item.public_id))
 
     @patch('booking.mobile_api._member')
+    def test_unverified_ariane_booking_is_pending_and_collects_explicit_answers(self, member_mock):
+        member_mock.return_value = ({'email':'synthetic@example.test','phone':'015100000000',
+                                     'first_name':'Anna','last_name':'Test'}, None)
+        self.staff.display_name = 'Frau Ariane Regaei'
+        self.staff.save(update_fields=['display_name'])
+        slot = self.future_slot()
+        with patch('booking.mobile_api.sync_package', return_value={}), patch('booking.mobile_api.send_booking_emails') as email:
+            response = self.client.post('/api/mobile/booking/', data=json.dumps({
+                'service_id':self.service.pk,'staff_id':self.staff.pk,'starts_at':slot.isoformat(),
+                'returning_customer':False,'referral_source':'Google'}),content_type='application/json')
+            self.assertEqual(response.status_code,201,response.content)
+            self.assertTrue(response.json()['external_confirmation_pending'])
+            self.assertEqual(response.json()['status_code'],'new')
+            email.assert_not_called()
+        item = Appointment.objects.get()
+        self.assertEqual(item.simplybook_sync_state,'queued')
+        self.assertTrue(item.returning_customer_answered)
+        self.assertFalse(item.returning_customer)
+        self.assertEqual(item.referral_source,'Google')
+        self.assertTrue(self.client.get('/api/mobile/booking/').json()['appointments'][0]['external_confirmation_pending'])
+
+    @patch('booking.mobile_api._member')
     def test_mobile_cancel_releases_slot(self, member_mock):
         member_mock.return_value = ({
             'email': 'mitglied@example.com',

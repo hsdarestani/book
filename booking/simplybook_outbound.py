@@ -142,6 +142,8 @@ def _additional_answers(call, item, event):
             # A legacy false also represents a missing answer.
             if item.returning_customer:
                 answer = 'Ja'
+            elif item.returning_customer_answered:
+                answer = 'Nein'
         elif title == 'wie bist du auf uns aufmerksam geworden?':
             referral = normalize_name(item.referral_source)
             aliases = {
@@ -223,7 +225,7 @@ def sync_existing(pk, *, apply=False, call=None):
     # must not permit an automatic second book() request.
     with transaction.atomic():
         locked=Appointment.objects.select_for_update().get(pk=pk)
-        if (locked.simplybook_booking_id or locked.simplybook_sync_state or
+        if (locked.simplybook_booking_id or locked.simplybook_sync_state not in {'','queued'} or
             locked.starts_at!=item.starts_at or locked.ends_at!=item.ends_at or
             locked.customer_id!=item.customer_id or locked.staff_id!=item.staff_id or
             locked.service_id!=item.service_id or locked.status!=item.status):

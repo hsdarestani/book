@@ -84,7 +84,8 @@ def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment
 
 def create_appointment(*, customer, service, staff, starts_at, message='', idempotency_key=None, source='web',
                        returning_customer=False, referral_source='', marketing_opt_in=True,
-                       cancellation_terms_accepted=False, privacy_accepted=False):
+                       cancellation_terms_accepted=False, privacy_accepted=False,
+                       returning_customer_answered=False, simplybook_sync_state=''):
     if idempotency_key:
         existing = Appointment.objects.filter(idempotency_key=idempotency_key).first()
         if existing:
@@ -102,10 +103,12 @@ def create_appointment(*, customer, service, staff, starts_at, message='', idemp
             starts_at=starts_at,
             ends_at=add_elapsed(starts_at, service.reserved_duration),
             treatment_minutes_at_booking=service.duration_minutes,
-            status='new' if service.requires_confirmation else 'confirmed',
+            status='new' if service.requires_confirmation or simplybook_sync_state else 'confirmed',
             source=source,
             notes_customer=message[:3000],
             returning_customer=bool(returning_customer),
+            returning_customer_answered=returning_customer_answered,
+            simplybook_sync_state=simplybook_sync_state,
             referral_source=(referral_source or '')[:100],
             marketing_opt_in=bool(marketing_opt_in),
             cancellation_terms_accepted=bool(cancellation_terms_accepted),

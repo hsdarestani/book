@@ -23,6 +23,7 @@ from .notifications import notify_booking_created, notify_customer_cancelled, no
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
 from .package_bridge import sync_package
 from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, create_appointment
+from .simplybook_outbound import ARIANE
 
 CHANGE_DEADLINE_HOURS = max(1, int(getattr(settings, 'BOOKING_CHANGE_DEADLINE_HOURS', 24)))
 logger = logging.getLogger(__name__)
@@ -142,6 +143,7 @@ def _pick_staff(service, starts_at, staff_id=None, *, appointment=None):
 
 
 def _appointment_payload(item):
+    pending = _external_pending(item)
     return {
         'id': str(item.public_id),
         'service_id': item.service_id,
@@ -150,9 +152,15 @@ def _appointment_payload(item):
         'staff_id': item.staff_id,
         'staff': item.staff.display_name,
         'starts_at': item.starts_at.isoformat(),
-        'status': item.get_status_display(),
-        'status_code': item.status,
+        'status': 'Bestätigung ausstehend' if pending else item.get_status_display(),
+        'status_code': 'new' if pending else item.status,
+        'external_confirmation_pending': pending,
     }
+
+
+def _external_pending(item):
+    return (item.staff.display_name == ARIANE and item.status in ('new', 'confirmed')
+            and not item.simplybook_booking_id and not (item.idempotency_key or '').startswith('simplybook-'))
 
 
 @csrf_exempt
@@ -227,8 +235,9 @@ def _booking_result(item, *, created, authorization):
     return JsonResponse({
         'ok': True,
         'appointment_id': str(item.public_id),
-        'status': item.get_status_display(),
-        'status_code': item.status,
+        'status': 'Bestätigung ausstehend' if _external_pending(item) else item.get_status_display(),
+        'status_code': 'new' if _external_pending(item) else item.status,
+        'external_confirmation_pending': _external_pending(item),
         'staff': item.staff.display_name,
         'starts_at': item.starts_at.isoformat(),
         'package': package,
@@ -237,6 +246,9 @@ def _booking_result(item, *, created, authorization):
 
 def _safe_new_booking_notifications(item):
     """Never turn a saved appointment into HTTP 500 because a notification fails."""
+    # Do not send a confirmation for an unverified source reservation.
+    if _external_pending(item):
+        return
     for sender in (send_booking_emails, notify_booking_created):
         try:
             sender(item)
@@ -310,6 +322,13 @@ def mobile_booking(request):
         marketing_opt_in = bool(data.get('marketing_opt_in', True))
         cancellation_terms_accepted = bool(data.get('cancellation_terms_accepted', legacy_consent))
         privacy_accepted = bool(data.get('privacy_accepted', legacy_consent))
+        returning = data.get('returning_customer')
+        referral = str(data.get('referral_source') or '')
+        explicit = isinstance(returning, bool) and referral in {
+            'Google', 'Werbeanzeige in Facebook / Instagram', 'Freunde und Bekannten', 'Sonstiges'}
+        sync_state = ''
+        if staff.display_name == ARIANE:
+            sync_state = 'queued' if explicit else 'awaiting_answers'
 
         try:
             appointment, created = create_appointment(
@@ -323,6 +342,10 @@ def mobile_booking(request):
                 marketing_opt_in=marketing_opt_in,
                 cancellation_terms_accepted=cancellation_terms_accepted,
                 privacy_accepted=privacy_accepted,
+                returning_customer=returning is True,
+                returning_customer_answered=isinstance(returning, bool),
+                referral_source=referral if explicit else '',
+                simplybook_sync_state=sync_state,
             )
         except (ValueError, ValidationError, IntegrityError):
             # Includes model overlap validation and concurrent unique-key races.
@@ -401,7 +424,9 @@ def mobile_manageable_appointments(request):
         'appointments': [
             {
                 **_appointment_payload(item),
-                'change_allowed': now <= item.starts_at - timedelta(hours=CHANGE_DEADLINE_HOURS),
+                'change_allowed': now <= item.starts_at - timedelta(hours=CHANGE_DEADLINE_HOURS) and not (
+                    item.simplybook_booking_id or (item.idempotency_key or '').startswith('simplybook-')
+                    or item.simplybook_sync_state in {'sending','review'}),
             }
             for item in items
         ],
@@ -441,6 +466,9 @@ def mobile_appointment_change(request, appointment_id):
             return _error('appointment_not_found', 'Termin nicht gefunden.', 404)
         if item.status not in {'new', 'confirmed'}:
             return _error('appointment_not_changeable', 'Dieser Termin kann nicht mehr geändert werden.', 409)
+        if (item.simplybook_booking_id or (item.idempotency_key or '').startswith('simplybook-')
+                or item.simplybook_sync_state in {'sending','review'}):
+            return _error('source_change_requires_review', 'Bitte kontaktiere die Praxis für diese Terminänderung.', 409)
         if timezone.now() > item.starts_at - timedelta(hours=CHANGE_DEADLINE_HOURS):
             return JsonResponse({
                 'ok': False,
@@ -453,6 +481,8 @@ def mobile_appointment_change(request, appointment_id):
             item.status = 'cancelled'
             item.save(update_fields=['status', 'updated_at'])
         else:
+            if _external_pending(item):
+                return _error('source_change_requires_review', 'Bitte kontaktiere die Praxis für diese Terminänderung.', 409)
             starts_at = parse_appointment_start(data.get('starts_at'))
             if not starts_at:
                 return _error('invalid_start_time', 'Bitte wählen Sie Datum und Uhrzeit.', 400)

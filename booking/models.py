@@ -218,6 +218,7 @@ class Appointment(models.Model):
     source=models.CharField('Quelle',max_length=20,choices=SOURCE,default='web')
     notes_customer=models.TextField('Nachricht des Kunden',blank=True)
     returning_customer=models.BooleanField('Schon einmal bei uns',default=False)
+    returning_customer_answered=models.BooleanField(default=False,null=True,editable=False)
     referral_source=models.CharField('Wie auf uns aufmerksam geworden',max_length=100,blank=True)
     marketing_opt_in=models.BooleanField('Marketing-Einwilligung',default=True)
     cancellation_terms_accepted=models.BooleanField('Stornierungsbedingungen akzeptiert',default=False)
