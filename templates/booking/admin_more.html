@@ -40,9 +40,9 @@ font-size:13px;font-weight:750;white-space:normal}
 <section class="ferrari-section" id="campaigns">
   <div class="ferrari-section-head">
     <div><span>PATIENT APP</span><h2>Kampagnen</h2><p>Beliebig viele Kampagnen anlegen. Bearbeitung öffnet sich erst, wenn du sie brauchst.</p></div>
-    <div class="campaign-content-actions"><a href="/verwaltung/app/hero/" class="hero-content-link">Startseitenbilder ↗</a><button type="button" class="ferrari-primary" data-ferrari-open="campaign-new" {% if view_only %}disabled{% endif %}>+ Neue Kampagne</button></div>
+    <div class="campaign-content-actions"><a href="/verwaltung/app/hero/" class="hero-content-link">Startseitenbilder ↗</a><button type="button" class="ferrari-primary" data-ferrari-open="campaign-new" {% if not campaigns_available %}disabled{% endif %}>+ Neue Kampagne</button></div>
   </div>
-  {% if banners_error %}<div class="admin-notice is-error">{{ banners_error }}</div>{% endif %}
+  {% if banners_error %}<div class="admin-notice is-error" role="status">{{ banners_error }}</div>{% endif %}
   <div class="ferrari-list">
     {% for banner in banners %}
     <article class="ferrari-row">
@@ -50,7 +50,7 @@ font-size:13px;font-weight:750;white-space:normal}
       <div class="ferrari-row-copy"><div><strong>{{ banner.title|default:"Ohne Titel" }}</strong><span class="ferrari-status {% if banner.active %}is-on{% endif %}">{% if banner.active %}Aktiv{% else %}Inaktiv{% endif %}</span></div><p>{{ banner.text|default:"Kein Kampagnentext"|truncatechars:110 }}</p><small>{% if banner.starts_at %}ab {{ banner.starts_at|slice:":16" }}{% else %}ohne Startdatum{% endif %}{% if banner.ends_at %} · bis {{ banner.ends_at|slice:":16" }}{% endif %}</small></div>
       <button type="button" class="ferrari-edit" data-ferrari-open="campaign-{{ banner.id }}">Bearbeiten</button>
     </article>
-    {% empty %}<div class="ferrari-empty">Noch keine Kampagne. Mit „Neue Kampagne“ startest du die erste.</div>{% endfor %}
+    {% empty %}{% if campaigns_available %}<div class="ferrari-empty">Noch keine Kampagnen vorhanden.</div>{% endif %}{% endfor %}
   </div>
 </section>
 
