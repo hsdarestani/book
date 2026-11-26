@@ -169,6 +169,10 @@ class PatientRecord(models.Model):
     def __str__(self): return f'{self.customer} – {self.title}'
 
 
+class OfficeIntakeAssignmentLock(models.Model):
+    """Serializes patient lookup and creation for signed Office submissions."""
+
+
 class OfficeIntakeForm(models.Model):
     """Private general Aufnahmebogen; never exposed by the patient portal."""
     STATUS = [('linked','Zugeordnet'),('review','Prüfung nötig')]

@@ -1,0 +1,45 @@
+name: Office intake identity and concurrent assignment
+
+on:
+  pull_request:
+    paths:
+      - 'booking/intake_*.py'
+      - 'booking/migrations/0033_office_intake_assignment_lock.py'
+      - 'booking/test_general_intake.py'
+      - '.github/workflows/office-intake-lock-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  office-intake:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: intake_qa
+          POSTGRES_PASSWORD: intake_qa
+          POSTGRES_DB: intake_qa
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd 'pg_isready -U intake_qa'
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DJANGO_DEBUG: '1'
+      DB_ENGINE: postgresql
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_NAME: intake_qa
+      DB_USER: intake_qa
+      DB_PASSWORD: intake_qa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python manage.py test booking.test_general_intake --noinput

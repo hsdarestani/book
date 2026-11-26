@@ -43,8 +43,10 @@
 <form method="post" class="intake-review-form">{% csrf_token %}
 <input type="hidden" name="action" value="link_form"><input type="hidden" name="form_id" value="{{ selected_intake_form.pk }}">
 <h4>Manuelle Zuordnung</h4><p>Mindestens drei der fünf Datenpunkte müssen übereinstimmen. Vor Bestätigung Patient prüfen.</p>
-<label>Patientenakte<select name="customer_id" required><option value="">Patient auswählen</option>
-{% for candidate in link_candidates %}<option value="{{ candidate.pk }}">{{ candidate.full_name }} · {{ candidate.date_of_birth|date:"d.m.Y" }} · {{ candidate.email }}</option>{% endfor %}</select></label>
+<label>Patienten suchen<input type="search" placeholder="Name, E-Mail oder Telefon" aria-controls="intakePatient" data-filter-patient-select="intakePatient" autocomplete="off"></label>
+<p data-patient-search-status="intakePatient" role="status"></p>
+<label>Patientenakte<select id="intakePatient" name="customer_id" required><option value="">Patient auswählen</option>
+{% for candidate in link_candidates %}<option value="{{ candidate.pk }}" data-phone="{{ candidate.phone }}">{{ candidate.full_name }} · {{ candidate.date_of_birth|date:"d.m.Y" }} · {{ candidate.email }}</option>{% endfor %}</select></label>
 <label class="intake-confirm"><input type="checkbox" name="confirmed_same_patient" required> Identität anhand der Angaben geprüft; dieselbe Person.</label>
 <button type="submit">Verifizierter Akte zuordnen</button></form>
 {% endif %}
