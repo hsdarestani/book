@@ -586,6 +586,8 @@ def app_management(request, section='bookings'):
                     **({'target_total_cents': int(request.POST['goae_target_cents'])}
                        if request.POST.get('goae_target_cents') else {}),
                 }
+                if request.POST.get('book_preview'):
+                    payload['book_preview'] = json.loads(request.POST['book_preview'])
                 request_id = request.POST.get('draft_request_id')
                 if request_id or goae_draft_json:
                     if not request_id:

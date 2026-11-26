@@ -901,7 +901,7 @@ html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-custom
     <div><span>{{ invoice.status_label }}</span><strong>{{ invoice.number|default:"GOÄ-Entwurf" }} · {{ invoice.customer_name }}</strong>
       <small>{{ invoice.service_date }} · {{ invoice.total }} € · {{ invoice.customer_email }}</small></div>
     <div>{% if invoice.status == 'draft' or invoice.status == 'issued' %}
-      <a class="billing-small" href="/verwaltung/app/invoices/{{ invoice.id }}/pdf/" target="_blank" rel="noopener">{% if invoice.status == 'draft' %}Entwurf-PDF öffnen{% else %}Rechnung-PDF öffnen{% endif %}</a>
+      <a class="billing-small" href="/verwaltung/app/invoices/{{ invoice.id }}/pdf/" download>{% if invoice.status == 'draft' %}Entwurf-PDF herunterladen{% else %}Rechnung-PDF herunterladen{% endif %}</a>
     {% endif %}</div>
   </article>
   {% empty %}<p class="empty">Noch keine GOÄ-Dokumente vorhanden.</p>{% endfor %}

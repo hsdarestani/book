@@ -136,6 +136,19 @@ class SameDomainInvoicesTests(TestCase):
         self.assertEqual(res.status_code, 302)
         self.assertIn("/verwaltung/login/", res["Location"])
 
+    @patch('booking.invoice_bridge._request_bridge', return_value=b'%PDF-1.4\nsynthetic')
+    def test_preview_pdf_export_is_private_attachment(self, bridge):
+        url = '/verwaltung/api/goae-pdf-preview/'
+        payload = {'customer_id': 42, 'service_date': '2026-11-26', 'target_total_cents': 2737, 'lines': []}
+        self.assertEqual(self.client.post(url, payload, content_type='application/json').status_code, 302)
+        self.client.force_login(self.staff)
+        result = self.client.post(url, payload, content_type='application/json')
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result['Content-Type'], 'application/pdf')
+        self.assertIn('attachment', result['Content-Disposition'])
+        self.assertIn('no-store', result['Cache-Control'])
+        bridge.assert_called_once()
+
     def test_staff_patient_search_requires_scope_and_normalizes_phone(self):
         url = '/verwaltung/api/patient-search/'
         patient = Customer.objects.create(first_name='Synthetic', last_name='Patient', phone='+49 (170) 123 4567')

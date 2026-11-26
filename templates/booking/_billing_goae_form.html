@@ -105,7 +105,7 @@
   <div class="mlr-evidence" data-material-notice>ⓘ <div><strong>Beleg beifügen</strong><p>Für einzeln berechnete Auslagen über 25,56 € ist ein Beleg oder gleichwertiger Nachweis erforderlich (§ 12 Abs. 2 Nr. 5 GOÄ).</p></div></div>
   <div class="mlr-toolbar">
    <button type="button" class="mlr-print" data-agreement-preview hidden>Honorarvereinbarung als Entwurf drucken</button>
-   <button type="button" class="mlr-print" data-print-simulation><span>▣</span> Vorschau drucken / als PDF</button>
+   <button type="button" class="mlr-print" data-print-simulation><span>▣</span> Rechnungsentwurf als PDF herunterladen</button>
    <button type="submit" class="mlr-save">Geprüften GOÄ-Entwurf speichern</button>
   </div>
   <div class="mlr-preview-top"><b>VORSCHAU RECHNUNG</b><button type="button" data-open-details>Praxis & Patient eintragen</button></div>
@@ -152,4 +152,4 @@
 </template>
 {{ goae_catalog|json_script:"goaeTariffCatalog" }}
 {{ goae_treatments|json_script:"goaeTreatmentMap" }}
-<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261126-cards67" defer></script>
+<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261126-pdf-download" defer></script>
