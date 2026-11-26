@@ -1,4 +1,4 @@
-name: Guarded SimplyBook and GOÄ release with rollback for known legacy source
+name: Guarded final Book admin and booking corrections
 
 on:
   push:
@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BOOK_BASELINE: f063ce82d07fc13e4d30b92dccf665451ab0fa51
-  BOOK_TARGET: fc678f84d52535885e7102fb4f20366ce57113b8
+  BOOK_BASELINE: fc678f84d52535885e7102fb4f20366ce57113b8
+  BOOK_TARGET: 98280e5012417c001bf7b8e6b2eee4b3b4615287
   BOOK_TOOLS_REF: ${{ github.sha }}
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
           pip install -r requirements.txt
           python manage.py check
           python manage.py makemigrations --check --dry-run
-          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_simplybook_outbound.SimplyBookOutboundPilotTests.test_buffered_source_lifecycle_preserves_local_span_and_link --noinput
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_simplybook_outbound.SimplyBookOutboundPilotTests.test_booking_answers_use_only_completed_visits_and_verified_referral --noinput
 
   release:
     needs: rehearse

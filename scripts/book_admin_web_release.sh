@@ -17,7 +17,7 @@ prepare_candidate() {
 
 check_live_calendar_asset() {
   local path
-  for path in goae-quick.js admin-calendar-horizontal-v2.css clinic-desktop-notifications-v1.js clinic-notification-inbox.css patient-select-filter.js goae-rechner-v2.js goae-rechner-v2.css admin-wait-ux-v16.js clinic-acceptance-polish.css clinic-german-fields.js; do
+  for path in admin.js admin-calendar-plus.js clinic-navigation.css clinic-patient-wallet-finish-v4.css goae-quick.js admin-calendar-horizontal-v2.css clinic-desktop-notifications-v1.js clinic-notification-inbox.css patient-select-filter.js goae-rechner-v2.js goae-rechner-v2.css admin-wait-ux-v16.js clinic-acceptance-polish.css clinic-german-fields.js; do
     curl --compressed --silent --fail --max-time 10 \
       "https://book.a-esthetic.de/static/booking/$path?release=$target" |
       cmp -s "$app/static/booking/$path" - || return 1
