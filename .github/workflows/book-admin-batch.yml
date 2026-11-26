@@ -1,4 +1,4 @@
-name: Guarded vendor availability compatibility release
+name: Guarded admin booking push and email release
 
 on:
   push:
@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BOOK_BASELINE: 98280e5012417c001bf7b8e6b2eee4b3b4615287
-  BOOK_TARGET: ee931357afe243ad9dbf3e8d2c53845a958ffeff
+  BOOK_BASELINE: ee931357afe243ad9dbf3e8d2c53845a958ffeff
+  BOOK_TARGET: c4457ab5d35c0a67fe9db6ca5c821bf976c3ad62
   BOOK_TOOLS_REF: ${{ github.sha }}
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
           pip install -r requirements.txt
           python manage.py check
           python manage.py makemigrations --check --dry-run
-          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_simplybook_outbound.SimplyBookOutboundPilotTests.test_live_reservation_response_parses_reserved_and_busy_time booking.tests.BookingApiTests.test_unverified_ariane_booking_is_pending_and_populates_answers --noinput
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_admin_notification_routing booking.test_mobile_staff_workspace booking.test_simplybook_outbound booking.test_app_admin_api --noinput
 
   release:
     needs: rehearse
