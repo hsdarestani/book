@@ -73,12 +73,19 @@ class AdminResponsiveShellBrowserTests(StaticLiveServerTestCase):
                         heading = page.locator('.sb-calendar-shell.is-day .sb-day-head').first
                         dock = page.locator('.sb-reference-date-dock').first
                         self.assertEqual(heading.evaluate('(node) => getComputedStyle(node).position'), 'sticky')
+                        track = page.locator('.sb-calendar-shell.is-day .sb-day-track').first
+                        first_label = page.locator('.sb-calendar-shell.is-day .sb-time-axis span').first
+                        initial_dock = dock.bounding_box()
+                        initial_track = track.bounding_box()
+                        self.assertGreater(initial_track['y'], initial_dock['y'] + initial_dock['height'] + 25)
+                        self.assertGreaterEqual(first_label.bounding_box()['y'], initial_dock['y'] + initial_dock['height'] - 7)
                         for scroll_top in (0, 120, 360):
                             page.locator('main.sb-admin-shell').evaluate(
                                 '(main, top) => {main.scrollTop = top}', scroll_top,
                             )
                             holder, bar = heading.bounding_box(), dock.bounding_box()
                             self.assertAlmostEqual(holder['y'], bar['y'] + bar['height'], delta=3)
+                        page.locator('main.sb-admin-shell').evaluate('(main) => {main.scrollTop = 0}')
                     result = page.evaluate('''() => ({
                         viewport: document.documentElement.clientWidth,
                         document: document.documentElement.scrollWidth,
