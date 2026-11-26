@@ -62,6 +62,9 @@ jobs:
                 print('MATRIX_DAY_PRESENT='+str(isinstance(times,list)).lower())
                 print('MATRIX_TIME_STRING='+str(isinstance(times,list) and all(isinstance(t,str) for t in times)).lower())
                 print('MATRIX_1615_PRESENT='+str(isinstance(times,list) and any(str(t)[:5]=='16:15' for t in times)).lower())
+                print('NEARBY_AVAILABLE='+','.join(t for t in ('15:30','15:45','16:00','16:15','16:30','16:45') if isinstance(times,list) and any(str(v)[:5]==t for v in times)))
+                reserved=call('getReservedTimeIntervals',[day,day,event,2,1])
+                print('RESERVATION_DATA_VALID='+str(isinstance(reserved,dict)).lower())
                 fields=call('getAdditionalFields',[event])
                 from booking.customer_identity import normalize_name
                 from booking.management.commands.simplybook_import import as_bool
