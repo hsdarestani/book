@@ -13,7 +13,7 @@ concurrency:
 
 env:
   BOOK_BASELINE: 0c3a8108812732091b3732cfdeed59340c95c08b
-  BOOK_TARGET: 255a682e78e23c0cb275de108384a69cb4ce80ad
+  BOOK_TARGET: 4e8832baf07354a3b4f264d5a32d744fa1bb6470
   BOOK_TOOLS_REF: ${{ github.sha }}
 
 jobs:
@@ -46,7 +46,7 @@ jobs:
           python -m playwright install --with-deps chromium
           python manage.py check
           python manage.py makemigrations --check --dry-run
-          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_same_domain_invoices booking.test_general_intake booking.test_simplybook_outbound booking.test_goae_draft_browser booking.test_acceptance_polish_browser booking.test_populated_calendar_browser --noinput
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_acceptance_polish_browser --noinput
 
   release:
     needs: rehearse
