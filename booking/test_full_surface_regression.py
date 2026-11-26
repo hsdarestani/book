@@ -178,7 +178,7 @@ class FullManagementSurfaceRegressionTests(TestCase):
         wallet = self.client.get('/verwaltung/app/wallet/')
         self.assertContains(wallet,'background:linear-gradient(118deg,#10271d')
         customers = self.client.get('/verwaltung/app/patients/')
-        self.assertContains(customers,'class="premium-customer-panel" aria-label="Kundenverzeichnis" style="width:100%!important')
+        self.assertContains(customers,'class="premium-customer-panel" aria-label="Patientenverzeichnis" style="width:100%!important')
 
     def test_calendar_add_menu_remains_real_and_accessible(self):
         response = self.client.get('/verwaltung/kalender/', {'staff': self.staff.pk})

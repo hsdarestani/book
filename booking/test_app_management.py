@@ -49,7 +49,7 @@ class AppManagementTests(TestCase):
         self.assertContains(response, 'app-wallet-scanner.js')
         self.assertContains(response, '/verwaltung/dashboard/')
         self.assertContains(response, '/verwaltung/app/patients/')
-        self.assertContains(response, 'Google Bewertungen')
+        self.assertNotContains(response, '/verwaltung/app/reviews/')
         self.assertNotContains(response, 'Guthaben')
         self.assertNotContains(response, '€')
 

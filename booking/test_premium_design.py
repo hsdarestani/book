@@ -31,7 +31,6 @@ class PremiumManagementDesignTests(SimpleTestCase):
             "/verwaltung/kalender/",
             "/verwaltung/app/patients/",
             "/verwaltung/app/wallet/",
-            "/verwaltung/app/reviews/",
             "/verwaltung/app/referrals/",
             "/verwaltung/app/invoices/",
             "/verwaltung/app/hero/",
@@ -89,7 +88,7 @@ class PremiumManagementDesignTests(SimpleTestCase):
         for filename in paths:
             with self.subTest(template=filename):
                 src = get_template(f"booking/{filename}").template.source
-                expected = "clinic-premium-all-v2.css?v=20261024-gutters1"
+                expected = "clinic-premium-all-v2.css?v=20261126-shell1"
                 self.assertIn(expected, src)
 
     def test_desktop_workspace_has_single_brand_and_legible_hero(self):
