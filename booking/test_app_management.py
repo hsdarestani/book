@@ -1,4 +1,6 @@
 from datetime import timedelta
+from io import BytesIO
+from urllib.error import HTTPError
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -23,6 +25,52 @@ class AppManagementTests(TestCase):
         session['aplus_app_admin'] = True
         session['aplus_admin_authorization'] = 'Bearer test-admin-token'
         session.save()
+
+    @patch('booking.app_management_views.urlopen')
+    def test_unavailable_referrals_does_not_erase_other_app_admin_access(self, upstream):
+        upstream.side_effect = HTTPError('https://example.invalid/', 403, '', {}, BytesIO(b'{"error":"admin_required"}'))
+        response = self.client.get('/verwaltung/app/referrals/')
+        self.assertContains(response, 'erfordert eine Freigabe', status_code=403)
+        self.assertNotContains(response, 'Noch keine Empfehlungen', status_code=403)
+        self.assertEqual(self.client.session['aplus_admin_authorization'], 'Bearer test-admin-token')
+        upstream.side_effect = None
+        remote = upstream.return_value.__enter__.return_value
+        remote.status = 200
+        remote.read.return_value = b'{"ok":true,"banners":[{"title":"Synthetic Campaign"}]}'
+        self.assertContains(self.client.get('/verwaltung/mehr/'), 'Synthetic Campaign')
+        self.assertEqual(upstream.call_args.args[0].get_header('Authorization'), 'Bearer test-admin-token')
+
+    @patch('booking.app_management_views.urlopen')
+    def test_expired_app_session_disables_campaigns_but_keeps_local_templates(self, upstream):
+        WhatsAppTemplate.objects.create(name='Synthetic Vorlage', body='Synthetic content')
+        upstream.side_effect = HTTPError('https://example.invalid/', 401, '', {}, BytesIO(b''))
+        response = self.client.get('/verwaltung/mehr/')
+        self.assertContains(response, 'Bitte öffnen Sie die Verwaltung erneut aus der A+ App.')
+        self.assertContains(response, 'data-ferrari-open="campaign-new" disabled')
+        self.assertContains(response, 'Synthetic Vorlage')
+        self.assertNotContains(response, 'Noch keine Kampagnen vorhanden.')
+        self.assertContains(self.client.get('/verwaltung/app/referrals/'), 'Bitte öffnen Sie', status_code=403)
+        session = self.client.session
+        session.pop('aplus_app_admin')
+        session.save()
+        upstream.reset_mock()
+        self.assertContains(self.client.get('/verwaltung/mehr/'), 'Bitte öffnen Sie')
+        self.assertContains(self.client.get('/verwaltung/app/referrals/'), 'Bitte öffnen Sie', status_code=403)
+        self.assertContains(self.client.post('/verwaltung/mehr/', {'action': 'banner_delete', 'banner_id': 1}), 'Bitte öffnen Sie')
+        upstream.assert_not_called()
+
+    @patch('booking.app_management_views._api')
+    def test_referral_activity_distinguishes_pending_and_awarded_points(self, api):
+        api.return_value = {'ok': True, 'referrals': [
+            {'customer': 'Synthetic Waiting', 'code': 'WAIT', 'status': 'invited',
+             'status_label': 'Eingeladen', 'created_at': '2026-04-10T22:10:00Z', 'reward_coins': 450},
+            {'customer': 'Synthetic Awarded', 'code': 'DONE', 'status': 'rewarded',
+             'status_label': 'Belohnt', 'reward_coins': 500, 'rewarded_at': '2026-04-11T22:10:00Z'},
+        ]}
+        response = self.client.get('/verwaltung/app/referrals/')
+        self.assertContains(response, '450 Punkte ausstehend')
+        self.assertContains(response, '500 Punkte vergeben am 12.04.2026')
+        self.assertContains(response, 'Eingeladen am 11.04.2026')
 
     @patch('booking.app_management_views._api')
     def test_points_management_renders_inside_focused_aplus_ui(self, api):
