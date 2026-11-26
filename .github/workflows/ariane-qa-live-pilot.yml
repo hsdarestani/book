@@ -1,0 +1,61 @@
+name: One-time Ariane synthetic booking live pilot
+on:
+  push:
+    branches: [audit/ariane-qa-live-pilot-20261126]
+    paths:
+      - '.github/workflows/ariane-qa-live-pilot.yml'
+permissions:
+  contents: read
+concurrency:
+  group: ariane-synthetic-qa-live-pilot
+  cancel-in-progress: false
+jobs:
+  pilot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SIMPLYBOOK_COMPANY_LOGIN: ${{ secrets.SIMPLYBOOK_COMPANY_LOGIN }}
+      SIMPLYBOOK_USER_LOGIN: ${{ secrets.SIMPLYBOOK_USER_LOGIN }}
+      SIMPLYBOOK_API_USER_KEY: ${{ secrets.SIMPLYBOOK_API_USER_KEY }}
+      SIMPLYBOOK_USER_PASSWORD: ${{ secrets.SIMPLYBOOK_USER_PASSWORD }}
+    steps:
+      - name: Reconcile only explicitly authorized synthetic booking
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 10m
+          envs: SIMPLYBOOK_COMPANY_LOGIN,SIMPLYBOOK_USER_LOGIN,SIMPLYBOOK_API_USER_KEY,SIMPLYBOOK_USER_PASSWORD
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            ready=0
+            for _ in $(seq 1 48); do
+              if git merge-base --is-ancestor b338634be4887f28082cc02c32418ef13c2f0e61 HEAD && systemctl is-active --quiet aesthetic-book && runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py showmigrations booking' | grep -Fq '[X] 0027_simplybook_outbound_link'; then ready=1; break; fi
+              sleep 8
+            done
+            test "$ready" = 1
+            # The shell command does not print any customer details or credentials.
+            flock -w 90 /var/lock/aesthetic-simplybook-sync.lock runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from datetime import datetime, timedelta
+            from zoneinfo import ZoneInfo
+            from booking.models import Appointment
+            from booking.simplybook_outbound import sync_existing, SyncConflict
+            start=datetime(2026,12,30,16,0,tzinfo=ZoneInfo("Europe/Berlin"))
+            rows=list(Appointment.objects.filter(customer__email__iexact="meetrecorderbot@gmail.com",customer__first_name="Test",customer__last_name="Farahani",staff__display_name="Frau Ariane Regaei",service__slug="laser-haarentfernung",starts_at=start,ends_at=start+timedelta(minutes=55),source="app",status="confirmed"))
+            if len(rows)!=1:
+                raise SystemExit("PILOT_RESULT=exact_synthetic_booking_not_found")
+            try:
+                result=sync_existing(rows[0].pk,apply=False)
+                print("PILOT_PREFLIGHT="+result["result"])
+                result=sync_existing(rows[0].pk,apply=True)
+                print("PILOT_RESULT="+result["result"])
+                rows[0].refresh_from_db()
+                assert rows[0].simplybook_booking_id and rows[0].simplybook_sync_state=="linked"
+                print("PILOT_REMOTE_ID_AND_EXACT_TIME_VERIFIED=yes")
+            except Exception as exc:
+                print("PILOT_RESULT="+(str(exc) if isinstance(exc,SyncConflict) else "source_error_check_state_privately"))
+                raise SystemExit(1) from None
+            PY
