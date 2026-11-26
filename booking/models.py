@@ -48,6 +48,10 @@ class StaffMember(models.Model):
         verbose_name = 'Mitarbeiter'
         verbose_name_plural = 'Mitarbeiter'
 
+    @classmethod
+    def clinical_choices(cls):
+        return cls.objects.exclude(display_name__startswith='A+ Esthetic (SimplyBook #')
+
     def __str__(self): return self.display_name
 
 

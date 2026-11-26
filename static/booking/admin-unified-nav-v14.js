@@ -35,30 +35,38 @@
     if (path.includes('/app/patients/') || /\/verwaltung\/patienten\//.test(path)) return 'customers';
     if (path.includes('/app/wallet/')) return 'points';
     if (path.includes('/app/reviews/')) return 'reviews';
+    if (path.includes('/app/forms/')) return 'forms';
+    if (path.includes('/einstellungen/')) return 'settings';
     if (path.includes('/app/referrals/')) return 'referrals';
     if (path.includes('/app/hero/')) return 'hero';
     if (path.includes('/app/invoices/')) return 'invoices';
-    if (path.includes('/mehr/')) return 'more';
+    if (path.includes('/mehr/')) return location.hash === '#campaigns' ? 'campaigns' : 'more';
     return 'other';
   })();
 
-  if (page !== 'other') document.documentElement.dataset.adminPage = page;
+  if (page !== 'other') {
+    document.documentElement.dataset.adminPage = !doctorRole && page === 'customers'
+      ? 'patients'
+      : !doctorRole && page === 'points' ? 'wallet' : page === 'campaigns' ? 'more' : page;
+  }
 
   const items = doctorRole ? doctorItems : [
     ['dashboard', '⌂', 'Dashboard', '/verwaltung/dashboard/'],
     ['calendar', '▣', 'Kalender', '/verwaltung/kalender/'],
-    ['customers', '♙', 'Kunden', '/verwaltung/app/patients/'],
-    ['points', '◆', 'A+ Punkte', '/verwaltung/app/wallet/'],
-    ['reviews', '★', 'Google Bewertungen', '/verwaltung/app/reviews/'],
-    ['referrals', '↗', 'Empfehlungen', '/verwaltung/app/referrals/'],
+    ['customers', '♙', 'Patienten & Akten', '/verwaltung/app/patients/'],
+    ['forms', '▤', 'Aufnahmebögen', '/verwaltung/app/forms/'],
     ['invoices', '▧', 'Rechnungen', '/verwaltung/app/invoices/'],
-    ['campaigns', '▤', 'Kampagnen', '/verwaltung/mehr/#campaigns'],
+    ['points', '◆', 'A+ Punkte', '/verwaltung/app/wallet/'],
+
+    ['referrals', '↗', 'Empfehlungen', '/verwaltung/app/referrals/'],
     ['hero', '▧', 'Startseitenbilder', '/verwaltung/app/hero/'],
-    ['more', '⋯', 'Mehr', '/verwaltung/mehr/'],
+    ['campaigns', '▤', 'Kampagnen', '/verwaltung/mehr/#campaigns'],
+    ['more', '⋯', 'WhatsApp-Vorlagen', '/verwaltung/mehr/#whatsapp-templates'],
+    ['settings', '◷', 'Einstellungen', '/verwaltung/einstellungen/'],
   ];
 
   const navMarkup = items
-    .map(([key, icon, label, href]) => `<a href="${href}" class="${page === key ? 'is-active' : ''}" data-aplus-nav="${key}"><span>${icon}</span>${label}</a>`)
+    .map(([key, icon, label, href]) => `<a href="${href}" class="${page === key ? 'is-active' : ''}"${page === key ? ' aria-current="page"' : ''} data-aplus-nav="${key}"><span>${icon}</span>${label}</a>`)
     .join('');
 
   const drawer = document.querySelector('[data-drawer]');
@@ -100,7 +108,7 @@
   // Desktop uses the same information architecture as mobile.
   document.querySelectorAll('.admin-topbar .admin-nav').forEach(nav => {
     nav.classList.add('aplus-unified-desktop-nav');
-    nav.innerHTML = items.map(([key, , label, href]) => `<a href="${href}" class="${page === key ? 'is-active' : ''}">${label}</a>`).join('');
+    nav.innerHTML = items.map(([key, , label, href]) => `<a href="${href}" class="${page === key ? 'is-active' : ''}"${page === key ? ' aria-current="page"' : ''}>${label}</a>`).join('');
   });
 
   // Keep page titles coherent, but do not alter the calendar's existing day/week title.
@@ -108,29 +116,22 @@
     const title = document.querySelector('.sb-mobile-title');
     const titles = {
       dashboard: 'Dashboard',
-      customers: doctorRole ? 'Meine Patienten' : 'Kunden',
+      customers: doctorRole ? 'Meine Patienten' : 'Patienten & Akten',
       bookings: 'Meine Buchungen',
-      settings: 'Arbeitszeiten',
+      settings: doctorRole ? 'Arbeitszeiten' : 'Einstellungen',
+      forms: 'Aufnahmebögen',
       points: 'A+ Punkte',
       reviews: 'Google Bewertungen',
       referrals: 'Empfehlungen',
       invoices: 'Rechnungen',
       hero: 'Startseitenbilder',
-      more: 'Mehr',
+      campaigns: 'Kampagnen',
+      more: 'Kampagnen & Vorlagen',
     };
     if (title && titles[page]) title.textContent = titles[page];
   }
 
   if (page !== 'customers') return;
-
-  // Rename the former Patientenakten landing into the single customer CRM.
-  const pageHeading = document.querySelector('.app-page-heading');
-  if (pageHeading) {
-    const h1 = pageHeading.querySelector('h1');
-    const p = pageHeading.querySelector('p');
-    if (h1) h1.textContent = 'Kunden';
-    if (p) p.textContent = 'Kundenprofil, Termine, Patientenakte, Punkte und Kommunikation zentral an einem Ort.';
-  }
 
   const selected = document.querySelector('.patient-command-card');
   if (!selected) {

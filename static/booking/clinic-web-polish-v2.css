@@ -1,7 +1,7 @@
 /* Clinic web refresh: desktop, tablet and phone, with NO calendar view/grid rules.
    All selectors are scoped to non-calendar pages. */
 html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]){
-  --clinic-ink:#24221e;--clinic-muted:#746f66;--clinic-gold:#a78345;--clinic-line:#e6e0d6;
+  --clinic-ink:#24221e;--clinic-muted:#605b52;--clinic-gold:#755522;--clinic-line:#d6cec0;
   --clinic-paper:#fff;--clinic-ground:#f8f7f4;
   background:var(--clinic-ground);
 }
@@ -11,7 +11,7 @@ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="do
   overflow-x:clip;
 }
 html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .sb-admin-shell{
-  max-width:1270px!important;min-width:0!important;
+  min-width:0!important;
 }
 html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .admin-topbar{
   isolation:isolate;box-sizing:border-box;display:flex!important;align-items:center!important;
@@ -84,10 +84,24 @@ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="do
   min-width:0;
 }
 html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) :is(button,a,input,select,textarea):focus-visible{
-  outline:3px solid rgba(190,146,62,.46)!important;outline-offset:3px!important;
+  outline:2px solid var(--clinic-gold)!important;outline-offset:3px!important;
 }
 html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) :is(input,select,textarea){
   max-width:100%;box-sizing:border-box;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) :is(
+  .premium-search, .app-form-grid, .hero-admin-card, .command-search-form
+) :is(input:not([type="checkbox"],[type="radio"],[type="hidden"]), select, textarea){
+  min-width:0;
+  min-height:44px;
+  font-size:1rem;
+  line-height:1.4;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) :is(
+  .premium-search, .app-form-grid, .hero-admin-card, .command-search-form
+) button{
+  min-height:44px;
+  line-height:1.35;
 }
 html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-notification-button{
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
@@ -99,7 +113,6 @@ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="do
 html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) .clinic-notification-button[data-permission="granted"]{
   background:#eef3ee!important;color:#315542!important;border-color:#d5e4d7!important;
 }
-html[data-admin-page="dashboard"] .command-shell{max-width:1270px!important}
 html[data-admin-page="dashboard"] .command-hero{
   border-radius:25px!important;padding:38px 42px!important;margin-bottom:18px!important;
   min-height:280px!important;gap:26px!important;
