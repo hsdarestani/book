@@ -4,7 +4,7 @@ from unittest.mock import Mock
 from django.test import TestCase
 from django.utils import timezone
 from booking.models import Appointment, Customer, Service, StaffMember
-from booking.simplybook_outbound import sync_existing, SyncConflict
+from booking.simplybook_outbound import sync_existing, SyncConflict, SERVICE_MAP, _verify_catalog
 
 class SimplyBookOutboundPilotTests(TestCase):
     def setUp(self):
@@ -57,3 +57,16 @@ class SimplyBookOutboundPilotTests(TestCase):
         with self.assertRaises(SyncConflict):
             sync_existing(self.item.pk,apply=True,call=self.call)
         self.call.assert_not_called()
+
+    def test_all_nine_live_catalog_services_map_to_correct_remote_id(self):
+        expected = {'aesthetische-erstberatung':8,'botox-neupatient':2,'botox-bestandspatient':10,
+                    'hyaluron':3,'infusionstherapie':4,'injektionslipolyse':11,
+                    'kontrolltermin':9,'laser-haarentfernung':5,'rf-microneedling':6}
+        self.assertEqual({k:v[0] for k,v in SERVICE_MAP.items()},expected)
+        self.responses['getEventList']=[{'id':str(i),'name':name,'is_active':'1'} for i,name in SERVICE_MAP.values()]
+        for slug,remote_id in expected.items():
+            self.item.service.slug=slug
+            self.assertEqual(_verify_catalog(self.call,self.item),remote_id)
+        self.item.service.slug='unmapped-service'
+        with self.assertRaises(SyncConflict):
+            _verify_catalog(self.call,self.item)

@@ -13,9 +13,19 @@ from .management.commands.simplybook_import import rpc, LOGIN_URL, ADMIN_URL, pa
 
 CLINIC = ZoneInfo('Europe/Berlin')
 ARIANE = 'Frau Ariane Regaei'
-# Live catalog verified 2026-11-26. Only the laser mapping is enabled for
-# the controlled pilot. No guessing treatment mappings from display names.
-SERVICE_MAP = {'laser-haarentfernung': (5, 'Dauerhafte Haarentfernung  (Alexandrit - Nd:YAG)')}
+# Actual active, bookable Ariane catalog and source catalog verified live
+# 2026-11-26. Explicit IDs; never fuzzy-match medical services.
+SERVICE_MAP = {
+    'aesthetische-erstberatung': (8, 'Erstberatung'),
+    'botox-neupatient': (2, 'Botox-Behandlung (Neupatient)'),
+    'botox-bestandspatient': (10, 'Botox-Behandlung (Bestandspatient)'),
+    'hyaluron': (3, 'Hyaluronsäure-Behandlungen'),
+    'infusionstherapie': (4, 'Infusionstherapien'),
+    'injektionslipolyse': (11, 'Lipolyse-Injektion'),
+    'kontrolltermin': (9, 'Kontrolltermin'),
+    'laser-haarentfernung': (5, 'Dauerhafte Haarentfernung  (Alexandrit - Nd:YAG)'),
+    'rf-microneedling': (6, 'RF-Microneedling'),
+}
 UNIT_ID = 2
 
 class SyncConflict(ValueError):
