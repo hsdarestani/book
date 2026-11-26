@@ -216,6 +216,13 @@ def notify_admin_deleted(appointment):
     return result
 
 
+def notify_manual_app_reminder(appointment):
+    local = _local_start(appointment)
+    return _push(appointment, target="customer", event="staff_manual_reminder",
+                 title="Terminerinnerung",
+                 body=f"Wir möchten Sie an Ihren Termin am {local:%d.%m.%Y} um {local:%H:%M} bei A+ Esthetic erinnern.")
+
+
 def notify_1h_reminder(appointment):
     local = _local_start(appointment)
     result = _push(
