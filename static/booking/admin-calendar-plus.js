@@ -297,6 +297,7 @@
     form.elements.service_id.value = data.service_id;
     form.elements.appointment_staff_id.value = data.staff_id;
     form.elements.customer_id.value = data.customer_id;
+    form.elements.customer_id.clinicPatientRefresh?.();
     form.elements.appointment_date.value = data.date;
     form.elements.appointment_time.value = data.time;
     form.elements.status.value = data.status;

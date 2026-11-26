@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
   <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261126-calendar-acceptance1"></script>
   <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20261126-calendar-acceptance1"></script>
+  <link rel="stylesheet" href="{% static 'booking/clinic-acceptance-polish.css' %}">
+  <script defer src="{% static 'booking/patient-select-filter.js' %}?v=20261126-combobox2"></script>
   {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261126-nav1" data-aplus-unified-nav-v14></script>{% else %}
   <link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header4">
   <link rel="stylesheet" href="/static/booking/clinic-calendar-topbar-v1.css?v=20261020-header4">
@@ -280,7 +282,7 @@
     <button type="button" class="sb-add-customer-link" data-open-customer>Neuen Kunden hinzufügen</button>
     <div class="sb-picker-list" data-customer-picker-list>
       {% for customer in customers %}
-      <button type="button" class="sb-picker-customer" data-pick-customer="{{ customer.pk }}" data-customer-name="{{ customer.full_name }}" data-customer-search="{{ customer.full_name|lower }} {{ customer.email|lower }} {{ customer.phone|lower }}">
+      <button type="button" class="sb-picker-customer" data-pick-customer="{{ customer.pk }}" data-customer-name="{{ customer.full_name }}" data-customer-phone="{{ customer.phone }}" data-customer-search="{{ customer.full_name|lower }} {{ customer.email|lower }} {{ customer.phone|lower }}">
         <span class="customer-avatar">{{ customer.first_name|slice:":1" }}</span><div><strong>{{ customer.full_name }}</strong><small>{{ customer.email }}{% if customer.phone %} / {{ customer.phone }}{% endif %}</small></div>
       </button>
       {% endfor %}

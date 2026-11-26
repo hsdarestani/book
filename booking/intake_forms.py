@@ -23,7 +23,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from xml.sax.saxutils import escape
 
-from .internal_api import _authorized, _store_bytes
+from .internal_api import _authorized, _patient_path, _store_bytes
 from .intake_identity import identity_values, locate_unique_intake_patient, match_score
 from .models import Customer, OfficeIntakeAssignmentLock, OfficeIntakeForm, PatientRecord
 
@@ -89,7 +89,7 @@ def build_intake_pdf(form):
     section('Patienteninformationen',identity)
     section('Anamnese und ästhetische Anliegen',answers)
     story.append(Paragraph('Datenerhebung und Datenschutz',styles['Heading2']))
-    for line in CONSENT_TEXT.split('\n'):
+    for line in (data.get('consent_text') or CONSENT_TEXT).split('\n'):
         story.append(Paragraph(escape(line),styles['Normal']))
         story.append(Spacer(1,5))
     story.append(Spacer(1,12))
@@ -107,14 +107,105 @@ def attach_private_record(form):
         return
     raw=build_intake_pdf(form)
     stored,original,mime,size=_store_bytes(form.customer,'Aufnahmebogen-'+str(form.source_id)+'.pdf',raw,'application/pdf')
-    record=PatientRecord.objects.create(
-        customer=form.customer, kind='form', title='Allgemeiner Aufnahmebogen',
-        note='Vom Patienten digital ausgefüllter Aufnahmebogen und Unterschrift.',
-        stored_name=stored,original_name=original,mime_type=mime,file_size=size,
-        source='office_intake',external_id=str(form.source_id),
-        captured_at=form.submitted_at,metadata={'form_id':form.pk,'shared_with_customer':False})
+    try:
+        record=PatientRecord.objects.create(
+            customer=form.customer, kind='form', title='Allgemeiner Aufnahmebogen',
+            note='Vom Patienten digital ausgefüllter Aufnahmebogen und Unterschrift.',
+            stored_name=stored,original_name=original,mime_type=mime,file_size=size,
+            source='office_intake',external_id=str(form.source_id),
+            captured_at=form.submitted_at,metadata={'form_id':form.pk,'shared_with_customer':False})
+        form.record=record
+        form.save(update_fields=['record'])
+    except Exception:
+        # A failed database write must not leave our newly generated private file.
+        _patient_path(stored).unlink(missing_ok=True)
+        raise
+
+
+def _lock_assignment():
+    # Serialize patient creation and form assignment, including historical forms.
+    if not OfficeIntakeAssignmentLock.objects.filter(pk=1).update(id=1):
+        raise RuntimeError('Office intake assignment lock is missing')
+
+
+def _complete_identity(identity):
+    return all(identity_values(identity)) and all(
+        isinstance(identity.get(field), str) and len(identity[field].strip()) <= limit
+        for field, limit in {'first_name':80, 'last_name':80, 'email':254, 'phone':40}.items()
+    )
+
+
+def _create_intake_patient(identity):
+    return Customer.objects.create(
+        first_name=identity['first_name'].strip(), last_name=identity['last_name'].strip(),
+        email=identity['email'].strip(), phone=identity['phone'].strip(),
+        date_of_birth=parse_date(str(identity['date_of_birth'])))
+
+
+def _compatible_existing_record(form, candidate):
+    record=form.record if form.record_id else PatientRecord.objects.filter(
+        source='office_intake', external_id=str(form.source_id)).first()
+    if record and (not candidate or record.customer_id != candidate.pk or record.kind != 'form'
+            or record.source != 'office_intake' or record.external_id != str(form.source_id)
+            or not record.has_file
+            or OfficeIntakeForm.objects.filter(record_id=record.pk).exclude(pk=form.pk).exists()):
+        raise ValueError('Aufnahmebogen hat eine abweichende oder unvollständige verknüpfte Datei.')
+    return record
+
+
+def _historical_assignment(form, *, apply):
+    """Reconcile an unassigned signed form without altering its content or past audit.
+
+    Return a fixed aggregate-only outcome. Never create from incomplete identity or
+    overwrite a pre-existing record for another patient.
+    """
+    if form.status != 'review' or form.customer_id:
+        return 'already_resolved'
+    payload=form.payload
+    identity=payload.get('identity') if isinstance(payload, dict) else None
+    if (not isinstance(identity, dict) or payload.get('consent_accepted') is not True
+            or not isinstance(payload.get('answers'), dict)
+            or not isinstance(payload.get('consent_text'), str) or not payload['consent_text'].strip()):
+        return 'review_invalid_signed_form'
+    try:
+        _signature_bytes(form.signature_png)
+    except ValueError:
+        return 'review_invalid_signed_form'
+    candidate,conflict=locate_unique_intake_patient(identity)
+    if conflict:
+        return 'review_identity_conflict'
+    try:
+        record=_compatible_existing_record(form,candidate)
+    except ValueError:
+        return 'review_record_conflict'
+    if not candidate and not _complete_identity(identity):
+        return 'review_missing_identity'
+    outcome='matched' if candidate else 'created'
+    if not apply:
+        return outcome
+    if not candidate:
+        candidate=_create_intake_patient(identity)
+    form.customer=candidate
+    form.status='linked'
+    form.match_count=match_score(identity,candidate)
     form.record=record
-    form.save(update_fields=['record'])
+    # The signed payload, source id, signature and any previous review audit stay unchanged.
+    if not form.reviewed_at:
+        form.reviewed_at=timezone.now()
+    form.save(update_fields=['customer','status','match_count','record','reviewed_at'])
+    if not record:
+        attach_private_record(form)
+    return outcome
+
+
+def reconcile_unassigned_form(form_id, *, apply=False):
+    if not apply:
+        form=OfficeIntakeForm.objects.filter(pk=form_id).first()
+        return _historical_assignment(form, apply=False) if form else 'already_resolved'
+    with transaction.atomic():
+        _lock_assignment()
+        form=OfficeIntakeForm.objects.select_for_update().filter(pk=form_id).first()
+        return _historical_assignment(form, apply=True) if form else 'already_resolved'
 
 @csrf_exempt
 @require_POST
@@ -134,11 +225,7 @@ def ingest_office_intake(request):
         if not all(str(identity.get(k) or '').strip() for k in
                    ('first_name','last_name','phone','email','date_of_birth')):
             raise ValueError
-        if not all(identity_values(identity)):
-            raise ValueError
-        email=str(identity['email']).strip()
-        limits = {'first_name': 80, 'last_name': 80, 'email': 254, 'phone': 40}
-        if any(len(str(identity[field]).strip()) > limit for field, limit in limits.items()):
+        if not _complete_identity(identity):
             raise ValueError
         dob=parse_date(str(identity['date_of_birth']))
         if not dob or dob>timezone.localdate() or dob<date(1900,1,1):raise ValueError
@@ -150,24 +237,21 @@ def ingest_office_intake(request):
     with transaction.atomic():
         # Take the write lock as the first statement. A second request will
         # see the first patient's committed identity before resolving its own.
-        if not OfficeIntakeAssignmentLock.objects.filter(pk=1).update(id=1):
-            raise RuntimeError('Office intake assignment lock is missing')
+        _lock_assignment()
         existing=OfficeIntakeForm.objects.select_for_update().filter(source_id=source_id).first()
         if existing:
             if (existing.payload.get('identity') != identity
                     or existing.payload.get('answers') != answers
                     or existing.signature_png != signature):
                 return _json_error('source_id_payload_mismatch', 409)
+            if existing.status == 'review' and not existing.customer_id:
+                _historical_assignment(existing, apply=True)
             return JsonResponse({'ok':True,'status':existing.status,
                 'customer_id':existing.customer_id,'record_id':str(existing.record.public_id) if existing.record else None,
                 'replayed':True})
         candidate,conflict=locate_unique_intake_patient(identity)
         if not candidate and not conflict:
-            candidate=Customer.objects.create(
-                first_name=str(identity['first_name']).strip()[:80],
-                last_name=str(identity['last_name']).strip()[:80],
-                email=email[:254],phone=str(identity['phone']).strip()[:40],
-                date_of_birth=dob)
+            candidate=_create_intake_patient(identity)
         if candidate and not candidate.date_of_birth:
             candidate.date_of_birth=dob
             candidate.save(update_fields=['date_of_birth','updated_at'])
@@ -184,6 +268,7 @@ def ingest_office_intake(request):
 
 def confirm_form_link(form_id, customer_id, actor):
     with transaction.atomic():
+        _lock_assignment()
         form=OfficeIntakeForm.objects.select_for_update().get(pk=form_id)
         if form.status=='linked':
             if form.customer_id!=customer_id:
@@ -193,11 +278,13 @@ def confirm_form_link(form_id, customer_id, actor):
         count=match_score(form.payload.get('identity') or {},customer)
         if count<3:
             raise ValueError('Weniger als drei übereinstimmende Identitätsmerkmale.')
+        record=_compatible_existing_record(form, customer)
         form.customer=customer
         form.status='linked'
         form.match_count=count
+        form.record=record
         form.reviewed_by=actor
         form.reviewed_at=timezone.now()
-        form.save(update_fields=['customer','status','match_count','reviewed_by','reviewed_at'])
+        form.save(update_fields=['customer','status','match_count','record','reviewed_by','reviewed_at'])
         attach_private_record(form)
         return form

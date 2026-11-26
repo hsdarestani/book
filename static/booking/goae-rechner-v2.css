@@ -40,3 +40,31 @@
 @media(max-width:800px){.mlr{padding:0 3px}.mlr-treatments{grid-template-columns:repeat(2,minmax(0,1fr))}.mlr-line-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mlr-line-wide{grid-column:span 2}}
 @media(max-width:530px){.mlr-head{padding:17px 13px}.mlr #goaeFullForm{padding:0 12px 15px}.mlr-step{padding:15px 12px}.mlr-treatments{gap:6px}.mlr-treatment{padding:10px 7px}.mlr-summary{padding:13px}.mlr-summary-head strong{font-size:28px}.mlr-field-grid{grid-template-columns:1fr}.mlr-breakdown{gap:3px}.mlr-paper-frame{padding:6px}.mlr-paper{padding:22px 13px;min-height:470px}.mlr-paper-address{grid-template-columns:1fr}.mlr-paper-header{text-align:left}.mlr-paper-address dl{margin-top:12px}.mlr-preview-table{font-size:9px}.mlr-paper-totals{max-width:100%}.mlr-toolbar button{flex:1 1 200px}.mlr-details>summary small{display:block}}
 @media print{body *{visibility:hidden!important}#goaePrintPreview,#goaePrintPreview *{visibility:visible!important}#goaePrintPreview{position:absolute;left:0;top:0;width:100%;padding:25mm;box-shadow:none;overflow:visible}.mlr-watermark{opacity:.13}}
+
+/* Clinic admin controls: one consistent treatment picker and German date fields. */
+.mlr{max-width:100%;padding-inline:0;font-size:15px}
+.mlr [hidden]{display:none!important}
+.mlr-head .mlr-overline,.mlr-note,.mlr-details>summary small,.mlr-preview-top b{font-size:13px;color:#605550}
+.mlr-head>p:last-child{font-size:14px;max-width:900px;color:#605550}
+.mlr-step h3,.mlr-lines-title h3{font-size:17px}
+.mlr-details>summary{font-size:15px}
+.mlr-treatments{grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:10px}
+.mlr-treatment{min-height:75px;padding:12px}
+.mlr-treatment b{font-size:15px;line-height:1.4;overflow-wrap:anywhere}
+.mlr-treatment small{font-size:13px;color:#61524c;line-height:1.4;margin-top:2px}
+.mlr-treatment[data-preset-key=""] small{color:#74431c}
+.mlr-config-notice{background:#fff6e8;color:#603b15;border:1px solid #e6cc9f;border-radius:10px;padding:13px 15px;margin-top:12px}
+.mlr-config-notice p{margin:4px 0 10px}
+.mlr-field-grid>label,.mlr-date>label,.mlr-line-grid label{font-size:14px;color:#443c38}
+.mlr-field-grid input:not([type=checkbox]),.mlr-field-grid select,.mlr-line-grid input:not([type=checkbox]),.mlr-line-grid select{min-height:44px;font-size:14px}
+.mlr-field-grid label.mlr-confirm,.mlr-line-grid label.mlr-confirm,.mlr-confirm{flex-direction:row!important;align-items:flex-start!important;gap:9px!important;font-size:14px;line-height:1.45}
+.mlr-confirm input[type=checkbox]{flex:0 0 auto;width:18px!important;height:18px!important;margin:2px 0 0;padding:0!important;min-height:0!important}
+.mlr-date-control{display:block;position:relative;align-self:start;width:100%}
+.mlr-date-control input[type=text]{padding-right:44px!important}
+.mlr-date-control button[data-open-calendar]{position:absolute;right:6px;top:50%;bottom:auto;transform:translateY(-50%);width:34px;height:34px;display:grid;place-items:center}
+.mlr-date-control input.mlr-native-date{width:1px!important;height:1px!important;min-height:1px!important;right:22px;bottom:0;opacity:0;padding:0!important;border:0;pointer-events:none}
+.mlr button[data-standard-values],.mlr button[data-configure-treatment]{color:#fff;background:#204547;border:1px solid #204547;border-radius:9px;padding:10px 15px;font-size:14px;font-weight:650;min-height:44px}
+.mlr button[data-standard-values]:hover,.mlr button[data-configure-treatment]:hover{background:#153234}
+.mlr-feedback{font-size:14px;line-height:1.5}
+.mlr-paper{max-width:900px}.mlr-preview-table{font-size:12px}
+@media(max-width:530px){.mlr-treatments{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.mlr-treatment{padding:10px 7px;align-items:flex-start;min-height:95px;gap:6px}.mlr-treatment b{font-size:14px}.mlr-treatment small{font-size:12px}.mlr-treat-icon{width:25px;height:25px}.mlr-preview-table{font-size:10px}}

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import mobile_staff_api
+from . import staff_patient_search
 from . import email_cancellation, record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, goae_quote_views, intake_forms, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
 
 app_name = 'booking'
@@ -33,6 +34,7 @@ urlpatterns = [
     path('verwaltung/api/notifications/', desktop_notifications.notification_inbox, name='notification_inbox'),
     path('verwaltung/api/goae-quote/', goae_quote_views.goae_quote, name='goae_quote'),
     path('verwaltung/api/goae-patient-search/', goae_quote_views.goae_patient_search, name='goae_patient_search'),
+    path('verwaltung/api/patient-search/', staff_patient_search.staff_patient_search, name='staff_patient_search'),
     path('verwaltung/app/invoices/<int:invoice_id>/pdf/', invoice_bridge.invoice_pdf, name='billing_invoice_pdf'),
     path('verwaltung/api/day-availability/', calendar_admin_api.day_availability, name='admin_day_availability'),
     path('verwaltung/api/calendar-day/', calendar_admin_api.calendar_day, name='admin_calendar_day'),

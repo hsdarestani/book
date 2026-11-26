@@ -22,6 +22,7 @@ from .patient_identity_review import approved_patient_groups, approved_patient_r
 from .models import Appointment, Customer, PatientRecord, OfficeIntakeForm, WhatsAppTemplate, Service
 from .intake_identity import intake_review_candidates
 from .intake_forms import confirm_form_link
+from .goae_treatment_cards import treatment_cards
 
 
 AESTHETIC_ADMIN_API = 'https://esthetic.smarbiz.sbs/api/mobile/admin'
@@ -215,17 +216,26 @@ def _forms_context(request):
             |Q(payload__identity__phone__icontains=q))
     if status in {'linked','review'}:qs=qs.filter(status=status)
     else:status=''
+    from datetime import datetime
     from django.utils.dateparse import parse_date
-    start=parse_date(since) if since else None
-    end=parse_date(until) if until else None
+    def filter_date(value):
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, '%d.%m.%Y').date() if '.' in value else parse_date(value)
+        except ValueError:
+            return None
+    start=filter_date(since)
+    end=filter_date(until)
     if start:qs=qs.filter(submitted_at__date__gte=start)
     if end:qs=qs.filter(submitted_at__date__lte=end)
     results=list(qs.order_by('-submitted_at')[:250])
     raw_id=str(request.GET.get('form') or '')
     selected=OfficeIntakeForm.objects.select_related('customer','record').filter(pk=int(raw_id)).first() if raw_id.isdigit() else None
     return {'intake_forms':results,'selected_intake_form':selected,
-        'form_query':q,'form_status':status,'form_from':since if start else '',
-        'form_to':until if end else '',
+        'form_query':q,'form_status':status,'form_from':start.strftime('%d.%m.%Y') if start else since[:10],
+        'form_to':end.strftime('%d.%m.%Y') if end else until[:10],
+        'form_date_error':bool((since and not start) or (until and not end)),
         'form_total':OfficeIntakeForm.objects.count(),
         'form_open':OfficeIntakeForm.objects.filter(status='review').count(),
         'link_candidates': intake_review_candidates(selected.payload.get('identity') or {})
@@ -631,7 +641,7 @@ def app_management(request, section='bookings'):
             context.update(_forms_context(request))
         elif section == 'invoices':
             data = _billing_api(request, 'billing/')
-            context['goae_clinic_services'] = Service.objects.filter(active=True).values('name', 'slug')
+            clinic_services = Service.objects.filter(active=True).values('name', 'slug')
             context['goae_invoices'] = [inv for inv in (data.get('invoices') or [])
                 if inv.get('billing_method') == 'goae']
             try:
@@ -641,6 +651,7 @@ def app_management(request, section='bookings'):
             except (RuntimeError,ValueError,PermissionError):
                 context['goae_catalog'] = []
                 context['goae_treatments'] = {}
+            context['goae_treatment_cards'] = treatment_cards(clinic_services, context['goae_treatments'])
         else:
             data = _api(request, 'referrals/')
             context['referrals'] = _referral_rows(data)
