@@ -3,12 +3,19 @@
 Browser notifications are intentionally generic; no health data is sent
 to the desktop Notification API or stored in a browser-readable feed.
 """
-from django.contrib.admin.views.decorators import staff_member_required
-from django.http import HttpResponseForbidden, JsonResponse
-from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET
+from datetime import timedelta
+from uuid import UUID
 
-from .models import PatientRecord
+from django.contrib.admin.views.decorators import staff_member_required
+from django.db.models import Exists, OuterRef
+from django.http import HttpResponseForbidden, JsonResponse
+from django.middleware.csrf import get_token
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET, require_http_methods
+
+from .models import PatientFormNotificationRead, PatientRecord
 
 
 @never_cache
@@ -44,3 +51,42 @@ def new_patient_forms(request):
     response['Pragma'] = 'no-cache'
     response['X-Content-Type-Options'] = 'nosniff'
     return response
+
+
+@never_cache
+@staff_member_required(login_url='/verwaltung/login/')
+@require_http_methods(['GET', 'POST'])
+def notification_inbox(request):
+    profile = getattr(request.user, 'aesthetic_access', None)
+    if profile is not None and profile.view_only:
+        return JsonResponse({'ok': False}, status=403)
+    records = PatientRecord.objects.filter(
+        kind='form', source__in=('botoxbogen', 'office_intake'),
+        created_at__gte=timezone.now() - timedelta(days=30),
+    )
+    if request.method == 'POST':
+        try:
+            record_id = UUID(request.POST.get('record', ''))
+        except ValueError:
+            return JsonResponse({'ok': False}, status=400)
+        record = records.filter(public_id=record_id).first()
+        if record is None:
+            return JsonResponse({'ok': False}, status=404)
+        PatientFormNotificationRead.objects.get_or_create(user=request.user, record=record)
+        return JsonResponse({'ok': True})
+
+    read_entries = PatientFormNotificationRead.objects.filter(user=request.user, record=OuterRef('pk'))
+    records = records.annotate(was_read=Exists(read_entries))
+    return JsonResponse({
+        'ok': True, 'csrf_token': get_token(request),
+        'unread': records.filter(was_read=False).count(),
+        'events': [{
+            'id': str(record.public_id),
+            'title': 'Neuer Aufnahmebogen' if record.source == 'office_intake' else 'Neuer Patientenbogen',
+            'created_at': record.created_at.isoformat(),
+            'read': record.was_read,
+            'url': reverse('booking:patient_record_view', kwargs={
+                'customer_id': record.customer_id, 'record_id': record.public_id,
+            }),
+        } for record in records.order_by('-created_at', '-pk')[:30]],
+    })

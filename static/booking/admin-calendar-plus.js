@@ -249,11 +249,9 @@
       segment.className = `sb-working-segment sb-working-segment-editable${data.is_override ? ' is-day-override' : ''}`;
       segment.style.top = `${pos.top}%`;
       segment.style.height = `${pos.height}%`;
-      const label = document.createElement('span');
-      label.textContent = `${range.start}–${range.end}`;
       const edit = document.createElement('b');
       edit.textContent = '✎';
-      segment.append(label, edit);
+      segment.append(edit);
       segment.setAttribute('aria-label', `Arbeitszeit ${range.start} bis ${range.end} bearbeiten`);
       segment.addEventListener('click', (event) => {
         event.preventDefault();
@@ -297,6 +295,7 @@
     form.elements.service_id.value = data.service_id;
     form.elements.appointment_staff_id.value = data.staff_id;
     form.elements.customer_id.value = data.customer_id;
+    form.elements.customer_id.clinicPatientRefresh?.();
     form.elements.appointment_date.value = data.date;
     form.elements.appointment_time.value = data.time;
     form.elements.status.value = data.status;

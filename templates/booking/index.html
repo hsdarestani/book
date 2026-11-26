@@ -63,10 +63,11 @@
             <label>E-Mail<input name="email" type="email" autocomplete="email" required></label>
             <label>Telefon<input name="phone" type="tel" autocomplete="tel" required maxlength="40" placeholder="+49 …"></label>
           </div>
-          <div class="field-row">
+          <div class="field-row" data-booking-answer-fields>
             <label data-returning-customer-field>Warst du schon einmal bei uns?
               <select name="returning_customer" required>
-                <option value="nein" selected>Nein</option>
+                <option value="" selected disabled>Bitte auswählen</option>
+                <option value="nein">Nein</option>
                 <option value="ja">Ja</option>
               </select>
             </label>
@@ -74,12 +75,8 @@
               <select name="referral_source" required>
                 <option value="" selected disabled>Bitte auswählen</option>
                 <option value="Google">Google</option>
-                <option value="Instagram">Instagram</option>
-                <option value="TikTok">TikTok</option>
-                <option value="Empfehlung">Empfehlung</option>
-                <option value="A+Esthetic Website">A+Esthetic Website</option>
-                <option value="Vor Ort / Laufkundschaft">Vor Ort / Laufkundschaft</option>
-                <option value="Arzt / Partner">Arzt / Partner</option>
+                <option value="Werbeanzeige in Facebook / Instagram">Werbeanzeige in Facebook / Instagram</option>
+                <option value="Freunde und Bekannten">Freunde und Bekannten</option>
                 <option value="Sonstiges">Sonstiges</option>
               </select>
             </label>
@@ -120,36 +117,8 @@
 
     <footer><span>A+Esthetic</span><a href="https://a-esthetic.de/impressum/">Impressum</a><a href="https://a-esthetic.de/datenschutz/">Datenschutz</a></footer>
   </main>
-  <script>
-    (() => {
-      const returningField = document.querySelector('[data-returning-customer-field]');
-      const returningSelect = returningField?.querySelector('select[name="returning_customer"]');
-      const serviceRoot = document.getElementById('services');
-      const detailsForm = document.getElementById('details-form');
-      const autoReturningSlugs = new Set(['botox-bestandspatient', 'kontrolltermin']);
-      let returningIsAutomatic = false;
-
-      function syncReturningField(slug) {
-        returningIsAutomatic = autoReturningSlugs.has(String(slug || ''));
-        if (returningField) returningField.hidden = returningIsAutomatic;
-        if (returningSelect) {
-          returningSelect.required = !returningIsAutomatic;
-          returningSelect.value = returningIsAutomatic ? 'ja' : 'nein';
-        }
-      }
-
-      serviceRoot?.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-slug]');
-        if (button) syncReturningField(button.dataset.slug);
-      });
-
-      detailsForm?.addEventListener('submit', () => {
-        if (returningIsAutomatic && returningSelect) returningSelect.value = 'ja';
-      });
-    })();
-  </script>
   {% include 'booking/_club_invite.html' %}
-  <script src="{% static 'booking/app.js' %}" defer></script>
+  <script src="{% static 'booking/app.js' %}?v=20261126-automatic-answers" defer></script>
   <script src="{% static 'booking/club-invite.js' %}" defer></script>
 </body>
 </html>

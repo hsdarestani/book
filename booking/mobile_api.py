@@ -22,7 +22,9 @@ from .models import Appointment, Customer, Service, StaffMember
 from .notifications import notify_booking_created, notify_customer_cancelled, notify_customer_rescheduled
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
 from .package_bridge import sync_package
-from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, create_appointment
+from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, booking_source_availability, create_appointment, source_day
+from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS, integrated, patient_booking_answers
+from .simplybook_writeback import change_locked, source_editable, source_id
 
 CHANGE_DEADLINE_HOURS = max(1, int(getattr(settings, 'BOOKING_CHANGE_DEADLINE_HOURS', 24)))
 logger = logging.getLogger(__name__)
@@ -142,6 +144,7 @@ def _pick_staff(service, starts_at, staff_id=None, *, appointment=None):
 
 
 def _appointment_payload(item):
+    pending = _external_pending(item)
     return {
         'id': str(item.public_id),
         'service_id': item.service_id,
@@ -150,9 +153,15 @@ def _appointment_payload(item):
         'staff_id': item.staff_id,
         'staff': item.staff.display_name,
         'starts_at': item.starts_at.isoformat(),
-        'status': item.get_status_display(),
-        'status_code': item.status,
+        'status': 'Bestätigung ausstehend' if pending else item.get_status_display(),
+        'status_code': 'new' if pending else item.status,
+        'external_confirmation_pending': pending,
     }
+
+
+def _external_pending(item):
+    return (integrated(item.service, item.staff) and item.status in ('new', 'confirmed')
+            and not item.simplybook_booking_id and not (item.idempotency_key or '').startswith('simplybook-'))
 
 
 @csrf_exempt
@@ -194,15 +203,25 @@ def mobile_slots(request):
         return _error('staff_not_found', 'Für diese Terminart ist aktuell kein passender Termin verfügbar.', 400)
 
     slots = set()
+    provider_available = False
     for member in staff:
+        try:
+            source = booking_source_availability(service, member, day)
+        except SOURCE_AVAILABILITY_ERRORS:
+            continue
+        provider_available = True
         slots.update(available_slots(
             service, member, day, exclude_appointment_id=exclude_id, reserved_duration=reserved_duration,
+            source_availability=source_day(source, day),
         ))
+    if not provider_available:
+        return _error('source_availability_unavailable', 'Die Terminverfügbarkeit kann gerade nicht geprüft werden.', 503)
     return JsonResponse({
         'ok': True,
         'service_id': service.pk,
         'day': day.isoformat(),
         'slots': [item.isoformat() for item in sorted(slots)],
+        'source_answers_required': False,
     })
 
 
@@ -227,8 +246,9 @@ def _booking_result(item, *, created, authorization):
     return JsonResponse({
         'ok': True,
         'appointment_id': str(item.public_id),
-        'status': item.get_status_display(),
-        'status_code': item.status,
+        'status': 'Bestätigung ausstehend' if _external_pending(item) else item.get_status_display(),
+        'status_code': 'new' if _external_pending(item) else item.status,
+        'external_confirmation_pending': _external_pending(item),
         'staff': item.staff.display_name,
         'starts_at': item.starts_at.isoformat(),
         'package': package,
@@ -237,6 +257,9 @@ def _booking_result(item, *, created, authorization):
 
 def _safe_new_booking_notifications(item):
     """Never turn a saved appointment into HTTP 500 because a notification fails."""
+    # Do not send a confirmation for an unverified source reservation.
+    if _external_pending(item):
+        return
     for sender in (send_booking_emails, notify_booking_created):
         try:
             sender(item)
@@ -294,7 +317,21 @@ def mobile_booking(request):
         if starts_at < timezone.now() + LEAD_TIME:
             return _error('start_time_too_soon', 'Bitte wählen Sie einen späteren Termin.', 400)
 
-        staff = _pick_staff(service, starts_at, data.get('staff_id'))
+        day = clinic_localdate(starts_at)
+        staff = None
+        availability = None
+        source_unavailable = False
+        for candidate in _eligible_staff(service, data.get('staff_id')):
+            try:
+                candidate_slots = source_day(booking_source_availability(service, candidate, day), day)
+            except SOURCE_AVAILABILITY_ERRORS:
+                source_unavailable = True
+                continue
+            if starts_at in available_slots(service, candidate, day, source_availability=candidate_slots):
+                staff, availability = candidate, candidate_slots
+                break
+        if not staff and source_unavailable:
+            return _error('source_availability_unavailable', 'Die Terminverfügbarkeit kann gerade nicht geprüft werden.', 503)
         if not staff:
             return _error('time_not_available', 'Diese Zeit ist inzwischen nicht mehr verfügbar.', 409)
 
@@ -310,6 +347,14 @@ def mobile_booking(request):
         marketing_opt_in = bool(data.get('marketing_opt_in', True))
         cancellation_terms_accepted = bool(data.get('cancellation_terms_accepted', legacy_consent))
         privacy_accepted = bool(data.get('privacy_accepted', legacy_consent))
+        returning = data.get('returning_customer')
+        referral = str(data.get('referral_source') or '')
+        answered = isinstance(returning, bool)
+        sync_state = ''
+        if integrated(service, staff):
+            returning, referral = patient_booking_answers(customer)
+            answered = True
+            sync_state = 'queued'
 
         try:
             appointment, created = create_appointment(
@@ -323,6 +368,11 @@ def mobile_booking(request):
                 marketing_opt_in=marketing_opt_in,
                 cancellation_terms_accepted=cancellation_terms_accepted,
                 privacy_accepted=privacy_accepted,
+                returning_customer=returning is True,
+                returning_customer_answered=answered,
+                referral_source=referral,
+                simplybook_sync_state=sync_state,
+                source_availability=availability,
             )
         except (ValueError, ValidationError, IntegrityError):
             # Includes model overlap validation and concurrent unique-key races.
@@ -401,7 +451,10 @@ def mobile_manageable_appointments(request):
         'appointments': [
             {
                 **_appointment_payload(item),
-                'change_allowed': now <= item.starts_at - timedelta(hours=CHANGE_DEADLINE_HOURS),
+                'change_allowed': now <= item.starts_at - timedelta(hours=CHANGE_DEADLINE_HOURS) and (
+                    source_editable(item) if source_id(item)
+                    else item.simplybook_sync_state not in {'sending', 'review'}
+                ),
             }
             for item in items
         ],
@@ -432,15 +485,20 @@ def mobile_appointment_change(request, appointment_id):
     if not customer:
         return _error('appointment_not_found', 'Termin nicht gefunden.', 404)
 
+    owned = Appointment.objects.filter(public_id=appointment_id, customer=customer)
+    initial = owned.values('staff_id').first()
+    if not initial:
+        return _error('appointment_not_found', 'Termin nicht gefunden.', 404)
+
     with transaction.atomic():
-        item = Appointment.objects.select_for_update().select_related('service', 'staff').filter(
-            public_id=appointment_id,
-            customer=customer,
-        ).first()
-        if not item:
+        StaffMember.objects.select_for_update().get(pk=initial['staff_id'])
+        item = owned.select_for_update().select_related('service', 'staff').first()
+        if not item or item.staff_id != initial['staff_id']:
             return _error('appointment_not_found', 'Termin nicht gefunden.', 404)
         if item.status not in {'new', 'confirmed'}:
             return _error('appointment_not_changeable', 'Dieser Termin kann nicht mehr geändert werden.', 409)
+        if item.simplybook_sync_state in {'sending', 'review'}:
+            return _error('source_change_requires_review', 'Bitte kontaktiere die Praxis für diese Terminänderung.', 409)
         if timezone.now() > item.starts_at - timedelta(hours=CHANGE_DEADLINE_HOURS):
             return JsonResponse({
                 'ok': False,
@@ -449,10 +507,28 @@ def mobile_appointment_change(request, appointment_id):
                 'deadline_hours': CHANGE_DEADLINE_HOURS,
             }, status=409)
 
-        if action == 'cancel':
+        if source_id(item):
+            if not source_editable(item):
+                return _error('source_change_requires_review', 'Bitte kontaktiere die Praxis für diese Terminänderung.', 409)
+            starts_at = None
+            if action == 'reschedule':
+                starts_at = parse_appointment_start(data.get('starts_at'))
+                if not starts_at or starts_at < timezone.now() + LEAD_TIME:
+                    return _error('invalid_start_time', 'Bitte wähle einen späteren Termin.', 400)
+                if data.get('staff_id') and str(data['staff_id']) != str(item.staff_id):
+                    return _error('source_provider_change', 'Bitte kontaktiere die Praxis für einen Behandlerwechsel.', 409)
+            try:
+                changed = change_locked(item, starts_at=starts_at, cancel=action == 'cancel')
+            except SOURCE_AVAILABILITY_ERRORS:
+                changed = False
+            if not changed:
+                return _error('source_change_requires_review', 'Die Änderung wurde von SimplyBook noch nicht bestätigt.', 409)
+        elif action == 'cancel':
             item.status = 'cancelled'
             item.save(update_fields=['status', 'updated_at'])
         else:
+            if _external_pending(item):
+                return _error('source_change_requires_review', 'Bitte kontaktiere die Praxis für diese Terminänderung.', 409)
             starts_at = parse_appointment_start(data.get('starts_at'))
             if not starts_at:
                 return _error('invalid_start_time', 'Bitte wählen Sie Datum und Uhrzeit.', 400)

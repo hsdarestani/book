@@ -16,6 +16,7 @@ from django.utils.dateparse import parse_date, parse_time
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
+from .simplybook_writeback import source_managed
 from .emails import send_customer_booking_email
 from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, parse_clinic_wall_time
 from .models import Appointment, BlockedPeriod, Customer, PatientRecord, Service, StaffMember, WorkingHour
@@ -427,6 +428,8 @@ def dashboard(request):
                 pk=request.POST.get('appointment_id'),
             )
             previous = appointment_snapshot(appointment)
+            if source_managed(appointment):
+                return redirect('/verwaltung/kalender/?notice=appointment-edit-error')
             status = request.POST.get('status')
             allowed = {item[0] for item in Appointment.STATUS}
             if status not in allowed:

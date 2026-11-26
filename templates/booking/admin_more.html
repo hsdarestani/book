@@ -14,7 +14,7 @@
 border:1px solid #cdb890;border-radius:12px;background:#fffaf1;text-decoration:none;color:#71532b;
 font-size:13px;font-weight:750;white-space:normal}
 @media(max-width:620px){.campaign-content-actions{width:100%}.hero-content-link{flex:1}}
-</style><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261126-shell1"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet><link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261126-shell1"><link rel="stylesheet" href="/static/booking/clinic-signature-surfaces-v1.css?v=20261024-signature-all1"></head>
+</style><link rel="stylesheet" href="/static/booking/clinic-web-polish-v2.css?v=20261126-shell1"><link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header3"><link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet><link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261126-control-contrast" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261126-shell1"><link rel="stylesheet" href="/static/booking/clinic-signature-surfaces-v1.css?v=20261024-signature-all1"></head>
 <body class="admin-body sb-admin-body app-management-body aplus-command-body ferrari-more">
 <header class="sb-mobile-bar app-mobile-bar"><button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button><strong class="sb-mobile-title">Mehr</strong><span class="sb-icon-button app-management-dot">A+</span></header>
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div>
@@ -40,9 +40,9 @@ font-size:13px;font-weight:750;white-space:normal}
 <section class="ferrari-section" id="campaigns">
   <div class="ferrari-section-head">
     <div><span>PATIENT APP</span><h2>Kampagnen</h2><p>Beliebig viele Kampagnen anlegen. Bearbeitung öffnet sich erst, wenn du sie brauchst.</p></div>
-    <div class="campaign-content-actions"><a href="/verwaltung/app/hero/" class="hero-content-link">Startseitenbilder ↗</a><button type="button" class="ferrari-primary" data-ferrari-open="campaign-new" {% if view_only %}disabled{% endif %}>+ Neue Kampagne</button></div>
+    <div class="campaign-content-actions"><a href="/verwaltung/app/hero/" class="hero-content-link">Startseitenbilder ↗</a><button type="button" class="ferrari-primary" data-ferrari-open="campaign-new" {% if not campaigns_available %}disabled{% endif %}>+ Neue Kampagne</button></div>
   </div>
-  {% if banners_error %}<div class="admin-notice is-error">{{ banners_error }}</div>{% endif %}
+  {% if banners_error %}<div class="admin-notice is-error" role="status">{{ banners_error }}</div>{% endif %}
   <div class="ferrari-list">
     {% for banner in banners %}
     <article class="ferrari-row">
@@ -50,7 +50,7 @@ font-size:13px;font-weight:750;white-space:normal}
       <div class="ferrari-row-copy"><div><strong>{{ banner.title|default:"Ohne Titel" }}</strong><span class="ferrari-status {% if banner.active %}is-on{% endif %}">{% if banner.active %}Aktiv{% else %}Inaktiv{% endif %}</span></div><p>{{ banner.text|default:"Kein Kampagnentext"|truncatechars:110 }}</p><small>{% if banner.starts_at %}ab {{ banner.starts_at|slice:":16" }}{% else %}ohne Startdatum{% endif %}{% if banner.ends_at %} · bis {{ banner.ends_at|slice:":16" }}{% endif %}</small></div>
       <button type="button" class="ferrari-edit" data-ferrari-open="campaign-{{ banner.id }}">Bearbeiten</button>
     </article>
-    {% empty %}<div class="ferrari-empty">Noch keine Kampagne. Mit „Neue Kampagne“ startest du die erste.</div>{% endfor %}
+    {% empty %}{% if campaigns_available %}<div class="ferrari-empty">Noch keine Kampagnen vorhanden.</div>{% endif %}{% endfor %}
   </div>
 </section>
 
@@ -87,4 +87,4 @@ font-size:13px;font-weight:750;white-space:normal}
 <script defer src="{% static 'booking/admin-unified-nav-v14.js' %}?v=20261126-nav1"></script>
 <script defer src="{% static 'booking/admin-scroll-recovery-v9.js' %}?v=20260911-scroll-v11"></script>
 <script defer src="{% static 'booking/admin-ferrari-v17.js' %}?v=20260922-v17"></script>
-<script defer src="{% static 'booking/medical-form-push-v1.js' %}?v=20261020"></script><script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-desktop1"></script><script defer src="/static/booking/clinic-header-v3.js?v=20261021-mobile2"></script></body></html>
+<script defer src="{% static 'booking/medical-form-push-v1.js' %}?v=20261020"></script><script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261126-inbox1"></script><script defer src="/static/booking/clinic-header-v3.js?v=20261021-mobile2"></script></body></html>

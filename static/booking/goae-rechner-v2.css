@@ -10,6 +10,7 @@
 .mlr-step h3{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:750;letter-spacing:0;margin:0 0 15px;color:#2d2826}.mlr-circle{border-radius:50%;width:24px;height:24px;display:inline-grid;place-items:center;flex-shrink:0;background:#317e4e;color:white;font-size:13px}
 .mlr-treatments{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.mlr-treatment{border:1px solid #e4dad2;border-radius:12px;background:white;padding:13px 10px;display:flex;gap:9px;text-align:left;align-items:center;min-width:0;color:var(--ink)}
 .mlr-treatment:hover{border-color:#a16565}.mlr-treatment.is-active{background:#f7eded;border-color:#842d32;box-shadow:0 0 0 1px rgba(102,20,27,.16)}
+.mlr-clinic-services{margin:0 0 14px;padding:12px;border:1px solid #e4dad2;border-radius:10px;color:#342724;font-size:14px;line-height:1.5}.mlr-clinic-services summary{font-weight:700;cursor:pointer}.mlr-clinic-services ul{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:8px;padding:0;margin:8px 0}.mlr-clinic-services li{padding:9px;border:1px solid #e4dad2;border-radius:8px;overflow-wrap:normal}.mlr-clinic-services li span{display:block;color:#74431c;font-size:13px}
 .mlr-treat-icon{background:#f8f3f0;color:#9b494c;border-radius:10px;width:31px;height:31px;display:grid;place-items:center;flex-shrink:0;font-size:17px}.mlr-treatment.is-active .mlr-treat-icon{background:var(--wine);color:white}.mlr-treatment b{display:block;font-size:13px}.mlr-treatment small{color:#897c76;display:block;font-size:11px;line-height:1.25;white-space:normal}
 .mlr-stepper{display:inline-flex;align-items:center;border:1px solid var(--outline);border-radius:12px;overflow:hidden;height:50px;background:#fff}.mlr-stepper button{width:44px;height:100%;border:0;background:#fbf8f5;color:#7b4241;font-size:22px}.mlr-stepper output{min-width:50px;text-align:center;font-weight:750;font-size:19px}.mlr-note{margin-top:8px!important;color:#827c76;font-size:11px;line-height:1.55}
 .mlr-info{color:#aaa;font-size:15px;cursor:help}.mlr-price-entry{height:68px;position:relative}.mlr-price-entry input{width:100%;height:100%;border:1px solid #e5dcd6;border-radius:13px;padding:8px 52px 8px 14px;background:white;color:#181717;font-size:28px;font-weight:750}.mlr-price-entry>span{position:absolute;right:17px;top:50%;transform:translateY(-50%);font-size:23px;color:#7b7372}
@@ -39,3 +40,33 @@
 @media(max-width:800px){.mlr{padding:0 3px}.mlr-treatments{grid-template-columns:repeat(2,minmax(0,1fr))}.mlr-line-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mlr-line-wide{grid-column:span 2}}
 @media(max-width:530px){.mlr-head{padding:17px 13px}.mlr #goaeFullForm{padding:0 12px 15px}.mlr-step{padding:15px 12px}.mlr-treatments{gap:6px}.mlr-treatment{padding:10px 7px}.mlr-summary{padding:13px}.mlr-summary-head strong{font-size:28px}.mlr-field-grid{grid-template-columns:1fr}.mlr-breakdown{gap:3px}.mlr-paper-frame{padding:6px}.mlr-paper{padding:22px 13px;min-height:470px}.mlr-paper-address{grid-template-columns:1fr}.mlr-paper-header{text-align:left}.mlr-paper-address dl{margin-top:12px}.mlr-preview-table{font-size:9px}.mlr-paper-totals{max-width:100%}.mlr-toolbar button{flex:1 1 200px}.mlr-details>summary small{display:block}}
 @media print{body *{visibility:hidden!important}#goaePrintPreview,#goaePrintPreview *{visibility:visible!important}#goaePrintPreview{position:absolute;left:0;top:0;width:100%;padding:25mm;box-shadow:none;overflow:visible}.mlr-watermark{opacity:.13}}
+
+/* Clinic admin controls: one consistent treatment picker and German date fields. */
+.mlr{max-width:100%;padding-inline:0;font-size:15px}
+.mlr [hidden]{display:none!important}
+.mlr-head .mlr-overline,.mlr-note,.mlr-details>summary small,.mlr-preview-top b{font-size:13px;color:#605550}
+.mlr-head>p:last-child{font-size:14px;max-width:900px;color:#605550}
+.mlr-step h3,.mlr-lines-title h3{font-size:17px}
+.mlr-details>summary{font-size:15px}
+.mlr-treatments{grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:10px}
+.mlr-treatment{min-height:75px;padding:12px}
+.mlr-treatment b{font-size:15px;line-height:1.4;overflow-wrap:anywhere}
+.mlr-treatment small{font-size:13px;color:#61524c;line-height:1.4;margin-top:2px}
+.mlr-treatment[data-preset-key=""] small{color:#74431c}
+.mlr-config-notice{background:#fff6e8;color:#603b15;border:1px solid #e6cc9f;border-radius:10px;padding:13px 15px;margin-top:12px}
+.mlr-config-notice p{margin:4px 0 10px}
+.mlr-field-grid>label,.mlr-date>label,.mlr-line-grid label{font-size:14px;color:#443c38}
+.mlr-field-grid input:not([type=checkbox]),.mlr-field-grid select,.mlr-line-grid input:not([type=checkbox]),.mlr-line-grid select{min-height:44px;font-size:14px}
+.mlr-field-grid label.mlr-confirm,.mlr-line-grid label.mlr-confirm,.mlr-confirm{flex-direction:row!important;align-items:flex-start!important;gap:9px!important;font-size:14px;line-height:1.45}
+.mlr-confirm input[type=checkbox]{flex:0 0 auto;width:18px!important;height:18px!important;margin:2px 0 0;padding:0!important;min-height:0!important}
+.mlr-date-control{display:block;position:relative;align-self:start;width:100%}
+.mlr-date-control input[type=text]{padding-right:44px!important}
+.mlr-date-control button[data-open-calendar]{position:absolute;right:6px;top:50%;bottom:auto;transform:translateY(-50%);width:34px;height:34px;display:grid;place-items:center}
+.mlr-date-control input.mlr-native-date{width:1px!important;height:1px!important;min-height:1px!important;right:22px;bottom:0;opacity:0;padding:0!important;border:0;pointer-events:none}
+.mlr button[data-standard-values],.mlr button[data-configure-treatment]{color:#fff;background:#204547;border:1px solid #204547;border-radius:9px;padding:10px 15px;font-size:14px;font-weight:650;min-height:44px}
+.mlr button[data-standard-values]:hover,.mlr button[data-configure-treatment]:hover{background:#153234}
+.mlr-feedback{font-size:14px;line-height:1.5}
+.mlr-paper{max-width:900px}.mlr-preview-table{font-size:12px}
+@media(max-width:530px){.mlr-treatments{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.mlr-treatment{padding:10px 7px;align-items:flex-start;min-height:95px;gap:6px}.mlr-treatment b{font-size:14px}.mlr-treatment small{font-size:12px}.mlr-treat-icon{width:25px;height:25px}.mlr-preview-table{font-size:10px}}
+
+.mlr [aria-invalid="true"]{outline:2px solid #a3282f;outline-offset:2px}

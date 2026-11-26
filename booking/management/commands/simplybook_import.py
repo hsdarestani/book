@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from booking.customer_identity import find_customer, normalize_email, normalize_name, normalize_phone
@@ -310,8 +311,10 @@ class Command(BaseCommand):
                     uncertain = list(Appointment.objects.select_for_update().filter(
                         simplybook_sync_state__in=['sending','review'], simplybook_booking_id__isnull=True,
                         simplybook_event_id=event_id, simplybook_client_id=client_id,
-                        customer=customer, starts_at=starts_at, ends_at=ends_at,
-                        staff__display_name='Frau Ariane Regaei'))
+                        customer=customer, starts_at=starts_at,
+                        staff__display_name='Frau Ariane Regaei').filter(
+                            Q(simplybook_remote_ends_at=ends_at) |
+                            Q(simplybook_remote_ends_at__isnull=True, ends_at=ends_at)))
                     if len(uncertain) == 1:
                         linked = uncertain[0]
                     elif len(uncertain) > 1:
@@ -319,12 +322,22 @@ class Command(BaseCommand):
                 if linked is not None:
                     if linked.customer_id != customer.pk or linked.simplybook_event_id != event_id or linked.simplybook_client_id != client_id:
                         raise CommandError('Linked SimplyBook booking identity changed; no changes committed.')
+                    remote_end = linked.simplybook_remote_ends_at or linked.ends_at
+                    local_tail = max(timedelta(0), linked.ends_at - remote_end)
+                    local_end = ends_at + local_tail
+                    changed = (linked.starts_at, linked.ends_at, linked.status) != (starts_at, local_end, defaults['status'])
+                    if linked.simplybook_sync_state != 'review' or changed or not linked.simplybook_booking_id:
+                        linked.simplybook_sync_state = 'linked'
+                    newly_linked = linked.simplybook_booking_id != booking_id
                     linked.simplybook_booking_id = booking_id
-                    linked.simplybook_sync_state = 'linked'
+                    linked.simplybook_remote_ends_at = ends_at
                     linked.starts_at = starts_at
-                    linked.ends_at = ends_at
+                    linked.ends_at = local_end
                     linked.status = defaults['status']
-                    linked.save(update_fields=['simplybook_booking_id','simplybook_sync_state','starts_at','ends_at','status','updated_at'])
+                    if changed or newly_linked:
+                        linked.save(update_fields=['simplybook_booking_id','simplybook_sync_state','simplybook_remote_ends_at','starts_at','ends_at','status','updated_at'])
+                    else:
+                        linked.save(update_fields=['simplybook_booking_id','simplybook_sync_state','simplybook_remote_ends_at'])
                     appointment, created = linked, False
                 else:
                     appointment,created=Appointment.objects.update_or_create(idempotency_key=f'simplybook-{booking_id}',defaults=defaults)

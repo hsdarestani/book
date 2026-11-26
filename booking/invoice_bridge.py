@@ -8,9 +8,9 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.http import HttpResponse, HttpResponseForbidden, HttpResponseNotAllowed
+from django.http import HttpResponse, HttpResponseForbidden, HttpResponseNotAllowed, JsonResponse
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from .internal_api import _sync_token
 
@@ -26,7 +26,7 @@ def _request_bridge(request, operation, method="GET", payload=None, binary=False
     token = _sync_token()
     if not token:
         raise RuntimeError("Rechnungsanbindung nicht konfiguriert. Bitte Serververbindung prüfen.")
-    if operation not in {"overview", "settings", "invoices", "goae", "quote"} and not (
+    if operation not in {"overview", "settings", "invoices", "goae", "quote", "draft", "patient-search", "pdf-preview", "quick-quote", "quick-draft"} and not (
         operation.startswith("services/") or operation.startswith("finalize/")
         or operation.startswith("pdf/")
     ):
@@ -79,7 +79,29 @@ def invoice_pdf(request, invoice_id):
     except (RuntimeError, ValueError) as exc:
         return HttpResponse(str(exc), status=503, content_type="text/plain; charset=utf-8")
     response = HttpResponse(data, content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="Rechnung-{invoice_id}.pdf"'
+    response["Content-Disposition"] = f'attachment; filename="Rechnung-{invoice_id}.pdf"'
     response["Cache-Control"] = "private, no-store"
     response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@never_cache
+@staff_member_required(login_url='/verwaltung/login/')
+@require_POST
+def goae_preview_pdf(request):
+    if len(request.body) > 150000:
+        return JsonResponse({'ok': False, 'message': 'Zu viele Rechnungsdaten.'}, status=413)
+    try:
+        payload = json.loads(request.body)
+        if not isinstance(payload, dict):
+            raise ValueError('Ungültige Vorschauangaben.')
+        data = _request_bridge(request, 'pdf-preview', method='POST', payload=payload, binary=True)
+    except PermissionError:
+        return JsonResponse({'ok': False, 'message': 'Keine Berechtigung für dieses Dokument.'}, status=403)
+    except (RuntimeError, ValueError, TypeError) as exc:
+        return JsonResponse({'ok': False, 'message': str(exc)[:200]}, status=400)
+    response = HttpResponse(data, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="GOAE-Rechnungsentwurf.pdf"'
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
     return response

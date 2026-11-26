@@ -15,6 +15,8 @@ from django.views.decorators.http import require_http_methods
 from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, parse_clinic_wall_time
 from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_deleted
+from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS
+from .simplybook_writeback import source_managed, source_editable, change_locked
 from . import views
 
 
@@ -144,6 +146,9 @@ def _appointment_payload(item):
         'customer_name': item.customer.full_name,
         'service_name': item.service.name,
         'staff_name': item.staff.display_name,
+        'source_managed': source_managed(item),
+        'source_editable': source_editable(item),
+        'revision': item.updated_at.isoformat(),
     }
 
 
@@ -238,7 +243,7 @@ def _polish_admin_response(
         f'<option value="{member.pk}">{escape(member.display_name)}</option>' for member in staff_members
     )
     customer_options = ''.join(
-        f'<option value="{customer.pk}">{escape(customer.full_name)} · {escape(customer.email)}</option>'
+        f'<option value="{customer.pk}" data-phone="{escape(customer.phone)}">{escape(customer.full_name)} · {escape(customer.email)}</option>'
         for customer in customers
     )
     status_options = ''.join(
@@ -349,12 +354,13 @@ def _polish_admin_response(
     <form method="post" class="sb-sheet-form" id="sb-edit-appointment-form" data-appointment-edit-form>
       <input type="hidden" name="csrfmiddlewaretoken" value="{escape(csrf_value)}">
       <input type="hidden" name="appointment_id">
+      <input type="hidden" name="appointment_revision">
       <input type="hidden" name="return_view" value="{escape(calendar_view)}">
       <label class="sb-form-row"><span class="sb-row-icon">◒</span><div><small>Dienstleistung</small><select name="service_id" required>{service_options_html}</select></div></label>
       <label class="sb-form-row"><span class="sb-row-icon">♟</span><div><small>Dienstleister</small><select name="appointment_staff_id" required>{staff_options}</select></div></label>
-      <label class="sb-form-row"><span class="sb-row-icon">♙</span><div><small>Kunde</small><select name="customer_id" required>{customer_options}</select></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">♙</span><div><small>Kunde</small><select name="customer_id" data-patient-combobox required>{customer_options}</select></div></label>
       <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Datum</small><input type="date" name="appointment_date" required></div></label>
-      <label class="sb-form-row"><span class="sb-row-icon">◷</span><div><small>Uhrzeit</small><input type="time" name="appointment_time" step="900" required></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">◷</span><div><small>Uhrzeit</small><input type="time" name="appointment_time" step="60" required></div></label>
       <label class="sb-form-row"><span class="sb-row-icon">✓</span><div><small>Status</small><select name="status">{status_options}</select></div></label>
       <div class="sb-edit-actions">
         <button type="submit" name="action" value="edit_appointment" class="sb-sheet-save">Änderungen speichern</button>
@@ -505,9 +511,24 @@ def _polish_admin_response(
     form.elements.service_id.value = data.service_id;
     form.elements.appointment_staff_id.value = data.staff_id;
     form.elements.customer_id.value = data.customer_id;
+    form.elements.customer_id.clinicPatientRefresh?.();
     form.elements.appointment_date.value = data.date;
     form.elements.appointment_time.value = data.time;
     form.elements.status.value = data.status;
+    form.elements.appointment_revision.value = data.revision;
+    for (const name of ['service_id', 'appointment_staff_id', 'customer_id']) {{
+      form.elements[name].disabled = data.source_managed;
+    }}
+    for (const name of ['appointment_date', 'appointment_time', 'status']) {{
+      form.elements[name].disabled = data.source_managed && !data.source_editable;
+    }}
+    for (const status of form.elements.status.options) {{
+      status.disabled = data.source_managed && ![data.status, 'cancelled'].includes(status.value);
+    }}
+    modal.querySelectorAll('button[value="edit_appointment"]').forEach(button => {{
+      button.disabled = data.source_managed && !data.source_editable;
+    }});
+    form.querySelector('button[value="delete_appointment"]').hidden = data.source_managed;
   }}
 
   document.querySelectorAll('.sb-calendar-event').forEach((node, index) => {{
@@ -663,6 +684,23 @@ def dashboard_proxy(request):
         allowed_statuses = {value for value, _ in Appointment.STATUS}
         old_day = clinic_localtime(appointment.starts_at).date()
         old_staff_id = appointment.staff_id
+        if source_managed(appointment):
+            success = False
+            if status in {'confirmed', 'cancelled'}:
+                try:
+                    with transaction.atomic():
+                        StaffMember.objects.select_for_update().get(pk=old_staff_id)
+                        locked = Appointment.objects.select_related('staff', 'service', 'customer').select_for_update().get(pk=appointment.pk)
+                        if (locked.updated_at.isoformat() == request.POST.get('appointment_revision')
+                                and source_editable(locked)):
+                            success = change_locked(locked, starts_at=starts_at, cancel=status == 'cancelled')
+                            appointment = locked
+                except SOURCE_AVAILABILITY_ERRORS:
+                    pass
+            notice = 'appointment-updated' if success else 'appointment-edit-error'
+            return redirect(_calendar_url(day=clinic_localtime(appointment.starts_at).date(),
+                view=request.POST.get('return_view') or 'day', staff_id=old_staff_id,
+                notice=notice, focus_appointment=appointment.pk))
         if (
             not service or not staff or not customer or not starts_at or not _is_quarter(starts_at)
             or status not in allowed_statuses or not staff.services.filter(pk=service.pk).exists()
@@ -712,6 +750,8 @@ def dashboard_proxy(request):
             return redirect('/verwaltung/buchungen/?notice=appointment-deleted')
         day = clinic_localtime(appointment.starts_at).date()
         staff_id = appointment.staff_id
+        if source_managed(appointment):
+            return redirect(_calendar_url(day=day, staff_id=staff_id, notice='appointment-edit-error'))
         notify_admin_deleted(appointment)
         appointment.delete()
         return redirect(_calendar_url(day=day, view=request.POST.get('return_view') or 'day', staff_id=staff_id, notice='appointment-deleted'))

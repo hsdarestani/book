@@ -169,6 +169,18 @@ class PatientRecord(models.Model):
     def __str__(self): return f'{self.customer} – {self.title}'
 
 
+class PatientFormNotificationRead(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    record = models.ForeignKey(PatientRecord, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'record'], name='patient_form_read_once')]
+
+
+class OfficeIntakeAssignmentLock(models.Model):
+    """Serializes patient lookup and creation for signed Office submissions."""
+
+
 class OfficeIntakeForm(models.Model):
     """Private general Aufnahmebogen; never exposed by the patient portal."""
     STATUS = [('linked','Zugeordnet'),('review','Prüfung nötig')]
@@ -206,6 +218,7 @@ class Appointment(models.Model):
     source=models.CharField('Quelle',max_length=20,choices=SOURCE,default='web')
     notes_customer=models.TextField('Nachricht des Kunden',blank=True)
     returning_customer=models.BooleanField('Schon einmal bei uns',default=False)
+    returning_customer_answered=models.BooleanField(default=False,null=True,editable=False)
     referral_source=models.CharField('Wie auf uns aufmerksam geworden',max_length=100,blank=True)
     marketing_opt_in=models.BooleanField('Marketing-Einwilligung',default=True)
     cancellation_terms_accepted=models.BooleanField('Stornierungsbedingungen akzeptiert',default=False)
@@ -213,6 +226,7 @@ class Appointment(models.Model):
     idempotency_key=models.CharField(max_length=80,unique=True,null=True,blank=True,editable=False)
     simplybook_booking_id=models.CharField(max_length=80,unique=True,null=True,blank=True,editable=False)
     simplybook_sync_state=models.CharField(max_length=20,blank=True,default='',editable=False)
+    simplybook_remote_ends_at=models.DateTimeField(null=True,blank=True,editable=False)
     simplybook_event_id=models.CharField(max_length=80,blank=True,default='',editable=False)
     simplybook_client_id=models.CharField(max_length=80,blank=True,default='',editable=False)
     reminder_24h_sent_at=models.DateTimeField('24h-Erinnerung gesendet',null=True,blank=True,editable=False)

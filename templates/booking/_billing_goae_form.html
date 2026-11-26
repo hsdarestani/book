@@ -1,6 +1,65 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'booking/goae-rechner-v2.css' %}?v=20261123-v1">
-<section class="mlr" id="goae-rechnung" data-mlr>
+<link rel="stylesheet" href="{% static 'booking/goae-rechner-v2.css' %}?v=20261126-invoice-fields">
+<section class="mlr" id="goae-rechnung">
+  <header class="mlr-head">
+    <h2>GOÄ-Schnellrechnung</h2>
+  </header>
+  {% if goae_quick_choices %}
+  <form data-goae-quick action="{% url 'booking:goae_quick' %}" method="post">
+    {% csrf_token %}
+    <div class="mlr-step mlr-field-grid">
+      <div>
+        <label>Patient suchen
+          <input type="search" placeholder="Name oder E-Mail" aria-controls="goaeQuickPatient" data-filter-patient-select="goaeQuickPatient" data-patient-search-url="{% url 'booking:goae_patient_search' %}" maxlength="80" autocomplete="off">
+        </label>
+        <small data-patient-search-status="goaeQuickPatient" role="status"></small>
+        <label>Patient
+          <select id="goaeQuickPatient" name="customer_id" required>
+            <option value="">Patient auswählen</option>
+            {% for patient in data.customers %}<option value="{{ patient.id }}">{{ patient.name }} · {{ patient.email }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      <label>Behandlung
+        <select name="treatment" required>
+          <option value="">Vorlage auswählen</option>
+          {% for item in goae_quick_choices %}<option value="{{ item.key }}" data-version="{{ item.version }}">{{ item.label }}{% if not item.version %} · Freigabe erforderlich{% endif %}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Behandlungsumfang
+        <input name="quantity" type="number" value="1" min="1" max="100" step="1" required>
+      </label>
+      <label>Gewünschter Gesamtbetrag (€)
+        <input name="desired" type="text" inputmode="decimal" placeholder="Optional">
+      </label>
+    </div>
+    <details class="mlr-details">
+      <summary>Datum und Fälligkeit</summary>
+      <div class="mlr-details-inner mlr-field-grid">
+        <label>Behandlungsdatum <input name="service_date" type="date" value="{{ goae_quick_date }}" required></label>
+        <label>Rechnungsdatum <input name="invoice_date" type="date" value="{{ goae_quick_date }}" required></label>
+        <label>Zahlbar bis <input name="due_date" type="date"></label>
+      </div>
+    </details>
+    <div class="mlr-summary" aria-live="polite" data-quick-results hidden>
+      <div class="mlr-summary-head"><div><small>ENTWURF</small><strong data-quick-total></strong></div></div>
+      <ul data-quick-lines></ul>
+    </div>
+    <p class="mlr-feedback" data-quick-status role="status"></p>
+    <div class="mlr-toolbar">
+      <button type="button" class="mlr-print" data-quick-quote>Berechnen</button>
+      <button type="submit" class="mlr-save">Entwurf speichern</button>
+      <a class="mlr-print" data-quick-pdf href="#" hidden>A4-PDF herunterladen</a>
+    </div>
+  </form>
+  <script src="{% static 'booking/goae-quick.js' %}?v=20261126-draft-fields" defer></script>
+  {% else %}
+  <p>Für die Schnellrechnung muss eine ärztlich freigegebene Behandlungsvorlage hinterlegt sein.</p>
+  {% endif %}
+  <details class="mlr-details">
+    <summary>Erweiterte Einstellungen · GOÄ-Positionen manuell erfassen</summary>
+    <div class="mlr-details-inner">
+<section class="mlr" id="goae-manuell" data-mlr>
  <header class="mlr-head"><p class="mlr-overline">A+ ESTHETIC · PRIVATPRAXIS · Rechnung nach GOÄ</p><h2>GOÄ-Rechner</h2>
   <p>Drei Angaben – sofortiger GOÄ-Berechnungsvorschlag mit Faktor. Tatsächliche Leistungen, Material und Vereinbarungen müssen vor dem Speichern geprüft werden.</p></header>
  <form method="post" id="goaeFullForm" data-goae-full novalidate>
@@ -13,19 +72,21 @@
    <section class="mlr-step">
     <h3><span class="mlr-circle">1</span> Was wurde behandelt?</h3>
     <div class="mlr-treatments" role="group" aria-label="Behandlung wählen">
-     <button type="button" class="mlr-treatment" data-treatment="botox" aria-pressed="false"><span class="mlr-treat-icon">✳</span><span><b>Botox</b><small>Faltenbehandlung</small></span></button>
-     <button type="button" class="mlr-treatment is-active" data-treatment="hyaluron" aria-pressed="true"><span class="mlr-treat-icon">◉</span><span><b>Hyaluron</b><small>Filler</small></span></button>
-     <button type="button" class="mlr-treatment" data-treatment="prp" aria-pressed="false"><span class="mlr-treat-icon">♧</span><span><b>PRP</b><small>Eigenblut</small></span></button>
-     <button type="button" class="mlr-treatment" data-treatment="lipolysis" aria-pressed="false"><span class="mlr-treat-icon">◎</span><span><b>Lipolyse</b><small>z. B. Doppelkinn</small></span></button>
+     {% for card in goae_treatment_cards %}
+      <button type="button" class="mlr-treatment" data-treatment="{{ card.key }}" data-preset-key="{{ card.preset }}" data-treatment-title="{{ card.title }}" aria-pressed="false">
+       <span class="mlr-treat-icon" aria-hidden="true">{{ card.icon }}</span><span><b>{{ card.title }}</b><small>{% if card.preset %}{{ card.subtitle }} · Vorlage prüfen{% else %}GOÄ-Zuordnung erforderlich{% endif %}</small></span>
+      </button>
+     {% endfor %}
     </div>
+    <div class="mlr-config-notice" data-config-notice hidden role="status"><strong>GOÄ-Zuordnung erforderlich</strong><p>Für diese Behandlung ist keine bestätigte Berechnungsvorlage hinterlegt. Erfassen Sie die tatsächlich erbrachten Leistungen, Ziffern und Faktoren individuell und lassen Sie sie ärztlich prüfen.</p><button type="button" data-configure-treatment>GOÄ-Positionen erfassen</button></div>
    </section>
-   <section class="mlr-step">
+   <section class="mlr-step" data-proposal-step>
     <h3><span class="mlr-circle">2</span> <span data-quantity-label>Wie viele Spritzen?</span></h3>
     <div class="mlr-stepper"><button type="button" data-qty-minus aria-label="Weniger">−</button><output data-qty>1</output><button type="button" data-qty-plus aria-label="Mehr">+</button></div>
     <p class="mlr-note" data-quantity-hint>à 1 ml</p>
     <label data-injection-wrap hidden>Tatsächliche Anzahl Injektionen <input type="number" min="1" max="100" step="1" data-injection-count aria-label="Anzahl Injektionen"></label>
    </section>
-   <section class="mlr-step">
+   <section class="mlr-step" data-proposal-step>
     <h3><span class="mlr-circle">3</span> Was zahlt die Patientin / der Patient? <span title="Gewünschter Gesamtbetrag, keine GOÄ-Freigabe" class="mlr-info">ⓘ</span></h3>
     <div class="mlr-price-entry"><input data-target-input aria-label="Gewünschter Gesamtbetrag in Euro" type="text" inputmode="decimal" value="260" placeholder="260"><span>€</span></div>
     <input type="range" class="mlr-price-slider" data-target-slider min="50" max="1500" step="10" value="260" aria-label="Betrag auswählen">
@@ -44,15 +105,19 @@
    <summary><span><b>☷</b> Details anpassen <small>optional für Vorschau · erforderlich für Rechnungsentwurf</small></span><span class="mlr-chevron">⌄</span></summary>
    <div class="mlr-details-inner">
     <div class="mlr-field-grid">
-     <label>Patient <select name="customer_id" id="goaePatient" required><option value="">Patient auswählen</option>
-       {% for patient in data.customers %}<option value="{{ patient.id }}">{{ patient.name }} · {{ patient.email }}</option>{% endfor %}
+     <div>
+       <label>Patienten suchen <input type="search" placeholder="Name oder E-Mail" aria-controls="goaePatient" data-filter-patient-select="goaePatient" data-patient-search-url="{% url 'booking:goae_patient_search' %}" maxlength="80" autocomplete="off"></label>
+       <small data-patient-search-status="goaePatient" role="status"></small>
+       <label>Patient <select name="customer_id" id="goaePatient" required><option value="">Patient auswählen</option>
+       {% for patient in data.customers %}<option value="{{ patient.id }}" data-phone="{{ patient.phone }}" data-street="{{ patient.street }}" data-postal-code="{{ patient.postal_code }}" data-city="{{ patient.city }}">{{ patient.name }} · {{ patient.email }}</option>{% endfor %}
      </select></label>
-     <div class="mlr-date"><label for="goaeDateGerman">Behandlungsdatum</label><input type="text" id="goaeDateGerman" placeholder="TT.MM.JJJJ" inputmode="numeric" maxlength="10" required pattern="[0-9]{2}\.[0-9]{2}\.[0-9]{4}"><input type="date" data-native-date class="mlr-native-date" aria-label="Datum auswählen"><button type="button" data-open-calendar aria-label="Kalender öffnen">▣</button></div>
+     </div>
+     <label class="mlr-date" for="goaeDateGerman">Behandlungsdatum<span class="mlr-date-control"><input type="text" id="goaeDateGerman" placeholder="TT.MM.JJJJ" inputmode="numeric" maxlength="10" required pattern="[0-9]{2}\.[0-9]{2}\.[0-9]{4}"><input type="date" data-native-date class="mlr-native-date" aria-label="Datum auswählen"><button type="button" data-open-calendar aria-label="Kalender öffnen">▣</button></span></label>
      <label>Umsatzsteuerstatus <select data-vat><option value="19" selected>19 % · Ästhetisch / steuerpflichtig</option><option value="0">0 % · Bitte steuerlich prüfen</option><option value="7">7 % · Bitte steuerlich prüfen</option></select></label>
      <label>Diagnose / Behandlungsanlass <select data-diagnosis></select></label>
      <label data-diagnosis-custom-wrap hidden>Eigener Text <input type="text" data-diagnosis-custom maxlength="100"></label>
-     <label>Rechnungsdatum (Vorschau) <input type="date" data-invoice-date></label>
-     <label>Zahlbar bis (Vorschau; leer = 14 Tage) <input type="date" data-due-date></label>
+     <label class="mlr-date">Rechnungsdatum (Vorschau)<span class="mlr-date-control"><input type="text" data-invoice-date placeholder="TT.MM.JJJJ" inputmode="numeric" maxlength="10" pattern="[0-9]{2}\.[0-9]{2}\.[0-9]{4}"><input type="date" class="mlr-native-date" aria-label="Rechnungsdatum auswählen"><button type="button" data-open-calendar aria-label="Kalender öffnen">▣</button></span></label>
+     <label class="mlr-date">Zahlbar bis (Vorschau; leer = 14 Tage)<span class="mlr-date-control"><input type="text" data-due-date placeholder="TT.MM.JJJJ" inputmode="numeric" maxlength="10" pattern="[0-9]{2}\.[0-9]{2}\.[0-9]{4}"><input type="date" class="mlr-native-date" aria-label="Fälligkeitsdatum auswählen"><button type="button" data-open-calendar aria-label="Kalender öffnen">▣</button></span></label>
     </div>
     <div class="mlr-lines-title"><div><h3>Material</h3><p>Jede Zeile wird eine eigene Rechnungsposition. Beispielwerte vor dem Speichern durch tatsächliche Auslagen ersetzen.</p></div><button type="button" data-material-add>+ Material</button></div>
     <div class="mlr-material-line" data-material-primary>
@@ -65,12 +130,12 @@
      </div>
     </div>
     <div data-extra-materials></div>
-    <div class="mlr-field-grid">
+    <div class="mlr-field-grid" data-proposal-detail>
       <div><strong>Faktoren der festen Ziffern</strong><div data-fixed-factors></div><p class="mlr-note">Die Hauptziffer erhält den rechnerischen Restbetrag.</p></div>
       <div><button type="button" data-standard-values>Auf Standardwerte zurücksetzen</button></div>
     </div>
     <p class="mlr-legal-line">Die Beispielwerte im Rechner sind keine bestätigten Einkaufspreise. Material ist nicht frei auf den Wunschbetrag anpassbar. Nur tatsächlich entstandene, nach § 10 GOÄ berechnungsfähige Auslagen dürfen angesetzt werden.</p>
-    <div class="mlr-field-grid">
+    <div class="mlr-field-grid" data-proposal-detail>
       <div><strong>Preisgrenzen (rechnerische Vorschau)</strong><p class="mlr-note" data-price-boundaries></p><div class="mlr-price-presets"><button type="button" data-boundary="2.3">Ohne Begründung</button><button type="button" data-boundary="3.5">Ohne Honorarvereinbarung</button></div></div>
     </div>
     <fieldset data-agreement-evidence hidden>
@@ -78,7 +143,7 @@
      <p class="mlr-note">Nur nach persönlicher Absprache und vor Behandlungsbeginn. Das unterschriebene Dokument muss in der Patientenakte hinterlegt sein.</p>
      <div class="mlr-field-grid">
       <label>Dokument-ID aus der Patientenakte <input type="number" min="1" step="1" data-agreement-document></label>
-      <label>Datum der Vereinbarung <input type="date" data-agreement-date></label>
+      <label class="mlr-date">Datum der Vereinbarung<span class="mlr-date-control"><input type="text" data-agreement-date placeholder="TT.MM.JJJJ" inputmode="numeric" maxlength="10" pattern="[0-9]{2}\.[0-9]{2}\.[0-9]{4}"><input type="date" class="mlr-native-date" aria-label="Vereinbarungsdatum auswählen"><button type="button" data-open-calendar aria-label="Kalender öffnen">▣</button></span></label>
       <label>Vereinbarter Netto-Gebührenbetrag der Hauptziffer (€) <input type="text" inputmode="decimal" data-agreement-amount></label>
       <label class="mlr-confirm"><input type="checkbox" data-agreement-confirm> Unterzeichnete, vor der Behandlung geschlossene Vereinbarung und vereinbarte Leistung, Faktor und Betrag ärztlich geprüft.</label>
      </div>
@@ -99,13 +164,13 @@
   <div class="mlr-evidence" data-material-notice>ⓘ <div><strong>Beleg beifügen</strong><p>Für einzeln berechnete Auslagen über 25,56 € ist ein Beleg oder gleichwertiger Nachweis erforderlich (§ 12 Abs. 2 Nr. 5 GOÄ).</p></div></div>
   <div class="mlr-toolbar">
    <button type="button" class="mlr-print" data-agreement-preview hidden>Honorarvereinbarung als Entwurf drucken</button>
-   <button type="button" class="mlr-print" data-print-simulation><span>▣</span> Vorschau drucken / als PDF</button>
+   <button type="button" class="mlr-print" data-print-simulation><span>▣</span> Rechnungsentwurf als PDF herunterladen</button>
    <button type="submit" class="mlr-save">Geprüften GOÄ-Entwurf speichern</button>
   </div>
   <div class="mlr-preview-top"><b>VORSCHAU RECHNUNG</b><button type="button" data-open-details>Praxis & Patient eintragen</button></div>
   <div class="mlr-paper-frame"><article class="mlr-paper" id="goaePrintPreview">
     <header class="mlr-paper-header"><strong>{{ data.settings.company_name|default:"Privatpraxis A+ Esthetic" }}</strong><small>{{ data.settings.street }} · {{ data.settings.postal_code }} {{ data.settings.city }}</small></header>
-    <div class="mlr-paper-address"><div><small>{{ data.settings.company_name }}</small><strong data-paper-patient>Patient: bitte auswählen</strong><span>Patientenanschrift aus der Akte</span></div>
+    <div class="mlr-paper-address"><div><small>{{ data.settings.company_name }}</small><strong data-paper-patient>Patient: bitte auswählen</strong><span data-paper-patient-address></span></div>
      <div><dl><dt>Rechnungs-Nr.</dt><dd>ENTWURF</dd><dt>Rechnungsdatum</dt><dd data-today>–</dd><dt>Behandlungsdatum</dt><dd data-paper-date>–</dd><dt>Steuernummer</dt><dd>{{ data.settings.tax_number|default:"Zu ergänzen" }}</dd></dl></div></div>
     <h3>Rechnung – ENTWURF</h3>
     <p data-paper-diagnosis></p>
@@ -146,4 +211,8 @@
 </template>
 {{ goae_catalog|json_script:"goaeTariffCatalog" }}
 {{ goae_treatments|json_script:"goaeTreatmentMap" }}
-<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261125-goae-reference3" defer></script>
+<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261126-invoice-fields" defer></script>
+
+    </div>
+  </details>
+</section>

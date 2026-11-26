@@ -8,17 +8,21 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Q
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from . import patient_portal
+from .clinical_time import clinic_localtime
 from .invoice_bridge import _request_bridge
 from .patient_identity_review import approved_patient_groups, approved_patient_representatives, possible_duplicate_pairs
-from .models import Appointment, Customer, PatientRecord, OfficeIntakeForm, WhatsAppTemplate
+from .models import Appointment, Customer, PatientRecord, OfficeIntakeForm, WhatsAppTemplate, Service
+from .intake_identity import intake_review_candidates
 from .intake_forms import confirm_form_link
+from .goae_treatment_cards import treatment_cards
 
 
 AESTHETIC_ADMIN_API = 'https://esthetic.smarbiz.sbs/api/mobile/admin'
@@ -32,6 +36,13 @@ SECTIONS = {
     'invoices': ('Rechnungen', 'GOÄ und Rechnungen zentral im Praxismanagement verwalten'),
     'forms': ('Aufnahmebögen', 'Digitale Aufnahmeformulare, Zuordnung und Patientenakten'),
 }
+
+
+class AppAdminSessionRequired(PermissionError):
+    """The patient app must authenticate this staff member again."""
+
+
+APP_SESSION_REQUIRED = 'Bitte öffnen Sie die Verwaltung erneut aus der A+ App.'
 
 
 def _authorization(request):
@@ -50,7 +61,7 @@ def _local_view_only(request):
 def _api(request, endpoint, method='GET', payload=None, query=None):
     authorization = _authorization(request)
     if not authorization:
-        raise PermissionError('A+ Admin-Sitzung fehlt')
+        raise AppAdminSessionRequired(APP_SESSION_REQUIRED)
     url = f"{AESTHETIC_ADMIN_API}/{endpoint.lstrip('/')}"
     if query:
         encoded = urlencode({key: value for key, value in query.items() if value not in (None, '')})
@@ -71,13 +82,18 @@ def _api(request, endpoint, method='GET', payload=None, query=None):
         status = exc.code
     except (URLError, TimeoutError) as exc:
         raise RuntimeError(f'A+ API nicht erreichbar: {exc}') from exc
+    # A single upstream response must never erase a newer credential stored by
+    # another tab. The patient app validates the bearer on every operation.
+    if status == 401:
+        raise AppAdminSessionRequired(APP_SESSION_REQUIRED)
+    if status == 403:
+        raise PermissionError('Diese Funktion erfordert eine Freigabe in der A+ App.')
     try:
         data = json.loads(raw) if raw else {}
     except json.JSONDecodeError as exc:
         raise RuntimeError('Ungültige Antwort der A+ API') from exc
-    if status in {401, 403}:
-        request.session.pop('aplus_admin_authorization', None)
-        raise PermissionError(data.get('error') or 'Admin-Sitzung abgelaufen')
+    if not isinstance(data, dict):
+        raise RuntimeError('Ungültige Antwort der A+ API')
     if status >= 400 or not data.get('ok', False):
         raise RuntimeError(data.get('error') or f'A+ API Fehler {status}')
     return data
@@ -118,6 +134,21 @@ def _billing_api(request, endpoint, method='GET', payload=None):
     else:
         raise ValueError('Unbekannte Rechnungsfunktion.')
     return _request_bridge(request, operation, method=method, payload=payload)
+
+
+def _referral_date(value):
+    try:
+        parsed = parse_datetime(str(value or ''))
+    except ValueError:
+        return ''
+    return clinic_localtime(parsed).strftime('%d.%m.%Y') if parsed and timezone.is_aware(parsed) else ''
+
+
+def _referral_rows(data):
+    return [dict(item, invited_date=_referral_date(item.get('created_at')),
+                 awarded_date=_referral_date(item.get('rewarded_at')),
+                 points_awarded=item.get('status') == 'rewarded' or bool(item.get('rewarded_at')))
+            for item in (data.get('referrals') or []) if isinstance(item, dict)]
 
 
 def _redirect(section, notice='saved', extra=None):
@@ -185,20 +216,30 @@ def _forms_context(request):
             |Q(payload__identity__phone__icontains=q))
     if status in {'linked','review'}:qs=qs.filter(status=status)
     else:status=''
+    from datetime import datetime
     from django.utils.dateparse import parse_date
-    start=parse_date(since) if since else None
-    end=parse_date(until) if until else None
+    def filter_date(value):
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, '%d.%m.%Y').date() if '.' in value else parse_date(value)
+        except ValueError:
+            return None
+    start=filter_date(since)
+    end=filter_date(until)
     if start:qs=qs.filter(submitted_at__date__gte=start)
     if end:qs=qs.filter(submitted_at__date__lte=end)
     results=list(qs.order_by('-submitted_at')[:250])
     raw_id=str(request.GET.get('form') or '')
     selected=OfficeIntakeForm.objects.select_related('customer','record').filter(pk=int(raw_id)).first() if raw_id.isdigit() else None
     return {'intake_forms':results,'selected_intake_form':selected,
-        'form_query':q,'form_status':status,'form_from':since if start else '',
-        'form_to':until if end else '',
+        'form_query':q,'form_status':status,'form_from':start.strftime('%d.%m.%Y') if start else since[:10],
+        'form_to':end.strftime('%d.%m.%Y') if end else until[:10],
+        'form_date_error':bool((since and not start) or (until and not end)),
         'form_total':OfficeIntakeForm.objects.count(),
         'form_open':OfficeIntakeForm.objects.filter(status='review').count(),
-        'link_candidates':Customer.objects.order_by('last_name','first_name')[:500] if selected and selected.status=='review' else []}
+        'link_candidates': intake_review_candidates(selected.payload.get('identity') or {})
+                            if selected and selected.status == 'review' else []}
 
 
 def _patient_context(request):
@@ -383,6 +424,11 @@ def app_management(request, section='bookings'):
     if section in {'invoices','forms'} and local_view_only:
         return HttpResponseForbidden('Dieses Arztkonto hat keinen Rechnungszugriff.')
     if section not in {'invoices','forms'} and not request.session.get('aplus_app_admin') and not local_view_only:
+        if section == 'referrals':
+            return render(request, 'booking/app_management.html', {
+                'section': section, 'section_title': SECTIONS[section][0],
+                'section_subtitle': SECTIONS[section][1], 'error': APP_SESSION_REQUIRED,
+            }, status=403)
         return HttpResponseForbidden('A+ App Management ist nur über eine bestätigte A+ Admin-Sitzung verfügbar.')
     if section not in {'invoices','forms'} and local_view_only and not request.session.get('aplus_app_admin') and section != 'patients':
         return redirect('/verwaltung/app/patients/')
@@ -393,6 +439,11 @@ def app_management(request, section='bookings'):
         from .customer_export import customer_csv_export
         return customer_csv_export(request)
 
+    goae_draft_json = (
+        section == 'invoices' and request.method == 'POST'
+        and request.headers.get('Accept') == 'application/json'
+        and request.POST.get('action') == 'billing_create_goae_full'
+    )
     try:
         if request.method == 'POST':
             action = str(request.POST.get('action') or '')
@@ -529,12 +580,26 @@ def app_management(request, section='bookings'):
                 lines=json.loads(request.POST.get('goae_lines_json') or '[]')
                 if not isinstance(lines,list) or not 1 <= len(lines) <= 50:
                     raise ValueError('Bitte eine bis 50 GOÄ Positionen angeben.')
-                _billing_api(request,'billing/invoices/',method='POST',payload={
-                    'billing_method':'goae','customer_id':int(request.POST.get('customer_id')),
-                    'service_date':str(request.POST.get('service_date') or ''),'lines':lines,
-                    **({'target_total_cents':int(request.POST['goae_target_cents'])} if request.POST.get('goae_target_cents') else {}),
-                })
-                return _redirect('invoices','goae_draft')
+                payload = {
+                    'billing_method': 'goae', 'customer_id': int(request.POST.get('customer_id')),
+                    'service_date': str(request.POST.get('service_date') or ''), 'lines': lines,
+                    **({'target_total_cents': int(request.POST['goae_target_cents'])}
+                       if request.POST.get('goae_target_cents') else {}),
+                }
+                if request.POST.get('book_preview'):
+                    payload['book_preview'] = json.loads(request.POST['book_preview'])
+                request_id = request.POST.get('draft_request_id')
+                if request_id or goae_draft_json:
+                    if not request_id:
+                        raise ValueError('Entwurfsanfrage fehlt. Bitte Seite neu laden.')
+                    payload['draft_request_id'] = request_id
+                    _request_bridge(request, 'draft', method='POST', payload=payload)
+                else:
+                    _billing_api(request, 'billing/invoices/', method='POST', payload=payload)
+                result = _redirect('invoices', 'goae_draft')
+                if goae_draft_json:
+                    return JsonResponse({'ok': True, 'location': result.url})
+                return result
             if action == 'billing_create_goae':
                 payload = {
                     'billing_method': 'goae',
@@ -578,17 +643,29 @@ def app_management(request, section='bookings'):
             context.update(_forms_context(request))
         elif section == 'invoices':
             data = _billing_api(request, 'billing/')
+            clinic_services = list(Service.objects.filter(active=True).order_by('name').values('name', 'slug'))
             context['goae_invoices'] = [inv for inv in (data.get('invoices') or [])
                 if inv.get('billing_method') == 'goae']
             try:
                 catalog_data = _billing_api(request,'billing/goae/')
                 context['goae_catalog'] = catalog_data.get('catalog',[])
                 context['goae_treatments'] = catalog_data.get('treatments',{})
+                context['goae_quick_templates'] = catalog_data.get('quick_templates', {})
+                context['goae_quick_date'] = clinic_localtime().date().isoformat()
             except (RuntimeError,ValueError,PermissionError):
                 context['goae_catalog'] = []
                 context['goae_treatments'] = {}
+            quick_templates = context.get('goae_quick_templates', {})
+            context['goae_quick_choices'] = [
+                {'key': item['slug'], 'label': item['name'],
+                 'version': quick_templates.get(item['slug'], {}).get('version', '')}
+                for item in clinic_services
+            ]
+            context['goae_quick_date'] = clinic_localtime().date().isoformat()
+            context['goae_treatment_cards'] = treatment_cards(clinic_services, context['goae_treatments'])
         else:
             data = _api(request, 'referrals/')
+            context['referrals'] = _referral_rows(data)
         title, subtitle = SECTIONS[section]
         context.update({
             'section': section,
@@ -601,6 +678,8 @@ def app_management(request, section='bookings'):
         })
         return render(request, 'booking/app_management.html', context)
     except PermissionError as exc:
+        if goae_draft_json:
+            return JsonResponse({'ok': False, 'message': str(exc)}, status=403)
         return render(request, 'booking/app_management.html', {
             'section': section,
             'section_title': SECTIONS[section][0],
@@ -608,10 +687,13 @@ def app_management(request, section='bookings'):
             'sections': SECTIONS,
             'data': {},
             'error': str(exc),
-            'needs_reauth': True,
             'view_only': local_view_only,
         }, status=403)
     except (RuntimeError, ValueError, TypeError, Customer.DoesNotExist) as exc:
+        if goae_draft_json:
+            if isinstance(exc, (ValueError, TypeError)):
+                return JsonResponse({'ok': False, 'message': str(exc)}, status=400)
+            return JsonResponse({'ok': False, 'message': 'Speicherung konnte nicht bestätigt werden. Bitte erneut versuchen.'}, status=502)
         hero_slots = []
         if section == 'hero' and isinstance(exc, ValueError):
             # Input errors stay on the editable form, instead of a generic 502.

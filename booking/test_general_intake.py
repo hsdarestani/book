@@ -4,15 +4,21 @@ import json
 import shutil
 import tempfile
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+from unittest import skipUnless
 from datetime import date
 
 from PIL import Image
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.core.management import call_command
+from django.db import close_old_connections, connection
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
+from .intake_forms import CONSENT_TEXT
 from .intake_identity import locate_unique_intake_patient, match_score
-from .models import Customer, OfficeIntakeForm, PatientRecord
+from .models import Customer, OfficeIntakeAssignmentLock, OfficeIntakeForm, PatientRecord
 
 
 FILES=tempfile.mkdtemp(prefix='book-office-forms-')
@@ -109,3 +115,133 @@ class GeneralIntakeTests(TestCase):
         file=self.client.get(f'/verwaltung/app/patients/?customer={patient.pk}&tab=forms')
         self.assertEqual(file.status_code,200)
         self.assertContains(file,'Antworten &amp; Unterschrift')
+
+    def test_invalid_fields_do_not_count_as_matches(self):
+        invalid = {**self.identity, 'date_of_birth': '1990-02-31',
+                   'email': 'invalid@', 'phone': 'not +491711234567'}
+        self.assertEqual(match_score(invalid, invalid), 2)
+        self.assertEqual(self.submit({**self.data, 'identity': invalid}).status_code, 400)
+        self.assertFalse(Customer.objects.exists())
+
+    def test_conflicting_known_birth_date_goes_to_manual_review(self):
+        patient = Customer.objects.create(
+            first_name=self.identity['first_name'], last_name=self.identity['last_name'],
+            email=self.identity['email'], phone=self.identity['phone'], date_of_birth=date(1991, 3, 2),
+        )
+        self.assertEqual(match_score(self.identity, patient), 4)
+        response = self.submit()
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['status'], 'review')
+        self.assertFalse(PatientRecord.objects.exists())
+        staff = get_user_model().objects.create_user(username='intake-review-admin', is_staff=True)
+        self.client.force_login(staff)
+        detail = self.client.get('/verwaltung/app/forms/', {'form': OfficeIntakeForm.objects.get().pk})
+        self.assertContains(detail, 'data-filter-patient-select="intakePatient"')
+        self.assertContains(detail, patient.email)
+
+    def test_changed_payload_cannot_reuse_existing_source_id(self):
+        self.assertEqual(self.submit().status_code, 201)
+        altered = {**self.data, 'answers': {'allergies': 'Ja'}}
+        response = self.submit(altered)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['error'], 'source_id_payload_mismatch')
+        form = OfficeIntakeForm.objects.get(source_id=self.source_id)
+        self.assertEqual(form.payload['answers'], self.data['answers'])
+        self.assertEqual(PatientRecord.objects.count(), 1)
+
+    def test_historical_signed_forms_reconcile_match_create_and_exception_once(self):
+        patient=Customer.objects.create(first_name='Anna',last_name='Muster',
+            email='older@example.test',phone='+49 172 0009999',date_of_birth=date(1990,3,2))
+
+        def old_form(identity):
+            return OfficeIntakeForm.objects.create(source_id=uuid.uuid4(), status='review',
+                signature_png=self.signature, payload={
+                    'identity':identity, 'answers':{'allergies':'Nein'},
+                    'consent_accepted':True, 'consent_text':CONSENT_TEXT})
+
+        matched=old_form(self.identity)
+        new_identity={**self.identity, 'first_name':'Lena','last_name':'Beispiel',
+            'email':'new@example.test', 'phone':'+49 171 1112223','date_of_birth':'1995-05-04'}
+        created=old_form(new_identity)
+        same_new_patient=old_form(new_identity)
+        ambiguous={**self.identity, 'first_name':'Mira','last_name':'Person',
+            'email':'ambiguous@example.test', 'phone':'+49 170 1122334','date_of_birth':'1988-11-07'}
+        for i in range(2):
+            Customer.objects.create(first_name='Mira',last_name='Person',
+                email=f'old{i}@example.test',phone=f'+49 170 333444{i}',date_of_birth=date(1988,11,7))
+        needs_review=old_form(ambiguous)
+        names_conflict=old_form({**self.identity, 'first_name':'Unrelated','last_name':'Person',
+            'email':patient.email,'phone':patient.phone})
+
+        before=io.StringIO()
+        call_command('reconcile_office_intake',stdout=before)
+        self.assertIn('mode=preview',before.getvalue())
+        self.assertEqual(Customer.objects.count(),3)
+        self.assertEqual(PatientRecord.objects.count(),0)
+
+        result=io.StringIO()
+        call_command('reconcile_office_intake','--apply',stdout=result)
+        self.assertIn('created=1',result.getvalue())
+        self.assertIn('matched=2',result.getvalue())
+        self.assertIn('review_identity_conflict=2',result.getvalue())
+        self.assertNotIn(self.identity['email'],result.getvalue())
+        for item in (matched,created,same_new_patient,needs_review,names_conflict):
+            item.refresh_from_db()
+        self.assertEqual(matched.customer_id,patient.pk)
+        self.assertEqual(created.customer_id,same_new_patient.customer_id)
+        self.assertEqual(needs_review.status,'review')
+        self.assertIsNone(needs_review.customer_id)
+        self.assertEqual(names_conflict.status,'review')
+        self.assertEqual(Customer.objects.count(),4)
+        self.assertEqual(PatientRecord.objects.count(),3)
+        self.assertEqual(matched.payload['identity'],self.identity)
+        self.assertEqual(matched.signature_png,self.signature)
+        self.assertTrue(matched.record.has_file)
+        call_command('reconcile_office_intake','--apply',stdout=io.StringIO())
+        self.assertEqual(PatientRecord.objects.count(),3)
+
+        staff=get_user_model().objects.create_user(username='historical-intake-admin',is_staff=True)
+        self.client.force_login(staff)
+        linked=self.client.get('/verwaltung/app/forms/', {'form':matched.pk})
+        self.assertContains(linked,'Automatisch zugeordnet')
+        self.assertContains(linked,f'customer={patient.pk}&amp;tab=forms')
+        self.assertNotContains(linked,'name="confirmed_same_patient"')
+
+
+@skipUnless(connection.vendor == 'postgresql', 'Requires PostgreSQL row-lock semantics')
+class ConcurrentIntakeTests(TransactionTestCase):
+    def test_concurrent_forms_with_same_identity_create_one_patient(self):
+        OfficeIntakeAssignmentLock.objects.get_or_create(pk=1)
+        picture = io.BytesIO()
+        Image.new('RGB', (20, 20), 'white').save(picture, format='PNG')
+        data = {
+            'identity': {'first_name': 'Concurrent', 'last_name': 'Fixture',
+                         'email': 'parallel@example.invalid', 'phone': '+491711234567',
+                         'date_of_birth': '1995-01-01'},
+            'answers': {'allergies': 'Nein'},
+            'signature': 'data:image/png;base64,' + base64.b64encode(picture.getvalue()).decode(),
+            'consent_accepted': True,
+        }
+        start = Barrier(2)
+
+        def submit():
+            close_old_connections()
+            try:
+                start.wait(timeout=10)
+                return Client().post(
+                    '/api/internal/patient-intake/ingest/',
+                    json.dumps({**data, 'source_id': str(uuid.uuid4())}),
+                    content_type='application/json',
+                    HTTP_X_AESTHETIC_PATIENT_SYNC='synthetic-test-token',
+                ).status_code
+            finally:
+                connection.close()
+
+        with tempfile.TemporaryDirectory() as root, override_settings(
+            PATIENT_SYNC_TOKEN='synthetic-test-token', PATIENT_FILES_ROOT=root,
+        ), ThreadPoolExecutor(max_workers=2) as pool:
+            responses = [pool.submit(submit) for _ in range(2)]
+            self.assertEqual([r.result(timeout=20) for r in responses], [201, 201])
+        self.assertEqual(Customer.objects.filter(email='parallel@example.invalid').count(), 1)
+        self.assertEqual(OfficeIntakeForm.objects.filter(status='linked').count(), 2)
+        self.assertEqual(PatientRecord.objects.filter(source='office_intake').count(), 2)
