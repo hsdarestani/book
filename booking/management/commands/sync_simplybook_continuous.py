@@ -2,6 +2,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from django.db.models import Q
 
 from booking.emails import send_booking_emails
 from booking.models import Appointment, ExternalSyncState
@@ -16,13 +17,16 @@ from booking.notifications import (
 SOURCE = "simplybook"
 
 
+def source_key(item):
+    return f'simplybook-{item.simplybook_booking_id}' if item.simplybook_booking_id else item.idempotency_key
+
+
+def source_appointments():
+    return Appointment.objects.filter(Q(idempotency_key__startswith='simplybook-') | Q(simplybook_booking_id__isnull=False))
+
+
 def snapshots():
-    return {
-        item.idempotency_key: appointment_snapshot(item)
-        for item in Appointment.objects.filter(
-            idempotency_key__startswith="simplybook-"
-        )
-    }
+    return {source_key(item): appointment_snapshot(item) for item in source_appointments()}
 
 
 class Command(BaseCommand):
@@ -98,15 +102,17 @@ class Command(BaseCommand):
         now = timezone.now()
         created = changed = cancelled = 0
         current = (
-            Appointment.objects.filter(
-                idempotency_key__startswith="simplybook-"
-            )
+            source_appointments()
             .select_related("customer", "service", "staff")
         )
 
         for item in current:
-            previous = before.get(item.idempotency_key)
+            previous = before.get(source_key(item))
             if previous is None:
+                # A Book-originated booking was already known locally; linking
+                # or recovering its remote identity is not a new appointment.
+                if item.simplybook_booking_id:
+                    continue
                 if item.starts_at > now and item.status != "cancelled":
                     send_booking_emails(item)
                     notify_booking_created(item)
