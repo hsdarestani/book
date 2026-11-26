@@ -199,6 +199,18 @@ def send_booking_emails(appointment):
 
 
 APPOINTMENT_EVENT_COPY = {
+    "created": {
+        "subject": "Neuer Termin bei A+ Esthetic",
+        "eyebrow": "NEUER TERMIN",
+        "title": "Neuer Termin eingetragen",
+        "message": "Ein Termin wurde eingetragen.",
+    },
+    "status_changed": {
+        "subject": "Terminstatus bei A+ Esthetic aktualisiert",
+        "eyebrow": "TERMINSTATUS AKTUALISIERT",
+        "title": "Terminstatus aktualisiert",
+        "message": "Der Terminstatus wurde aktualisiert.",
+    },
     "changed": {
         "subject": "Dein Termin bei A+ Esthetic wurde geändert",
         "eyebrow": "TERMIN AKTUALISIERT",
