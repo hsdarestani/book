@@ -14,7 +14,7 @@ from django.views.decorators.http import require_http_methods
 
 from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, parse_clinic_wall_time
 from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember
-from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_deleted
+from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_deleted, notify_admin_source_changed
 from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS
 from .simplybook_writeback import source_managed, source_editable, change_locked
 from . import views
@@ -693,7 +693,10 @@ def dashboard_proxy(request):
                         locked = Appointment.objects.select_related('staff', 'service', 'customer').select_for_update().get(pk=appointment.pk)
                         if (locked.updated_at.isoformat() == request.POST.get('appointment_revision')
                                 and source_editable(locked)):
+                            previous_source = appointment_snapshot(locked)
                             success = change_locked(locked, starts_at=starts_at, cancel=status == 'cancelled')
+                            if success and appointment_snapshot(locked) != previous_source:
+                                transaction.on_commit(lambda: notify_admin_source_changed(locked, previous_source))
                             appointment = locked
                 except SOURCE_AVAILABILITY_ERRORS:
                     pass
