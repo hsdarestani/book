@@ -8,8 +8,8 @@ from booking.simplybook_outbound import sync_existing, SyncConflict
 
 class SimplyBookOutboundPilotTests(TestCase):
     def setUp(self):
-        self.staff=StaffMember.objects.create(display_name='Frau Ariane Regaei',active=True)
-        self.service=Service.objects.create(name='Laser-Haarentfernung',slug='laser-haarentfernung',duration_minutes=45,buffer_minutes=10)
+        self.staff=StaffMember.objects.get(display_name='Frau Ariane Regaei')
+        self.service=Service.objects.get(slug='laser-haarentfernung')
         self.customer=Customer.objects.create(first_name='Test',last_name='Farahani',email='qa@example.test',phone='+4915112345678')
         day=timezone.localdate()+timedelta(days=30)
         start=datetime.combine(day,datetime.min.time().replace(hour=16),tzinfo=ZoneInfo('Europe/Berlin'))
