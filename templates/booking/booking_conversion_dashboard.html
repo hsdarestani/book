@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Buchungsstatistik | A+ Esthetic</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,sans-serif;color:#28221d;background:#f7f5f1}*{box-sizing:border-box}body{margin:0}main{max-width:1160px;margin:auto;padding:clamp(16px,4vw,48px)}a{color:#765827}h1{font-size:clamp(25px,4vw,36px);margin:24px 0 12px}p{line-height:1.55}.muted{color:#665e56}form,.panel{background:white;padding:20px;border:1px solid #ded8d0;border-radius:12px;margin:20px 0}form{display:flex;gap:16px;align-items:end;flex-wrap:wrap}label{display:grid;gap:6px;font-size:14px}input,button{font:inherit;padding:10px;border:1px solid #bcb3a7;border-radius:6px}button{background:#715526;color:white;cursor:pointer}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px}.cards article{background:white;border:1px solid #ded8d0;border-radius:12px;padding:20px}.cards b{display:block;font-size:28px;margin-top:10px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:690px}th,td{padding:12px;text-align:right;border-bottom:1px solid #e9e4dd}th:first-child,td:first-child{text-align:left}th{font-size:13px;color:#625a50}.error{color:#922d25}.back{display:inline-block;padding:8px 0}
+</style></head>
+<body><main>
+<a class="back" href="/verwaltung/dashboard/">Zurück zur Praxisübersicht</a>
+<h1>Buchungsstatistik</h1>
+<p class="muted">Interne Übersicht nach Buchungskanal und aktuellem Status. Nur aggregierte Zahlen, keine Patientendaten.</p>
+<form method="get">
+<label>Von<input type="date" name="start" value="{{ report.date_from }}" required></label>
+<label>Bis<input type="date" name="end" value="{{ report.date_to }}" required></label>
+<button type="submit">Zeitraum anzeigen</button>
+</form>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if report %}
+<p>{{ report.date_from }} bis {{ report.date_to }} · Europe/Berlin</p>
+<div class="cards">
+<article>Online angelegt<b>{{ report.online_created }}</b></article>
+<article>Bestätigt / abgeschlossen<b>{{ report.online_confirmed_or_completed }}</b></article>
+<article>Offen<b>{{ report.online_pending }}</b></article>
+<article>Abgesagt<b>{{ report.online_cancelled }}</b></article>
+<article>Nicht erschienen<b>{{ report.online_no_show }}</b></article>
+</div>
+<section class="panel"><h2>Nach Buchungskanal</h2><div class="table-wrap"><table>
+<thead><tr><th scope="col">Kanal</th><th scope="col">Neu</th><th scope="col">Bestätigt</th><th scope="col">Abgeschlossen</th><th scope="col">Abgesagt</th><th scope="col">Nicht erschienen</th><th scope="col">Sonstige</th></tr></thead>
+<tbody>{% for row in rows %}<tr><th scope="row">{{ row.label }}</th><td>{{ row.new }}</td><td>{{ row.confirmed }}</td><td>{{ row.completed }}</td><td>{{ row.cancelled }}</td><td>{{ row.no_show }}</td><td>{{ row.other }}</td></tr>{% endfor %}</tbody>
+</table></div></section>
+<p class="muted">Zeitraum nach Erstellungsdatum, nicht nach Behandlungstag. Angezeigt wird der aktuelle Status, nicht der historische Zeitpunkt der Bestätigung. Bekannte Import-Schlüssel werden separat gezählt. Historische Testbuchungen sind nicht unabhängig ausgeschlossen. Die Zahlen belegen keine SEO-Zuordnung.</p>
+{% endif %}
+</main></body></html>
