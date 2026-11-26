@@ -152,6 +152,10 @@
       }).join('');
       root.querySelectorAll('[data-staff]').forEach((btn) => btn.addEventListener('click', () => {
         state.staff = JSON.parse(btn.dataset.staff);
+        const fields = $('[data-booking-answer-fields]');
+        const automatic = state.staff.automatic_booking_answers === true;
+        fields.style.display = automatic ? 'none' : '';
+        fields.querySelectorAll('select').forEach(select => { select.disabled = automatic; });
         state.startsAt = null;
         state.slotLabel = null;
         state.dateLabel = null;
@@ -318,7 +322,7 @@
       service_id: state.service.id,
       staff_id: state.staff.id,
       starts_at: state.startsAt,
-      returning_customer: form.elements.returning_customer.value === 'ja',
+      ...(!state.staff.automatic_booking_answers ? {returning_customer: form.elements.returning_customer.value === 'ja'} : {}),
       marketing_opt_in: form.elements.marketing_opt_in.checked,
       cancellation_terms_accepted: form.elements.cancellation_terms_accepted.checked,
       privacy_accepted: form.elements.privacy_accepted.checked,

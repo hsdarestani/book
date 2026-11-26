@@ -44,7 +44,7 @@ const materialNames={botox:'Botulinumtoxin',hyaluron:'Hyaluronsäurefiller',prp:
 function readMaterials(){
  const meta=treatmentLabels[sel.treatment],raw=$('[data-material]').value.trim();
  const primary={description:$('[data-material-description]').value.trim(),qty:Number($('[data-material-qty]').value),cost:raw?parseCents(raw):meta.cost,receipt:$('[data-material-receipt]').value.trim(),confirmed:$('[data-material-confirm]').checked,example:!raw};
- const extra=$$('[data-extra-material]').map(row=>({description:row.querySelector('[data-m-description]').value.trim(),qty:Number(row.querySelector('[data-m-qty]').value),cost:parseCents(row.querySelector('[data-m-cost]').value),receipt:row.querySelector('[data-m-receipt]').value.trim(),confirmed:row.querySelector('[data-m-confirm]').checked,example:false}));
+ const extra=$$('[data-extra-material]').map(row=>({row,description:row.querySelector('[data-m-description]').value.trim(),qty:Number(row.querySelector('[data-m-qty]').value),cost:parseCents(row.querySelector('[data-m-cost]').value),receipt:row.querySelector('[data-m-receipt]').value.trim(),confirmed:row.querySelector('[data-m-confirm]').checked,example:false}));
  const rows=[primary,...extra.filter(m=>m.description||m.cost!==null||m.receipt)];
  const invalid=rows.some((m,i)=>m.cost!==0&&(m.cost===null||!Number.isInteger(m.qty)||m.qty<1||m.qty>20||m.cost<0||m.cost>50000||(i>0&&(!m.description||m.cost<100))||(i===0&&sel.treatment==='botox'&&m.cost>0&&(m.cost<2000||m.cost>20000))));
  return {rows,invalid,total:rows.reduce((sum,m)=>sum+(m.cost??0)*m.qty,0),example:primary.example};
@@ -68,8 +68,7 @@ function linesForServer(){
  if(materials.example)return {error:'Tatsächlichen Materialwert eingeben (0,00 falls keine Auslage).'};
  for(const [index,m] of materials.rows.entries()){
   if(m.cost===0)continue;
-  const row=index ? $$('[data-extra-material]')[index-1] : $('[data-material]').closest('section,fieldset,form');
-  const control=(primary,extra)=>index ? row?.querySelector(extra) : $(primary);
+  const control=(primary,extra)=>index ? m.row.querySelector(extra) : $(primary);
   if(m.description.length<4)return {error:'Bitte die Auslage bezeichnen.',field:control('[data-material-description]','[data-m-description]')};
   if(!m.receipt)return {error:'Bitte den Beleg zur tatsächlichen Auslage angeben.',field:control('[data-material-receipt]','[data-m-receipt]')};
   if(!m.confirmed)return {error:'Bitte die Berechnungsfähigkeit der tatsächlichen Auslage bestätigen.',field:control('[data-material-confirm]','[data-m-confirm]')};

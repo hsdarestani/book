@@ -214,3 +214,16 @@ class SimplyBookOutboundPilotTests(TestCase):
         self.item.status = 'completed'
         self.item.save(update_fields=['status'])
         self.assertEqual(patient_booking_answers(self.customer, now=now), (True, 'Freunde und Bekannten'))
+
+
+    def test_live_reservation_response_parses_reserved_and_busy_time(self):
+        from booking.simplybook_outbound import source_slots
+
+        self.responses['getReservedTimeIntervals'] = {self.day: [
+            {'type': 'reserved', 'intervals': [{'from': '15:30', 'to': '16:00'}]},
+            {'type': 'busy_time', 'intervals': [{'from': '23:00', 'to': '24:00'}]},
+        ]}
+        slots, blocks = source_slots(self.call, 5, self.day, self.day)
+        self.assertEqual(slots[self.day][0].strftime('%H:%M'), '16:00')
+        self.assertEqual([end - start for start, end in blocks],
+                         [timedelta(minutes=30), timedelta(hours=1)])

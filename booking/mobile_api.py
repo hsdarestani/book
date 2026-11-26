@@ -23,7 +23,7 @@ from .notifications import notify_booking_created, notify_customer_cancelled, no
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
 from .package_bridge import sync_package
 from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, booking_source_availability, create_appointment, source_day
-from .simplybook_outbound import ARIANE, SOURCE_AVAILABILITY_ERRORS, integrated, patient_booking_answers
+from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS, integrated, patient_booking_answers
 from .simplybook_writeback import change_locked, source_editable, source_id
 
 CHANGE_DEADLINE_HOURS = max(1, int(getattr(settings, 'BOOKING_CHANGE_DEADLINE_HOURS', 24)))
@@ -160,7 +160,7 @@ def _appointment_payload(item):
 
 
 def _external_pending(item):
-    return (item.staff.display_name == ARIANE and item.status in ('new', 'confirmed')
+    return (integrated(item.service, item.staff) and item.status in ('new', 'confirmed')
             and not item.simplybook_booking_id and not (item.idempotency_key or '').startswith('simplybook-'))
 
 

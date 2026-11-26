@@ -9,7 +9,7 @@ import logging
 import re
 import shlex
 from pathlib import Path
-from datetime import UTC
+from datetime import UTC, timedelta
 from django.db import models, transaction
 from django.utils import timezone
 from .clinical_time import CLINIC_TZ, parse_appointment_start, parse_clinic_wall_time
@@ -242,13 +242,23 @@ def source_slots(call, event, day, end_day, exclude_source_id=None):
         if not isinstance(providers, list):
             raise SyncConflict('unexpected_reserved_shape')
         for provider in providers:
-            if not isinstance(provider, dict) or not isinstance(provider.get('reserved_time'), list):
+            if not isinstance(provider, dict):
                 raise SyncConflict('unexpected_reserved_shape')
-            for interval in provider['reserved_time']:
+            intervals = provider.get('reserved_time')
+            if intervals is None and provider.get('type') in {'reserved', 'busy_time'}:
+                intervals = provider.get('intervals')
+            if not isinstance(intervals, list):
+                raise SyncConflict('unexpected_reserved_shape')
+            for interval in intervals:
                 if not isinstance(interval, dict):
                     raise SyncConflict('unexpected_reserved_shape')
                 start = _dt(date + ' ' + str(interval.get('from', '')))
-                finish = _dt(date + ' ' + str(interval.get('to', '')))
+                end = str(interval.get('to', ''))
+                finish = _dt(date + ' ' + end)
+                if end in {'24:00', '24:00:00'}:
+                    midnight = parse_clinic_wall_time(date, '00:00')
+                    if midnight:
+                        finish = (midnight + timedelta(days=1)).astimezone(UTC)
                 if start is None or finish is None or finish <= start:
                     raise SyncConflict('unexpected_reserved_shape')
                 blocks.append((start, finish))

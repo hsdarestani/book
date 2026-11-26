@@ -14,7 +14,7 @@ from .models import Customer, Service, StaffMember
 from .notifications import notify_booking_created
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
 from .services import BOOKING_HORIZON_DAYS, available_slots, booking_source_availability, create_appointment, source_day
-from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS, integrated, patient_booking_answers, public_sync_enabled
+from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS, integrated, patient_booking_answers
 
 
 def _json(request):
@@ -71,6 +71,7 @@ def staff(request):
             'id': item.pk,
             'name': item.display_name,
             'role': item.get_role_display(),
+            'automatic_booking_answers': integrated(service, item),
             'bio': item.bio,
             'photo_url': item.photo.url if item.photo else '',
         }
@@ -156,6 +157,8 @@ def appointments(request):
     starts_at = parse_appointment_start(data.get('starts_at'))
     if not service or not member or not member.services.filter(pk=service.pk).exists():
         return _error('not_available', 'Die gewählte Behandlung ist nicht verfügbar.', 404)
+    if not integrated(service, member) and not str(data.get('referral_source') or '').strip():
+        return _error('missing_fields', 'Bitte fülle alle Pflichtfelder aus.')
     if not starts_at:
         return _error('invalid_start', 'Die gewählte Uhrzeit ist ungültig.')
 
@@ -218,7 +221,7 @@ def appointments(request):
                 returning_customer=_as_bool(returning),
                 returning_customer_answered=answered,
                 referral_source=referral,
-                simplybook_sync_state='queued' if availability is not None and public_sync_enabled() else '',
+                simplybook_sync_state='queued' if availability is not None else '',
                 source_availability=availability,
                 marketing_opt_in=_as_bool(data.get('marketing_opt_in'), default=True),
                 cancellation_terms_accepted=True,
