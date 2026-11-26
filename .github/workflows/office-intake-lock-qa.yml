@@ -23,7 +23,7 @@ jobs:
           POSTGRES_DB: intake_qa
         ports: ['5432:5432']
         options: >-
-          --health-cmd 'pg_isready -U intake_qa'
+          --health-cmd "pg_isready -U intake_qa"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
