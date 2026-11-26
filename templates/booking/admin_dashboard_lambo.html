@@ -70,6 +70,7 @@
     </article>
   </section>
 
+  {% if request.user.is_superuser and not view_only %}<section class="command-notice"><a href="{% url 'booking:booking_conversion_dashboard' %}">Buchungsstatistik öffnen ›</a></section>{% endif %}
   {% if view_only %}<div class="command-notice">Dieser Zugang ist <strong>nur zum Ansehen</strong> freigeschaltet. Änderungen und Uploads sind gesperrt.</div>{% endif %}
   {% if error %}<div class="admin-notice is-error">{{ error }}</div>{% endif %}
   {% if saved %}<div class="admin-notice">Änderung gespeichert.</div>{% endif %}
