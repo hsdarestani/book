@@ -1,21 +1,21 @@
 {% load static %}
 <!doctype html>
-<html data-clinic-navigation="unified" data-clinic-design="premium" lang="de" data-admin-page="calendar" {% if doctor_mode %}data-doctor-role="1"{% endif %}>
+<html data-clinic-navigation="unified" data-clinic-design="premium" lang="de" data-admin-page="{{ admin_page|default:"calendar" }}" {% if doctor_mode %}data-doctor-role="1"{% endif %}>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Verwaltung | A+ Esthetic Buchung</title>
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/app.css{% else %}{% static 'booking/app.css' %}{% endif %}">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/admin.css{% else %}{% static 'booking/admin.css' %}{% endif %}?v=20261006-calendar-v20">
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
   <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261126-berlin-time-v1"></script>
   <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20261029-sheet-v3"></script>
-  {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261020-doctor-menu" data-aplus-unified-nav-v14></script>{% else %}
+  {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261126-nav1" data-aplus-unified-nav-v14></script>{% else %}
   <link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header4">
   <link rel="stylesheet" href="/static/booking/clinic-calendar-topbar-v1.css?v=20261020-header4">
   <script defer src="/static/booking/clinic-header-v3.js?v=20261021-mobile2"></script>
   <script defer src="/static/booking/clinic-desktop-notifications-v1.js?v=20261020-header4"></script>{% endif %}
-{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261024-gutters1">{% if not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-signature-surfaces-v1.css?v=20261029-directory-v2">{% endif %}<link rel="stylesheet" href="/static/booking/admin-calendar-scroll-v5.css?v=20261029-scroll-v5" data-admin-calendar-scroll-v5><link rel="stylesheet" href="/static/booking/admin-time.css" data-admin-time-picker>
+{% if request.path != '/verwaltung/' and request.path != '/verwaltung/kalender/' and not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-management.css?v=20261021-mobile2" data-clinic-design-sheet>{% endif %}<link rel="stylesheet" href="/static/booking/clinic-navigation.css?v=20261021-mobile2" data-clinic-navigation-sheet><link rel="stylesheet" href="/static/booking/clinic-premium-v1.css?v=20261023-all2"><link rel="stylesheet" href="/static/booking/clinic-premium-all-v2.css?v=20261126-shell1">{% if not doctor_mode %}<link rel="stylesheet" href="/static/booking/clinic-signature-surfaces-v1.css?v=20261029-directory-v2">{% endif %}<link rel="stylesheet" href="/static/booking/admin-calendar-scroll-v5.css?v=20261029-scroll-v5" data-admin-calendar-scroll-v5><link rel="stylesheet" href="/static/booking/admin-time.css" data-admin-time-picker>
 <link rel="stylesheet" href="/static/booking/admin-simply.css" data-admin-simply>
 <link rel="stylesheet" href="/static/booking/admin-fixes.css" data-admin-fixes>
 <link rel="stylesheet" href="/static/booking/admin-calendar-plus.css?v=20260923-v19" data-admin-calendar-plus>
@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="/static/booking/admin-calendar-date-dock-v6.css?v=20261029-firsthour8" data-admin-calendar-dock-v6>
 <link rel="stylesheet" href="/static/booking/admin-calendar-view-modes-v1.css?v=20261029-modes1" data-admin-calendar-view-modes-v1>
 <link rel="stylesheet" href="/static/booking/admin-calendar-horizontal-v2.css?v=20261029-horizontal2" data-calendar-horizontal-v2>
+{% if admin_page|default:"calendar" == "calendar" %}<link rel="stylesheet" href="/static/booking/calendar-mobile-sticky-day-header-v1.css?v=20261122-header1" data-calendar-sticky-day-heading>{% endif %}
 <script>try{history.scrollRestoration='manual'}catch(_e){}</script>
 <style id="book-desktop-mobile-strip-fix-20261124">
 @media(min-width:761px){
@@ -40,8 +41,9 @@
 }
 </style>
 </head>
-<body data-calendar-mode="{{ calendar_view }}" class="admin-body sb-admin-body sb-calendar-pro sb-calendar-booting" {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
+<body class="admin-body sb-admin-body{% if admin_page|default:"calendar" == "calendar" %} sb-calendar-pro sb-calendar-booting{% endif %}" {% if admin_page|default:"calendar" == "calendar" %}data-calendar-mode="{{ calendar_view }}"{% endif %} {% if doctor_mode %}data-doctor-calendar="1" data-doctor-staff-id="{{ selected_staff.pk }}"{% endif %}>
 
+{% if admin_page|default:"calendar" == "calendar" %}
 <header class="sb-mobile-bar sb-reference-calendar-bar">
   <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
   <button type="button" class="sb-mobile-title sb-reference-mode-button" data-view-menu-open aria-haspopup="menu" aria-expanded="false" aria-label="Kalenderansicht wählen">Kalender ({% if calendar_view == 'week' %}Woche{% elif calendar_view == 'provider' %}Dienstleister{% elif calendar_view == 'service' %}Dienstleistungen{% else %}Tagesansicht{% endif %}) <span class="sb-reference-mode-chevron" aria-hidden="true">⌄</span></button>
@@ -61,6 +63,12 @@
     {% endfor %}
   </nav>
 </div>
+{% else %}
+<header class="sb-mobile-bar">
+  <button type="button" class="sb-icon-button" data-drawer-open aria-label="Menü öffnen">☰</button>
+  <strong class="sb-mobile-title">{{ admin_page_title }}</strong>
+</header>
+{% endif %}
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div>
 <aside class="sb-drawer" data-drawer aria-hidden="true">
   <div class="sb-drawer-brand">
@@ -86,6 +94,7 @@
   </nav>
 </aside>
 
+{% if admin_page|default:"calendar" == "calendar" %}
 <div class="sb-view-menu" data-view-menu hidden role="menu" aria-label="Kalenderansicht">
   <a role="menuitem" href="?date={{ calendar_date|date:'Y-m-d' }}&cal_view=provider{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" {% if calendar_view == 'provider' %}aria-current="page"{% endif %}>Dienstleister-Ansicht</a>
   <a role="menuitem" href="?date={{ calendar_date|date:'Y-m-d' }}&cal_view=service{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" {% if calendar_view == 'service' %}aria-current="page"{% endif %}>Dienstleistungsansicht</a>
@@ -93,8 +102,9 @@
   <a role="menuitem" href="?date={{ calendar_date|date:'Y-m-d' }}&cal_view=week{% if selected_staff %}&staff={{ selected_staff.pk }}{% endif %}#kalender" {% if calendar_view == 'week' %}aria-current="page"{% endif %}>Woche</a>
   <button type="button" role="menuitem" data-iphone-filter-open>Behandler auswählen</button>
 </div>
+{% endif %}
 
-{% if not doctor_mode %}{% include "booking/_premium_sidebar.html" with active='calendar' %}{% endif %}
+{% if not doctor_mode %}{% include "booking/_premium_sidebar.html" with active=admin_page|default:'calendar' %}{% endif %}
 <main class="admin-shell sb-admin-shell">
   {% if doctor_mode %}
   <header class="admin-topbar sb-desktop-topbar">
@@ -108,7 +118,7 @@
     <div class="admin-actions"><a href="/" target="_blank">Buchungsseite ↗</a><a href="/verwaltung/logout/">Abmelden</a></div>
   </header>
   {% else %}
-  {% include "booking/_clinic_web_header_v3.html" %}
+  {% include "booking/_clinic_web_header_v3.html" with section_title=admin_page_title %}
   {% endif %}
 
   {% if notice %}
@@ -143,7 +153,9 @@
     <article><strong>{{ staff_count }}</strong><span>Aktive Behandler</span></article>
   </section>
 
+  {% if admin_page|default:"calendar" == "calendar" %}
   {% include 'booking/_shared_admin_calendar.html' %}
+  {% endif %}
 
   <section class="admin-panel" id="termine">
     <div class="panel-head"><div><div class="eyebrow">Buchungen</div><h2>Kommende Termine</h2></div><span class="panel-count">{{ upcoming|length }} angezeigt</span></div>
@@ -180,7 +192,7 @@
 
     <div class="doctor-switcher" role="navigation" aria-label="Behandler wählen">
       {% for member in staff_members %}
-      <a href="{% if doctor_mode %}#einstellungen{% else %}/verwaltung/?staff={{ member.pk }}#einstellungen{% endif %}" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b>{{ member.display_name }}</b></a>
+      <a href="{% if doctor_mode %}#einstellungen{% else %}/verwaltung/einstellungen/?staff={{ member.pk }}{% endif %}" class="doctor-pill {% if selected_staff and member.pk == selected_staff.pk %}is-active{% endif %}"><span>{{ member.display_name|slice:":1" }}</span><b>{{ member.display_name }}</b></a>
       {% endfor %}
     </div>
 

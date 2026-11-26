@@ -12,7 +12,7 @@
   }
   if (!document.querySelector('script[data-aplus-unified-nav-v14]')) {
     const script = document.createElement('script');
-    script.src = '/static/booking/admin-unified-nav-v14.js?v=20260922-v15';
+    script.src = '/static/booking/admin-unified-nav-v14.js?v=20261126-nav1';
     script.dataset.aplusUnifiedNavV14 = '1';
     document.head.appendChild(script);
   }

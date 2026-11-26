@@ -24,7 +24,7 @@
     ['customers', '♙', 'Kunden', '/verwaltung/kunden/'],
     ['patients', '▤', 'Patientenakten', '/verwaltung/app/patients/'],
     ['wallet', '€', 'A+ Wallet', '/verwaltung/app/wallet/'],
-    ['reviews', '★', 'Google Bewertungen', '/verwaltung/app/reviews/'],
+
     ['referrals', '↗', 'Empfehlungen', '/verwaltung/app/referrals/'],
   ];
 
