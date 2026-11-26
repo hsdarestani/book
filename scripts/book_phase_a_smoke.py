@@ -1,0 +1,69 @@
+"""Exercise only rollback-scoped synthetic objects on the deployed Django code."""
+from datetime import date, timedelta
+from uuid import uuid4
+
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.test import Client, override_settings
+from django.urls import reverse
+from django.utils.timezone import override
+
+from booking.clinical_time import parse_clinic_wall_time
+from booking.models import Appointment, BlockedPeriod, Customer, PatientRecord, Service, StaffMember
+
+tag = uuid4().hex
+day = date(2026, 12, 30)
+with transaction.atomic():
+    try:
+        admin = get_user_model().objects.create(
+            username=f"release-qa-{tag}", is_staff=True, is_superuser=True
+        )
+        admin.set_unusable_password()
+        admin.save(update_fields=["password"])
+        patient = Customer.objects.create(first_name="Synthetic", last_name="Release QA",
+                                          email=f"{tag}@example.invalid")
+        service = Service.objects.create(name=f"Synthetic release {tag}", slug=f"qa-{tag}",
+                                         duration_minutes=45, buffer_minutes=10)
+        staff = StaffMember.objects.create(display_name=f"Synthetic release {tag}", active=True)
+        start = parse_clinic_wall_time(day.isoformat(), "18:30")
+        Appointment.objects.create(customer=patient, service=service, staff=staff,
+                                   starts_at=start, ends_at=start + timedelta(minutes=55),
+                                   treatment_minutes_at_booking=45, status="confirmed")
+        staff.services.add(service)
+        BlockedPeriod.objects.create(staff=staff, starts_at=start - timedelta(hours=5),
+                                     ends_at=start - timedelta(hours=4), reason="Synthetic QA block")
+        client = Client(HTTP_HOST="localhost")
+        client.force_login(admin)
+        session = client.session
+        session["aplus_app_admin"] = True
+        session.save()
+        for zone in ("Pacific/Honolulu", "Pacific/Kiritimati"):
+            with override(zone):
+                response = client.get(reverse("booking:admin_calendar_day"),
+                                      {"date": day.isoformat(), "staff": staff.pk}, secure=True)
+            assert response.status_code == 200
+            rows = response.json()["appointments"]
+            assert len(rows) == 1
+            row = rows[0]
+            assert (row["start"], row["treatment_end"], row["end"]) == ("18:30", "19:15", "19:25")
+        # Static manifest files are collected only at cutover. The authenticated
+        # fixture still exercises the candidate and deployed weekly HTML.
+        with override_settings(STORAGES={
+            "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+            "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+        }):
+            week = client.get('/verwaltung/kalender/', {"date": day.isoformat(), "cal_view": "week", "staff": staff.pk}, secure=True)
+        assert week.status_code == 200
+        assert b'data-calendar-start="18:30"' in week.content
+        assert week.content.count(b'class="sb-time-axis"') == 1
+        assert b' id="calendar-view-menu"' in week.content
+        notice = PatientRecord.objects.create(customer=patient, kind='form', source='office_intake',
+                                              title='Synthetic release inbox fixture')
+        inbox_path = reverse('booking:notification_inbox')
+        inbox = client.get(inbox_path, secure=True)
+        assert inbox.status_code == 200
+        assert any(row['id'] == str(notice.public_id) and not row['read'] for row in inbox.json()['events'])
+        assert client.post(inbox_path, {'record': str(notice.public_id)}, secure=True).status_code == 200
+    finally:
+        transaction.set_rollback(True)
+assert not Customer.objects.filter(email=f"{tag}@example.invalid").exists()
