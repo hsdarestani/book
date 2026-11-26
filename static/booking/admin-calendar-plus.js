@@ -319,13 +319,18 @@
     node.style.height = `${data.height}%`;
     node.dataset.fastAppointmentId = String(data.id);
     node.title = `${data.customer_name} – ${data.service_name}`;
+    if (Number(data.buffer_minutes) > 0) {
+      node.dataset.calendarBuffer = String(data.buffer_minutes);
+      node.style.setProperty('--sb-buffer-percent', `${Number(data.buffer_percent)}%`);
+      node.title += ` · Puffer: ${data.buffer_minutes} Min. bis ${data.end}`;
+    }
 
     const customer = document.createElement('strong');
     customer.textContent = data.customer_name;
     const service = document.createElement('span');
     service.textContent = data.service_name;
     const time = document.createElement('small');
-    time.textContent = `${data.start}–${data.end}`;
+    time.textContent = `${data.start}–${data.treatment_end || data.end}${Number(data.buffer_minutes)>0 ? ` · +${data.buffer_minutes} Min. Puffer` : ''}`;
     node.append(customer, service, time);
     node.addEventListener('click', (event) => {
       event.preventDefault();

@@ -6,6 +6,8 @@
 .sb-calendar-panel .sb-calendar-doctor-hint strong{color:#3a3024!important;font-weight:740}
 .sb-calendar-panel .sb-calendar-overlap-warning{display:flex!important;flex-direction:column!important;gap:5px!important;margin:11px 2px!important;padding:12px 14px!important;border-radius:12px!important;background:#fff5e8!important;border:1px solid #e5bf8f!important;color:#72512d!important;font:500 12px/1.6 system-ui,sans-serif!important}
 .sb-calendar-panel .sb-calendar-overlap-warning strong{font:750 13px/1.3 system-ui,sans-serif!important;color:#805123!important}
+/* Preserve the full reserved slot; hatch only its confirmed preparation buffer. */
+.sb-calendar-event[data-calendar-buffer]::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--sb-buffer-percent);background:repeating-linear-gradient(135deg,rgba(255,255,255,.22) 0 4px,rgba(255,255,255,.06) 4px 8px);border-top:1px dashed rgba(255,255,255,.8);pointer-events:none;border-radius:0 0 5px 5px}
 </style>
   <section class="admin-panel sb-calendar-panel" id="kalender">
     {# Physical in-flow reservation for the fixed 150px month/week dock.
@@ -63,10 +65,10 @@
             {% endfor %}
 
             {% for event in day.appointments %}
-            <a class="sb-calendar-event" href="#termine" style="top:{{ event.top }}%;height:{{ event.height }}%;" title="{{ event.item.customer.full_name }} – {{ event.item.service.name }}">
+            <a class="sb-calendar-event" href="#termine" style="top:{{ event.top }}%;height:{{ event.height }}%;{% if event.item.calendar_buffer_minutes %}--sb-buffer-percent:{{ event.item.calendar_buffer_percent }}%;{% endif %}"{% if event.item.calendar_buffer_minutes %} data-calendar-buffer="{{ event.item.calendar_buffer_minutes }}"{% endif %} title="{{ event.item.customer.full_name }} – {{ event.item.service.name }}{% if event.item.calendar_buffer_minutes %} · Puffer: {{ event.item.calendar_buffer_minutes }} Min. bis {{ event.item.ends_at|date:'H:i' }}{% endif %}">
               <strong>{{ event.item.customer.full_name }}</strong>
               <span>{{ event.item.service.name }}</span>
-              <small>{{ event.item.starts_at|date:"H:i" }}–{{ event.item.ends_at|date:"H:i" }}</small>
+              <small>{{ event.item.starts_at|date:"H:i" }}–{{ event.item.calendar_treatment_end|date:"H:i" }}{% if event.item.calendar_buffer_minutes %} · +{{ event.item.calendar_buffer_minutes }} Min. Puffer{% endif %}</small>
             </a>
             {% endfor %}
 

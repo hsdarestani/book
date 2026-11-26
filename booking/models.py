@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -206,6 +207,28 @@ class Appointment(models.Model):
     updated_at=models.DateTimeField('Aktualisiert am',auto_now=True)
     class Meta:
         ordering=['starts_at']; indexes=[models.Index(fields=['starts_at','staff','status'],name='booking_app_starts__1de48f_idx')]; verbose_name='Termin'; verbose_name_plural='Termine'
+    @property
+    def calendar_buffer_minutes(self):
+        # Only label a buffer when the local reservation's stored span agrees
+        # with the service configuration. Imported or historical mismatches
+        # retain their authoritative end time rather than inventing a buffer.
+        if (self.idempotency_key or '').startswith('simplybook-') or not self.service_id:
+            return 0
+        duration = self.service.duration_minutes
+        buffer = self.service.buffer_minutes
+        if duration > 0 and buffer > 0 and self.ends_at - self.starts_at == timedelta(minutes=duration + buffer):
+            return buffer
+        return 0
+
+    @property
+    def calendar_treatment_end(self):
+        return self.ends_at - timedelta(minutes=self.calendar_buffer_minutes)
+
+    @property
+    def calendar_buffer_percent(self):
+        total = (self.ends_at - self.starts_at).total_seconds() / 60
+        return round(100 * self.calendar_buffer_minutes / total) if total > 0 else 0
+
     def clean(self):
         if self.ends_at <= self.starts_at: raise ValidationError('Das Ende muss nach dem Beginn liegen.')
         if self.staff_id and self.service_id and not self.staff.services.filter(pk=self.service_id).exists(): raise ValidationError('Diese Behandlung ist diesem Mitarbeiter nicht zugeordnet.')

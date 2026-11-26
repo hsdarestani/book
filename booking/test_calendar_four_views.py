@@ -66,6 +66,26 @@ class CalendarFourViewsTests(TestCase):
         self.assertEqual(response.status_code,200)
         return response
 
+    def test_treatment_and_buffer_display_without_changing_reserved_span(self):
+        item = Appointment.objects.filter(service=self.laser, staff=self.staff_a).first()
+        self.laser.duration_minutes = 45
+        self.laser.buffer_minutes = 10
+        self.laser.save()
+        item.ends_at = item.starts_at + timedelta(minutes=55)
+        item.save(update_fields=['ends_at'])
+        item.refresh_from_db()
+        self.assertEqual(item.calendar_buffer_minutes, 10)
+        self.assertEqual(item.calendar_treatment_end, item.starts_at + timedelta(minutes=45))
+        self.assertEqual(item.ends_at, item.starts_at + timedelta(minutes=55))
+        self.assertContains(self.calendar('day'), '+10 Min. Puffer')
+        from .calendar_admin_api import _appointment_payload
+        data = _appointment_payload(item)
+        self.assertEqual(data['buffer_minutes'], 10)
+        self.assertNotEqual(data['end'], data['treatment_end'])
+        item.idempotency_key = 'simplybook-123'
+        self.assertEqual(item.calendar_buffer_minutes, 0)
+        self.assertEqual(item.calendar_treatment_end, item.ends_at)
+
     def test_day_and_week_are_functional(self):
         day = self.calendar('day')
         week = self.calendar('week')
