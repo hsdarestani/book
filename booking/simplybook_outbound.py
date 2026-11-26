@@ -7,7 +7,7 @@ import os
 import logging
 import re
 from datetime import UTC
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 from .clinical_time import CLINIC_TZ, parse_appointment_start
 from .models import Appointment, SimplyBookClientLink
@@ -139,10 +139,9 @@ def _additional_answers(call, item, event):
         required = any(as_bool(field.get(key)) for key in ('required','is_required','mandatory','is_mandatory'))
         answer = ''
         if title == 'warst du schon einmal bei uns?':
-            # Explicitly recorded returning customers are known. Web bookings
-            # capture this question; other routes may only have a default false.
-            if item.returning_customer or item.source == 'web':
-                answer = 'Ja' if item.returning_customer else 'Nein'
+            # A legacy false also represents a missing answer.
+            if item.returning_customer:
+                answer = 'Ja'
         elif title == 'wie bist du auf uns aufmerksam geworden?':
             referral = normalize_name(item.referral_source)
             aliases = {
@@ -247,19 +246,69 @@ def sync_existing(pk, *, apply=False, call=None):
             if not isinstance(rows,list) or len(rows)!=1 or result.get('require_confirm'):
                 raise SyncConflict('source_booking_not_confirmed')
             remote_id=int(rows[0]['id'])
-        detail=call('getBookingDetails',[remote_id])
-        if not isinstance(detail,dict) or str(detail.get('id'))!=str(remote_id) or not _same_booking(detail,item,event,client):
-            raise SyncConflict('source_booking_readback_mismatch')
-        with transaction.atomic():
-            locked=Appointment.objects.select_for_update().get(pk=pk)
-            if locked.starts_at!=item.starts_at or locked.ends_at!=item.ends_at or locked.customer_id!=item.customer_id or locked.status!=item.status:
-                raise SyncConflict('local_booking_changed_during_write')
-            if Appointment.objects.filter(idempotency_key=f'simplybook-{remote_id}').exclude(pk=pk).exists():
-                raise SyncConflict('source_booking_already_imported')
-            locked.simplybook_booking_id=str(remote_id)
-            locked.simplybook_sync_state='linked'
-            locked.save(update_fields=['simplybook_booking_id','simplybook_sync_state'])
+        _verify_readback(call, remote_id, item, event, client)
+        _record_source_link(item, remote_id, event, client, expected_state='sending')
         return {'result':'linked','source_booking_id':str(remote_id)}
     except Exception:
         Appointment.objects.filter(pk=pk,simplybook_sync_state='sending').update(simplybook_sync_state='review')
         raise
+
+
+def _verify_readback(call, remote_id, item, event, client):
+    detail = call('getBookingDetails', [remote_id])
+    if (not isinstance(detail, dict) or str(detail.get('id')) != str(remote_id)
+            or not _same_booking(detail, item, event, client)):
+        raise SyncConflict('source_booking_readback_mismatch')
+
+
+def _record_source_link(item, remote_id, event, client, *, expected_state):
+    with transaction.atomic():
+        locked = Appointment.objects.select_for_update().get(pk=item.pk)
+        schedule_fields = ('starts_at', 'ends_at', 'staff_id', 'customer_id', 'service_id', 'status')
+        if (locked.simplybook_sync_state != expected_state or locked.simplybook_booking_id
+                or locked.simplybook_event_id != str(event) or locked.simplybook_client_id != str(client)
+                or any(getattr(locked, field) != getattr(item, field) for field in schedule_fields)):
+            raise SyncConflict('local_booking_changed_during_write')
+        duplicates = Appointment.objects.exclude(pk=item.pk).filter(
+            models.Q(idempotency_key=f'simplybook-{remote_id}') | models.Q(simplybook_booking_id=str(remote_id))
+        )
+        if duplicates.exists():
+            raise SyncConflict('source_booking_already_imported')
+        locked.simplybook_booking_id = str(remote_id)
+        locked.simplybook_sync_state = 'linked'
+        locked.save(update_fields=['simplybook_booking_id', 'simplybook_sync_state'])
+
+
+def reconcile_existing(pk, *, apply=False, call=None):
+    """Read the source after an uncertain write. Apply records the link locally."""
+    item = Appointment.objects.select_related('customer', 'service', 'staff').get(pk=pk)
+    if item.simplybook_booking_id and item.simplybook_sync_state == 'linked':
+        return {'result': 'already_linked'}
+    if item.simplybook_sync_state != 'review' or not item.simplybook_client_id:
+        raise SyncConflict('review_with_known_source_client_required')
+    call = call or session()
+    event = _verify_catalog(call, item)
+    if str(event) != item.simplybook_event_id:
+        raise SyncConflict('source_service_mismatch')
+    client = _get_client(call, item.customer, apply=False)
+    if str(client) != item.simplybook_client_id:
+        raise SyncConflict('linked_client_not_verified')
+    day = item.starts_at.astimezone(CLINIC_TZ).date().isoformat()
+    end_day = item.ends_at.astimezone(CLINIC_TZ).date().isoformat()
+    rows = call('getBookings', [{'date_from': day, 'date_to': end_day, 'booking_type': 'non_cancelled'}])
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise SyncConflict('unexpected_bookings_shape')
+    matches = [row for row in rows if _same_booking(row, item, event, client)]
+    if not matches:
+        return {'result': 'no_confirmed_remote_booking'}
+    if len(matches) != 1:
+        raise SyncConflict('duplicate_source_bookings')
+    raw_id = str(matches[0].get('id') or '')
+    if not raw_id.isdecimal() or int(raw_id) <= 0:
+        raise SyncConflict('invalid_source_booking_id')
+    remote_id = int(raw_id)
+    _verify_readback(call, remote_id, item, event, client)
+    if not apply:
+        return {'result': 'confirmed_remote_booking'}
+    _record_source_link(item, remote_id, event, client, expected_state='review')
+    return {'result': 'linked', 'source_booking_id': str(remote_id)}
