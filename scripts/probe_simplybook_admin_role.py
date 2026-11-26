@@ -69,6 +69,17 @@ def main():
                         "AVAILABILITY_SHAPE root_type="+type(matrix).__name__)
         else:
             print("SOURCE_SHAPE no_upcoming_sample=yes")
+        # Catalog is non-patient metadata. Do not emit any contact data.
+        units=rpc("https://user-api.simplybook.me/admin","getUnitList",[False,True],headers)
+        events=rpc("https://user-api.simplybook.me/admin","getEventList",[False,True,None,""],headers)
+        tz=rpc("https://user-api.simplybook.me/admin","getCompanyTimezoneOffset",[],headers)
+        print("SYNC_TIMEZONE="+str(tz.get("timezone","unknown") if isinstance(tz,dict) else "unknown"))
+        for unit in units or []:
+            if isinstance(unit,dict):
+                print("SYNC_UNIT="+json.dumps({k:unit.get(k) for k in ("id","name","is_active")},ensure_ascii=False))
+        for event in events or []:
+            if isinstance(event,dict):
+                print("SYNC_EVENT="+json.dumps({k:event.get(k) for k in ("id","name","is_active","duration","buffertime_before","buffertime_after","unit_map")},ensure_ascii=False))
         print("CAPABILITY_RESULT credential_config=present authenticated=yes admin_api=yes "
               "role=" + group + " full_admin=" + ("yes" if group == "admin" else "no") +
               " write_access=not_tested remote_changes=none")
