@@ -1,4 +1,4 @@
-name: Guarded standalone GOAE PDF download release
+name: Guarded SimplyBook and GOÄ Quick Invoice release
 
 on:
   push:
@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BOOK_BASELINE: 7facee0707df750f05dc74f958d14b82da1f1e2d
-  BOOK_TARGET: f063ce82d07fc13e4d30b92dccf665451ab0fa51
+  BOOK_BASELINE: f063ce82d07fc13e4d30b92dccf665451ab0fa51
+  BOOK_TARGET: fc678f84d52535885e7102fb4f20366ce57113b8
   BOOK_TOOLS_REF: ${{ github.sha }}
 
 jobs:
@@ -42,11 +42,10 @@ jobs:
       - name: Verify focused integrated user acceptance scenarios
         working-directory: candidate
         run: |
-          pip install -r requirements.txt playwright
-          python -m playwright install --with-deps chromium
+          pip install -r requirements.txt
           python manage.py check
           python manage.py makemigrations --check --dry-run
-          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_goae_draft_browser.GoaeDraftBrowserTests.test_pdf_button_downloads_standalone_invoice booking.test_same_domain_invoices.SameDomainInvoicesTests.test_preview_pdf_export_is_private_attachment --noinput
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_simplybook_outbound.SimplyBookOutboundPilotTests.test_buffered_source_lifecycle_preserves_local_span_and_link --noinput
 
   release:
     needs: rehearse

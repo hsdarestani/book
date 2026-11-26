@@ -1,7 +1,11 @@
-"""Refuse rollout unless the live Book schema is already current."""
+"""Allow only the two additive SimplyBook migrations during rollout."""
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
-e = MigrationExecutor(connection)
-e.loader.check_consistent_history(connection)
-assert ("booking", "0034_patient_form_notification_read") in e.loader.applied_migrations
-assert not e.migration_plan(e.loader.graph.leaf_nodes())
+
+executor = MigrationExecutor(connection)
+executor.loader.check_consistent_history(connection)
+assert ("booking", "0034_patient_form_notification_read") in executor.loader.applied_migrations
+allowed = {("booking", "0035_appointment_returning_answer"), ("booking", "0036_simplybook_remote_end")}
+plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
+assert all(not backwards and (migration.app_label, migration.name) in allowed
+           for migration, backwards in plan)
