@@ -1,0 +1,59 @@
+name: Read-only Ariane QA remote reconciliation
+on:
+  push:
+    branches: [audit/ariane-qa-live-pilot-20261126]
+    paths: ['.github/workflows/ariane-qa-reconciliation-readonly.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    env:
+      SIMPLYBOOK_COMPANY_LOGIN: ${{ secrets.SIMPLYBOOK_COMPANY_LOGIN }}
+      SIMPLYBOOK_USER_LOGIN: ${{ secrets.SIMPLYBOOK_USER_LOGIN }}
+      SIMPLYBOOK_API_USER_KEY: ${{ secrets.SIMPLYBOOK_API_USER_KEY }}
+      SIMPLYBOOK_USER_PASSWORD: ${{ secrets.SIMPLYBOOK_USER_PASSWORD }}
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: SIMPLYBOOK_COMPANY_LOGIN,SIMPLYBOOK_USER_LOGIN,SIMPLYBOOK_API_USER_KEY,SIMPLYBOOK_USER_PASSWORD
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            from booking.models import Appointment, SimplyBookClientLink
+            from booking.simplybook_outbound import session, _contact_matches, _same_booking
+            from booking.customer_identity import normalize_email
+            day="2026-12-30"
+            start=datetime.fromisoformat(day+"T16:00").replace(tzinfo=ZoneInfo("Europe/Berlin"))
+            rows=list(Appointment.objects.select_related("customer","service","staff").filter(customer__first_name="Test",customer__last_name="Farahani",staff__display_name="Frau Ariane Regaei",service__slug="laser-haarentfernung",starts_at=start,source="app"))
+            print("QA_LOCAL_MATCHES",len(rows))
+            if len(rows)!=1: raise SystemExit(1)
+            item=rows[0]
+            print("QA_LOCAL_STATE",item.simplybook_sync_state,"remote_id_present",bool(item.simplybook_booking_id),"remote_client_present",bool(item.simplybook_client_id))
+            call=session()
+            try:
+                clients=call("getClientList",[item.customer.email,None])
+                exact=[r for r in clients if _contact_matches(r,item.customer)]
+                same_email=[r for r in clients if normalize_email(r.get("email"))==normalize_email(item.customer.email)]
+                print("QA_REMOTE_CLIENT_COUNTS","exact",len(exact),"same_email",len(same_email),"local_links",SimplyBookClientLink.objects.filter(customer=item.customer).count())
+                bookings=call("getBookings",[{"date_from":day,"date_to":day,"booking_type":"all"}])
+                candidates=[r for r in bookings if any(str(r.get("client_id"))==str(c.get("id")) for c in exact)]
+                matches=[r for r in candidates if _same_booking(r,item,5,r.get("client_id"))]
+                print("QA_REMOTE_BOOKING_COUNTS","same_client_day",len(candidates),"exact_confirmed",len(matches))
+                if len(exact)==1:
+                    try:
+                        detail=call("getClientInfo",[int(exact[0]["id"])])
+                        print("QA_CLIENT_READBACK","type",type(detail).__name__,"exact",isinstance(detail,dict) and _contact_matches(detail,item.customer))
+                    except Exception as e:
+                        print("QA_CLIENT_READBACK_ERROR",type(e).__name__)
+            except Exception as e:
+                print("QA_READ_ERROR",type(e).__name__)
+                raise SystemExit(1) from None
+            PY
