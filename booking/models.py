@@ -383,6 +383,8 @@ class MobileStaffCancellation(models.Model):
         Appointment, null=True, on_delete=models.SET_NULL, related_name='mobile_cancellation',
     )
     booking_public_id = models.UUIDField(unique=True)
+    # Legacy reconciliation records still notify after credit settlement.
+    notification_independent = models.BooleanField(default=False)
     attempts = models.PositiveIntegerField(default=0)
     next_attempt_at = models.DateTimeField(default=timezone.now)
     completed_at = models.DateTimeField(null=True)
