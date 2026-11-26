@@ -35,7 +35,7 @@ from .models import (
     MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour, OfficeIntakeForm,
 )
 from .intake_forms import build_intake_pdf, confirm_form_link
-from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
+from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder
 from .services import effective_working_ranges
 from .patient_identity_review import possible_duplicate_pairs
 from .patient_identity_views import process_decision
@@ -402,6 +402,8 @@ def workspace(request, action, ident=None, record_id=None):
             return _private({'ok': True, 'id': review.pk})
         if request.method == 'GET' and action in {'calendar', 'catalog', 'overview', 'appointments', 'patients', 'patient', 'record', 'visit'}:
             return _read(request, actor, providers, action, ident, record_id)
+        if request.method == 'POST' and action == 'appointment-reminder':
+            return _manual_reminder(request, actor, providers)
         if request.method == 'POST' and action in {'appointment', 'block', 'availability', 'service', 'record-note', 'record-upload','record-edit'}:
             return _mutate(request, actor, providers, action)
     except (ValidationError, KeyError, TypeError, ValueError, OverflowError) as exc:
@@ -412,6 +414,60 @@ def workspace(request, action, ident=None, record_id=None):
 
 class CommandConflict(ValueError):
     pass
+
+
+def _manual_reminder(request, actor, providers):
+    """Persist a delivery attempt before the external call. Uncertain delivery is
+    quarantined, never retried automatically or with another command key."""
+    if len(request.body) > 1024:
+        raise ValidationError('Ungültiger Auftrag.')
+    data = json.loads(request.body)
+    if not isinstance(data, dict) or set(data) != {'id', 'key'}:
+        raise ValidationError('Ungültiger Auftrag.')
+    ident, key = int(data['id']), UUID(str(data['key']))
+    fingerprint = hashlib.sha256(json.dumps(['appointment-reminder', ident]).encode()).hexdigest()
+    pending = 'appointment-reminder-pending'
+    complete = 'appointment-reminder'
+    with transaction.atomic():
+        staff_id = _appointments(providers).filter(pk=ident).values_list('staff_id', flat=True).first()
+        if not staff_id or not providers.filter(pk=staff_id).select_for_update().exists():
+            return _private({'ok': False, 'error': 'not_found'}, 404)
+        item = _appointments(providers).select_for_update(of=('self',)).filter(pk=ident, staff_id=staff_id).first()
+        if not item:
+            return _private({'ok': False, 'error': 'not_found'}, 404)
+        receipt = MobileStaffCommand.objects.filter(actor_id=actor['id'], key=key).first()
+        if receipt:
+            if receipt.fingerprint != fingerprint:
+                return _private({'ok': False, 'error': 'command_conflict'}, 409)
+            if receipt.action == complete:
+                return _private({'ok': True, 'id': ident, 'replayed': True})
+            return _private({'ok': False, 'error': 'reminder_delivery_review_required'}, 409)
+        if item.status not in {'new', 'confirmed'} or item.starts_at <= timezone.now():
+            return _private({'ok': False, 'error': 'appointment_not_eligible'}, 409)
+        if MobileStaffCommand.objects.filter(action=pending, object_id=ident).exists():
+            return _private({'ok': False, 'error': 'reminder_delivery_review_required'}, 409)
+        receipt, created = MobileStaffCommand.objects.get_or_create(
+            actor_id=actor['id'], key=key,
+            defaults={'fingerprint': fingerprint, 'action': pending, 'object_id': ident},
+        )
+        if not created:
+            return _private({'ok': False, 'error': 'command_conflict'}, 409)
+    # The durable receipt is committed before the relay. Reacquire the booking
+    # lock so an intervening cancellation or edit cannot send an old reminder.
+    with transaction.atomic():
+        if not providers.filter(pk=staff_id).select_for_update().exists():
+            return _private({'ok': False, 'error': 'reminder_delivery_review_required'}, 409)
+        current = _appointments(providers).select_for_update(of=('self',)).filter(pk=ident, staff_id=staff_id).first()
+        if not current or current.updated_at != item.updated_at or current.status not in {'new', 'confirmed'} or current.starts_at <= timezone.now():
+            return _private({'ok': False, 'error': 'reminder_delivery_review_required'}, 409)
+        try:
+            reply = notify_manual_app_reminder(current)
+        except Exception:
+            return _private({'ok': False, 'error': 'reminder_delivery_review_required'}, 409)
+        if not isinstance(reply, dict) or not reply.get('ok') or not reply.get('notifications'):
+            return _private({'ok': False, 'error': 'reminder_delivery_review_required'}, 409)
+        MobileStaffCommand.objects.filter(pk=receipt.pk, action=pending).update(action=complete)
+    return _private({'ok': True, 'id': ident})
 
 
 def _notify(callback, *args):
