@@ -25,8 +25,9 @@ def _authorized(request):
                 and request.session.get('aplus_app_admin') is True)
 
 
-def _process_decision(request):
-    post = request.POST
+def process_decision(post, *, local_actor=None, aesthetic_actor_id=None):
+    if (local_actor is None) == (aesthetic_actor_id is None):
+        raise ValueError('Eine bestätigte Prüferidentität ist erforderlich.')
     try:
         pair = ordered_pair(int(post.get('left_id')), int(post.get('right_id')))
         chosen_id = int(post.get('primary_id'))
@@ -61,12 +62,13 @@ def _process_decision(request):
                 raise ValueError('Bitte bestätigen, dass die Identität geprüft wurde.')
 
         evidence = match_evidence(left, right)
-        PatientIdentityDecision.objects.create(
+        return PatientIdentityDecision.objects.create(
             left=left,
             right=right,
             primary_customer_id=chosen_id,
             action=action,
-            reviewed_by=request.user,
+            reviewed_by=local_actor,
+            reviewed_by_aesthetic_id=aesthetic_actor_id,
             reason=evidence or 'Manuelle Rücknahme einer früheren Entscheidung',
             snapshot={
                 'left': {
@@ -93,7 +95,7 @@ def identity_review(request):
 
     if request.method == 'POST':
         try:
-            _process_decision(request)
+            process_decision(request.POST, local_actor=request.user)
         except ValueError as exc:
             return _render_review(request, error=str(exc), status=409)
         return redirect('/verwaltung/app/identity-review/?notice=saved')

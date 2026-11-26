@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'booking/goae-rechner-v2.css' %}?v=20261123-v1">
+<link rel="stylesheet" href="{% static 'booking/goae-rechner-v2.css' %}?v=20261126-catalog1">
 <section class="mlr" id="goae-rechnung" data-mlr>
  <header class="mlr-head"><p class="mlr-overline">A+ ESTHETIC · PRIVATPRAXIS · Rechnung nach GOÄ</p><h2>GOÄ-Rechner</h2>
   <p>Drei Angaben – sofortiger GOÄ-Berechnungsvorschlag mit Faktor. Tatsächliche Leistungen, Material und Vereinbarungen müssen vor dem Speichern geprüft werden.</p></header>
@@ -12,6 +12,16 @@
   <div class="mlr-steps">
    <section class="mlr-step">
     <h3><span class="mlr-circle">1</span> Was wurde behandelt?</h3>
+    {% if goae_clinic_services %}
+    <details class="mlr-clinic-services" open>
+     <summary>Aktive Praxisleistungen</summary>
+     <p>Die folgenden Buchungsleistungen benötigen eine bestätigte Zuordnung zur GOÄ. Die verfügbaren Berechnungsvorlagen stehen darunter separat zur Verfügung.</p>
+     <ul>
+      {% for service in goae_clinic_services %}<li>{{ service.name }} <span>GOÄ-Zuordnung erforderlich</span></li>{% endfor %}
+     </ul>
+    </details>
+    {% endif %}
+    <p class="mlr-note">Berechnungsvorlagen (tatsächlich erbrachte Leistungen prüfen)</p>
     <div class="mlr-treatments" role="group" aria-label="Behandlung wählen">
      <button type="button" class="mlr-treatment" data-treatment="botox" aria-pressed="false"><span class="mlr-treat-icon">✳</span><span><b>Botox</b><small>Faltenbehandlung</small></span></button>
      <button type="button" class="mlr-treatment is-active" data-treatment="hyaluron" aria-pressed="true"><span class="mlr-treat-icon">◉</span><span><b>Hyaluron</b><small>Filler</small></span></button>
@@ -45,7 +55,7 @@
    <div class="mlr-details-inner">
     <div class="mlr-field-grid">
      <div>
-       <label>Patienten suchen <input type="search" placeholder="Name oder E-Mail" aria-controls="goaePatient" data-filter-patient-select="goaePatient" autocomplete="off"></label>
+       <label>Patienten suchen <input type="search" placeholder="Name oder E-Mail" aria-controls="goaePatient" data-filter-patient-select="goaePatient" data-patient-search-url="{% url 'booking:goae_patient_search' %}" maxlength="80" autocomplete="off"></label>
        <small data-patient-search-status="goaePatient" role="status"></small>
        <label>Patient <select name="customer_id" id="goaePatient" required><option value="">Patient auswählen</option>
        {% for patient in data.customers %}<option value="{{ patient.id }}" data-phone="{{ patient.phone }}">{{ patient.name }} · {{ patient.email }}</option>{% endfor %}
@@ -150,4 +160,4 @@
 </template>
 {{ goae_catalog|json_script:"goaeTariffCatalog" }}
 {{ goae_treatments|json_script:"goaeTreatmentMap" }}
-<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261125-goae-reference3" defer></script>
+<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261126-catalog1" defer></script>
