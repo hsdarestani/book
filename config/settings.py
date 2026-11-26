@@ -95,6 +95,7 @@ PATIENT_FILE_ALLOWED_EXTENSIONS = {
     '.pdf', '.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif',
     '.doc', '.docx', '.xls', '.xlsx', '.txt', '.rtf', '.csv',
 }
+AESTHETIC_BOOKING_NOTIFICATION_URL = os.getenv('AESTHETIC_BOOKING_NOTIFICATION_URL', 'https://app.a-esthetic.de/api/mobile/internal/booking-notifications/')
 PATIENT_SYNC_TOKEN = os.getenv('PATIENT_SYNC_TOKEN', '')
 PATIENT_SYNC_TOKEN_FILE = os.getenv('PATIENT_SYNC_TOKEN_FILE', '/etc/aesthetic-patient-sync.token')
 # SHA-256 fingerprint of a separate high-entropy WordPress-only credential.
