@@ -4,6 +4,8 @@ No automatic retries after an uncertain remote write. Only explicit, reviewed
 service mappings are accepted. The importer preserves the local UUID and key.
 """
 import os
+import logging
+import re
 from zoneinfo import ZoneInfo
 from django.db import transaction
 from django.utils import timezone
@@ -11,6 +13,7 @@ from .models import Appointment, SimplyBookClientLink
 from .customer_identity import normalize_name, normalize_email, normalize_phone
 from .management.commands.simplybook_import import rpc, LOGIN_URL, ADMIN_URL, parse_source_datetime, as_bool
 
+logger = logging.getLogger(__name__)
 CLINIC = ZoneInfo('Europe/Berlin')
 ARIANE = 'Frau Ariane Regaei'
 # Actual active, bookable Ariane catalog and source catalog verified live
@@ -42,7 +45,16 @@ def session():
         raise SyncConflict('empty_token')
     headers = {'X-Company-Login':company,'X-User-Token':token}
     def call(method, params):
-        return rpc(ADMIN_URL,method,params,headers=headers,timeout=25)
+        try:
+            return rpc(ADMIN_URL,method,params,headers=headers,timeout=25)
+        except Exception as exc:
+            # Source errors can contain patient identifiers; log only the method,
+            # numeric error code and a finite vocabulary of diagnostic categories.
+            message = str(exc).lower()
+            code = re.search(r'(?:failed:|http)\s*(-?\d+)', message)
+            categories = [k for k in ('additional','required','timeframe','duration','not available','invalid','permission','parameter','field','payment','confirmation','rate limit','too many') if k in message]
+            logger.warning('SimplyBook outbound method=%s code=%s categories=%s', method, code.group(1) if code else 'unknown', ','.join(categories) or 'other')
+            raise
     return call
 
 def _dt(value):
@@ -105,6 +117,53 @@ def _get_client(call, customer, *, apply):
             raise SyncConflict('source_client_link_owned_by_other')
     return cid
 
+def _additional_answers(call, item, event):
+    """Read source field IDs and choices; transmit only actual local answers.
+
+    Never invent a referral channel or a medical treatment preference. A source
+    field that has no local answer stays empty if optional; explicit mandatory
+    fields require a local answer before any mutation.
+    """
+    if not as_bool(call('isPluginActivated', ['event_field'])):
+        return {}
+    fields = call('getAdditionalFields', [event])
+    if not isinstance(fields, list):
+        raise SyncConflict('unexpected_additional_fields_shape')
+    result = {}
+    for field in fields:
+        if not isinstance(field, dict) or not field.get('name'):
+            raise SyncConflict('unexpected_additional_field')
+        title = normalize_name(field.get('title'))
+        values = [v.strip() for v in str(field.get('values') or '').split(',') if v.strip()]
+        required = any(as_bool(field.get(key)) for key in ('required','is_required','mandatory','is_mandatory'))
+        answer = ''
+        if title == 'warst du schon einmal bei uns?':
+            # Explicitly recorded returning customers are known. Web bookings
+            # capture this question; other routes may only have a default false.
+            if item.returning_customer or item.source == 'web':
+                answer = 'Ja' if item.returning_customer else 'Nein'
+        elif title == 'wie bist du auf uns aufmerksam geworden?':
+            referral = normalize_name(item.referral_source)
+            aliases = {
+                'google': 'Google',
+                'facebook': 'Werbeanzeige in Facebook / Instagram',
+                'instagram': 'Werbeanzeige in Facebook / Instagram',
+                'werbeanzeige in facebook / instagram': 'Werbeanzeige in Facebook / Instagram',
+                'empfehlung': 'Freunde und Bekannten',
+                'freunde und bekannten': 'Freunde und Bekannten',
+                'sonstiges': 'Sonstiges',
+                'other': 'Sonstiges',
+            }
+            answer = aliases.get(referral, '')
+        # Unknown or unavailable answers are intentionally not fabricated.
+        if answer and values and answer not in values:
+            raise SyncConflict('source_additional_choice_changed')
+        if required and not answer:
+            raise SyncConflict('source_additional_answer_required')
+        result[str(field['name'])] = answer
+    return result
+
+
 def _same_booking(row, item, event, client):
     return (str(row.get('event_id'))==str(event) and str(row.get('unit_id'))==str(UNIT_ID)
             and str(row.get('client_id'))==str(client)
@@ -155,6 +214,7 @@ def sync_existing(pk, *, apply=False, call=None):
         raise SyncConflict('previous_write_requires_reconciliation')
     call=call or session()
     event=_verify_catalog(call,item)
+    additional=_additional_answers(call,item,event)
     client=_get_client(call,item.customer,apply=False)
     previous=_verify_availability(call,item,event,client)
     if not apply:
@@ -181,7 +241,7 @@ def sync_existing(pk, *, apply=False, call=None):
             start=item.starts_at.astimezone(CLINIC)
             end=item.ends_at.astimezone(CLINIC)
             result=call('book',[event,UNIT_ID,client,start.strftime('%Y-%m-%d'),start.strftime('%H:%M:%S'),
-                               end.strftime('%Y-%m-%d'),end.strftime('%H:%M:%S'),0,{},1])
+                               end.strftime('%Y-%m-%d'),end.strftime('%H:%M:%S'),0,additional,1])
             rows=result.get('bookings') if isinstance(result,dict) else None
             if not isinstance(rows,list) or len(rows)!=1 or result.get('require_confirm'):
                 raise SyncConflict('source_booking_not_confirmed')

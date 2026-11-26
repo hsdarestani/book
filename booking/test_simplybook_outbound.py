@@ -4,7 +4,7 @@ from unittest.mock import Mock
 from django.test import TestCase
 from django.utils import timezone
 from booking.models import Appointment, Customer, Service, StaffMember
-from booking.simplybook_outbound import sync_existing, SyncConflict, SERVICE_MAP, _verify_catalog
+from booking.simplybook_outbound import sync_existing, SyncConflict, SERVICE_MAP, _verify_catalog, _additional_answers
 
 class SimplyBookOutboundPilotTests(TestCase):
     def setUp(self):
@@ -23,6 +23,7 @@ class SimplyBookOutboundPilotTests(TestCase):
             'getUnitList':[{'id':'2','is_active':'1'}],
             'getEventList':[{'id':'5','name':'Dauerhafte Haarentfernung  (Alexandrit - Nd:YAG)','is_active':'1'}],
             'getClientList':[self.contact],'getClientInfo':self.contact,
+            'isPluginActivated':False,'getAdditionalFields':[],
             'getBookings':[],'getStartTimeMatrix':{self.day:['16:00:00']},
             'getReservedTimeIntervals':{self.day:[]},'book':{'require_confirm':False,'bookings':[self.detail]},
             'getBookingDetails':self.detail}
@@ -70,3 +71,30 @@ class SimplyBookOutboundPilotTests(TestCase):
         self.item.service.slug='unmapped-service'
         with self.assertRaises(SyncConflict):
             _verify_catalog(self.call,self.item)
+
+    def test_additional_answers_sent_by_live_field_id(self):
+        self.item.returning_customer=True
+        self.item.referral_source='Google'
+        self.item.save(update_fields=['returning_customer','referral_source'])
+        self.responses['isPluginActivated']=True
+        self.responses['getAdditionalFields']=[
+            {'name':'returning-id','title':' Warst du schon einmal bei uns?','values':'Ja,Nein'},
+            {'name':'referral-id','title':'Wie bist du auf uns aufmerksam geworden?','values':'Google,Sonstiges'},
+        ]
+        self.assertEqual(sync_existing(self.item.pk,apply=True,call=self.call)['result'],'linked')
+        args=[c.args[1] for c in self.call.call_args_list if c.args[0]=='book'][0]
+        self.assertEqual(args[8],{'returning-id':'Ja','referral-id':'Google'})
+
+    def test_unanswered_mandatory_field_never_mutates_source(self):
+        self.responses['isPluginActivated']=True
+        self.responses['getAdditionalFields']=[{'name':'interest-id','title':'Für welche Behandlung interessierst du dich?','values':'Botox-Behandlung,RF-Microneedling','required':True}]
+        with self.assertRaisesRegex(SyncConflict,'source_additional_answer_required'):
+            sync_existing(self.item.pk,apply=True,call=self.call)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.simplybook_sync_state,'')
+        self.assertNotIn('book',[c.args[0] for c in self.call.call_args_list])
+
+    def test_optional_unanswered_fields_are_not_fabricated(self):
+        self.responses['isPluginActivated']=True
+        self.responses['getAdditionalFields']=[{'name':'referral-id','title':'Wie bist du auf uns aufmerksam geworden?','values':'Google,Sonstiges'}]
+        self.assertEqual(_additional_answers(self.call,self.item,5),{'referral-id':''})
