@@ -193,6 +193,20 @@ class WorkspaceTests(TestCase):
             self.assertIsNotNone(MobileStaffCancellation.objects.get().completed_at)
             self.assertEqual(relay.call_count,2)
 
+    def test_manual_app_reminder_is_scoped_and_idempotent(self):
+        self.identity['role'] = 'doctor'
+        key = str(uuid4())
+        with patch('booking.mobile_staff_api.notify_manual_app_reminder', return_value={'ok':True,'notifications':1}) as notify:
+            self.assertEqual(self.post('appointment-reminder', id=self.foreign.pk).status_code,404)
+            first = self.post('appointment-reminder', id=self.own.pk, key=key)
+            self.assertEqual(first.status_code,200,first.content)
+            replay = self.post('appointment-reminder', id=self.own.pk, key=key)
+            self.assertEqual(replay.status_code,200)
+            self.assertTrue(replay.json()['replayed'])
+            notify.assert_called_once()
+        with patch('booking.mobile_staff_api.notify_manual_app_reminder', return_value={'ok':True,'notifications':0}):
+            self.assertEqual(self.post('appointment-reminder',id=self.own.pk).status_code,409)
+
     def test_cancellation_notification_independent_of_package_reconciliation(self):
         with patch('booking.mobile_staff_api.notify_admin_changed') as notify:
             with self.captureOnCommitCallbacks(execute=True):
