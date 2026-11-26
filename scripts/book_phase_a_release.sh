@@ -75,7 +75,7 @@ restore_checkout() {
   fi
   # The exact preexisting native sources are restored only on rollback.
   local path
-  for path in booking/mobile_staff_api.py booking/management/commands/reconcile_mobile_cancellations.py; do
+  for path in booking/mobile_staff_api.py booking/management/commands/reconcile_mobile_cancellations.py booking/simplybook_writeback.py; do
     if [[ -f "$snapshot/source-collisions/$path" ]]; then
       cp -a "$snapshot/source-collisions/$path" "$app/$path" || return 1
       cmp -s "$snapshot/source-collisions/$path" "$app/$path" || return 1
@@ -164,13 +164,13 @@ release_book() (
   # Previous native code was left untracked by an older release. Preserve the
   # exact original bytes and accept only reviewed content, never unknown files.
   local path blob target_blob
-  for path in booking/mobile_staff_api.py booking/management/commands/reconcile_mobile_cancellations.py; do
+  for path in booking/mobile_staff_api.py booking/management/commands/reconcile_mobile_cancellations.py booking/simplybook_writeback.py; do
     if [[ -e "$app/$path" ]] && ! git -C "$app" ls-files --error-unmatch "$path" >/dev/null 2>&1; then
       [[ -f "$app/$path" && ! -L "$app/$path" ]] || fail_release 'Unexpected native source type.'
       target_blob=$(git -C "$app" rev-parse "$target:$path")
       blob=$(git -C "$app" hash-object "$app/$path")
-      if [[ "$blob" != "$target_blob" && ! ( "$path" == booking/mobile_staff_api.py && "$blob" == fd16eff1395fe69a9675011348bfc86cc137d336 ) ]]; then
-        fail_release 'Unexpected untracked native source bytes; nothing overwritten.'
+      if [[ "$blob" != "$target_blob" && ! ( "$path" == booking/mobile_staff_api.py && "$blob" == fd16eff1395fe69a9675011348bfc86cc137d336 ) && ! ( "$path" == booking/simplybook_writeback.py && "$blob" == a3d8ce8a2e0c20d0859b1ca1f5ea6fa41713dcb7 ) ]]; then
+        fail_release 'Unexpected untracked source bytes; nothing overwritten.'
       fi
       mkdir -p "$snapshot/source-collisions/$(dirname "$path")"
       mv -- "$app/$path" "$snapshot/source-collisions/$path"

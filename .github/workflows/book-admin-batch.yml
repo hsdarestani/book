@@ -1,4 +1,4 @@
-name: Guarded SimplyBook and GOÄ Quick Invoice release
+name: Guarded SimplyBook and GOÄ release with rollback for known legacy source
 
 on:
   push:
