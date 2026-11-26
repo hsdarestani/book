@@ -26,6 +26,7 @@ jobs:
             source /etc/aesthetic-simplybook-credentials.env
             runuser -u aestheticbook --preserve-environment -- /bin/bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -' <<'PY'
             import django
+            import re
             django.setup()
             from booking.simplybook_outbound import session, source_slots, SyncConflict
             from booking.clinical_time import parse_clinic_wall_time
