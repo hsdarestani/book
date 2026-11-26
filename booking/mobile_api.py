@@ -10,10 +10,11 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
-from django.utils.dateparse import parse_date, parse_datetime
+from django.utils.dateparse import parse_date
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from .clinical_time import add_elapsed, clinic_localdate, parse_appointment_start
 from .emails import send_booking_emails
 from .customer_identity import normalize_name, normalize_phone, resolve_app_booking_identity
 from .models import Appointment, Customer, Service, StaffMember
@@ -126,7 +127,7 @@ def _eligible_staff(service, staff_id=None):
 
 
 def _pick_staff(service, starts_at, staff_id=None, exclude_appointment_id=None):
-    local_day = starts_at.astimezone(timezone.get_current_timezone()).date()
+    local_day = clinic_localdate(starts_at)
     for candidate in _eligible_staff(service, staff_id):
         if starts_at in available_slots(
             service,
@@ -164,7 +165,7 @@ def mobile_slots(request):
     day = parse_date(str(request.GET.get('day') or ''))
     if not day:
         return _error('invalid_day', 'Bitte wählen Sie ein gültiges Datum.', 400)
-    if day < timezone.localdate() or day > timezone.localdate() + timedelta(days=BOOKING_HORIZON_DAYS):
+    if day < clinic_localdate() or day > clinic_localdate() + timedelta(days=BOOKING_HORIZON_DAYS):
         return _error('invalid_day', 'Dieses Datum liegt außerhalb des Buchungszeitraums.', 400)
 
     staff_id = request.GET.get('staff_id') or None
@@ -239,11 +240,9 @@ def mobile_booking(request):
         if not service:
             return _error('service_not_found', 'Diese Terminart ist aktuell nicht verfügbar.', 400)
 
-        starts_at = parse_datetime(str(data.get('starts_at') or ''))
+        starts_at = parse_appointment_start(data.get('starts_at'))
         if not starts_at:
             return _error('invalid_start_time', 'Bitte wählen Sie Datum und Uhrzeit.', 400)
-        if timezone.is_naive(starts_at):
-            starts_at = timezone.make_aware(starts_at, timezone.get_current_timezone())
         supplied_key = (request.headers.get('Idempotency-Key') or '').strip()[:80]
         if supplied_key:
             idem_key = supplied_key
@@ -433,11 +432,9 @@ def mobile_appointment_change(request, appointment_id):
             item.status = 'cancelled'
             item.save(update_fields=['status', 'updated_at'])
         else:
-            starts_at = parse_datetime(str(data.get('starts_at') or ''))
+            starts_at = parse_appointment_start(data.get('starts_at'))
             if not starts_at:
                 return _error('invalid_start_time', 'Bitte wählen Sie Datum und Uhrzeit.', 400)
-            if timezone.is_naive(starts_at):
-                starts_at = timezone.make_aware(starts_at, timezone.get_current_timezone())
             if starts_at < timezone.now() + LEAD_TIME:
                 return _error('start_time_too_soon', 'Bitte wählen Sie einen späteren Termin.', 400)
 
@@ -453,7 +450,7 @@ def mobile_appointment_change(request, appointment_id):
             duration = timedelta(minutes=item.service.duration_minutes + item.service.buffer_minutes)
             item.staff = staff
             item.starts_at = starts_at
-            item.ends_at = starts_at + duration
+            item.ends_at = add_elapsed(starts_at, duration)
             item.status = 'new' if item.service.requires_confirmation else 'confirmed'
             item.reminder_1h_sent_at = None
             item.reminder_1h_admin_email_sent_at = None

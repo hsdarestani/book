@@ -3,7 +3,8 @@ import logging
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
-from django.utils import timezone
+
+from .clinical_time import clinic_localtime
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ def _email_cancel_url(appointment):
 
 
 def _booking_email_context(appointment):
-    local_start = timezone.localtime(appointment.starts_at)
+    local_start = clinic_localtime(appointment.starts_at)
     base_url = _public_base_url()
     return {
         'appointment': appointment,

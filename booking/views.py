@@ -17,6 +17,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
 from .emails import send_customer_booking_email
+from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, parse_clinic_wall_time
 from .models import Appointment, BlockedPeriod, Customer, PatientRecord, Service, StaffMember, WorkingHour
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
 
@@ -54,14 +55,6 @@ def admin_logout(request):
     return redirect('booking:admin_login')
 
 
-def _local_dt(day, value):
-    parsed_day = parse_date(day or '')
-    parsed_time = parse_time(value or '')
-    if not parsed_day or not parsed_time:
-        return None
-    return timezone.make_aware(datetime.combine(parsed_day, parsed_time), timezone.get_current_timezone())
-
-
 def _patient_file_path(stored_name):
     root = Path(settings.PATIENT_FILES_ROOT).resolve()
     candidate = (root / stored_name).resolve()
@@ -86,8 +79,8 @@ def _delete_patient_file(record):
 
 
 def _calendar_position(starts_at, ends_at):
-    local_start = timezone.localtime(starts_at)
-    local_end = timezone.localtime(ends_at)
+    local_start = clinic_localtime(starts_at)
+    local_end = clinic_localtime(ends_at)
     start_minute = max(CALENDAR_START_HOUR * 60, local_start.hour * 60 + local_start.minute)
     end_minute = min(CALENDAR_END_HOUR * 60, local_end.hour * 60 + local_end.minute)
     total = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60
@@ -283,7 +276,7 @@ def dashboard(request):
     if not selected_staff:
         selected_staff = staff_qs.first()
 
-    calendar_date = parse_date(request.GET.get('date') or '') or timezone.localdate()
+    calendar_date = parse_date(request.GET.get('date') or '') or clinic_localdate()
     calendar_view = request.GET.get('cal_view') or 'day'
     if calendar_view not in {'day', 'week', 'provider', 'service'}:
         calendar_view = 'day'
@@ -315,8 +308,8 @@ def dashboard(request):
             return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=hours#einstellungen')
 
         if action == 'add_block' and selected_staff:
-            starts_at = _local_dt(request.POST.get('block_date'), request.POST.get('block_start'))
-            ends_at = _local_dt(request.POST.get('block_date'), request.POST.get('block_end'))
+            starts_at = parse_clinic_wall_time(request.POST.get('block_date'), request.POST.get('block_start'))
+            ends_at = parse_clinic_wall_time(request.POST.get('block_date'), request.POST.get('block_end'))
             if not starts_at or not ends_at or ends_at <= starts_at:
                 return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=block-error#einstellungen')
             BlockedPeriod.objects.create(
@@ -332,8 +325,8 @@ def dashboard(request):
             return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=block-deleted#einstellungen')
 
         if action == 'add_calendar_note' and selected_staff:
-            starts_at = _local_dt(request.POST.get('note_date'), request.POST.get('note_start'))
-            ends_at = _local_dt(request.POST.get('note_date'), request.POST.get('note_end'))
+            starts_at = parse_clinic_wall_time(request.POST.get('note_date'), request.POST.get('note_start'))
+            ends_at = parse_clinic_wall_time(request.POST.get('note_date'), request.POST.get('note_end'))
             if not starts_at or not ends_at or ends_at <= starts_at:
                 return redirect(f'{calendar_return}&notice=note-error')
             text = (request.POST.get('note_text') or '').strip()[:120]
@@ -385,12 +378,12 @@ def dashboard(request):
             service = Service.objects.filter(pk=request.POST.get('service_id'), active=True).first()
             staff = staff_qs.filter(pk=request.POST.get('appointment_staff_id') or (selected_staff.pk if selected_staff else None)).first()
             customer = Customer.objects.filter(pk=request.POST.get('customer_id')).first()
-            starts_at = _local_dt(request.POST.get('appointment_date'), request.POST.get('appointment_time'))
+            starts_at = parse_clinic_wall_time(request.POST.get('appointment_date'), request.POST.get('appointment_time'))
             if not service or not staff or not customer or not starts_at:
                 return redirect(f'{calendar_return}&notice=booking-error')
             if not staff.services.filter(pk=service.pk).exists():
                 return redirect(f'{calendar_return}&notice=booking-service-error')
-            ends_at = starts_at + timedelta(minutes=service.duration_minutes + service.buffer_minutes)
+            ends_at = add_elapsed(starts_at, timedelta(minutes=service.duration_minutes + service.buffer_minutes))
             conflict = Appointment.objects.filter(
                 staff=staff,
                 status__in=['new', 'confirmed'],
@@ -459,7 +452,7 @@ def dashboard(request):
             return redirect('/verwaltung/?notice=service#behandlungen')
 
     now = timezone.now()
-    today = timezone.localdate()
+    today = clinic_localdate()
     appointment_scope = Appointment.objects.all()
     customer_scope = Customer.objects.all()
     if doctor_staff is not None:
@@ -535,8 +528,8 @@ def dashboard(request):
         else ([selected_staff.pk] if selected_staff else [])
     )
     if visible_staff_ids:
-        start_dt = timezone.make_aware(datetime.combine(range_start, datetime.min.time()), timezone.get_current_timezone())
-        end_dt = timezone.make_aware(datetime.combine(range_end, datetime.min.time()), timezone.get_current_timezone())
+        start_dt = timezone.make_aware(datetime.combine(range_start, datetime.min.time()), CLINIC_TZ)
+        end_dt = timezone.make_aware(datetime.combine(range_end, datetime.min.time()), CLINIC_TZ)
         calendar_appointments = (
             Appointment.objects.filter(
                 staff_id__in=visible_staff_ids,
@@ -556,14 +549,14 @@ def dashboard(request):
     day_names = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
     calendar_days = []
     day_cursor = range_start
-    tz = timezone.get_current_timezone()
+    tz = CLINIC_TZ
     while day_cursor < range_end:
         visible_start = timezone.make_aware(datetime.combine(day_cursor, time(CALENDAR_START_HOUR)), tz)
         visible_end = timezone.make_aware(datetime.combine(day_cursor, time(CALENDAR_END_HOUR)), tz)
         working_segments = []
         for working in hour_map.get(day_cursor.weekday(), []):
-            start = timezone.make_aware(datetime.combine(day_cursor, working.start_time), timezone.get_current_timezone())
-            end = timezone.make_aware(datetime.combine(day_cursor, working.end_time), timezone.get_current_timezone())
+            start = timezone.make_aware(datetime.combine(day_cursor, working.start_time), CLINIC_TZ)
+            end = timezone.make_aware(datetime.combine(day_cursor, working.end_time), CLINIC_TZ)
             if end <= visible_start or start >= visible_end:
                 continue
             top, height = _calendar_position(start, end)
@@ -694,11 +687,11 @@ def dashboard(request):
     staff_members = list(staff_qs)
     day_start = timezone.make_aware(
         datetime.combine(range_start, datetime.min.time()),
-        timezone.get_current_timezone(),
+        CLINIC_TZ,
     )
     day_end = timezone.make_aware(
         datetime.combine(range_end, datetime.min.time()),
-        timezone.get_current_timezone(),
+        CLINIC_TZ,
     )
     count_rows = (
         Appointment.objects.filter(
@@ -722,7 +715,7 @@ def dashboard(request):
         # Two simultaneous bookings for different doctors are not a conflict.
         known_end = known_end_by_staff.get(item.staff_id)
         if known_end is not None and item.starts_at < known_end:
-            start_label = timezone.localtime(item.starts_at).strftime('%d.%m. %H:%M')
+            start_label = clinic_localtime(item.starts_at).strftime('%d.%m. %H:%M')
             if start_label not in calendar_overlaps:
                 calendar_overlaps.append(start_label)
         known_end_by_staff[item.staff_id] = max(known_end, item.ends_at) if known_end else item.ends_at

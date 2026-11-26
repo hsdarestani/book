@@ -4,9 +4,10 @@ from datetime import timedelta
 from django.db import transaction
 from django.http import JsonResponse
 from django.utils import timezone
-from django.utils.dateparse import parse_date, parse_datetime
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST
 
+from .clinical_time import clinic_localdate, parse_appointment_start
 from .emails import send_booking_emails
 from .customer_identity import resolve_patient_identity
 from .models import Customer, Service, StaffMember
@@ -83,7 +84,7 @@ def availability(request):
     day = parse_date(request.GET.get('date', ''))
     if not service_id or not staff_id or not day:
         return _error('invalid_request', 'Behandlung, Behandler und Datum sind erforderlich.')
-    if day < timezone.localdate() or day > timezone.localdate() + timedelta(days=BOOKING_HORIZON_DAYS):
+    if day < clinic_localdate() or day > clinic_localdate() + timedelta(days=BOOKING_HORIZON_DAYS):
         return _error('date_out_of_range', 'Dieses Datum liegt außerhalb des Buchungszeitraums.')
     service = Service.objects.filter(pk=service_id, active=True, bookable=True).first()
     member = StaffMember.objects.filter(pk=staff_id, active=True, services=service).first() if service else None
@@ -91,7 +92,7 @@ def availability(request):
         return _error('not_available', 'Die gewählte Kombination ist nicht verfügbar.', 404)
     slots = available_slots(service, member, day)
     return JsonResponse({'ok': True, 'slots': [
-        {'starts_at': slot.isoformat(), 'label': timezone.localtime(slot).strftime('%H:%M')}
+        {'starts_at': slot.isoformat(), 'label': slot.strftime('%H:%M')}
         for slot in slots
     ]})
 
@@ -111,7 +112,7 @@ def availability_overview(request):
     if not service or not member:
         return _error('not_available', 'Die gewählte Kombination ist nicht verfügbar.', 404)
 
-    today = timezone.localdate()
+    today = clinic_localdate()
     groups = []
     for offset in range(days):
         day = today + timedelta(days=offset)
@@ -123,7 +124,7 @@ def availability_overview(request):
             'weekday': day.strftime('%A'),
             'date_label': day.strftime('%d.%m.%Y'),
             'slots': [
-                {'starts_at': slot.isoformat(), 'label': timezone.localtime(slot).strftime('%H:%M')}
+                {'starts_at': slot.isoformat(), 'label': slot.strftime('%H:%M')}
                 for slot in slots
             ],
         })
@@ -143,13 +144,11 @@ def appointments(request):
 
     service = Service.objects.filter(pk=data.get('service_id'), active=True, bookable=True).first()
     member = StaffMember.objects.filter(pk=data.get('staff_id'), active=True).first()
-    starts_at = parse_datetime(str(data.get('starts_at') or ''))
+    starts_at = parse_appointment_start(data.get('starts_at'))
     if not service or not member or not member.services.filter(pk=service.pk).exists():
         return _error('not_available', 'Die gewählte Behandlung ist nicht verfügbar.', 404)
     if not starts_at:
         return _error('invalid_start', 'Die gewählte Uhrzeit ist ungültig.')
-    if timezone.is_naive(starts_at):
-        starts_at = timezone.make_aware(starts_at, timezone.get_current_timezone())
 
     email = str(data.get('email') or '').strip().lower()
     if '@' not in email:

@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_time
 from django.views.decorators.http import require_http_methods
 
+from .clinical_time import CLINIC_TZ, clinic_localdate, clinic_localtime
 from .models import Appointment, BlockedPeriod, DailyAvailabilityOverride, StaffMember
 from .services import effective_working_ranges
 
@@ -45,8 +46,8 @@ def _calendar_redirect(staff_id, day, notice='hours', *, doctor=False):
 
 
 def _position(starts_at, ends_at):
-    local_start = timezone.localtime(starts_at)
-    local_end = timezone.localtime(ends_at)
+    local_start = clinic_localtime(starts_at)
+    local_end = clinic_localtime(ends_at)
     start_minute = max(CALENDAR_START_MINUTE, local_start.hour * 60 + local_start.minute)
     end_minute = min(CALENDAR_END_MINUTE, local_end.hour * 60 + local_end.minute)
     visible_end = max(end_minute, start_minute + 10)
@@ -95,14 +96,14 @@ def _block_visual_kind(reason):
 
 
 def _day_bounds(day):
-    tz = timezone.get_current_timezone()
+    tz = CLINIC_TZ
     start = timezone.make_aware(datetime.combine(day, datetime.min.time()), tz)
     return start, start + timedelta(days=1)
 
 
 def _appointment_payload(item):
-    local_start = timezone.localtime(item.starts_at)
-    local_end = timezone.localtime(item.ends_at)
+    local_start = clinic_localtime(item.starts_at)
+    local_end = clinic_localtime(item.ends_at)
     top, height = _position(item.starts_at, item.ends_at)
     return {
         'id': item.pk,
@@ -113,7 +114,7 @@ def _appointment_payload(item):
         'time': local_start.strftime('%H:%M'),
         'start': local_start.strftime('%H:%M'),
         'end': local_end.strftime('%H:%M'),
-        'treatment_end': timezone.localtime(item.calendar_treatment_end).strftime('%H:%M'),
+        'treatment_end': clinic_localtime(item.calendar_treatment_end).strftime('%H:%M'),
         'buffer_minutes': item.calendar_buffer_minutes,
         'buffer_percent': item.calendar_buffer_percent,
         'status': item.status,
@@ -126,8 +127,8 @@ def _appointment_payload(item):
 
 
 def _block_payload(item):
-    local_start = timezone.localtime(item.starts_at)
-    local_end = timezone.localtime(item.ends_at)
+    local_start = clinic_localtime(item.starts_at)
+    local_end = clinic_localtime(item.ends_at)
     scope, service_id = _scope_from_reason(item.reason)
     top, height = _position(item.starts_at, item.ends_at)
     return {
@@ -169,7 +170,7 @@ def calendar_day(request):
 
     # Return only the visible 10:00–20:00 timeline, matching initial HTML.
     # An item spanning 10:00 is clipped by _position, never drawn at 08:00.
-    tz = timezone.get_current_timezone()
+    tz = CLINIC_TZ
     start = timezone.make_aware(datetime.combine(day, time(10)), tz)
     end = timezone.make_aware(datetime.combine(day, time(20)), tz)
     appointments = (
@@ -195,7 +196,7 @@ def calendar_day(request):
     return _private_json({
         'ok': True,
         **_payload(staff, day),
-        'is_today': day == timezone.localdate(),
+        'is_today': day == clinic_localdate(),
         'appointments': [_appointment_payload(item) for item in appointments],
         'blocks': [_block_payload(item) for item in blocks],
     })

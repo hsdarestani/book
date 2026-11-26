@@ -8,27 +8,17 @@ from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import redirect
 from django.utils import timezone
-from django.utils.dateparse import parse_date, parse_time
+from django.utils.dateparse import parse_date
 from django.utils.html import escape
 from django.views.decorators.http import require_http_methods
 
+from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, parse_clinic_wall_time
 from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_deleted
 from . import views
 
 
 PREV_LOGO_URL = 'https://a-esthetic.de/wp-content/uploads/prev.png'
-
-
-def _local_dt(day, value):
-    parsed_day = parse_date(day or '')
-    parsed_time = parse_time(value or '')
-    if not parsed_day or not parsed_time:
-        return None
-    return timezone.make_aware(
-        datetime.combine(parsed_day, parsed_time),
-        timezone.get_current_timezone(),
-    )
 
 
 def _is_quarter(value):
@@ -135,14 +125,14 @@ def _calendar_range(calendar_day, calendar_view):
     else:
         start_day = calendar_day
         end_day = start_day + timedelta(days=1)
-    tz = timezone.get_current_timezone()
+    tz = CLINIC_TZ
     start_dt = timezone.make_aware(datetime.combine(start_day, datetime.min.time()), tz)
     end_dt = timezone.make_aware(datetime.combine(end_day, datetime.min.time()), tz)
     return start_dt, end_dt
 
 
 def _appointment_payload(item):
-    local_start = timezone.localtime(item.starts_at)
+    local_start = clinic_localtime(item.starts_at)
     return {
         'id': item.pk,
         'service_id': item.service_id,
@@ -158,8 +148,8 @@ def _appointment_payload(item):
 
 
 def _block_payload(item):
-    local_start = timezone.localtime(item.starts_at)
-    local_end = timezone.localtime(item.ends_at)
+    local_start = clinic_localtime(item.starts_at)
+    local_end = clinic_localtime(item.ends_at)
     scope, service_id = _scope_from_reason(item.reason)
     return {
         'id': item.pk,
@@ -221,7 +211,7 @@ def _polish_admin_response(
 
     csrf_match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', html)
     csrf_value = csrf_match.group(1) if csrf_match else ''
-    day_value = (calendar_day or timezone.localdate()).isoformat()
+    day_value = (calendar_day or clinic_localdate()).isoformat()
     staff_value = str(selected_staff_id or '')
 
     services_qs = Service.objects.filter(active=True)
@@ -255,7 +245,7 @@ def _polish_admin_response(
         f'<option value="{value}">{escape(label)}</option>' for value, label in Appointment.STATUS
     )
 
-    start_dt, end_dt = _calendar_range(calendar_day or timezone.localdate(), calendar_view)
+    start_dt, end_dt = _calendar_range(calendar_day or clinic_localdate(), calendar_view)
     visible_appointments = list(
         Appointment.objects.filter(
             staff_id=selected_staff_id,
@@ -379,8 +369,8 @@ def _polish_admin_response(
     if focus_block:
         item = BlockedPeriod.objects.filter(pk=focus_block, **({'staff_id': doctor_staff_id} if doctor_staff_id is not None else {})).first()
         if item:
-            start = timezone.localtime(item.starts_at).strftime('%H:%M')
-            end = timezone.localtime(item.ends_at).strftime('%H:%M')
+            start = clinic_localtime(item.starts_at).strftime('%H:%M')
+            end = clinic_localtime(item.ends_at).strftime('%H:%M')
             focus_time = f'{start}–{end}'
 
     enhancement = f"""
@@ -568,10 +558,10 @@ def dashboard_proxy(request):
     if request.method == 'POST' and action == 'add_calendar_block':
         if not selected_staff:
             return redirect('/verwaltung/kalender/?notice=block-error')
-        starts_at = _local_dt(request.POST.get('block_date'), request.POST.get('block_start'))
-        ends_at = _local_dt(request.POST.get('block_date'), request.POST.get('block_end'))
+        starts_at = parse_clinic_wall_time(request.POST.get('block_date'), request.POST.get('block_start'))
+        ends_at = parse_clinic_wall_time(request.POST.get('block_date'), request.POST.get('block_end'))
         if not starts_at or not ends_at or ends_at <= starts_at or not _is_quarter(starts_at) or not _is_quarter(ends_at):
-            fallback_day = parse_date(request.POST.get('block_date') or '') or timezone.localdate()
+            fallback_day = parse_date(request.POST.get('block_date') or '') or clinic_localdate()
             return redirect(_calendar_url(day=fallback_day, view='day', staff_id=selected_staff.pk, notice='block-error'))
 
         scope = request.POST.get('block_scope') or 'all'
@@ -588,17 +578,17 @@ def dashboard_proxy(request):
             service_id=service_id,
         )
         if not focus:
-            return redirect(_calendar_url(day=timezone.localtime(starts_at).date(), view='day', staff_id=selected_staff.pk, notice='block-error'))
-        return redirect(_calendar_url(day=timezone.localtime(focus.starts_at).date(), view='day', staff_id=focus.staff_id, notice='block', focus_block=focus.pk))
+            return redirect(_calendar_url(day=clinic_localtime(starts_at).date(), view='day', staff_id=selected_staff.pk, notice='block-error'))
+        return redirect(_calendar_url(day=clinic_localtime(focus.starts_at).date(), view='day', staff_id=focus.staff_id, notice='block', focus_block=focus.pk))
 
     if request.method == 'POST' and action == 'add_calendar_note':
         if not selected_staff:
             return redirect('/verwaltung/kalender/?notice=note-error')
-        starts_at = _local_dt(request.POST.get('note_date'), request.POST.get('note_start'))
-        ends_at = _local_dt(request.POST.get('note_date'), request.POST.get('note_end'))
+        starts_at = parse_clinic_wall_time(request.POST.get('note_date'), request.POST.get('note_start'))
+        ends_at = parse_clinic_wall_time(request.POST.get('note_date'), request.POST.get('note_end'))
         return_view = request.POST.get('return_view') or 'day'
         if not starts_at or not ends_at or ends_at <= starts_at or not _is_quarter(starts_at) or not _is_quarter(ends_at):
-            fallback_day = parse_date(request.POST.get('return_date') or '') or timezone.localdate()
+            fallback_day = parse_date(request.POST.get('return_date') or '') or clinic_localdate()
             return redirect(_calendar_url(day=fallback_day, view=return_view, staff_id=selected_staff.pk, notice='note-error'))
 
         text = (request.POST.get('note_text') or '').strip()[:120]
@@ -616,22 +606,22 @@ def dashboard_proxy(request):
             service_id=service_id,
         )
         if not focus:
-            return redirect(_calendar_url(day=timezone.localtime(starts_at).date(), view=return_view, staff_id=selected_staff.pk, notice='note-error'))
-        return redirect(_calendar_url(day=timezone.localtime(focus.starts_at).date(), view=return_view, staff_id=focus.staff_id, notice='note', focus_block=focus.pk))
+            return redirect(_calendar_url(day=clinic_localtime(starts_at).date(), view=return_view, staff_id=selected_staff.pk, notice='note-error'))
+        return redirect(_calendar_url(day=clinic_localtime(focus.starts_at).date(), view=return_view, staff_id=focus.staff_id, notice='note', focus_block=focus.pk))
 
     if request.method == 'POST' and action == 'edit_calendar_item':
         item = BlockedPeriod.objects.filter(pk=request.POST.get('block_id')).select_related('staff').first()
         if not item:
             return redirect('/verwaltung/kalender/?notice=block-error')
-        starts_at = _local_dt(request.POST.get('item_date'), request.POST.get('item_start'))
-        ends_at = _local_dt(request.POST.get('item_date'), request.POST.get('item_end'))
+        starts_at = parse_clinic_wall_time(request.POST.get('item_date'), request.POST.get('item_start'))
+        ends_at = parse_clinic_wall_time(request.POST.get('item_date'), request.POST.get('item_end'))
         if not starts_at or not ends_at or ends_at <= starts_at or not _is_quarter(starts_at) or not _is_quarter(ends_at):
-            return redirect(_calendar_url(day=timezone.localtime(item.starts_at).date(), view=request.POST.get('return_view') or 'day', staff_id=item.staff_id, notice='block-error', focus_block=item.pk))
+            return redirect(_calendar_url(day=clinic_localtime(item.starts_at).date(), view=request.POST.get('return_view') or 'day', staff_id=item.staff_id, notice='block-error', focus_block=item.pk))
 
         scope = request.POST.get('item_scope') or 'staff'
         service_id = request.POST.get('item_service_id') or None
         if scope == 'service' and not Service.objects.filter(pk=service_id, active=True).exists():
-            return redirect(_calendar_url(day=timezone.localtime(item.starts_at).date(), view=request.POST.get('return_view') or 'day', staff_id=item.staff_id, notice='block-error', focus_block=item.pk))
+            return redirect(_calendar_url(day=clinic_localtime(item.starts_at).date(), view=request.POST.get('return_view') or 'day', staff_id=item.staff_id, notice='block-error', focus_block=item.pk))
         kind = request.POST.get('item_kind') if request.POST.get('item_kind') in {'block', 'note'} else _kind_from_reason(item.reason)
         text = (request.POST.get('item_text') or '').strip()[:120]
         prefix = '[NOTE]' if kind == 'note' else '[BLOCKNOTE]'
@@ -649,13 +639,13 @@ def dashboard_proxy(request):
                 scope=scope,
                 service_id=service_id,
             )
-        return redirect(_calendar_url(day=timezone.localtime(focus.starts_at).date(), view=request.POST.get('return_view') or 'day', staff_id=focus.staff_id, notice='block-updated', focus_block=focus.pk))
+        return redirect(_calendar_url(day=clinic_localtime(focus.starts_at).date(), view=request.POST.get('return_view') or 'day', staff_id=focus.staff_id, notice='block-updated', focus_block=focus.pk))
 
     if request.method == 'POST' and action == 'delete_calendar_item':
         item = BlockedPeriod.objects.filter(pk=request.POST.get('block_id')).select_related('staff').first()
         if not item:
             return redirect('/verwaltung/kalender/?notice=block-deleted')
-        day = timezone.localtime(item.starts_at).date()
+        day = clinic_localtime(item.starts_at).date()
         staff_id = item.staff_id
         _period_group(item).delete()
         return redirect(_calendar_url(day=day, view=request.POST.get('return_view') or 'day', staff_id=staff_id, notice='block-deleted'))
@@ -668,10 +658,10 @@ def dashboard_proxy(request):
         service = Service.objects.filter(pk=request.POST.get('service_id'), active=True).first()
         staff = staff_qs.filter(pk=request.POST.get('appointment_staff_id')).first()
         customer = Customer.objects.filter(pk=request.POST.get('customer_id')).first()
-        starts_at = _local_dt(request.POST.get('appointment_date'), request.POST.get('appointment_time'))
+        starts_at = parse_clinic_wall_time(request.POST.get('appointment_date'), request.POST.get('appointment_time'))
         status = request.POST.get('status')
         allowed_statuses = {value for value, _ in Appointment.STATUS}
-        old_day = timezone.localtime(appointment.starts_at).date()
+        old_day = clinic_localtime(appointment.starts_at).date()
         old_staff_id = appointment.staff_id
         if (
             not service or not staff or not customer or not starts_at or not _is_quarter(starts_at)
@@ -679,7 +669,7 @@ def dashboard_proxy(request):
         ):
             return redirect(_calendar_url(day=old_day, view=request.POST.get('return_view') or 'day', staff_id=old_staff_id, notice='appointment-edit-error', focus_appointment=appointment.pk))
 
-        ends_at = starts_at + timedelta(minutes=service.duration_minutes + service.buffer_minutes)
+        ends_at = add_elapsed(starts_at, timedelta(minutes=service.duration_minutes + service.buffer_minutes))
         if status in {'new', 'confirmed'}:
             conflict = Appointment.objects.filter(
                 staff=staff,
@@ -711,13 +701,13 @@ def dashboard_proxy(request):
         except ValidationError:
             return redirect(_calendar_url(day=old_day, view=request.POST.get('return_view') or 'day', staff_id=old_staff_id, notice='appointment-edit-error', focus_appointment=appointment.pk))
         notify_admin_changed(appointment, previous)
-        return redirect(_calendar_url(day=timezone.localtime(appointment.starts_at).date(), view=request.POST.get('return_view') or 'day', staff_id=appointment.staff_id, notice='appointment-updated', focus_appointment=appointment.pk))
+        return redirect(_calendar_url(day=clinic_localtime(appointment.starts_at).date(), view=request.POST.get('return_view') or 'day', staff_id=appointment.staff_id, notice='appointment-updated', focus_appointment=appointment.pk))
 
     if request.method == 'POST' and action == 'delete_appointment':
         appointment = Appointment.objects.filter(pk=request.POST.get('appointment_id')).select_related('customer', 'service', 'staff').first()
         if not appointment:
             return redirect('/verwaltung/buchungen/?notice=appointment-deleted')
-        day = timezone.localtime(appointment.starts_at).date()
+        day = clinic_localtime(appointment.starts_at).date()
         staff_id = appointment.staff_id
         notify_admin_deleted(appointment)
         appointment.delete()
@@ -726,8 +716,8 @@ def dashboard_proxy(request):
     if request.method == 'POST' and action == 'add_block':
         if not selected_staff:
             return redirect('/verwaltung/einstellungen/?notice=block-error')
-        starts_at = _local_dt(request.POST.get('block_date'), request.POST.get('block_start'))
-        ends_at = _local_dt(request.POST.get('block_date'), request.POST.get('block_end'))
+        starts_at = parse_clinic_wall_time(request.POST.get('block_date'), request.POST.get('block_start'))
+        ends_at = parse_clinic_wall_time(request.POST.get('block_date'), request.POST.get('block_end'))
         if not starts_at or not ends_at or ends_at <= starts_at or not _is_quarter(starts_at) or not _is_quarter(ends_at):
             return redirect(f'/verwaltung/einstellungen/?staff={selected_staff.pk}&notice=block-error')
         item = BlockedPeriod.objects.create(
@@ -736,14 +726,14 @@ def dashboard_proxy(request):
             ends_at=ends_at,
             reason=(request.POST.get('block_reason') or 'Gesperrt').strip()[:160],
         )
-        return redirect(_calendar_url(day=timezone.localtime(item.starts_at).date(), view='day', staff_id=item.staff_id, notice='block', focus_block=item.pk))
+        return redirect(_calendar_url(day=clinic_localtime(item.starts_at).date(), view='day', staff_id=item.staff_id, notice='block', focus_block=item.pk))
 
     focus_block = request.GET.get('focus_block')
     focus_appointment = request.GET.get('focus_appointment')
     if request.method == 'GET' and focus_block:
         block = BlockedPeriod.objects.filter(pk=focus_block).select_related('staff').first()
         if block:
-            block_day = timezone.localtime(block.starts_at).date()
+            block_day = clinic_localtime(block.starts_at).date()
             requested_day = parse_date(request.GET.get('date') or '')
             requested_staff = request.GET.get('staff')
             if requested_day != block_day or str(requested_staff or '') != str(block.staff_id):
@@ -751,14 +741,14 @@ def dashboard_proxy(request):
     if request.method == 'GET' and focus_appointment:
         appointment = Appointment.objects.filter(pk=focus_appointment).first()
         if appointment:
-            appointment_day = timezone.localtime(appointment.starts_at).date()
+            appointment_day = clinic_localtime(appointment.starts_at).date()
             requested_day = parse_date(request.GET.get('date') or '')
             requested_staff = request.GET.get('staff')
             if requested_day != appointment_day or str(requested_staff or '') != str(appointment.staff_id):
                 return redirect(_calendar_url(day=appointment_day, view=request.GET.get('cal_view') or 'day', staff_id=appointment.staff_id, notice=request.GET.get('notice') or 'appointment-updated', focus_appointment=appointment.pk))
 
     response = views.dashboard(request)
-    calendar_day = parse_date(request.GET.get('date') or '') or timezone.localdate()
+    calendar_day = parse_date(request.GET.get('date') or '') or clinic_localdate()
     calendar_view = request.GET.get('cal_view') or 'day'
     return _polish_admin_response(
         response,

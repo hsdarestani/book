@@ -13,6 +13,7 @@ from django.utils.dateparse import parse_date, parse_time
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, parse_clinic_wall_time
 from .models import (
     Appointment,
     BlockedPeriod,
@@ -76,17 +77,9 @@ def _require_admin(request):
 
 
 def _day_bounds(day):
-    tz = timezone.get_current_timezone()
+    tz = CLINIC_TZ
     start = timezone.make_aware(datetime.combine(day, datetime.min.time()), tz)
     return start, start + timedelta(days=1)
-
-
-def _local_dt(day_value, time_value):
-    day = parse_date(str(day_value or ""))
-    clock = parse_time(str(time_value or ""))
-    if not day or not clock:
-        return None
-    return timezone.make_aware(datetime.combine(day, clock), timezone.get_current_timezone())
 
 
 def _is_quarter(value):
@@ -123,8 +116,8 @@ def _customer_payload(item, include_records=False):
 
 
 def _appointment_payload(item):
-    local_start = timezone.localtime(item.starts_at)
-    local_end = timezone.localtime(item.ends_at)
+    local_start = clinic_localtime(item.starts_at)
+    local_end = clinic_localtime(item.ends_at)
     return {
         "id": item.pk,
         "public_id": str(item.public_id),
@@ -139,7 +132,7 @@ def _appointment_payload(item):
         "date": local_start.date().isoformat(),
         "start": local_start.strftime("%H:%M"),
         "end": local_end.strftime("%H:%M"),
-        "treatment_end": timezone.localtime(item.calendar_treatment_end).strftime("%H:%M"),
+        "treatment_end": clinic_localtime(item.calendar_treatment_end).strftime("%H:%M"),
         "buffer_minutes": item.calendar_buffer_minutes,
         "buffer_percent": item.calendar_buffer_percent,
         "status": item.status,
@@ -149,8 +142,8 @@ def _appointment_payload(item):
 
 
 def _block_payload(item):
-    local_start = timezone.localtime(item.starts_at)
-    local_end = timezone.localtime(item.ends_at)
+    local_start = clinic_localtime(item.starts_at)
+    local_end = clinic_localtime(item.ends_at)
     return {
         "id": item.pk,
         "staff_id": item.staff_id,
@@ -207,7 +200,7 @@ def overview(request):
     admin, error = _require_admin(request)
     if error:
         return error
-    today = timezone.localdate()
+    today = clinic_localdate()
     day_start, day_end = _day_bounds(today)
     today_qs = Appointment.objects.filter(starts_at__gte=day_start, starts_at__lt=day_end).select_related("customer", "service", "staff")
     upcoming = (
@@ -236,7 +229,7 @@ def calendar(request):
     admin, error = _require_admin(request)
     if error:
         return error
-    day = parse_date(request.GET.get("date") or "") or timezone.localdate()
+    day = parse_date(request.GET.get("date") or "") or clinic_localdate()
     staff_qs = StaffMember.objects.filter(active=True).order_by("sort_order", "display_name")
     staff = staff_qs.filter(pk=request.GET.get("staff")).first() if request.GET.get("staff") else staff_qs.first()
     if not staff:
@@ -337,7 +330,7 @@ def settings(request):
     if error:
         return error
     staff = StaffMember.objects.order_by("sort_order", "display_name")
-    overrides = DailyAvailabilityOverride.objects.filter(date__gte=timezone.localdate()).select_related("staff").order_by("date")[:100]
+    overrides = DailyAvailabilityOverride.objects.filter(date__gte=clinic_localdate()).select_related("staff").order_by("date")[:100]
     return _private({
         "ok": True,
         "staff": [_staff_payload(item) for item in staff],
@@ -382,12 +375,12 @@ def appointment_action(request, appointment_id):
     service = Service.objects.filter(pk=data.get("service_id") or item.service_id).first()
     staff = StaffMember.objects.filter(pk=data.get("staff_id") or item.staff_id, active=True).first()
     customer = Customer.objects.filter(pk=data.get("customer_id") or item.customer_id).first()
-    starts_at = _local_dt(data.get("date") or timezone.localtime(item.starts_at).date().isoformat(), data.get("time") or timezone.localtime(item.starts_at).strftime("%H:%M"))
+    starts_at = parse_clinic_wall_time(data.get("date") or clinic_localtime(item.starts_at).date().isoformat(), data.get("time") or clinic_localtime(item.starts_at).strftime("%H:%M"))
     if not service or not staff or not customer or not starts_at or not _is_quarter(starts_at):
         return _private({"ok": False, "error": "invalid_appointment"}, 400)
     if not staff.services.filter(pk=service.pk).exists():
         return _private({"ok": False, "error": "service_not_assigned_to_staff"}, 409)
-    ends_at = starts_at + timedelta(minutes=service.duration_minutes + service.buffer_minutes)
+    ends_at = add_elapsed(starts_at, timedelta(minutes=service.duration_minutes + service.buffer_minutes))
     item.service = service
     item.staff = staff
     item.customer = customer
@@ -419,8 +412,8 @@ def block_action(request):
         BlockedPeriod.objects.filter(pk=data.get("id")).delete()
         return _private({"ok": True, "deleted": True})
     staff = StaffMember.objects.filter(pk=data.get("staff_id"), active=True).first()
-    starts_at = _local_dt(data.get("date"), data.get("start"))
-    ends_at = _local_dt(data.get("date"), data.get("end"))
+    starts_at = parse_clinic_wall_time(data.get("date"), data.get("start"))
+    ends_at = parse_clinic_wall_time(data.get("date"), data.get("end"))
     if not staff or not starts_at or not ends_at or ends_at <= starts_at or not _is_quarter(starts_at) or not _is_quarter(ends_at):
         return _private({"ok": False, "error": "invalid_block"}, 400)
     text = str(data.get("text") or ("Notiz" if data.get("kind") == "note" else "Gesperrt"))[:120]

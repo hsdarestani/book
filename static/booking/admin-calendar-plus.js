@@ -4,6 +4,9 @@
   const CAL_START = 10 * 60;
   const CAL_END = 20 * 60;
   const CAL_TOTAL = CAL_END - CAL_START;
+  const clinicDayFormat = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit',
+  });
   const dayCache = new Map();
   const pendingDays = new Map();
   let latestNavigationToken = 0;
@@ -21,31 +24,37 @@
   function parseIsoDate(value) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
     if (!match) return null;
-    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0, 0);
+    const day = new Date(`${match[0]}T12:00:00Z`);
+    return Number.isNaN(day.getTime()) ? null : day;
   }
 
   function isoDate(date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return date.toISOString().slice(0, 10);
+  }
+
+  function clinicToday() {
+    const parts = Object.fromEntries(clinicDayFormat.formatToParts(new Date()).map(part => [part.type, part.value]));
+    return parseIsoDate(`${parts.year}-${parts.month}-${parts.day}`);
   }
 
   function addDays(date, amount) {
     const next = new Date(date.getTime());
-    next.setDate(next.getDate() + amount);
+    next.setUTCDate(next.getUTCDate() + amount);
     return next;
   }
 
   function calendarDates() {
     const params = new URLSearchParams(window.location.search);
-    const selected = parseIsoDate(params.get('date')) || new Date();
+    const selected = parseIsoDate(params.get('date')) || clinicToday();
     const isWeek = (params.get('cal_view') || 'day') === 'week';
     if (!isWeek) return [isoDate(selected)];
-    const mondayOffset = (selected.getDay() + 6) % 7;
+    const mondayOffset = (selected.getUTCDay() + 6) % 7;
     const monday = addDays(selected, -mondayOffset);
     return Array.from({ length: 7 }, (_, index) => isoDate(addDays(monday, index)));
   }
 
   function currentCalendarDate() {
-    return calendarDates()[0] || isoDate(new Date());
+    return calendarDates()[0] || isoDate(clinicToday());
   }
 
   function selectedStaff() {
@@ -155,7 +164,7 @@
 
   function formatGermanDate(value) {
     const date = parseIsoDate(value);
-    return date ? new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date) : value;
+    return date ? new Intl.DateTimeFormat('de-DE', { timeZone: 'UTC', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date) : value;
   }
 
   function openAvailabilityEditor(data) {
@@ -377,10 +386,10 @@
     const date = parseIsoDate(dateValue);
     if (!date) return null;
     return {
-      title: new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date),
-      month: new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' }).format(date),
-      weekday: new Intl.DateTimeFormat('de-DE', { weekday: 'long' }).format(date),
-      shortDate: new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' }).format(date),
+      title: new Intl.DateTimeFormat('de-DE', { timeZone: 'UTC', weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(date),
+      month: new Intl.DateTimeFormat('de-DE', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(date),
+      weekday: new Intl.DateTimeFormat('de-DE', { timeZone: 'UTC', weekday: 'long' }).format(date),
+      shortDate: new Intl.DateTimeFormat('de-DE', { timeZone: 'UTC', day: '2-digit', month: '2-digit' }).format(date),
     };
   }
 

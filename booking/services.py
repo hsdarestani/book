@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from django.db import transaction
 from django.utils import timezone
+from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_wall_time
 from .models import Appointment, BlockedPeriod, DailyAvailabilityOverride, StaffMember, WorkingHour
 
 LEAD_TIME = timedelta(hours=1)
@@ -29,13 +30,12 @@ def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment
         return []
     if not staff.services.filter(pk=service.pk).exists():
         return []
-    today = timezone.localdate()
+    today = clinic_localdate()
     if day < today or day > today + timedelta(days=BOOKING_HORIZON_DAYS):
         return []
 
     duration = timedelta(minutes=service.duration_minutes + service.buffer_minutes)
-    tz = timezone.get_current_timezone()
-    day_start = timezone.make_aware(datetime.combine(day, datetime.min.time()), tz)
+    day_start = datetime.combine(day, datetime.min.time(), tzinfo=CLINIC_TZ)
     day_end = day_start + timedelta(days=1)
     now_with_lead = timezone.now() + LEAD_TIME
 
@@ -58,17 +58,27 @@ def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment
 
     slots = []
     ranges, _override = effective_working_ranges(staff, day)
+    step = timedelta(minutes=step_minutes)
     for start_time, end_time in ranges:
-        cursor = timezone.make_aware(datetime.combine(day, start_time), tz)
-        end_of_work = timezone.make_aware(datetime.combine(day, end_time), tz)
-        while cursor + duration <= end_of_work:
-            slot_end = cursor + duration
-            if cursor >= now_with_lead:
-                blocked = any(start < slot_end and end > cursor for start, end in blocked_periods)
-                conflict = any(start < slot_end and end > cursor for start, end in conflicts)
-                if not blocked and not conflict:
-                    slots.append(cursor)
-            cursor += timedelta(minutes=step_minutes)
+        cursor = datetime.combine(day, start_time)
+        wall_end = datetime.combine(day, end_time)
+        end_of_work = clinic_wall_time(wall_end)
+        if end_of_work is None:
+            continue
+        # Keep the slot grid aligned to the clinic clock and measure the
+        # reserve in elapsed minutes, including across offset changes.
+        while cursor < wall_end:
+            slot = clinic_wall_time(cursor)
+            cursor += step
+            if slot is None or slot < now_with_lead:
+                continue
+            slot_end = add_elapsed(slot, duration)
+            if slot_end > end_of_work:
+                break
+            blocked = any(start < slot_end and end > slot for start, end in blocked_periods)
+            conflict = any(start < slot_end and end > slot for start, end in conflicts)
+            if not blocked and not conflict:
+                slots.append(slot)
     return slots
 
 
@@ -83,7 +93,7 @@ def create_appointment(*, customer, service, staff, starts_at, message='', idemp
     duration = timedelta(minutes=service.duration_minutes + service.buffer_minutes)
     with transaction.atomic():
         locked_staff = StaffMember.objects.select_for_update().get(pk=staff.pk, active=True)
-        local_day = starts_at.astimezone(timezone.get_current_timezone()).date()
+        local_day = clinic_localdate(starts_at)
         if starts_at not in available_slots(service, locked_staff, local_day):
             raise ValueError('time_not_available')
         appointment = Appointment(
@@ -91,7 +101,7 @@ def create_appointment(*, customer, service, staff, starts_at, message='', idemp
             service=service,
             staff=locked_staff,
             starts_at=starts_at,
-            ends_at=starts_at + duration,
+            ends_at=add_elapsed(starts_at, duration),
             status='new' if service.requires_confirmation else 'confirmed',
             source=source,
             notes_customer=message[:3000],

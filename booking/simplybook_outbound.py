@@ -6,15 +6,15 @@ service mappings are accepted. The importer preserves the local UUID and key.
 import os
 import logging
 import re
-from zoneinfo import ZoneInfo
+from datetime import UTC
 from django.db import transaction
 from django.utils import timezone
+from .clinical_time import CLINIC_TZ, parse_appointment_start
 from .models import Appointment, SimplyBookClientLink
 from .customer_identity import normalize_name, normalize_email, normalize_phone
-from .management.commands.simplybook_import import rpc, LOGIN_URL, ADMIN_URL, parse_source_datetime, as_bool
+from .management.commands.simplybook_import import rpc, LOGIN_URL, ADMIN_URL, as_bool
 
 logger = logging.getLogger(__name__)
-CLINIC = ZoneInfo('Europe/Berlin')
 ARIANE = 'Frau Ariane Regaei'
 # Actual active, bookable Ariane catalog and source catalog verified live
 # 2026-11-26. Explicit IDs; never fuzzy-match medical services.
@@ -58,7 +58,8 @@ def session():
     return call
 
 def _dt(value):
-    return parse_source_datetime(value,CLINIC)
+    parsed = parse_appointment_start(value)
+    return parsed.astimezone(UTC) if parsed is not None else None
 
 def _contact_matches(row, customer):
     return (normalize_name(row.get('name')) == normalize_name(customer.full_name)
@@ -172,8 +173,8 @@ def _same_booking(row, item, event, client):
             and as_bool(row.get('is_confirmed',row.get('is_confirm'))))
 
 def _verify_availability(call,item,event,client):
-    day = item.starts_at.astimezone(CLINIC).date().isoformat()
-    end_day = item.ends_at.astimezone(CLINIC).date().isoformat()
+    day = item.starts_at.astimezone(CLINIC_TZ).date().isoformat()
+    end_day = item.ends_at.astimezone(CLINIC_TZ).date().isoformat()
     bookings=call('getBookings',[{'date_from':day,'date_to':end_day,'booking_type':'non_cancelled'}])
     if not isinstance(bookings,list):
         raise SyncConflict('unexpected_bookings_shape')
@@ -191,7 +192,7 @@ def _verify_availability(call,item,event,client):
             raise SyncConflict('source_booking_conflict')
     matrix=call('getStartTimeMatrix',[day,day,event,UNIT_ID,1])
     times=matrix.get(day) if isinstance(matrix,dict) else None
-    if not isinstance(times,list) or item.starts_at.astimezone(CLINIC).strftime('%H:%M') not in [str(t)[:5] for t in times]:
+    if not isinstance(times,list) or item.starts_at.astimezone(CLINIC_TZ).strftime('%H:%M') not in [str(t)[:5] for t in times]:
         raise SyncConflict('source_slot_unavailable')
     # Verify the entire local reserved duration, not just the remote service's
     # shorter default. The source admin booking also validates the supplied end.
@@ -238,8 +239,8 @@ def sync_existing(pk, *, apply=False, call=None):
         if previous:
             remote_id=previous
         else:
-            start=item.starts_at.astimezone(CLINIC)
-            end=item.ends_at.astimezone(CLINIC)
+            start=item.starts_at.astimezone(CLINIC_TZ)
+            end=item.ends_at.astimezone(CLINIC_TZ)
             result=call('book',[event,UNIT_ID,client,start.strftime('%Y-%m-%d'),start.strftime('%H:%M:%S'),
                                end.strftime('%Y-%m-%d'),end.strftime('%H:%M:%S'),0,additional,1])
             rows=result.get('bookings') if isinstance(result,dict) else None
