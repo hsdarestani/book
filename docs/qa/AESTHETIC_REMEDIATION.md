@@ -22,7 +22,7 @@ Updated 2026-11-26. There are 71 previously successful manual checklist items re
 | BUG-006 | Admin desktop viewport and content widths | TESTED | PR #118 fills the available shell at five Chromium widths. At 1920px the patient shell is 1668px wide after the sidebar. |
 | BUG-007 | Admin typography and spacing | IN_PROGRESS | Shared controls and heading typography improved in PR #118. Review remaining section-specific type and spacing. |
 | BUG-008 | Google Bewertungen navigation | TESTED | PR #118 removes reviews from navigation and preserves the protected direct route. |
-| BUG-009 | Admin Session errors in referrals and campaigns | TODO | Trace existing admin bridge and route-specific session failures. |
+| BUG-009 | Admin app session | TESTED | Book #124 distinguishes denied permissions from expired App sessions. A denied upstream request no longer clears the shared credential. Staging verification pending. |
 | BUG-010 | Intake identity matching | TESTED | Book #120 attaches one qualifying match across validated identity fields. Conflicting or ambiguous identities go to review. |
 | BUG-011 | Automatic transactional intake assignment and review | TESTED | Book #120 passed simultaneous PostgreSQL submissions with one patient and two signed records. Migration 0033 awaits release. |
 | BUG-012 | Searchable patient selection | IN PROGRESS | Book #120 adds intake review and GOÄ form search. The invoice search covers existing authorized selector options. Full-catalog and other assignment searches are pending. |
@@ -35,11 +35,11 @@ Updated 2026-11-26. There are 71 previously successful manual checklist items re
 | BUG-019 | Hide internal SimplyBook provider in clinical selectors | TESTED | PR #118 excludes the SimplyBook archive provider from ordinary choices while preserving the source record and imports. |
 | BUG-020 | Calendar controls on non-calendar admin pages | TESTED | PR #118 keeps calendar-only controls out of Settings. Real Chromium checked the Settings route. |
 | BUG-021 | Active sidebar state | IN_PROGRESS | PR #118 corrects tested Settings and forms navigation and uses accessible active states. Audit remaining subroutes. |
-| BUG-022 | Intermittent admin session/authentication issues | TODO | Audit cookies, redirects, authorization and session expiry across admin sections. |
+| BUG-022 | Referral activity | TESTED | Book #124 displays status, Berlin dates and remaining versus awarded points from the API. Staging verification pending. |
 | BUG-023 | Admin form controls and alignment | IN_PROGRESS | PR #118 applies shared form dimensions and focus styling. A broader form and table review remains. |
 | BUG-024 | Admin navigation and content organization | IN_PROGRESS | PR #118 groups patient work and separates campaigns, templates and Settings. Verify remaining entry points. |
 | BUG-025 | Settings and homepage image management | IN_PROGRESS | PR #118 verifies the homepage images layout and existing mobile scrolling. Further management UX remains. |
-| BUG-026 | Referrals information and points | TODO | Inventory referral status and points data already available to admins. |
+| BUG-026 | Campaign sessions and homepage content | IN PROGRESS | Book #124 improves the campaign authorization and retry state. Existing hero image regression passed. Remaining content-management acceptance is pending. |
 | BUG-027 | German copy, date formatting and responsive consistency | IN_PROGRESS | PR #118 unifies German page and navigation labels in tested routes. Date formats and other pages remain open. |
 | BUG-028 | Admin bell and communication QA | IN PROGRESS | Book #122 fixes and tests the signed patient-form inbox. Telephone, WhatsApp, template and reminder acceptance are pending. |
 | NATIVE | Existing Swift/Android admin functionality | IN_PROGRESS | Existing B65 candidate builds and native feature inventory are in the native tracker. Reconcile native and Book source candidates and run device acceptance. |
@@ -114,3 +114,8 @@ For TODO and IN_PROGRESS entries with no report below, root cause, relevant file
 
 - [Book #122](https://github.com/hsdarestani/book/pull/122) at `d4b680927de3e7e3478132f0fcb9e4e43923fe36`. The bell previously toggled browser permission and never opened an inbox. It now loads recent signed Office and Botox forms with unread counts, per-admin read state, a protected record link, and keyboard and touch dismissal. Existing optional desktop alerts retain generic content. The inbox shows up to 30 most recent records from the last 30 days.
 - Nine local targeted tests passed, including CSRF, read-only clinician isolation, per-admin read state and Chromium at 390 and 1366px. The five-viewport shared shell test also passed within those nine tests. The three existing hosted workflows passed. Apply the additive 0034 read-state migration in a scoped release. Synthetic telephone, WhatsApp, template and reminder acceptance remains open. No real messages were sent.
+
+### Referrals, campaigns and the native staff contract
+
+- [Book #124](https://github.com/hsdarestani/book/pull/124) at `3ea3e180d2461b91b6f0fe1a7ea0134bf2b9cd31`. An upstream 401 or 403 used to remove the shared A+ credential. Denied actions now preserve the current credential, expired sessions request explicit reconnection, and campaigns preserve access to local templates. Referrals distinguish pending and awarded points and display Berlin dates. Thirty-one focused tests and the three existing hosted regression workflows passed. Staged App reconnect with a synthetic staff session is still pending.
+- [Book native API #123](https://github.com/hsdarestani/book/pull/123) at `69116b985b5a78e1d7a7a6043649c772164059da` and [patient API #91](https://github.com/hsdarestani/a_esthetic/pull/91) at `d96472b1ec5da39dda009cb4b8aa37e99d290ff9` reconcile the existing native staff API. Book PostgreSQL tests passed 31/31. The patient API suite passed 142/142. The two-server loopback test confirmed bearer role isolation and 18:30/19:15/19:25 calendar data. The branches are staged as drafts and neither is live. See the [native tracker](https://github.com/hsdarestani/a_esthetic/blob/remediation/aesthetic-20261126/docs/qa/AESTHETIC_NATIVE_REMEDIATION.md) for the B66 build, staging and device gates.
