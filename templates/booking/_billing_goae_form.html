@@ -45,7 +45,7 @@
    <div class="mlr-details-inner">
     <div class="mlr-field-grid">
      <div>
-       <label>Patienten suchen <input type="search" placeholder="Name oder E-Mail" aria-controls="goaePatient" data-filter-patient-select="goaePatient" autocomplete="off"></label>
+       <label>Patienten suchen <input type="search" placeholder="Name oder E-Mail" aria-controls="goaePatient" data-filter-patient-select="goaePatient" data-patient-search-url="{% url 'booking:goae_patient_search' %}" maxlength="80" autocomplete="off"></label>
        <small data-patient-search-status="goaePatient" role="status"></small>
        <label>Patient <select name="customer_id" id="goaePatient" required><option value="">Patient auswählen</option>
        {% for patient in data.customers %}<option value="{{ patient.id }}" data-phone="{{ patient.phone }}">{{ patient.name }} · {{ patient.email }}</option>{% endfor %}
@@ -150,4 +150,4 @@
 </template>
 {{ goae_catalog|json_script:"goaeTariffCatalog" }}
 {{ goae_treatments|json_script:"goaeTreatmentMap" }}
-<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261125-goae-reference3" defer></script>
+<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261126-draft-retry" defer></script>
