@@ -1,0 +1,80 @@
+name: Guarded Book calendar acceptance release
+
+on:
+  push:
+    branches: [release/calendar-acceptance-runner-20261126]
+    paths: ['.github/workflows/book-calendar-acceptance.yml']
+
+permissions:
+  contents: read
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+
+env:
+  BOOK_BASELINE: 75cfb30ece27e6d33748c14e291adaa48cde5f1d
+  BOOK_TARGET: 6ff0fb7785de5e778206ccd3e0147ea1d82aa0bb
+  BOOK_TOOLS_REF: ${{ github.sha }}
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-24.04
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BOOK_TARGET }}
+          path: candidate
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: candidate/requirements.txt
+      - run: pip install -r candidate/requirements.txt playwright
+      - run: python -m playwright install --with-deps chromium
+      - name: Verify restorable checkout and the approved file list
+        run: |
+          bash scripts/test_book_phase_a_rollback.sh
+          git -C candidate fetch --no-tags origin "$BOOK_BASELINE"
+          git -C candidate diff --name-only "$BOOK_BASELINE" "$BOOK_TARGET" | cmp -s scripts/book_admin_web_scope.txt -
+          test ! -e candidate/static/booking/calendar-mobile-sticky-day-header-v1.css
+      - name: Verify schema, authenticated calendar and responsive admin routes
+        working-directory: candidate
+        env:
+          BOOK_QA_SCREENSHOTS: ${{ runner.temp }}/book-web-qa
+          DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,testserver,aesthetic-synthetic.test
+        run: |
+          python manage.py migrate --noinput --verbosity 0
+          python manage.py shell < ../scripts/check_admin_web_schema.py
+          python manage.py shell < ../scripts/book_phase_a_smoke.py
+          python manage.py test booking.test_populated_calendar_browser booking.test_calendar_four_views booking.test_iphone_calendar booking.test_management_mobile_browser.ManagementMobileBrowserTests.test_native_horizontal_swipe_on_week_provider_and_service_columns --noinput
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-book-populated-calendar-regression
+          path: ${{ runner.temp }}/book-web-qa
+          if-no-files-found: error
+
+  release:
+    needs: rehearse
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 15m
+          envs: BOOK_BASELINE,BOOK_TARGET,BOOK_TOOLS_REF
+          script: |
+            set -euo pipefail
+            app=/opt/aesthetic-book/app
+            git -C "$app" fetch --no-tags origin "$BOOK_TOOLS_REF" "$BOOK_TARGET"
+            tools="$(mktemp -d)"
+            trap 'rm -rf -- "$tools"' EXIT
+            for name in book_phase_a_release.sh book_admin_web_release.sh book_admin_web_scope.txt check_admin_web_schema.py book_phase_a_smoke.py; do
+              git -C "$app" show "$BOOK_TOOLS_REF:scripts/$name" > "$tools/$name"
+            done
+            bash "$tools/book_admin_web_release.sh" "$BOOK_BASELINE" "$BOOK_TARGET"

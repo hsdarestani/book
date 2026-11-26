@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 source "$(dirname "$0")/book_phase_a_release.sh"
-release_id=admin-web
+release_id=calendar-acceptance
 
 verify_release_scope() {
   printf '%s\n' "$1" | cmp -s "$tools_dir/book_admin_web_scope.txt" - ||
@@ -16,7 +16,7 @@ prepare_candidate() {
 
 check_live_calendar_asset() {
   local path
-  for path in clinic-web-polish-v2.css calendar-mobile-sticky-heading-v2.css; do
+  for path in clinic-premium-all-v2.css admin-calendar-horizontal-v2.css admin.js admin-ferrari-v17.js admin-calendar-plus.js admin-calendar-iphone-v1.js; do
     curl --compressed --silent --fail --max-time 10 \
       "https://book.a-esthetic.de/static/booking/$path?release=$target" |
       cmp -s "$app/static/booking/$path" - || return 1
