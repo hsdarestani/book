@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils.timezone import override
 
 from booking.clinical_time import parse_clinic_wall_time
-from booking.models import Appointment, BlockedPeriod, Customer, Service, StaffMember
+from booking.models import Appointment, BlockedPeriod, Customer, PatientRecord, Service, StaffMember
 
 tag = uuid4().hex
 day = date(2026, 12, 30)
@@ -57,6 +57,13 @@ with transaction.atomic():
         assert b'data-calendar-start="18:30"' in week.content
         assert week.content.count(b'class="sb-time-axis"') == 1
         assert b' id="calendar-view-menu"' in week.content
+        notice = PatientRecord.objects.create(customer=patient, kind='form', source='office_intake',
+                                              title='Synthetic release inbox fixture')
+        inbox_path = reverse('booking:notification_inbox')
+        inbox = client.get(inbox_path, secure=True)
+        assert inbox.status_code == 200
+        assert any(row['id'] == str(notice.public_id) and not row['read'] for row in inbox.json()['events'])
+        assert client.post(inbox_path, {'record': str(notice.public_id)}, secure=True).status_code == 200
     finally:
         transaction.set_rollback(True)
 assert not Customer.objects.filter(email=f"{tag}@example.invalid").exists()

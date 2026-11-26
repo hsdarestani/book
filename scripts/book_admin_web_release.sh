@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 source "$(dirname "$0")/book_phase_a_release.sh"
-release_id=calendar-acceptance
+release_id=admin-batch
 
 verify_release_scope() {
   printf '%s\n' "$1" | cmp -s "$tools_dir/book_admin_web_scope.txt" - ||
@@ -11,12 +11,13 @@ verify_release_scope() {
 prepare_candidate() {
   django_at "$stage" check || return 1
   django_at "$stage" shell < "$tools_dir/check_admin_web_schema.py" || return 1
+  django_at "$stage" migrate booking 0034_patient_form_notification_read --noinput || return 1
   django_at "$stage" shell < "$tools_dir/book_phase_a_smoke.py"
 }
 
 check_live_calendar_asset() {
   local path
-  for path in clinic-premium-all-v2.css admin-calendar-horizontal-v2.css admin.js admin-ferrari-v17.js admin-calendar-plus.js admin-calendar-iphone-v1.js; do
+  for path in admin-calendar-horizontal-v2.css clinic-desktop-notifications-v1.js clinic-notification-inbox.css patient-select-filter.js; do
     curl --compressed --silent --fail --max-time 10 \
       "https://book.a-esthetic.de/static/booking/$path?release=$target" |
       cmp -s "$app/static/booking/$path" - || return 1
