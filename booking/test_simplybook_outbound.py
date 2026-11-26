@@ -4,7 +4,7 @@ from unittest.mock import Mock
 from django.test import TestCase
 from django.utils import timezone
 from booking.models import Appointment, Customer, Service, StaffMember
-from booking.simplybook_outbound import sync_existing, SyncConflict, SERVICE_MAP, _verify_catalog, _additional_answers
+from booking.simplybook_outbound import reconcile_existing, sync_existing, SyncConflict, SERVICE_MAP, _verify_catalog, _additional_answers
 
 class SimplyBookOutboundPilotTests(TestCase):
     def setUp(self):
@@ -98,3 +98,51 @@ class SimplyBookOutboundPilotTests(TestCase):
         self.responses['isPluginActivated']=True
         self.responses['getAdditionalFields']=[{'name':'referral-id','title':'Wie bist du auf uns aufmerksam geworden?','values':'Google,Sonstiges'}]
         self.assertEqual(_additional_answers(self.call,self.item,5),{'referral-id':''})
+
+    def quarantine_booking(self):
+        self.item.simplybook_sync_state = 'review'
+        self.item.simplybook_client_id = '31'
+        self.item.simplybook_event_id = '5'
+        self.item.save(update_fields=['simplybook_sync_state','simplybook_client_id','simplybook_event_id'])
+
+    def test_reconciliation_leaves_no_match_in_review(self):
+        self.quarantine_booking()
+        self.assertEqual(reconcile_existing(self.item.pk, apply=True, call=self.call),
+                         {'result': 'no_confirmed_remote_booking'})
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.simplybook_sync_state, 'review')
+        self.assertIsNone(self.item.simplybook_booking_id)
+        self.assertFalse({'book', 'addClient', 'editBook', 'cancelBooking'} &
+                         {call.args[0] for call in self.call.call_args_list})
+
+    def test_reconciliation_validates_and_links_exact_match_once_without_remote_write(self):
+        self.quarantine_booking()
+        self.responses['getBookings'] = [self.detail]
+        self.assertEqual(reconcile_existing(self.item.pk, call=self.call), {'result': 'confirmed_remote_booking'})
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.simplybook_sync_state, 'review')
+        self.assertEqual(reconcile_existing(self.item.pk, apply=True, call=self.call),
+                         {'result': 'linked', 'source_booking_id': '92'})
+        self.assertEqual(reconcile_existing(self.item.pk, apply=True, call=self.call), {'result': 'already_linked'})
+        self.assertFalse({'book', 'addClient', 'editBook', 'cancelBooking'} &
+                         {call.args[0] for call in self.call.call_args_list})
+
+    def test_reconciliation_refuses_ambiguous_remote_bookings(self):
+        self.quarantine_booking()
+        self.responses['getBookings'] = [self.detail, {**self.detail, 'id': '93'}]
+        with self.assertRaisesRegex(SyncConflict, 'duplicate_source_bookings'):
+            reconcile_existing(self.item.pk, apply=True, call=self.call)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.simplybook_sync_state, 'review')
+
+    def test_legacy_web_false_cannot_supply_required_answer(self):
+        self.item.source = 'web'
+        self.item.save(update_fields=['source'])
+        self.responses['isPluginActivated'] = True
+        self.responses['getAdditionalFields'] = [
+            {'name': 'returning-id', 'title': 'Warst du schon einmal bei uns?',
+             'values': 'Ja,Nein', 'required': True},
+        ]
+        with self.assertRaisesRegex(SyncConflict, 'source_additional_answer_required'):
+            sync_existing(self.item.pk, apply=True, call=self.call)
+        self.assertNotIn('book', [call.args[0] for call in self.call.call_args_list])

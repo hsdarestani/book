@@ -215,7 +215,7 @@ def _polish_admin_response(
     staff_value = str(selected_staff_id or '')
 
     services_qs = Service.objects.filter(active=True)
-    staff_qs = StaffMember.objects.filter(active=True)
+    staff_qs = StaffMember.clinical_choices().filter(active=True)
     customer_qs = Customer.objects.all()
     if doctor_staff_id is not None:
         services_qs = services_qs.filter(staff_members__pk=doctor_staff_id)
@@ -550,7 +550,7 @@ def _polish_admin_response(
 @staff_member_required(login_url='/verwaltung/login/')
 @require_http_methods(['GET', 'POST'])
 def dashboard_proxy(request):
-    staff_qs = StaffMember.objects.filter(active=True).order_by('sort_order', 'display_name')
+    staff_qs = StaffMember.clinical_choices().filter(active=True).order_by('sort_order', 'display_name')
     selected_id = request.POST.get('staff_id') or request.GET.get('staff')
     selected_staff = staff_qs.filter(pk=selected_id).first() if selected_id else staff_qs.first()
     action = request.POST.get('action') if request.method == 'POST' else None

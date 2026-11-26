@@ -74,3 +74,14 @@ class AppAdminApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.service.refresh_from_db()
         self.assertFalse(self.service.bookable)
+
+    def test_external_archive_provider_is_not_a_clinical_choice(self):
+        archived = StaffMember.objects.create(display_name='A+ Esthetic (SimplyBook #2)', active=True)
+        for path in ('/api/mobile/app-admin/calendar/', '/api/mobile/app-admin/settings/'):
+            with self.subTest(path=path):
+                response = self.client.get(path, **self.headers)
+                self.assertEqual(response.status_code, 200)
+                ids = {row['id'] for row in response.json()['staff']}
+                self.assertIn(self.staff.pk, ids)
+                self.assertNotIn(archived.pk, ids)
+        self.assertTrue(StaffMember.objects.filter(pk=archived.pk, active=True).exists())

@@ -217,7 +217,7 @@ def overview(request):
             "new_today": today_qs.filter(status="new").count(),
             "customers": Customer.objects.count(),
             "active_services": Service.objects.filter(active=True).count(),
-            "active_staff": StaffMember.objects.filter(active=True).count(),
+            "active_staff": StaffMember.clinical_choices().filter(active=True).count(),
         },
         "upcoming": [_appointment_payload(item) for item in upcoming],
     })
@@ -230,7 +230,7 @@ def calendar(request):
     if error:
         return error
     day = parse_date(request.GET.get("date") or "") or clinic_localdate()
-    staff_qs = StaffMember.objects.filter(active=True).order_by("sort_order", "display_name")
+    staff_qs = StaffMember.clinical_choices().filter(active=True).order_by("sort_order", "display_name")
     staff = staff_qs.filter(pk=request.GET.get("staff")).first() if request.GET.get("staff") else staff_qs.first()
     if not staff:
         return _private({"ok": True, "date": day.isoformat(), "staff": [], "appointments": [], "blocks": [], "ranges": []})
@@ -329,8 +329,8 @@ def settings(request):
     admin, error = _require_admin(request)
     if error:
         return error
-    staff = StaffMember.objects.order_by("sort_order", "display_name")
-    overrides = DailyAvailabilityOverride.objects.filter(date__gte=clinic_localdate()).select_related("staff").order_by("date")[:100]
+    staff = StaffMember.clinical_choices().order_by("sort_order", "display_name")
+    overrides = DailyAvailabilityOverride.objects.filter(staff__in=staff, date__gte=clinic_localdate()).select_related("staff").order_by("date")[:100]
     return _private({
         "ok": True,
         "staff": [_staff_payload(item) for item in staff],
@@ -427,7 +427,7 @@ def block_action(request):
     if action == "delete":
         BlockedPeriod.objects.filter(pk=data.get("id")).delete()
         return _private({"ok": True, "deleted": True})
-    staff = StaffMember.objects.filter(pk=data.get("staff_id"), active=True).first()
+    staff = StaffMember.clinical_choices().filter(pk=data.get("staff_id"), active=True).first()
     starts_at = parse_clinic_wall_time(data.get("date"), data.get("start"))
     ends_at = parse_clinic_wall_time(data.get("date"), data.get("end"))
     if not staff or not starts_at or not ends_at or ends_at <= starts_at or not _is_quarter(starts_at) or not _is_quarter(ends_at):
@@ -475,7 +475,7 @@ def day_override_action(request):
     if error:
         return error
     data = _json(request)
-    staff = StaffMember.objects.filter(pk=data.get("staff_id"), active=True).first()
+    staff = StaffMember.clinical_choices().filter(pk=data.get("staff_id"), active=True).first()
     day = parse_date(str(data.get("date") or ""))
     if not staff or not day:
         return _private({"ok": False, "error": "invalid_override"}, 400)
