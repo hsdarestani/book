@@ -88,7 +88,8 @@ class PremiumManagementDesignTests(SimpleTestCase):
         for filename in paths:
             with self.subTest(template=filename):
                 src = get_template(f"booking/{filename}").template.source
-                expected = "clinic-premium-all-v2.css?v=20261126-shell1"
+                version = 'calendar-acceptance1' if filename == 'dashboard.html' else 'shell1'
+                expected = f"clinic-premium-all-v2.css?v=20261126-{version}"
                 self.assertIn(expected, src)
 
     def test_desktop_workspace_has_single_brand_and_legible_hero(self):
@@ -101,7 +102,8 @@ class PremiumManagementDesignTests(SimpleTestCase):
         self.assertIn("display:none!important", css)
         self.assertIn(".premium-welcome h1", css)
         self.assertIn("color:#fffaf0!important", css)
-        self.assertIn(".sb-calendar-block.is-blocked", css)
+        self.assertIn(".sb-calendar-block:not(.is-note)", css)
+        self.assertIn("background: #ffe3ad !important", css)
 
     def test_invoice_workflow_is_goae_only_without_unrelated_forms(self):
         source = get_template("booking/app_management.html").template.source
