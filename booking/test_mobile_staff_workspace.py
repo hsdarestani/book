@@ -197,6 +197,25 @@ class WorkspaceTests(TestCase):
             self.assertIsNotNone(MobileStaffCancellation.objects.get().completed_at)
             self.assertEqual(relay.call_count,2)
 
+    def test_manual_app_reminder_is_scoped_and_idempotent(self):
+        self.identity['role'] = 'doctor'
+        key = str(uuid4())
+        with patch('booking.mobile_staff_api.notify_manual_app_reminder', return_value={'ok': True, 'notifications': 1}) as notify:
+            self.assertEqual(self.post('appointment-reminder', id=self.foreign.pk).status_code, 404)
+            self.assertEqual(self.post('appointment-reminder', id=self.own.pk, key=key).status_code, 200)
+            replay = self.post('appointment-reminder', id=self.own.pk, key=key)
+            self.assertEqual(replay.status_code, 200)
+            self.assertTrue(replay.json()['replayed'])
+            notify.assert_called_once()
+
+    def test_uncertain_reminder_is_quarantined_even_with_new_key(self):
+        key = str(uuid4())
+        with patch('booking.mobile_staff_api.notify_manual_app_reminder', side_effect=TimeoutError) as notify:
+            self.assertEqual(self.post('appointment-reminder', id=self.own.pk, key=key).status_code, 409)
+            self.assertEqual(self.post('appointment-reminder', id=self.own.pk, key=key).status_code, 409)
+            self.assertEqual(self.post('appointment-reminder', id=self.own.pk).status_code, 409)
+            notify.assert_called_once()
+
     def test_external_source_blocks_and_appointments_are_read_only(self):
         from .management.commands.sync_simplybook_notes import _marker
         from .models import MobileStaffCommand
