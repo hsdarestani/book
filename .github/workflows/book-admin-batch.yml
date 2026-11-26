@@ -45,6 +45,7 @@ jobs:
         env:
           DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,testserver,aesthetic-synthetic.test
         run: |
+          python manage.py migrate --noinput --verbosity 0
           python manage.py migrate booking 0032_appointment_treatment_duration --noinput --verbosity 0
           python manage.py shell < ../scripts/check_admin_web_schema.py
           python manage.py migrate booking 0034_patient_form_notification_read --noinput --verbosity 0
