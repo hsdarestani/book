@@ -81,8 +81,8 @@ def _get_client(call, customer, *, apply):
     elif not apply:
         return None
     else:
-        cid = int(call('addClient',[{'name':customer.full_name,'email':customer.email,'phone':customer.phone}]))
-    remote = call('getClient',[cid])
+        cid = int(call('addClient',[{'name':customer.full_name,'email':customer.email,'phone':customer.phone,'is_email_unsubscribed':True,'is_sms_unsubscribed':True},False]))
+    remote = call('getClientInfo',[cid])
     if not isinstance(remote,dict) or not _contact_matches(remote,customer):
         raise SyncConflict('source_client_readback_failed')
     if links and links[0].external_client_id != str(cid):

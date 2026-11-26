@@ -22,7 +22,7 @@ class SimplyBookOutboundPilotTests(TestCase):
         self.responses={'getCompanyTimezoneOffset':{'timezone':'Europe/Berlin'},
             'getUnitList':[{'id':'2','is_active':'1'}],
             'getEventList':[{'id':'5','name':'Dauerhafte Haarentfernung  (Alexandrit - Nd:YAG)','is_active':'1'}],
-            'getClientList':[self.contact],'getClient':self.contact,
+            'getClientList':[self.contact],'getClientInfo':self.contact,
             'getBookings':[],'getStartTimeMatrix':{self.day:['16:00:00']},
             'getReservedTimeIntervals':{self.day:[]},'book':{'require_confirm':False,'bookings':[self.detail]},
             'getBookingDetails':self.detail}
