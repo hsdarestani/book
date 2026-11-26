@@ -23,6 +23,20 @@ jobs:
             git status --short --untracked-files=no
             echo "untracked_paths=$(git ls-files --others --exclude-standard | wc -l)"
             echo "untracked_calendar_or_migrations=$(git ls-files --others --exclude-standard -- booking/migrations static/booking templates/booking | wc -l)"
+            for asset in calendar-mobile-sticky-day-header-v1.css calendar-sunday-closed-v1.css calendar-week-strip-swipe-v1.js; do
+              path="static/booking/$asset"
+              if git ls-files --others --exclude-standard -- "$path" | grep -Fxq "$path"; then
+                echo "confirmed_host_only_calendar_asset=$asset"
+              fi
+            done
+            for pattern in /opt/aesthetic-book/*backup* /opt/aesthetic-book/rollbacks/* /root/aesthetic-book-backups/*; do
+              if test -d "$pattern"; then
+                echo "rollback_directory_detected=true"
+                break
+              fi
+            done
+            curl -fsS --max-time 15 http://127.0.0.1:8017/api/health/ >/dev/null
+            echo 'local_book_health=ok'
             for service in aesthetic-book.service aesthetic-book-reminders.timer; do
               echo "$service=$(systemctl is-active "$service" || true)"
             done
