@@ -407,7 +407,9 @@ class CommandConflict(ValueError):
 
 def _notify(callback, *args):
     try:
-        callback(*args)
+        result = callback(*args)
+        if isinstance(result, dict) and not result.get('ok', False):
+            logger.warning('Mobile staff appointment notification relay unsuccessful: appointment=%s callback=%s', args[0].pk, callback.__name__)
     except Exception:
         logger.exception('Mobile staff appointment notification failed: appointment=%s', args[0].pk)
 
