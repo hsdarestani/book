@@ -18,8 +18,10 @@ jobs:
           command_timeout: 5m
           script: |
             set -euo pipefail
+            test -r /etc/aesthetic-simplybook-credentials.env
+            source /etc/aesthetic-simplybook-credentials.env
             cd /opt/aesthetic-book/app
-            runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; cd /opt/aesthetic-book/app; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            runuser -u aestheticbook --preserve-environment -- bash -c 'set -ae; source /etc/aesthetic-book.env; cd /opt/aesthetic-book/app; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
             import logging
             from booking.models import Appointment
             from booking.clinical_time import parse_clinic_wall_time
