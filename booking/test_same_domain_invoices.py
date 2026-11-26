@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.template.loader import get_template
 
-from .models import Customer
+from .models import AdminAccessProfile, Customer
 
 
 @override_settings(STORAGES={"staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
@@ -86,6 +86,22 @@ class SameDomainInvoicesTests(TestCase):
         self.assertEqual(response.json(), {"ok": True, "location": self.url + "?notice=goae_draft"})
         self.assertEqual([entry.args[1] for entry in bridge.call_args_list], ["draft", "draft"])
         self.assertEqual([entry.kwargs["payload"]["draft_request_id"] for entry in bridge.call_args_list], [key, key])
+
+    @patch("booking.goae_quote_views._request_bridge")
+    def test_patient_search_requires_billing_scope_and_uses_private_post(self, bridge):
+        url = '/verwaltung/api/goae-patient-search/'
+        payload = {'query': 'Synthetic Patient'}
+        self.assertEqual(self.client.post(url, payload, content_type='application/json').status_code, 302)
+        self.client.force_login(self.staff)
+        bridge.return_value = {'ok': True, 'patients': []}
+        reply = self.client.post(url, payload, content_type='application/json')
+        self.assertEqual(reply.status_code, 200)
+        self.assertIn('no-store', reply['Cache-Control'])
+        self.assertEqual(bridge.call_args.args[1], 'patient-search')
+        self.assertEqual(bridge.call_args.kwargs, {'method': 'POST', 'payload': payload})
+        AdminAccessProfile.objects.create(user=self.staff, view_only=True)
+        self.assertEqual(self.client.post(url, payload, content_type='application/json').status_code, 403)
+        bridge.assert_called_once()
 
     @patch("booking.invoice_bridge._request_bridge", return_value=b"%PDF-1.4\nTEST")
     def test_invoice_pdf_stays_authenticated_on_booking(self, bridge):

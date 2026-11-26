@@ -22,6 +22,7 @@ urlpatterns = [
     path('verwaltung/app/<slug:section>/', app_management_views.app_management, name='app_management'),
     path('verwaltung/api/patient-form-notifications/', desktop_notifications.new_patient_forms, name='patient_form_notifications'),
     path('verwaltung/api/goae-quote/', goae_quote_views.goae_quote, name='goae_quote'),
+    path('verwaltung/api/goae-patient-search/', goae_quote_views.goae_patient_search, name='goae_patient_search'),
     path('verwaltung/app/invoices/<int:invoice_id>/pdf/', invoice_bridge.invoice_pdf, name='billing_invoice_pdf'),
     path('verwaltung/api/day-availability/', calendar_admin_api.day_availability, name='admin_day_availability'),
     path('verwaltung/api/calendar-day/', calendar_admin_api.calendar_day, name='admin_calendar_day'),

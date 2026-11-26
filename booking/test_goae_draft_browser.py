@@ -31,6 +31,8 @@ class GoaeDraftBrowserTests(StaticLiveServerTestCase):
             if request.url == self.live_server_url + quote_path and request.method == 'POST':
                 quotes.append(request.post_data)
                 route.fulfill(json={'ok': True, 'total_cents': 26000, 'tax_cents': 0, 'items': []})
+            elif request.url == self.live_server_url + '/verwaltung/api/goae-patient-search/':
+                route.fulfill(json={'ok': True, 'patients': [{'id': 84, 'name': 'Remote Synthetic'}]})
             elif request.url == self.live_server_url + path and request.method == 'POST':
                 requests.append(request.post_data)
                 if len(requests) == 1:
@@ -52,7 +54,9 @@ class GoaeDraftBrowserTests(StaticLiveServerTestCase):
             page = context.new_page()
             page.goto(self.live_server_url + path, wait_until='load')
             page.locator('[data-mlr-details]').evaluate('(details) => { details.open = true }')
-            page.locator('#goaePatient').select_option('42')
+            page.locator('[data-filter-patient-select=goaePatient]').fill('Synthetic Remote')
+            expect(page.locator('[data-patient-search-status=goaePatient]')).to_contain_text('1 passende Patienten')
+            page.locator('#goaePatient').select_option('84')
             page.locator('[data-material]').fill('0,00')
             for item in page.locator('[data-g="clinical_confirmed"]').all():
                 item.check()
