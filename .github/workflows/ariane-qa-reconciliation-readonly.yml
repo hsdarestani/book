@@ -38,6 +38,10 @@ jobs:
             item=rows[0]
             print("QA_LOCAL_STATE",item.simplybook_sync_state,"remote_id_present",bool(item.simplybook_booking_id),"remote_client_present",bool(item.simplybook_client_id))
             call=session()
+            for event in (2,3,4,5,6,8,9,10,11):
+                fields=call("getAdditionalFields",[event])
+                print("QA_FIELD_CATALOG",event,[{k:r.get(k) for k in ("name","title","type","values","default","required","is_required","is_mandatory","mandatory")} for r in fields if isinstance(r,dict)])
+            print("QA_LOCAL_ANSWERS","returning",item.returning_customer,"referral_source_configured",bool(item.referral_source),"referral_source",item.referral_source if item.referral_source in {"Google","Instagram","Facebook","Empfehlung","Sonstiges","Website","google","instagram","facebook","recommendation","other","website","tiktok","TikTok"} else "unmapped")
             for method,params in [("getTimeframe",[]),("isPluginActivated",["location"]),("isPluginActivated",["event_field"]),("getAdditionalFields",[5]),("getLocationsList",[False])]:
                 try:
                     value=call(method,params)
