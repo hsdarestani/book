@@ -10,8 +10,18 @@
   const savedRequests = new Map();
   let revision = 0;
 
+  function showError(field, message) {
+    status.textContent = message;
+    if (!field) return;
+    field.closest('details')?.setAttribute('open', '');
+    field.setAttribute('aria-invalid', 'true');
+    field.scrollIntoView({block: 'center'});
+    field.focus({preventScroll: true});
+  }
+
   function invalidate() {
     revision += 1;
+    form.querySelectorAll('[aria-invalid]').forEach(field => field.removeAttribute('aria-invalid'));
     results.hidden = true;
     link.hidden = true;
     status.textContent = '';
@@ -24,6 +34,10 @@
   }
 
   function show(data, desired) {
+    if (data.requires_approval) {
+      status.textContent = 'Unvollständiger Entwurf gespeichert. Behandlungsvorlage benötigt Freigabe.';
+      return;
+    }
     results.hidden = false;
     results.querySelector('[data-quick-total]').textContent = euro.format(data.total_cents / 100);
     const list = results.querySelector('[data-quick-lines]');
@@ -35,20 +49,25 @@
     });
     list.replaceChildren(...positions);
     list.hidden = !positions.length;
-    const difference = data.total_cents === desired ? '' :
+    const difference = desired === null || data.total_cents === desired ? '' :
       ' Der Vorlagenbetrag weicht vom Wunschbetrag ' + euro.format(desired / 100) + ' ab.';
     status.textContent = (data.invoice_id ? 'Entwurf gespeichert.' : 'Vorlagenbetrag berechnet.') + difference;
   }
 
   async function run(operation) {
-    if (submit.disabled || !form.reportValidity()) return;
+    if (submit.disabled) return;
+    const invalid = [...form.elements].find(field => field.willValidate && !field.validity.valid);
+    if (invalid) return showError(invalid, invalid.validationMessage);
     const fields = new FormData(form);
-    const desired = desiredCents(fields.get('desired'));
-    if (desired === null || desired > 100000000) {
-      status.textContent = 'Bitte einen gültigen Betrag mit höchstens zwei Nachkommastellen eingeben.';
-      return;
+    const amount = fields.get('desired').trim();
+    const desired = amount ? desiredCents(amount) : null;
+    if (amount && (desired === null || desired > 100000000)) {
+      return showError(form.elements.desired, 'Bitte einen gültigen Betrag mit höchstens zwei Nachkommastellen eingeben.');
     }
     const treatment = form.elements.treatment.selectedOptions[0];
+    if (operation === 'quote' && !treatment.dataset.version) {
+      return showError(form.elements.treatment, 'Diese Behandlung benötigt eine freigegebene GOÄ-Vorlage. Ein unvollständiger Entwurf kann gespeichert werden.');
+    }
     const data = {
       customer_id: fields.get('customer_id'),
       service_date: fields.get('service_date'),
@@ -97,6 +116,7 @@
     }
   }
 
+  form.noValidate = true;
   form.addEventListener('change', invalidate);
   form.addEventListener('input', invalidate);
   quote.addEventListener('click', () => run('quote'));

@@ -44,10 +44,20 @@ const materialNames={botox:'Botulinumtoxin',hyaluron:'Hyaluronsäurefiller',prp:
 function readMaterials(){
  const meta=treatmentLabels[sel.treatment],raw=$('[data-material]').value.trim();
  const primary={description:$('[data-material-description]').value.trim(),qty:Number($('[data-material-qty]').value),cost:raw?parseCents(raw):meta.cost,receipt:$('[data-material-receipt]').value.trim(),confirmed:$('[data-material-confirm]').checked,example:!raw};
- const extra=$$('[data-extra-material]').map(row=>({description:row.querySelector('[data-m-description]').value.trim(),qty:Number(row.querySelector('[data-m-qty]').value),cost:parseCents(row.querySelector('[data-m-cost]').value),receipt:row.querySelector('[data-m-receipt]').value.trim(),confirmed:row.querySelector('[data-m-confirm]').checked,example:false}));
+ const extra=$$('[data-extra-material]').map(row=>({row,description:row.querySelector('[data-m-description]').value.trim(),qty:Number(row.querySelector('[data-m-qty]').value),cost:parseCents(row.querySelector('[data-m-cost]').value),receipt:row.querySelector('[data-m-receipt]').value.trim(),confirmed:row.querySelector('[data-m-confirm]').checked,example:false}));
  const rows=[primary,...extra.filter(m=>m.description||m.cost!==null||m.receipt)];
- const invalid=rows.some((m,i)=>m.cost===null||!Number.isInteger(m.qty)||m.qty<1||m.qty>20||m.cost<0||m.cost>50000||(i>0&&(!m.description||m.cost<100))||(i===0&&sel.treatment==='botox'&&m.cost>0&&(m.cost<2000||m.cost>20000)));
+ const invalid=rows.some((m,i)=>m.cost!==0&&(m.cost===null||!Number.isInteger(m.qty)||m.qty<1||m.qty>20||m.cost<0||m.cost>50000||(i>0&&(!m.description||m.cost<100))||(i===0&&sel.treatment==='botox'&&m.cost>0&&(m.cost<2000||m.cost>20000))));
  return {rows,invalid,total:rows.reduce((sum,m)=>sum+(m.cost??0)*m.qty,0),example:primary.example};
+}
+function showLineError(result){
+ details.open=true;
+ setMessage(result.error);
+ if(result.field){
+  result.field.setAttribute('aria-invalid','true');
+  result.field.addEventListener('input',()=>result.field.removeAttribute('aria-invalid'),{once:true});
+  result.field.scrollIntoView({block:'center'});
+  result.field.focus({preventScroll:true});
+ }
 }
 function linesForServer(){
  const lines=$$('.mlr-line').map(rowData), vat=$('[data-vat]').value;
@@ -56,9 +66,12 @@ function linesForServer(){
  const materials=readMaterials();
  if(materials.invalid)return {error:'Material: Bezeichnung, Anzahl und Nettopreis prüfen.'};
  if(materials.example)return {error:'Tatsächlichen Materialwert eingeben (0,00 falls keine Auslage).'};
- for(const m of materials.rows){
+ for(const [index,m] of materials.rows.entries()){
   if(m.cost===0)continue;
-  if(!m.confirmed||m.description.length<4||!m.receipt)return {error:'Jede tatsächliche Auslage mit Beleg und Berechnungsfähigkeit bestätigen.'};
+  const control=(primary,extra)=>index ? m.row.querySelector(extra) : $(primary);
+  if(m.description.length<4)return {error:'Bitte die Auslage bezeichnen.',field:control('[data-material-description]','[data-m-description]')};
+  if(!m.receipt)return {error:'Bitte den Beleg zur tatsächlichen Auslage angeben.',field:control('[data-material-receipt]','[data-m-receipt]')};
+  if(!m.confirmed)return {error:'Bitte die Berechnungsfähigkeit der tatsächlichen Auslage bestätigen.',field:control('[data-material-confirm]','[data-m-confirm]')};
   lines.push({kind:'material',goae_description:m.description,goae_base_eur:(m.cost/100).toFixed(2),quantity:String(m.qty),goae_vat_rate:vat,material_receipt_reference:m.receipt,material_eligible:true});
  }
  if(vat==='0'&&!diagnosisText())return {error:'Bei medizinischer Abrechnung die dokumentierte Diagnose angeben.'};
@@ -420,7 +433,7 @@ async function verify(){
  if(!$('#goaePatient').value){setMessage('Patient auswählen.');details.open=true;$('#goaePatient').focus();return false;}
  const date=toISO($('#goaeDateGerman').value);$('#goaeDateIso').value=date;
  if(!date){setMessage('Leistungsdatum bitte als TT.MM.JJJJ eingeben.');details.open=true;$('#goaeDateGerman').focus();return false;}
- const source=linesForServer();if(source.error){setMessage(source.error);details.open=true;return false;}
+ const source=linesForServer();if(source.error){showLineError(source);return false;}
  if(!$('[data-material]').value.trim()){setMessage('Tatsächlichen Materialwert eingeben (0,00 falls keine Auslage).');details.open=true;return false;}
  if(!source.lines.length){setMessage('Mindestens eine tatsächlich erbrachte Leistung wählen.');return false;}
  const sig=JSON.stringify(source.lines), patientId=$('#goaePatient').value, revision=sel.revision;
@@ -505,7 +518,7 @@ exportButton.addEventListener('click',async()=>{
  if(sel.working||sel.quoting)return;
  clearTimeout(quoteTimer);sel.working=true;setBusy();
  try{
-  const result=linesForServer();if(result.error){setMessage(result.error);details.open=true;return;}
+  const result=linesForServer();if(result.error){showLineError(result);return;}
   const sig=JSON.stringify(result.lines||[]);
   if(!sel.verified||sel.verifiedHash!==sig||(!sel.manual&&sel.verified.total!==targetOrZero())){
    if(!await verify())return;
@@ -534,7 +547,7 @@ form.addEventListener('submit',async ev=>{
  setBusy();
  try{
   const data=linesForServer();
-  if(data.error){setMessage(data.error);details.open=true;return;}
+  if(data.error){showLineError(data);return;}
   const sig=JSON.stringify(data.lines||[]);
   if(!sel.verified||sel.verifiedHash!==sig||(!sel.manual&&sel.verified.total!==targetOrZero())){
    details.open=true;

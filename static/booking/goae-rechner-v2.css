@@ -68,3 +68,5 @@
 .mlr-feedback{font-size:14px;line-height:1.5}
 .mlr-paper{max-width:900px}.mlr-preview-table{font-size:12px}
 @media(max-width:530px){.mlr-treatments{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.mlr-treatment{padding:10px 7px;align-items:flex-start;min-height:95px;gap:6px}.mlr-treatment b{font-size:14px}.mlr-treatment small{font-size:12px}.mlr-treat-icon{width:25px;height:25px}.mlr-preview-table{font-size:10px}}
+
+.mlr [aria-invalid="true"]{outline:2px solid #a3282f;outline-offset:2px}

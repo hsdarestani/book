@@ -26,7 +26,7 @@ class SimplyBookOutboundPilotTests(TestCase):
             'isPluginActivated':False,'getAdditionalFields':[],
             'getBookings':[],'getStartTimeMatrix':{self.day:['16:00:00']},
             'getReservedTimeIntervals':{self.day:[]},'book':{'require_confirm':False,'bookings':[self.detail]},
-            'getBookingDetails':self.detail}
+            'getBookingDetails':self.detail, 'calculateEndTime':self.day+' 16:55:00'}
         self.call=Mock(side_effect=lambda m,p:self.responses[m])
     def test_dry_run_never_mutates(self):
         self.assertEqual(sync_existing(self.item.pk,call=self.call)['result'],'preflight_ok')
@@ -198,3 +198,32 @@ class SimplyBookOutboundPilotTests(TestCase):
         self.assertEqual(self.item.simplybook_booking_id, '92')
         writes = [step.args[0] for step in self.call.call_args_list if step.args[0] in {'book', 'editBook', 'cancelBooking'}]
         self.assertEqual(writes, ['book', 'editBook', 'cancelBooking'])
+
+
+    def test_booking_answers_use_only_completed_visits_and_verified_referral(self):
+        from booking.simplybook_outbound import patient_booking_answers
+
+        now = timezone.now()
+        self.assertEqual(patient_booking_answers(self.customer, now=now), (False, 'Google'))
+        self.item.starts_at, self.item.ends_at = now - timedelta(days=2), now - timedelta(days=1)
+        self.item.status = 'cancelled'
+        self.item.referral_source = 'Freunde und Bekannten'
+        self.item.returning_customer_answered = True
+        self.item.save()
+        self.assertEqual(patient_booking_answers(self.customer, now=now), (False, 'Freunde und Bekannten'))
+        self.item.status = 'completed'
+        self.item.save(update_fields=['status'])
+        self.assertEqual(patient_booking_answers(self.customer, now=now), (True, 'Freunde und Bekannten'))
+
+
+    def test_live_reservation_response_parses_reserved_and_busy_time(self):
+        from booking.simplybook_outbound import source_slots
+
+        self.responses['getReservedTimeIntervals'] = {self.day: [
+            {'type': 'reserved', 'intervals': [{'from': '15:30', 'to': '16:00'}]},
+            {'type': 'busy_time', 'intervals': [{'from': '23:00', 'to': '24:00'}]},
+        ]}
+        slots, blocks = source_slots(self.call, 5, self.day, self.day)
+        self.assertEqual(slots[self.day][0].strftime('%H:%M'), '16:00')
+        self.assertEqual([end - start for start, end in blocks],
+                         [timedelta(minutes=30), timedelta(hours=1)])

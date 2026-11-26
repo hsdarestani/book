@@ -63,7 +63,7 @@
             <label>E-Mail<input name="email" type="email" autocomplete="email" required></label>
             <label>Telefon<input name="phone" type="tel" autocomplete="tel" required maxlength="40" placeholder="+49 …"></label>
           </div>
-          <div class="field-row">
+          <div class="field-row" data-booking-answer-fields>
             <label data-returning-customer-field>Warst du schon einmal bei uns?
               <select name="returning_customer" required>
                 <option value="" selected disabled>Bitte auswählen</option>
@@ -118,7 +118,7 @@
     <footer><span>A+Esthetic</span><a href="https://a-esthetic.de/impressum/">Impressum</a><a href="https://a-esthetic.de/datenschutz/">Datenschutz</a></footer>
   </main>
   {% include 'booking/_club_invite.html' %}
-  <script src="{% static 'booking/app.js' %}" defer></script>
+  <script src="{% static 'booking/app.js' %}?v=20261126-automatic-answers" defer></script>
   <script src="{% static 'booking/club-invite.js' %}" defer></script>
 </body>
 </html>

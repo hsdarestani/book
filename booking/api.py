@@ -14,7 +14,7 @@ from .models import Customer, Service, StaffMember
 from .notifications import notify_booking_created
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
 from .services import BOOKING_HORIZON_DAYS, available_slots, booking_source_availability, create_appointment, source_day
-from .simplybook_outbound import REFERRAL_ANSWERS, SOURCE_AVAILABILITY_ERRORS
+from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS, integrated, patient_booking_answers
 
 
 def _json(request):
@@ -71,6 +71,7 @@ def staff(request):
             'id': item.pk,
             'name': item.display_name,
             'role': item.get_role_display(),
+            'automatic_booking_answers': integrated(service, item),
             'bio': item.bio,
             'photo_url': item.photo.url if item.photo else '',
         }
@@ -143,7 +144,7 @@ def availability_overview(request):
 @require_POST
 def appointments(request):
     data = _json(request)
-    required = ['service_id', 'staff_id', 'starts_at', 'first_name', 'last_name', 'email', 'phone', 'referral_source']
+    required = ['service_id', 'staff_id', 'starts_at', 'first_name', 'last_name', 'email', 'phone']
     if any(not str(data.get(key) or '').strip() for key in required):
         return _error('missing_fields', 'Bitte fülle alle Pflichtfelder aus.')
     if not _as_bool(data.get('cancellation_terms_accepted')):
@@ -156,6 +157,8 @@ def appointments(request):
     starts_at = parse_appointment_start(data.get('starts_at'))
     if not service or not member or not member.services.filter(pk=service.pk).exists():
         return _error('not_available', 'Die gewählte Behandlung ist nicht verfügbar.', 404)
+    if not integrated(service, member) and not str(data.get('referral_source') or '').strip():
+        return _error('missing_fields', 'Bitte fülle alle Pflichtfelder aus.')
     if not starts_at:
         return _error('invalid_start', 'Die gewählte Uhrzeit ist ungültig.')
 
@@ -188,8 +191,6 @@ def appointments(request):
         return _error('source_availability_unavailable', 'Die Terminverfügbarkeit kann gerade nicht geprüft werden.', 503)
     returning = data.get('returning_customer')
     referral = str(data.get('referral_source') or '').strip()
-    if availability is not None and (not isinstance(returning, bool) or referral not in REFERRAL_ANSWERS):
-        return _error('source_answers_required', 'Bitte beantworte beide Pflichtfragen zur Terminbuchung.', 422)
     with transaction.atomic():
         first = str(data.get('first_name') or '').strip()[:80]
         last = str(data.get('last_name') or '').strip()[:80]
@@ -205,6 +206,10 @@ def appointments(request):
         else:
             customer = Customer.objects.create(
                 first_name=first, last_name=last, phone=phone, email=email)
+        answered = isinstance(returning, bool)
+        if integrated(service, member):
+            returning, referral = patient_booking_answers(customer)
+            answered = True
         try:
             appointment, created = create_appointment(
                 customer=customer,
@@ -214,7 +219,7 @@ def appointments(request):
                 idempotency_key=idempotency_key,
                 source='web',
                 returning_customer=_as_bool(returning),
-                returning_customer_answered=isinstance(returning, bool),
+                returning_customer_answered=answered,
                 referral_source=referral,
                 simplybook_sync_state='queued' if availability is not None else '',
                 source_availability=availability,

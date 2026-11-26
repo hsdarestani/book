@@ -7,7 +7,9 @@ from copy import copy
 import os
 import logging
 import re
-from datetime import UTC
+import shlex
+from pathlib import Path
+from datetime import UTC, timedelta
 from django.db import models, transaction
 from django.utils import timezone
 from .clinical_time import CLINIC_TZ, parse_appointment_start, parse_clinic_wall_time
@@ -39,10 +41,27 @@ class SyncConflict(ValueError):
 
 SOURCE_AVAILABILITY_ERRORS = (RpcError, OSError, ValueError, TypeError)
 
+def _source_credentials():
+    names = ('SIMPLYBOOK_COMPANY_LOGIN', 'SIMPLYBOOK_USER_LOGIN',
+             'SIMPLYBOOK_API_USER_KEY', 'SIMPLYBOOK_USER_PASSWORD')
+    values = {key: os.getenv(key, '') for key in names}
+    directory = os.getenv('CREDENTIALS_DIRECTORY')
+    if directory and not (values[names[0]] and values[names[1]] and (values[names[2]] or values[names[3]])):
+        try:
+            for line in (Path(directory) / 'simplybook').read_text().splitlines():
+                parts = shlex.split(line)
+                if len(parts) == 2 and parts[0] == 'export':
+                    name, _, value = parts[1].partition('=')
+                    if name in values and not values[name]:
+                        values[name] = value
+        except (OSError, ValueError):
+            raise SyncConflict('missing_credentials') from None
+    company, user, key, password = (values[name].strip() for name in names)
+    return company, user, key or password
+
+
 def session():
-    company = os.getenv('SIMPLYBOOK_COMPANY_LOGIN','').strip()
-    user = os.getenv('SIMPLYBOOK_USER_LOGIN','').strip()
-    credential = (os.getenv('SIMPLYBOOK_API_USER_KEY') or os.getenv('SIMPLYBOOK_USER_PASSWORD') or '').strip()
+    company, user, credential = _source_credentials()
     if not all((company,user,credential)):
         raise SyncConflict('missing_credentials')
     token = rpc(LOGIN_URL,'getUserToken',[company,user,credential],timeout=20)
@@ -182,8 +201,24 @@ def integrated(service, staff):
     return staff.display_name == ARIANE and service.slug in SERVICE_MAP
 
 
+def patient_booking_answers(customer, *, now=None):
+    """Use the resolved patient record and evidence of a completed visit."""
+    now = now or timezone.now()
+    history = Appointment.objects.filter(customer=customer)
+    returning = history.filter(status='completed', ends_at__lte=now).exists()
+    # Prefer a verified non-default answer over the owner-assigned Google default.
+    referral = (history.filter(returning_customer_answered=True, referral_source__in=REFERRAL_ANSWERS)
+                .exclude(referral_source='Google').order_by('-created_at')
+                .values_list('referral_source', flat=True).first())
+    return returning, referral or 'Google'
+
+
 def public_sync_enabled():
     return os.getenv('SIMPLYBOOK_OUTBOUND_ENABLED') == '1'
+
+
+def public_availability_enabled():
+    return public_sync_enabled() or os.getenv('SIMPLYBOOK_AVAILABILITY_ENABLED') == '1'
 
 
 def source_slots(call, event, day, end_day, exclude_source_id=None):
@@ -207,13 +242,23 @@ def source_slots(call, event, day, end_day, exclude_source_id=None):
         if not isinstance(providers, list):
             raise SyncConflict('unexpected_reserved_shape')
         for provider in providers:
-            if not isinstance(provider, dict) or not isinstance(provider.get('reserved_time'), list):
+            if not isinstance(provider, dict):
                 raise SyncConflict('unexpected_reserved_shape')
-            for interval in provider['reserved_time']:
+            intervals = provider.get('reserved_time')
+            if intervals is None and provider.get('type') in {'reserved', 'busy_time'}:
+                intervals = provider.get('intervals')
+            if not isinstance(intervals, list):
+                raise SyncConflict('unexpected_reserved_shape')
+            for interval in intervals:
                 if not isinstance(interval, dict):
                     raise SyncConflict('unexpected_reserved_shape')
                 start = _dt(date + ' ' + str(interval.get('from', '')))
-                finish = _dt(date + ' ' + str(interval.get('to', '')))
+                end = str(interval.get('to', ''))
+                finish = _dt(date + ' ' + end)
+                if end in {'24:00', '24:00:00'}:
+                    midnight = parse_clinic_wall_time(date, '00:00')
+                    if midnight:
+                        finish = (midnight + timedelta(days=1)).astimezone(UTC)
                 if start is None or finish is None or finish <= start:
                     raise SyncConflict('unexpected_reserved_shape')
                 blocks.append((start, finish))
