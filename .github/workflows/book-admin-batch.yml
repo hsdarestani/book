@@ -1,4 +1,4 @@
-name: Guarded Book clinician asset fallback
+name: Guarded standalone GOAE PDF download release
 
 on:
   push:
@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BOOK_BASELINE: 4e8832baf07354a3b4f264d5a32d744fa1bb6470
-  BOOK_TARGET: 7facee0707df750f05dc74f958d14b82da1f1e2d
+  BOOK_BASELINE: 7facee0707df750f05dc74f958d14b82da1f1e2d
+  BOOK_TARGET: f063ce82d07fc13e4d30b92dccf665451ab0fa51
   BOOK_TOOLS_REF: ${{ github.sha }}
 
 jobs:
@@ -42,10 +42,11 @@ jobs:
       - name: Verify focused integrated user acceptance scenarios
         working-directory: candidate
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements.txt playwright
+          python -m playwright install --with-deps chromium
           python manage.py check
           python manage.py makemigrations --check --dry-run
-          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_doctor_read_only.DoctorPrivateCalendarTests --noinput
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_goae_draft_browser.GoaeDraftBrowserTests.test_pdf_button_downloads_standalone_invoice booking.test_same_domain_invoices.SameDomainInvoicesTests.test_preview_pdf_export_is_private_attachment --noinput
 
   release:
     needs: rehearse
