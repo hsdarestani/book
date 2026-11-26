@@ -838,37 +838,64 @@ html[data-clinic-design="premium"] body.admin-body .billing-service-head strong{
 html[data-clinic-design="premium"] body.admin-body .billing-service-head small{font-size:12px!important}
 html[data-clinic-design="premium"] body.admin-body .clinic-service-status{font-size:11px!important}
 html[data-clinic-design="premium"] body.admin-body .billing-invoice-card :is(strong,small){font-size:13px!important}
-/* Calendar: neutralize the overpowering gold block without changing coordinates
-   or its meaning. All blocking/saving remains handled by Django. */
-html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-panel{
-  padding:24px!important;
+/* Calendar surfaces use the clinical palette on day and week views. */
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-panel {
+  padding: clamp(12px, 1.4vw, 22px) !important;
 }
-html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-heading h2{
-  font:500 32px/1.12 Georgia,serif!important;letter-spacing:-.045em!important;
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-heading h2 {
+  font: 650 clamp(20px, 2vw, 27px)/1.15 system-ui, sans-serif !important;
+  letter-spacing: -.02em !important;
 }
-html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-block.is-blocked,
-html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-block.is-blocked-note{
-  background:repeating-linear-gradient(-45deg,#eae6dd 0 24px,#e6e2d9 24px 48px)!important;
-  border:1px solid #d1c6b6!important;border-left:4px solid #9e8e74!important;
-  color:#554b3c!important;box-shadow:inset 0 0 0 1px #ffffff78!important;
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-day-track {
+  background: repeating-linear-gradient(to bottom, #dbe5ee 0 1px, transparent 1px 100%),
+              repeating-linear-gradient(to bottom, #f0f4f8 0 1px, transparent 1px 100%), #fff !important;
+  background-size: 100% 10%, 100% 2.5%, auto !important;
+  background-repeat: repeat !important;
 }
-html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-block strong{
-  font-size:13px!important;color:#443e33!important;
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-working-segment {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
-html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-block small{
-  font-size:11px!important;color:#655e51!important;opacity:1!important;
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-working-segment span {
+  color: #35465c !important;
+  background: #f6f9fc !important;
+  border-color: #e0e8f2 !important;
 }
-html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-working-segment{
-  background:#f9f3e6!important;border-color:#e4dac9!important;
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event {
+  background: #215b9f !important;
+  color: #fff !important;
+  border: 1px solid #164c8a !important;
+  border-left: 3px solid #123f77 !important;
+  box-shadow: none !important;
 }
-html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-working-segment span{
-  color:#69583d!important;background:#fff8e9!important;
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event :is(strong,span,small) {
+  color: #fff !important;
+  opacity: 1 !important;
 }
-html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-calendar-event{
-  background:#354b43!important;color:#fff!important;border-left:3px solid #c0a06e!important;
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event.is-compact {
+  padding: 2px 4px !important;
+  min-height: 0 !important;
+  gap: 0 !important;
 }
-html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body .sb-time-axis span{
-  font-size:12px!important;color:#716d65!important;
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event.is-compact strong {
+  font: 650 11px/1.2 system-ui, sans-serif !important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-calendar-event.is-compact span { display: none !important; }
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-calendar-block:not(.is-note) {
+  background: #ffe3ad !important;
+  border: 1px solid #d99c4a !important;
+  border-left: 3px solid #b45d12 !important;
+  color: #54310f !important;
+  box-shadow: none !important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-calendar-block :is(strong,small) {
+  color: #54310f !important;
+  opacity: 1 !important;
+}
+html[data-clinic-design="premium"][data-admin-page="calendar"] body.admin-body.sb-calendar-pro .sb-calendar-shell .sb-time-axis span {
+  font-size: 12px !important;
+  color: #40546a !important;
 }
 @media(max-width:1380px) and (min-width:981px){
  html[data-clinic-design="premium"] body.admin-body .command-grid-two{

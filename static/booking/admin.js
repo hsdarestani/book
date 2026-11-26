@@ -47,20 +47,20 @@
       addStylesheet('/static/booking/admin-calendar-scroll-v5.css?v=20261029-scroll-v5', 'data-admin-calendar-scroll-v5');
       addStylesheet('/static/booking/admin-calendar-date-dock-v6.css?v=20261029-firsthour8', 'data-admin-calendar-dock-v6');
       addStylesheet('/static/booking/admin-calendar-view-modes-v1.css?v=20261029-modes1', 'data-admin-calendar-view-modes-v1');
-      addStylesheet('/static/booking/admin-calendar-horizontal-v2.css?v=20261029-horizontal2', 'data-calendar-horizontal-v2');
+      addStylesheet('/static/booking/admin-calendar-horizontal-v2.css?v=20261126-calendar-acceptance1', 'data-calendar-horizontal-v2');
     }
   }
 
   function loadCalendarPlus() {
     if (document.querySelector('script[data-admin-calendar-plus]')) return;
     const script = document.createElement('script');
-    script.src = '/static/booking/admin-calendar-plus.js?v=20261126-berlin-time-v1';
+    script.src = '/static/booking/admin-calendar-plus.js?v=20261126-calendar-acceptance1';
     script.defer = true;
     script.setAttribute('data-admin-calendar-plus', '1');
     document.head.appendChild(script);
     if (document.querySelector('.sb-calendar-panel')) {
       const iphone = document.createElement('script');
-      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261029-horizontal2';
+      iphone.src = '/static/booking/admin-calendar-iphone-v1.js?v=20261126-calendar-acceptance1';
       iphone.defer = true;
       iphone.setAttribute('data-admin-calendar-iphone-v1', '1');
       document.head.appendChild(iphone);
@@ -341,23 +341,50 @@
   function initViewMenu() {
     const menu = document.querySelector('[data-view-menu]');
     if (!menu) return;
-    const triggers=[...document.querySelectorAll('[data-view-menu-open]')];
-    const close=()=>{
-      menu.hidden=true;
-      triggers.forEach(b=>b.setAttribute('aria-expanded','false'));
+    const triggers = [...document.querySelectorAll('[data-view-menu-open]')];
+    let anchor;
+    const close = () => {
+      menu.hidden = true;
+      triggers.forEach(button => button.setAttribute('aria-expanded', 'false'));
     };
-    triggers.forEach((button) => button.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const opening=menu.hidden;
-      menu.hidden=!opening;
-      triggers.forEach(b=>b.setAttribute('aria-expanded',String(opening)));
-      if(opening)menu.querySelector('[role="menuitem"][aria-current="page"]')?.focus({preventScroll:true});
-    }));
-    document.addEventListener('click', (event) => {
-      if (!menu.hidden && !menu.contains(event.target) && !event.target.closest('[data-view-menu-open]'))close();
+    const position = () => {
+      if (menu.hidden || !anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      if (!rect.width || rect.bottom < 0 || rect.top > innerHeight) return close();
+      const gap = 6;
+      const left = Math.max(8, Math.min(rect.right - menu.offsetWidth, innerWidth - menu.offsetWidth - 8));
+      const below = rect.bottom + gap;
+      const top = below + menu.offsetHeight <= innerHeight - 8
+        ? below : Math.max(8, rect.top - menu.offsetHeight - gap);
+      menu.style.setProperty('left', `${left}px`, 'important');
+      menu.style.setProperty('top', `${top}px`, 'important');
+      menu.style.setProperty('right', 'auto', 'important');
+    };
+    triggers.forEach(button => {
+      button.setAttribute('aria-haspopup', 'menu');
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('aria-controls', menu.id);
+      button.addEventListener('click', event => {
+        event.stopPropagation();
+        if (!menu.hidden && anchor === button) return close();
+        close();
+        anchor = button;
+        menu.hidden = false;
+        button.setAttribute('aria-expanded', 'true');
+        position();
+        menu.querySelector('[role="menuitem"][aria-current="page"]')?.focus({preventScroll: true});
+      });
     });
-    document.addEventListener('keydown',event=>{
-      if(event.key==='Escape'&&!menu.hidden){close();triggers[0]?.focus({preventScroll:true});}
+    window.addEventListener('scroll', position, {capture: true, passive: true});
+    window.addEventListener('resize', position);
+    document.addEventListener('click', event => {
+      if (!menu.hidden && !menu.contains(event.target) && !event.target.closest('[data-view-menu-open]')) close();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !menu.hidden) {
+        close();
+        anchor?.focus({preventScroll: true});
+      }
     });
   }
 

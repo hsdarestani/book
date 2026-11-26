@@ -48,10 +48,10 @@
 
     {% if selected_staff %}
     <div class="sb-calendar-shell {% if calendar_view == 'week' %}is-week{% elif calendar_view == 'provider' %}is-week is-provider is-grouped{% elif calendar_view == 'service' %}is-week is-service is-grouped{% else %}is-day{% endif %}">
+      {% if calendar_view != 'day' %}<div class="sb-horizontal-track-viewport" data-calendar-horizontal-viewport tabindex="0" aria-label="Kalender scrollen">{% endif %}
       <div class="sb-time-axis">
         {% for hour in calendar_hour_labels %}<span>{{ hour }}</span>{% endfor %}
       </div>
-      {% if calendar_view != 'day' %}<div class="sb-horizontal-track-viewport" data-calendar-horizontal-viewport tabindex="0" aria-label="Kalenderspalten horizontal scrollen">{% endif %}
       <div class="sb-calendar-days" style="--day-count:{{ calendar_days|length }}">
         {% for day in calendar_days %}
         <div class="sb-calendar-day {% if day.is_today %}is-today{% endif %}">
@@ -62,7 +62,7 @@
             {% endfor %}
 
             {% for event in day.appointments %}
-            <a class="sb-calendar-event" href="#termine" style="top:{{ event.top }}%;height:{{ event.height }}%;{% if event.item.calendar_buffer_minutes %}--sb-buffer-percent:{{ event.item.calendar_buffer_percent }}%;{% endif %}"{% if event.item.calendar_buffer_minutes %} data-calendar-buffer="{{ event.item.calendar_buffer_minutes }}"{% endif %} title="{{ event.item.customer.full_name }} – {{ event.item.service.name }}{% if event.item.calendar_buffer_minutes %} · Puffer: {{ event.item.calendar_buffer_minutes }} Min. bis {{ event.item.ends_at|date:'H:i' }}{% endif %}">
+            <a class="sb-calendar-event" href="#termine" data-calendar-start="{{ event.item.starts_at|date:'H:i' }}" style="top:{{ event.top }}%;height:{{ event.height }}%;{% if event.item.calendar_buffer_minutes %}--sb-buffer-percent:{{ event.item.calendar_buffer_percent }}%;{% endif %}"{% if event.item.calendar_buffer_minutes %} data-calendar-buffer="{{ event.item.calendar_buffer_minutes }}"{% endif %} title="{{ event.item.customer.full_name }} – {{ event.item.service.name }}{% if event.item.calendar_buffer_minutes %} · Puffer: {{ event.item.calendar_buffer_minutes }} Min. bis {{ event.item.ends_at|date:'H:i' }}{% endif %}">
               <strong>{{ event.item.customer.full_name }}</strong>
               <span>{{ event.item.service.name }}</span>
               <small>{{ event.item.starts_at|date:"H:i" }}–{{ event.item.calendar_treatment_end|date:"H:i" }}{% if event.item.calendar_buffer_minutes %} · +{{ event.item.calendar_buffer_minutes }} Min. Puffer{% endif %}</small>
