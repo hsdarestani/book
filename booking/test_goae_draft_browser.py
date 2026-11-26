@@ -15,6 +15,61 @@ from django.test import override_settings
 })
 class GoaeDraftBrowserTests(StaticLiveServerTestCase):
     @patch('booking.app_management_views._billing_api')
+    def test_pdf_button_downloads_standalone_invoice(self, billing):
+        from io import BytesIO
+        from reportlab.pdfgen.canvas import Canvas
+        from playwright.sync_api import expect, sync_playwright
+
+        billing.return_value = {'ok': True, 'customers': [{'id': 42, 'name': 'Synthetic Patient'}],
+                                'treatments': {'hyaluron': ['2442', '1', '5']}}
+        admin = get_user_model().objects.create_user(username='pdf-browser-fixture', is_staff=True)
+        self.client.force_login(admin)
+        output = BytesIO()
+        canvas = Canvas(output)
+        canvas.drawString(48, 740, 'Synthetic invoice document')
+        canvas.save()
+        pdf = output.getvalue()
+        calls = []
+
+        def intercept(route):
+            request = route.request
+            if request.url == self.live_server_url + '/verwaltung/api/goae-quote/':
+                route.fulfill(json={'ok': True, 'total_cents': 26000, 'tax_cents': 0, 'items': []})
+            elif request.url == self.live_server_url + '/verwaltung/api/goae-pdf-preview/':
+                calls.append(request.post_data_json)
+                route.fulfill(status=200, content_type='application/pdf', body=pdf)
+            elif request.url.startswith(self.live_server_url + '/'):
+                route.continue_()
+            else:
+                route.abort()
+
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True, args=['--no-sandbox'])
+            context = browser.new_context(accept_downloads=True)
+            context.add_cookies([{'name': settings.SESSION_COOKIE_NAME,
+                                  'value': self.client.cookies[settings.SESSION_COOKIE_NAME].value,
+                                  'url': self.live_server_url}])
+            context.route('**/*', intercept)
+            page = context.new_page()
+            page.add_init_script('window.print = () => {throw new Error("Browser printing is forbidden")};')
+            page.goto(self.live_server_url + '/verwaltung/app/invoices/', wait_until='load')
+            page.locator('[data-mlr-details]').evaluate('(details) => { details.open = true }')
+            page.locator('.clinic-patient-trigger').click()
+            page.locator('.clinic-patient-option').first.click()
+            page.locator('[data-material]').fill('0,00')
+            for checkbox in page.locator('[data-g="clinical_confirmed"]').all():
+                checkbox.check()
+            with page.expect_download() as event:
+                page.locator('[data-print-simulation]').click()
+            download = event.value
+            self.assertEqual(download.suggested_filename, 'GOAE-Rechnungsentwurf.pdf')
+            self.assertEqual(download.path().read_bytes(), pdf)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0]['target_total_cents'], 26000)
+            expect(page.locator('[data-goae-feedback]')).to_contain_text('heruntergeladen')
+            browser.close()
+
+    @patch('booking.app_management_views._billing_api')
     def test_lost_draft_response_allows_same_key_retry(self, billing):
         from playwright.sync_api import expect, sync_playwright
 

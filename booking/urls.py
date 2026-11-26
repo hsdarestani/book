@@ -36,6 +36,7 @@ urlpatterns = [
     path('verwaltung/api/goae-patient-search/', goae_quote_views.goae_patient_search, name='goae_patient_search'),
     path('verwaltung/api/patient-search/', staff_patient_search.staff_patient_search, name='staff_patient_search'),
     path('verwaltung/app/invoices/<int:invoice_id>/pdf/', invoice_bridge.invoice_pdf, name='billing_invoice_pdf'),
+    path('verwaltung/api/goae-pdf-preview/', invoice_bridge.goae_preview_pdf, name='goae_preview_pdf'),
     path('verwaltung/api/day-availability/', calendar_admin_api.day_availability, name='admin_day_availability'),
     path('verwaltung/api/calendar-day/', calendar_admin_api.calendar_day, name='admin_calendar_day'),
     path('verwaltung/app/', auth_views.app_admin_entry, name='app_admin_entry'),

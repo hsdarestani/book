@@ -390,12 +390,14 @@ function render(){
 function setMessage(msg,kind='error'){const el=$('[data-goae-feedback]');el.textContent=msg;el.className='mlr-feedback '+kind;}
 const saveButton=form.querySelector('.mlr-save');
 const previewButton=$('[data-goae-preview]');
+const exportButton=$('[data-print-simulation]');
 const draftRequests=new Map();
 function setBusy(){
  const busy=sel.working||sel.quoting;
  saveButton.disabled=busy;
  saveButton.setAttribute('aria-busy',String(busy));
  previewButton.disabled=busy;
+ exportButton.disabled=busy;
 }
 function scheduleQuote(){
  clearTimeout(quoteTimer);
@@ -494,7 +496,36 @@ $('[data-reset]').addEventListener('click',()=>{
  $('[data-material]').value='';$('[data-material-receipt]').value='';$('[data-material-description]').value='';$('[data-material-confirm]').checked=false;
  list.replaceChildren();changeTreatment('hyaluron');setMessage('Alle Beispielwerte zurückgesetzt; Patientendaten bleiben erhalten.','');
 });
-$('[data-print-simulation]').addEventListener('click',()=>{render();window.print()});
+function bookPreview(){
+ const invoiceDate=toISO($('[data-invoice-date]').value);
+ const dueDate=toISO($('[data-due-date]').value)||(invoiceDate?addDays(invoiceDate,14):'');
+ return {invoice_date:invoiceDate,due_date:dueDate,diagnosis:diagnosisText()||''};
+}
+exportButton.addEventListener('click',async()=>{
+ if(sel.working||sel.quoting)return;
+ clearTimeout(quoteTimer);sel.working=true;setBusy();
+ try{
+  const result=linesForServer();if(result.error){setMessage(result.error);details.open=true;return;}
+  const sig=JSON.stringify(result.lines||[]);
+  if(!sel.verified||sel.verifiedHash!==sig||(!sel.manual&&sel.verified.total!==targetOrZero())){
+   if(!await verify())return;
+  }
+  if(!form.checkValidity()){details.open=true;form.reportValidity();return;}
+  const date=toISO($('#goaeDateGerman').value);if(!date){setMessage('Ungültiges Leistungsdatum.');return;}
+  const revision=sel.revision;
+  setMessage('Rechnungs-PDF wird erstellt …','');
+  const response=await fetch('/verwaltung/api/goae-pdf-preview/',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRFToken':csrf.value},body:JSON.stringify({customer_id:$('#goaePatient').value,service_date:date,lines:result.lines,target_total_cents:sel.verified.total,book_preview:bookPreview()})});
+  if(!response.ok||!response.headers.get('Content-Type')?.includes('application/pdf')){
+   const error=await response.json().catch(()=>({}));setMessage(error.message||'PDF konnte nicht erstellt werden.');return;
+  }
+  const blob=await response.blob();
+  if(sel.revision!==revision){setMessage('Eingaben wurden geändert. Bitte PDF erneut erstellen.');return;}
+  const objectURL=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=objectURL;link.download='GOAE-Rechnungsentwurf.pdf';document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(objectURL),30000);setMessage('Rechnungsentwurf als PDF heruntergeladen.','ok');
+ }catch(err){setMessage('PDF konnte nicht erstellt werden. Bitte erneut versuchen.');}
+ finally{sel.working=false;setBusy();}
+});
 form.addEventListener('submit',async ev=>{
  ev.preventDefault();
  if(sel.working||sel.quoting)return;
@@ -516,7 +547,8 @@ form.addEventListener('submit',async ev=>{
   $('#goaeLinesJson').value=sig;
   $('#goaeTargetCents').value=String(sel.verified.total);
   const payload=new FormData(form);
-  const signature=JSON.stringify([payload.get('customer_id'),date,sig,payload.get('goae_target_cents')]);
+  payload.set('book_preview',JSON.stringify(bookPreview()));
+  const signature=JSON.stringify([payload.get('customer_id'),date,sig,payload.get('goae_target_cents'),payload.get('book_preview')]);
   if(!draftRequests.has(signature))draftRequests.set(signature,crypto.randomUUID());
   payload.set('draft_request_id',draftRequests.get(signature));
   setMessage('GOÄ-Entwurf wird gespeichert …','');
