@@ -1,0 +1,59 @@
+name: Read-only Book remediation release preflight
+on:
+  push:
+    branches: [audit/book-remediation-preflight-20261126]
+    paths: ['.github/workflows/book-remediation-preflight.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 4m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            echo "checkout=$(git rev-parse HEAD)"
+            git status --short --untracked-files=no
+            echo "untracked_paths=$(git ls-files --others --exclude-standard | wc -l)"
+            echo "untracked_calendar_or_migrations=$(git ls-files --others --exclude-standard -- booking/migrations static/booking templates/booking | wc -l)"
+            for service in aesthetic-book.service aesthetic-book-reminders.timer; do
+              echo "$service=$(systemctl is-active "$service" || true)"
+            done
+            systemctl show aesthetic-book.service --property=WorkingDirectory,FragmentPath,DropInPaths,EnvironmentFiles
+            if git cat-file -e '84a6f34b3cf8db84c332f81da225be596f6e8ede^{commit}'; then
+              echo 'baseline_commit_available=true'
+            fi
+            python3 - <<'PY'
+            from pathlib import Path
+            import re
+            path = Path('/etc/aesthetic-book.env')
+            live = set(re.findall(r'^(?:export\s+)?([A-Z][A-Z0-9_]*)=', path.read_text(), re.M))
+            workflow = Path('.github/workflows/ci-deploy.yml').read_text()
+            block = workflow.split('cat > "$ENV_FILE" <<EOF', 1)[1].split('\n            EOF', 1)[0]
+            rebuilt = set(re.findall(r'^\s*([A-Z][A-Z0-9_]*)=', block, re.M))
+            print('env_file_mode=' + oct(path.stat().st_mode & 0o777))
+            print('env_checkout_workflow_lost_key_count=' + str(len(live - rebuilt)))
+            for key in ('BOOKING_APP_SHARED_TOKEN', 'BOOKING_APP_ADMIN_SSO_SECRET',
+                        'BOOKING_APP_API_URL', 'SIMPLYBOOK_COMPANY_LOGIN', 'SIMPLYBOOK_USER_LOGIN',
+                        'SIMPLYBOOK_API_USER_KEY', 'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED'):
+                print(f'declared:{key}={key in live}; retained_by_legacy_workflow={key in rebuilt}')
+            PY
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from django.db import connection, transaction
+            from django.db.migrations.loader import MigrationLoader
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute('SET TRANSACTION READ ONLY')
+                    cursor.execute("SELECT is_nullable FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='booking_appointment' AND column_name='treatment_minutes_at_booking'")
+                    print('treatment_minutes_nullable_column=' + str(cursor.fetchone()))
+                loader = MigrationLoader(connection)
+                print('booking_graph_leaves=' + str(loader.graph.leaf_nodes('booking')))
+                print('booking_applied_through=' + ','.join(sorted(name for app, name in loader.applied_migrations if app == 'booking' and name[:4] >= '0026')))
+            PY
