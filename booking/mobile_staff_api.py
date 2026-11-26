@@ -25,7 +25,7 @@ from django.views.decorators.http import require_http_methods
 
 from .app_admin_api import _day_bounds, _private, _service_payload
 from .calendar_admin_api import _block_payload
-from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, clinic_wall_time
+from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, clinic_wall_time, parse_clinic_wall_time
 from .doctor_views import _save_availability, _save_weekly, _time
 from .emails import send_customer_booking_email
 from .internal_api import _patient_path
@@ -36,6 +36,8 @@ from .models import (
 )
 from .intake_forms import build_intake_pdf, confirm_form_link
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder
+from .simplybook_writeback import source_managed as _managed_appointment, source_editable, change_locked
+from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS
 from .services import effective_working_ranges
 from .patient_identity_review import possible_duplicate_pairs
 from .patient_identity_views import process_decision
@@ -103,11 +105,6 @@ def _person(person):
     return {'id': person.pk, 'name': person.full_name, 'email': person.email, 'phone': person.phone}
 
 
-def _managed_appointment(item):
-    return bool(item.simplybook_booking_id or item.simplybook_sync_state
-                or (item.idempotency_key or '').startswith('simplybook-'))
-
-
 def _appointment(item):
     start = clinic_localtime(item.starts_at)
     end = clinic_localtime(item.ends_at)
@@ -120,7 +117,7 @@ def _appointment(item):
         'date': start.date().isoformat(), 'start': start.strftime('%H:%M'), 'end': end.strftime('%H:%M'),
         'status': item.status, 'notes': item.notes_customer, 'revision': item.updated_at.isoformat(),
         'source_managed': source_managed,
-        'source_editable': False,
+        'source_editable': source_editable(item),
         'treatment_end_at': treatment_end.isoformat(), 'reserved_end_at': end.isoformat(),
         'management_system': 'SimplyBook' if source_managed else 'Book',
         'credit_pending': hasattr(item, 'mobile_cancellation') and item.mobile_cancellation.completed_at is None,
@@ -507,8 +504,6 @@ def _save_appointment(data, actor, providers, previous_item):
     if operation not in {'create', 'update', 'cancel'} or bool(item) == (operation == 'create'):
         raise ValidationError('Ungültige Terminaktion.')
     if item:
-        if _managed_appointment(item):
-            raise CommandConflict('SimplyBook-Termine werden in SimplyBook verwaltet.')
         if item.status == 'cancelled':
             if operation == 'cancel':
                 return item.pk
@@ -516,6 +511,23 @@ def _save_appointment(data, actor, providers, previous_item):
         revision = parse_datetime(str(data.get('revision') or ''))
         if revision != item.updated_at:
             raise CommandConflict('Der Termin wurde zwischenzeitlich geändert. Bitte neu laden.')
+        if _managed_appointment(item):
+            if actor['role'] != 'admin' or not source_editable(item):
+                raise CommandConflict('Dieser SimplyBook-Termin ist schreibgeschützt.')
+            if operation == 'update' and (
+                    int(data['staff_id']) != item.staff_id or int(data['service_id']) != item.service_id
+                    or int(data['customer_id']) != item.customer_id or data.get('status') != item.status):
+                raise CommandConflict('Die SimplyBook-Buchungsdaten können hier nicht geändert werden.')
+            try:
+                changed = change_locked(item, cancel=operation == 'cancel',
+                                        starts_at=parse_clinic_wall_time(data.get('date'), data.get('start')) if operation == 'update' else None)
+            except SOURCE_AVAILABILITY_ERRORS as exc:
+                raise CommandConflict('SimplyBook konnte diese Änderung nicht bestätigen.') from exc
+            if changed and operation == 'cancel':
+                MobileStaffCancellation.objects.get_or_create(
+                    booking_public_id=item.public_id, defaults={'appointment': item},
+                )
+            return item.pk if changed else None
     if operation == 'cancel':
         item.status = 'cancelled'
         item.save(update_fields=['status', 'updated_at'])
@@ -694,6 +706,10 @@ def _mutate(request, actor, providers, action):
                 if ident and (not item or item.staff_id not in lock_ids):
                     raise CommandConflict('Der Termin wurde zwischenzeitlich geändert. Bitte neu laden.')
                 result = _save_appointment(data, actor, providers, item)
+                if result is None:
+                    receipt.delete()
+                    return _private({'ok': False, 'error': 'source_review_required',
+                                     'message': 'SimplyBook-Status muss geprüft werden.'}, 409)
             elif action == 'block':
                 result = _save_block(data, providers)
             elif action == 'availability':

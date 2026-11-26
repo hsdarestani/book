@@ -22,8 +22,8 @@ from .models import Appointment, Customer, Service, StaffMember
 from .notifications import notify_booking_created, notify_customer_cancelled, notify_customer_rescheduled
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
 from .package_bridge import sync_package
-from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, create_appointment
-from .simplybook_outbound import ARIANE
+from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, booking_source_availability, create_appointment, source_day
+from .simplybook_outbound import ARIANE, SOURCE_AVAILABILITY_ERRORS, integrated, public_sync_enabled, REFERRAL_ANSWERS
 
 CHANGE_DEADLINE_HOURS = max(1, int(getattr(settings, 'BOOKING_CHANGE_DEADLINE_HOURS', 24)))
 logger = logging.getLogger(__name__)
@@ -202,15 +202,27 @@ def mobile_slots(request):
         return _error('staff_not_found', 'Für diese Terminart ist aktuell kein passender Termin verfügbar.', 400)
 
     slots = set()
+    source_answers_required = False
+    provider_available = False
     for member in staff:
+        try:
+            source = booking_source_availability(service, member, day)
+        except SOURCE_AVAILABILITY_ERRORS:
+            continue
+        provider_available = True
+        source_answers_required |= source is not None
         slots.update(available_slots(
             service, member, day, exclude_appointment_id=exclude_id, reserved_duration=reserved_duration,
+            source_availability=source_day(source, day),
         ))
+    if not provider_available:
+        return _error('source_availability_unavailable', 'Die Terminverfügbarkeit kann gerade nicht geprüft werden.', 503)
     return JsonResponse({
         'ok': True,
         'service_id': service.pk,
         'day': day.isoformat(),
         'slots': [item.isoformat() for item in sorted(slots)],
+        'source_answers_required': source_answers_required,
     })
 
 
@@ -306,7 +318,21 @@ def mobile_booking(request):
         if starts_at < timezone.now() + LEAD_TIME:
             return _error('start_time_too_soon', 'Bitte wählen Sie einen späteren Termin.', 400)
 
-        staff = _pick_staff(service, starts_at, data.get('staff_id'))
+        day = clinic_localdate(starts_at)
+        staff = None
+        availability = None
+        source_unavailable = False
+        for candidate in _eligible_staff(service, data.get('staff_id')):
+            try:
+                candidate_slots = source_day(booking_source_availability(service, candidate, day), day)
+            except SOURCE_AVAILABILITY_ERRORS:
+                source_unavailable = True
+                continue
+            if starts_at in available_slots(service, candidate, day, source_availability=candidate_slots):
+                staff, availability = candidate, candidate_slots
+                break
+        if not staff and source_unavailable:
+            return _error('source_availability_unavailable', 'Die Terminverfügbarkeit kann gerade nicht geprüft werden.', 503)
         if not staff:
             return _error('time_not_available', 'Diese Zeit ist inzwischen nicht mehr verfügbar.', 409)
 
@@ -324,8 +350,9 @@ def mobile_booking(request):
         privacy_accepted = bool(data.get('privacy_accepted', legacy_consent))
         returning = data.get('returning_customer')
         referral = str(data.get('referral_source') or '')
-        explicit = isinstance(returning, bool) and referral in {
-            'Google', 'Werbeanzeige in Facebook / Instagram', 'Freunde und Bekannten', 'Sonstiges'}
+        explicit = isinstance(returning, bool) and referral in REFERRAL_ANSWERS
+        if public_sync_enabled() and integrated(service, staff) and not explicit:
+            return _error('source_answers_required', 'Bitte beantworte beide Pflichtfragen zur Terminbuchung.', 422)
         sync_state = ''
         if staff.display_name == ARIANE:
             sync_state = 'queued' if explicit else 'awaiting_answers'
@@ -346,6 +373,7 @@ def mobile_booking(request):
                 returning_customer_answered=isinstance(returning, bool),
                 referral_source=referral if explicit else '',
                 simplybook_sync_state=sync_state,
+                source_availability=availability,
             )
         except (ValueError, ValidationError, IntegrityError):
             # Includes model overlap validation and concurrent unique-key races.

@@ -32,6 +32,7 @@ urlpatterns = [
     path('verwaltung/app/<slug:section>/', app_management_views.app_management, name='app_management'),
     path('verwaltung/api/patient-form-notifications/', desktop_notifications.new_patient_forms, name='patient_form_notifications'),
     path('verwaltung/api/notifications/', desktop_notifications.notification_inbox, name='notification_inbox'),
+    path('verwaltung/api/goae-quick/', goae_quote_views.goae_quick, name='goae_quick'),
     path('verwaltung/api/goae-quote/', goae_quote_views.goae_quote, name='goae_quote'),
     path('verwaltung/api/goae-patient-search/', goae_quote_views.goae_patient_search, name='goae_patient_search'),
     path('verwaltung/api/patient-search/', staff_patient_search.staff_patient_search, name='staff_patient_search'),

@@ -39,7 +39,7 @@ class Command(BaseCommand):
         if os.getenv('SIMPLYBOOK_OUTBOUND_ENABLED') == '1':
             from booking.simplybook_outbound import ARIANE, sync_existing
             queued = Appointment.objects.filter(
-                staff__display_name=ARIANE, source='app', status='new',
+                staff__display_name=ARIANE, source__in=['app', 'web'], status='new',
                 starts_at__gt=timezone.now(), simplybook_sync_state='queued',
                 simplybook_booking_id__isnull=True, returning_customer_answered=True,
             ).exclude(referral_source='').order_by('created_at').values_list('pk', flat=True)[:10]

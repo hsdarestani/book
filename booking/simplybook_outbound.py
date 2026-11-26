@@ -3,16 +3,17 @@
 No automatic retries after an uncertain remote write. Only explicit, reviewed
 service mappings are accepted. The importer preserves the local UUID and key.
 """
+from copy import copy
 import os
 import logging
 import re
 from datetime import UTC
 from django.db import models, transaction
 from django.utils import timezone
-from .clinical_time import CLINIC_TZ, parse_appointment_start
+from .clinical_time import CLINIC_TZ, parse_appointment_start, parse_clinic_wall_time
 from .models import Appointment, SimplyBookClientLink
 from .customer_identity import normalize_name, normalize_email, normalize_phone
-from .management.commands.simplybook_import import rpc, LOGIN_URL, ADMIN_URL, as_bool
+from .management.commands.simplybook_import import rpc, LOGIN_URL, ADMIN_URL, RpcError, as_bool
 
 logger = logging.getLogger(__name__)
 ARIANE = 'Frau Ariane Regaei'
@@ -30,9 +31,13 @@ SERVICE_MAP = {
     'rf-microneedling': (6, 'RF-Microneedling'),
 }
 UNIT_ID = 2
+REFERRAL_ANSWERS = {'Google', 'Werbeanzeige in Facebook / Instagram', 'Freunde und Bekannten', 'Sonstiges'}
 
 class SyncConflict(ValueError):
     pass
+
+
+SOURCE_AVAILABILITY_ERRORS = (RpcError, OSError, ValueError, TypeError)
 
 def session():
     company = os.getenv('SIMPLYBOOK_COMPANY_LOGIN','').strip()
@@ -173,40 +178,91 @@ def _same_booking(row, item, event, client):
             and _dt(row.get('end_date_time') or row.get('end_date'))==item.ends_at
             and as_bool(row.get('is_confirmed',row.get('is_confirm'))))
 
-def _verify_availability(call,item,event,client):
+def integrated(service, staff):
+    return staff.display_name == ARIANE and service.slug in SERVICE_MAP
+
+
+def public_sync_enabled():
+    return os.getenv('SIMPLYBOOK_OUTBOUND_ENABLED') == '1'
+
+
+def source_slots(call, event, day, end_day, exclude_source_id=None):
+    matrix = call('getStartTimeMatrix', [day, end_day, event, UNIT_ID, 1])
+    params = [day, end_day, event, UNIT_ID, 1]
+    if exclude_source_id is not None:
+        params.append(exclude_source_id)
+    reserved = call('getReservedTimeIntervals', params)
+    if not isinstance(matrix, dict) or not isinstance(reserved, dict):
+        raise SyncConflict('unexpected_availability_shape')
+    slots = {}
+    blocks = []
+    for date, values in matrix.items():
+        if not isinstance(values, list):
+            raise SyncConflict('unexpected_availability_shape')
+        starts = [parse_clinic_wall_time(date, value) for value in values]
+        if any(start is None for start in starts):
+            raise SyncConflict('unexpected_source_slot')
+        slots[date] = starts
+    for date, providers in reserved.items():
+        if not isinstance(providers, list):
+            raise SyncConflict('unexpected_reserved_shape')
+        for provider in providers:
+            if not isinstance(provider, dict) or not isinstance(provider.get('reserved_time'), list):
+                raise SyncConflict('unexpected_reserved_shape')
+            for interval in provider['reserved_time']:
+                if not isinstance(interval, dict):
+                    raise SyncConflict('unexpected_reserved_shape')
+                start = _dt(date + ' ' + str(interval.get('from', '')))
+                finish = _dt(date + ' ' + str(interval.get('to', '')))
+                if start is None or finish is None or finish <= start:
+                    raise SyncConflict('unexpected_reserved_shape')
+                blocks.append((start, finish))
+    return slots, blocks
+
+
+def _source_bookings(call, start, end):
+    day = start.astimezone(CLINIC_TZ).date().isoformat()
+    end_day = end.astimezone(CLINIC_TZ).date().isoformat()
+    rows = call('getBookings', [{'date_from': day, 'date_to': end_day, 'booking_type': 'non_cancelled'}])
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise SyncConflict('unexpected_bookings_shape')
+    return rows
+
+
+def _verify_availability(call, item, event, client, *, exclude_source_id=None, remote_end=None):
     day = item.starts_at.astimezone(CLINIC_TZ).date().isoformat()
     end_day = item.ends_at.astimezone(CLINIC_TZ).date().isoformat()
-    bookings=call('getBookings',[{'date_from':day,'date_to':end_day,'booking_type':'non_cancelled'}])
-    if not isinstance(bookings,list):
-        raise SyncConflict('unexpected_bookings_shape')
-    exact=[r for r in bookings if client and _same_booking(r,item,event,client)]
-    if len(exact)>1:
+    bookings = _source_bookings(call, item.starts_at, item.ends_at)
+    expected = copy(item)
+    expected.ends_at = remote_end or item.ends_at
+    exact = [row for row in bookings if client and _same_booking(row, expected, event, client)]
+    if len(exact) > 1:
         raise SyncConflict('duplicate_source_bookings')
     if exact:
         return int(exact[0]['id'])
     for row in bookings:
-        if str(row.get('unit_id'))!=str(UNIT_ID):
+        if str(row.get('unit_id')) != str(UNIT_ID) or str(row.get('id')) == str(exclude_source_id):
             continue
-        start=_dt(row.get('start_date') or row.get('start_date_time'))
-        end=_dt(row.get('end_date') or row.get('end_date_time'))
+        start = _dt(row.get('start_date_time') or row.get('start_date'))
+        end = _dt(row.get('end_date_time') or row.get('end_date'))
         if start is None or end is None or start < item.ends_at and end > item.starts_at:
             raise SyncConflict('source_booking_conflict')
-    matrix=call('getStartTimeMatrix',[day,day,event,UNIT_ID,1])
-    times=matrix.get(day) if isinstance(matrix,dict) else None
-    if not isinstance(times,list) or item.starts_at.astimezone(CLINIC_TZ).strftime('%H:%M') not in [str(t)[:5] for t in times]:
+    slots, blocks = source_slots(call, event, day, end_day, exclude_source_id)
+    if item.starts_at not in slots.get(day, ()):
         raise SyncConflict('source_slot_unavailable')
-    # Verify the entire local reserved duration, not just the remote service's
-    # shorter default. The source admin booking also validates the supplied end.
-    reserved=call('getReservedTimeIntervals',[day,end_day,event,UNIT_ID,1])
-    if not isinstance(reserved,dict):
-        raise SyncConflict('unexpected_reserved_shape')
-    for row in reserved.get(day,[]):
-        for interval in row.get('reserved_time',[]):
-            start=_dt(day+' '+str(interval.get('from','')))
-            finish=_dt(day+' '+str(interval.get('to','')))
-            if start is None or finish is None or start < item.ends_at and finish > item.starts_at:
-                raise SyncConflict('source_reserved_interval_conflict')
+    if any(start < item.ends_at and end > item.starts_at for start, end in blocks):
+        raise SyncConflict('source_reserved_interval_conflict')
     return None
+
+def source_end_for_booking(call, item, event):
+    if item.calendar_buffer_minutes == 0:
+        return item.ends_at
+    start = item.starts_at.astimezone(CLINIC_TZ).strftime('%Y-%m-%d %H:%M:%S')
+    end = _dt(call('calculateEndTime', [start, event, UNIT_ID, []]))
+    if end is None or not item.calendar_treatment_end <= end <= item.ends_at:
+        raise SyncConflict('source_duration_mismatch')
+    return end
+
 
 def sync_existing(pk, *, apply=False, call=None):
     item=Appointment.objects.select_related('customer','service','staff').get(pk=pk)
@@ -218,7 +274,8 @@ def sync_existing(pk, *, apply=False, call=None):
     event=_verify_catalog(call,item)
     additional=_additional_answers(call,item,event)
     client=_get_client(call,item.customer,apply=False)
-    previous=_verify_availability(call,item,event,client)
+    remote_end = source_end_for_booking(call, item, event)
+    previous=_verify_availability(call,item,event,client,remote_end=remote_end)
     if not apply:
         return {'result':'preflight_ok','existing_source_booking':bool(previous),'source_client_exists':bool(client)}
     # Serialize the claim before any booking mutation. A crash or timeout
@@ -232,23 +289,24 @@ def sync_existing(pk, *, apply=False, call=None):
             raise SyncConflict('local_booking_changed')
         locked.simplybook_sync_state='sending'
         locked.simplybook_event_id=str(event)
-        locked.save(update_fields=['simplybook_sync_state','simplybook_event_id'])
+        locked.simplybook_remote_ends_at=remote_end
+        locked.save(update_fields=['simplybook_sync_state','simplybook_event_id','simplybook_remote_ends_at'])
     try:
         client=_get_client(call,item.customer,apply=True)
         Appointment.objects.filter(pk=pk,simplybook_sync_state='sending').update(simplybook_client_id=str(client))
-        previous=_verify_availability(call,item,event,client)
+        previous=_verify_availability(call,item,event,client,remote_end=remote_end)
         if previous:
             remote_id=previous
         else:
             start=item.starts_at.astimezone(CLINIC_TZ)
-            end=item.ends_at.astimezone(CLINIC_TZ)
+            end=remote_end.astimezone(CLINIC_TZ)
             result=call('book',[event,UNIT_ID,client,start.strftime('%Y-%m-%d'),start.strftime('%H:%M:%S'),
                                end.strftime('%Y-%m-%d'),end.strftime('%H:%M:%S'),0,additional,1])
             rows=result.get('bookings') if isinstance(result,dict) else None
-            if not isinstance(rows,list) or len(rows)!=1 or result.get('require_confirm'):
+            if not isinstance(rows,list) or len(rows)!=1 or as_bool(result.get('require_confirm')):
                 raise SyncConflict('source_booking_not_confirmed')
             remote_id=int(rows[0]['id'])
-        _verify_readback(call, remote_id, item, event, client)
+        _verify_readback(call, remote_id, item, event, client, remote_end=remote_end)
         _record_source_link(item, remote_id, event, client, expected_state='sending')
         return {'result':'linked','source_booking_id':str(remote_id)}
     except Exception:
@@ -256,10 +314,12 @@ def sync_existing(pk, *, apply=False, call=None):
         raise
 
 
-def _verify_readback(call, remote_id, item, event, client):
+def _verify_readback(call, remote_id, item, event, client, *, remote_end=None):
+    expected = copy(item)
+    expected.ends_at = remote_end or item.simplybook_remote_ends_at or item.ends_at
     detail = call('getBookingDetails', [remote_id])
     if (not isinstance(detail, dict) or str(detail.get('id')) != str(remote_id)
-            or not _same_booking(detail, item, event, client)):
+            or not _same_booking(detail, expected, event, client)):
         raise SyncConflict('source_booking_readback_mismatch')
 
 
@@ -278,7 +338,8 @@ def _record_source_link(item, remote_id, event, client, *, expected_state):
             raise SyncConflict('source_booking_already_imported')
         locked.simplybook_booking_id = str(remote_id)
         locked.simplybook_sync_state = 'linked'
-        locked.save(update_fields=['simplybook_booking_id', 'simplybook_sync_state'])
+        locked.status = 'confirmed'
+        locked.save(update_fields=['simplybook_booking_id', 'simplybook_sync_state', 'status', 'updated_at'])
 
 
 def reconcile_existing(pk, *, apply=False, call=None):
@@ -300,7 +361,9 @@ def reconcile_existing(pk, *, apply=False, call=None):
     rows = call('getBookings', [{'date_from': day, 'date_to': end_day, 'booking_type': 'non_cancelled'}])
     if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
         raise SyncConflict('unexpected_bookings_shape')
-    matches = [row for row in rows if _same_booking(row, item, event, client)]
+    expected = copy(item)
+    expected.ends_at = item.simplybook_remote_ends_at or item.ends_at
+    matches = [row for row in rows if _same_booking(row, expected, event, client)]
     if not matches:
         return {'result': 'no_confirmed_remote_booking'}
     if len(matches) != 1:

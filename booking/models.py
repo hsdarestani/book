@@ -226,6 +226,7 @@ class Appointment(models.Model):
     idempotency_key=models.CharField(max_length=80,unique=True,null=True,blank=True,editable=False)
     simplybook_booking_id=models.CharField(max_length=80,unique=True,null=True,blank=True,editable=False)
     simplybook_sync_state=models.CharField(max_length=20,blank=True,default='',editable=False)
+    simplybook_remote_ends_at=models.DateTimeField(null=True,blank=True,editable=False)
     simplybook_event_id=models.CharField(max_length=80,blank=True,default='',editable=False)
     simplybook_client_id=models.CharField(max_length=80,blank=True,default='',editable=False)
     reminder_24h_sent_at=models.DateTimeField('24h-Erinnerung gesendet',null=True,blank=True,editable=False)

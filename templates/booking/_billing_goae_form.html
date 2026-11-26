@@ -1,6 +1,65 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'booking/goae-rechner-v2.css' %}?v=20261126-cards67">
-<section class="mlr" id="goae-rechnung" data-mlr>
+<section class="mlr" id="goae-rechnung">
+  <header class="mlr-head">
+    <h2>GOÄ-Schnellrechnung</h2>
+  </header>
+  {% if goae_quick_templates %}
+  <form data-goae-quick action="{% url 'booking:goae_quick' %}" method="post">
+    {% csrf_token %}
+    <div class="mlr-step mlr-field-grid">
+      <div>
+        <label>Patient suchen
+          <input type="search" placeholder="Name oder E-Mail" aria-controls="goaeQuickPatient" data-filter-patient-select="goaeQuickPatient" data-patient-search-url="{% url 'booking:goae_patient_search' %}" maxlength="80" autocomplete="off">
+        </label>
+        <small data-patient-search-status="goaeQuickPatient" role="status"></small>
+        <label>Patient
+          <select id="goaeQuickPatient" name="customer_id" required>
+            <option value="">Patient auswählen</option>
+            {% for patient in data.customers %}<option value="{{ patient.id }}">{{ patient.name }} · {{ patient.email }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      <label>Behandlung
+        <select name="treatment" required>
+          <option value="">Vorlage auswählen</option>
+          {% for key, item in goae_quick_templates.items %}<option value="{{ key }}" data-version="{{ item.version }}">{{ item.label }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Behandlungsumfang
+        <input name="quantity" type="number" value="1" min="1" max="100" step="1" required>
+      </label>
+      <label>Gewünschter Gesamtbetrag (€)
+        <input name="desired" type="text" inputmode="decimal" placeholder="0,00" required>
+      </label>
+    </div>
+    <details class="mlr-details">
+      <summary>Datum und Fälligkeit</summary>
+      <div class="mlr-details-inner mlr-field-grid">
+        <label>Behandlungsdatum <input name="service_date" type="date" value="{{ goae_quick_date }}" required></label>
+        <label>Rechnungsdatum <input name="invoice_date" type="date" value="{{ goae_quick_date }}" required></label>
+        <label>Zahlbar bis <input name="due_date" type="date"></label>
+      </div>
+    </details>
+    <div class="mlr-summary" aria-live="polite" data-quick-results hidden>
+      <div class="mlr-summary-head"><div><small>ENTWURF</small><strong data-quick-total></strong></div></div>
+      <ul data-quick-lines></ul>
+    </div>
+    <p class="mlr-feedback" data-quick-status role="status"></p>
+    <div class="mlr-toolbar">
+      <button type="button" class="mlr-print" data-quick-quote>Berechnen</button>
+      <button type="submit" class="mlr-save">Entwurf speichern</button>
+      <a class="mlr-print" data-quick-pdf href="#" hidden>A4-PDF herunterladen</a>
+    </div>
+  </form>
+  <script src="{% static 'booking/goae-quick.js' %}" defer></script>
+  {% else %}
+  <p>Für die Schnellrechnung muss eine ärztlich freigegebene Behandlungsvorlage hinterlegt sein.</p>
+  {% endif %}
+  <details class="mlr-details">
+    <summary>Erweiterte Einstellungen · GOÄ-Positionen manuell erfassen</summary>
+    <div class="mlr-details-inner">
+<section class="mlr" id="goae-manuell" data-mlr>
  <header class="mlr-head"><p class="mlr-overline">A+ ESTHETIC · PRIVATPRAXIS · Rechnung nach GOÄ</p><h2>GOÄ-Rechner</h2>
   <p>Drei Angaben – sofortiger GOÄ-Berechnungsvorschlag mit Faktor. Tatsächliche Leistungen, Material und Vereinbarungen müssen vor dem Speichern geprüft werden.</p></header>
  <form method="post" id="goaeFullForm" data-goae-full novalidate>
@@ -153,3 +212,7 @@
 {{ goae_catalog|json_script:"goaeTariffCatalog" }}
 {{ goae_treatments|json_script:"goaeTreatmentMap" }}
 <script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261126-pdf-download" defer></script>
+
+    </div>
+  </details>
+</section>
