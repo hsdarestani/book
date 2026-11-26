@@ -1,4 +1,4 @@
-name: Read-only Ariane specific booking reconciliation preflight
+name: Check the preserved SimplyBook source collision
 on:
   push:
     branches: [release/admin-batch-runner-20261126]
@@ -18,50 +18,10 @@ jobs:
           command_timeout: 5m
           script: |
             set -euo pipefail
-            test -r /etc/aesthetic-simplybook-credentials.env
-            source /etc/aesthetic-simplybook-credentials.env
             cd /opt/aesthetic-book/app
-            runuser -u aestheticbook --preserve-environment -- bash -c 'set -ae; source /etc/aesthetic-book.env; cd /opt/aesthetic-book/app; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
-
-            import logging
-            from booking import simplybook_outbound as sync
-            from booking.models import Appointment
-            from booking.clinical_time import parse_clinic_wall_time
-            logging.disable(logging.CRITICAL)
-            day = '2026-12-30'
-            at = parse_clinic_wall_time(day, '16:00')
-            items = list(Appointment.objects.select_related('staff','service','customer').filter(
-                staff__display_name=sync.ARIANE, service__slug='aesthetische-erstberatung',
-                starts_at=at, source='app', simplybook_sync_state='review')[:2])
-            if len(items) != 1:
-                print('EXACT_REVIEW_ROW=false'); raise SystemExit(0)
-            item = items[0]
-            print('EXACT_REVIEW_ROW=true')
-            call = sync.session()
-            event = sync._verify_catalog(call, item)
-            client = sync._get_client(call, item.customer, apply=False)
-            print('LOCAL_RESERVED_MINUTES=' + str(int(item.reserved_duration.total_seconds())//60))
-            def read(label, method, params, report):
-                try:
-                    print(label+'='+str(report(call(method,params))))
-                except Exception:
-                    print(label+'=unknown')
-            read('EXPECTED_END', 'calculateEndTime', [day+' 16:00:00',event,2,[]],
-                lambda result: sync._dt(result).astimezone(sync.CLINIC_TZ).strftime('%H:%M') if sync._dt(result) else 'unavailable')
-            read('LOCATION_PLUGIN', 'isPluginActivated', ['location'], sync.as_bool)
-            read('APPROVAL_PLUGIN', 'isPluginActivated', ['approve_booking'], sync.as_bool)
-            read('PAYMENT_PLUGIN', 'isPluginActivated', ['payment'], sync.as_bool)
-            def count(rows):
-                if not isinstance(rows,list): return 'unknown'
-                return sum(str(row.get('client_id')) == str(client) for row in rows)
-            query={'date_from':day,'date_to':day}
-            read('SOURCE_ALL_SAME_CLIENT', 'getBookings', [query], count)
-            read('SOURCE_LIVE_SAME_CLIENT', 'getBookings', [query | {'booking_type':'non_cancelled'}], count)
-            read('SOURCE_CANCELLED_SAME_CLIENT', 'getBookings', [query | {'booking_type':'cancelled'}], count)
-            read('SOURCE_PENDING_COUNT', 'pluginApproveGetPendingBookingsCount', [], lambda n: n if type(n) is int else 'unknown')
-            try:
-                sync._verify_availability(call,item,event,client)
-                print('SOURCE_INTERVAL_STILL_AVAILABLE=true')
-            except Exception:
-                print('SOURCE_INTERVAL_STILL_AVAILABLE=false')
-            PY
+            file=booking/simplybook_writeback.py
+            test -f "$file"
+            test ! -L "$file"
+            git ls-files --error-unmatch "$file" >/dev/null 2>&1 && exit 2
+            printf 'KNOWN_BOOK_SOURCE_REVISION=%s\n' "$(git rev-parse HEAD)"
+            printf 'SIMPLYBOOK_SOURCE_BLOB=%s\n' "$(git hash-object "$file")"
