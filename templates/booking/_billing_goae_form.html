@@ -44,9 +44,13 @@
    <summary><span><b>☷</b> Details anpassen <small>optional für Vorschau · erforderlich für Rechnungsentwurf</small></span><span class="mlr-chevron">⌄</span></summary>
    <div class="mlr-details-inner">
     <div class="mlr-field-grid">
-     <label>Patient <select name="customer_id" id="goaePatient" required><option value="">Patient auswählen</option>
-       {% for patient in data.customers %}<option value="{{ patient.id }}">{{ patient.name }} · {{ patient.email }}</option>{% endfor %}
+     <div>
+       <label>Patienten suchen <input type="search" placeholder="Name oder E-Mail" aria-controls="goaePatient" data-filter-patient-select="goaePatient" autocomplete="off"></label>
+       <small data-patient-search-status="goaePatient" role="status"></small>
+       <label>Patient <select name="customer_id" id="goaePatient" required><option value="">Patient auswählen</option>
+       {% for patient in data.customers %}<option value="{{ patient.id }}" data-phone="{{ patient.phone }}">{{ patient.name }} · {{ patient.email }}</option>{% endfor %}
      </select></label>
+     </div>
      <div class="mlr-date"><label for="goaeDateGerman">Behandlungsdatum</label><input type="text" id="goaeDateGerman" placeholder="TT.MM.JJJJ" inputmode="numeric" maxlength="10" required pattern="[0-9]{2}\.[0-9]{2}\.[0-9]{4}"><input type="date" data-native-date class="mlr-native-date" aria-label="Datum auswählen"><button type="button" data-open-calendar aria-label="Kalender öffnen">▣</button></div>
      <label>Umsatzsteuerstatus <select data-vat><option value="19" selected>19 % · Ästhetisch / steuerpflichtig</option><option value="0">0 % · Bitte steuerlich prüfen</option><option value="7">7 % · Bitte steuerlich prüfen</option></select></label>
      <label>Diagnose / Behandlungsanlass <select data-diagnosis></select></label>

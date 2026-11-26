@@ -1,9 +1,13 @@
-"""Match public intake to one Book patient by >=3 of five *present* fields.
+"""Compare valid identity fields for private Office intake assignment."""
 
-Never silently merge duplicate profiles, change existing contact credentials,
-or expose an old clinical file to the unauthenticated submitter.
-"""
+import re
+import unicodedata
 from datetime import date
+
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+
+from .clinical_time import clinic_localdate
 from .customer_identity import normalize_email, normalize_name, normalize_phone
 from .models import Customer
 
@@ -11,48 +15,76 @@ from .models import Customer
 def identity_values(data):
     def get(field):
         return data.get(field) if isinstance(data, dict) else getattr(data, field, None)
-    dob=get('date_of_birth')
-    if isinstance(dob, date): dob=dob.isoformat()
-    dob=str(dob or '').strip()
-    if dob and (len(dob)!=10 or dob[4]!='-' or dob[7]!='-'):
-        dob=''
-    return (
-        normalize_name(get('first_name')),
-        normalize_name(get('last_name')),
-        normalize_phone(get('phone')),
-        dob,
-        normalize_email(get('email')),
-    )
+
+    def name(field):
+        value = get(field)
+        return normalize_name(unicodedata.normalize("NFC", value)) if isinstance(value, str) else ""
+
+    try:
+        dob = date.fromisoformat(str(get("date_of_birth") or "").strip())
+    except ValueError:
+        dob = None
+    if dob and not date(1900, 1, 1) <= dob <= clinic_localdate():
+        dob = None
+
+    email = normalize_email(get("email"))
+    try:
+        validate_email(email)
+    except ValidationError:
+        email = ""
+
+    raw = get("phone")
+    digits = re.sub(r"\D", "", raw) if isinstance(raw, str) and re.fullmatch(r"[0-9+(). \t-]+", raw) else ""
+    if digits.startswith("00"):
+        digits = digits[2:]
+    digits_count = len(digits) + int(digits.startswith("0"))
+    phone = normalize_phone(raw) if 8 <= digits_count <= 15 else ""
+
+    return (name("first_name"), name("last_name"), phone, dob.isoformat() if dob else "", email)
+
+
+def _score(left, right):
+    return sum(bool(a and b and a == b) for a, b in zip(left, right))
 
 
 def match_score(left, right):
-    return sum(1 for a,b in zip(identity_values(left),identity_values(right)) if a and b and a==b)
+    return _score(identity_values(left), identity_values(right))
+
+
+def _patients():
+    return Customer.objects.only("first_name", "last_name", "email", "phone", "date_of_birth")
+
+
+def intake_review_candidates(data):
+    incoming = identity_values(data)
+    return [patient for patient in _patients().order_by("last_name", "first_name").iterator()
+            if _score(incoming, identity_values(patient)) >= 3]
 
 
 def locate_unique_intake_patient(data):
-    """Return (customer, conflict). No match means caller may create new.
-
-    Ambiguous matches, or contact overlap with insufficient confirmation,
-    require staff review rather than guessing or creating a duplicate.
-    """
+    """Return a verified link, an exceptional review reason, or a new patient."""
     incoming = identity_values(data)
-    if not incoming[0] or not incoming[1] or not incoming[4]:
-        return None,'missing_identity'
-    customers=list(Customer.objects.order_by('pk'))
-    matching=[p for p in customers if match_score(data,p)>=3]
-    if len(matching)>1:
-        return None,'multiple_three_of_five_matches'
-    if len(matching)==1:
-        chosen=matching[0]
-        # A contact point belonging to another record creates ambiguity.
-        for other in customers:
-            if other.pk==chosen.pk:continue
-            values=identity_values(other)
-            if any(incoming[i] and incoming[i]==values[i] for i in (2,4)):
-                return None,'contact_collision'
-        return chosen,''
-    for other in customers:
-        values=identity_values(other)
-        if any(incoming[i] and incoming[i]==values[i] for i in (2,4)):
-            return None,'insufficient_identity_evidence'
-    return None,''
+    if sum(bool(value) for value in incoming) < 3:
+        return None, "missing_identity"
+
+    qualifying = []
+    contacts = set()
+    for patient in _patients().iterator():
+        values = identity_values(patient)
+        if _score(incoming, values) >= 3:
+            qualifying.append((patient, values[3]))
+        if any(incoming[i] and incoming[i] == values[i] for i in (2, 4)):
+            contacts.add(patient.pk)
+
+    if len(qualifying) > 1:
+        return None, "multiple_three_of_five_matches"
+    if qualifying:
+        patient, birth_date = qualifying[0]
+        if contacts - {patient.pk}:
+            return None, "contact_collision"
+        if birth_date and incoming[3] and birth_date != incoming[3]:
+            return None, "birth_date_conflict"
+        return patient, ""
+    if contacts:
+        return None, "insufficient_identity_evidence"
+    return None, ""

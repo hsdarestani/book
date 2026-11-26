@@ -1,8 +1,8 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from .models import Customer, PatientRecord
+from .models import AdminAccessProfile, Customer, PatientFormNotificationRead, PatientRecord
 
 
 class DesktopFormNotificationsTests(TestCase):
@@ -58,3 +58,51 @@ class DesktopFormNotificationsTests(TestCase):
             self.assertIn("clinic-desktop-notifications-v1.js", template.template.source)
         cal = get_template("booking/_shared_admin_calendar.html").template.source
         self.assertNotIn("clinic-web-polish-v2.css", cal)
+
+
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+})
+class PatientFormNotificationInboxTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(username='inbox-admin', is_staff=True)
+        patient = Customer.objects.create(first_name='Synthetic', last_name='Inbox', email='inbox@example.invalid')
+        self.form = PatientRecord.objects.create(customer=patient, kind='form', source='office_intake',
+                                                 title='Sensitive title', note='Sensitive body')
+        self.other = PatientRecord.objects.create(customer=patient, kind='document', source='manual', title='Private')
+        self.url = reverse('booking:notification_inbox')
+        self.client = Client(enforce_csrf_checks=True)
+
+    def test_inbox_read_state_is_private_and_idempotent(self):
+        self.client.force_login(self.staff)
+        reply = self.client.get(self.url)
+        data = reply.json()
+        self.assertEqual(len(data['events']), 1)
+        self.assertEqual(data['unread'], 1)
+        self.assertFalse(data['events'][0]['read'])
+        self.assertEqual(data['events'][0]['id'], str(self.form.public_id))
+        self.assertContains(reply, 'Neuer Aufnahmebogen')
+        self.assertNotContains(reply, 'Sensitive')
+        self.assertIn('no-store', reply['Cache-Control'])
+        self.assertEqual(self.client.get(data['events'][0]['url']).status_code, 200)
+        payload = {'record': self.form.public_id}
+        self.assertEqual(self.client.post(self.url, payload).status_code, 403)
+        csrf = {'HTTP_X_CSRFTOKEN': data['csrf_token']}
+        self.assertEqual(self.client.post(self.url, {'record': 'invalid'}, **csrf).status_code, 400)
+        self.assertEqual(self.client.post(self.url, {'record': self.other.public_id}, **csrf).status_code, 404)
+        for _ in range(2):
+            self.assertEqual(self.client.post(self.url, payload, **csrf).status_code, 200)
+        after = self.client.get(self.url).json()
+        self.assertEqual(after['unread'], 0)
+        self.assertTrue(after['events'][0]['read'])
+        self.assertEqual(PatientFormNotificationRead.objects.count(), 1)
+        self.client.force_login(User.objects.create_user(username='inbox-other', is_staff=True))
+        self.assertEqual(self.client.get(self.url).json()['unread'], 1)
+
+    def test_inbox_remains_inaccessible_to_public_and_view_only_users(self):
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+        admin = User.objects.create_user(username='inbox-view-only', is_staff=True)
+        AdminAccessProfile.objects.create(user=admin, view_only=True)
+        self.client.force_login(admin)
+        self.assertEqual(self.client.get(self.url).status_code, 403)

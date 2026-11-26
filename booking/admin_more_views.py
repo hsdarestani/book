@@ -46,6 +46,8 @@ def admin_more(request):
                 return redirect("/verwaltung/mehr/?saved=template#whatsapp-templates")
 
             if action in {"banner_save", "banner_delete"}:
+                if request.session.get("aplus_app_admin") is not True:
+                    raise app_management_views.AppAdminSessionRequired(app_management_views.APP_SESSION_REQUIRED)
                 payload = {"action": "delete" if action == "banner_delete" else "save"}
                 banner_id = str(request.POST.get("banner_id") or "").strip()
                 if banner_id.isdigit():
@@ -85,17 +87,21 @@ def admin_more(request):
 
     banners = []
     banners_error = ""
-    if request.session.get("aplus_app_admin"):
-        try:
-            banners = app_management_views._api(
-                request, "dashboard-banners/"
-            ).get("banners", [])
-        except (PermissionError, RuntimeError) as exc:
-            banners_error = str(exc)
+    campaigns_available = False
+    if not view_only:
+        if request.session.get("aplus_app_admin") is True:
+            try:
+                banners = app_management_views._api(request, "dashboard-banners/").get("banners", [])
+                campaigns_available = True
+            except (PermissionError, RuntimeError) as exc:
+                banners_error = str(exc)
+        else:
+            banners_error = app_management_views.APP_SESSION_REQUIRED
 
     return render(request, "booking/admin_more.html", {
         "banners": banners,
         "banners_error": banners_error,
+        "campaigns_available": campaigns_available,
         "templates": WhatsAppTemplate.objects.all(),
         "view_only": view_only,
         "error": error,
