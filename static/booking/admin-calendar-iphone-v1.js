@@ -8,6 +8,7 @@
   const mobile = window.matchMedia('(max-width: 760px)');
   const monthFormat = new Intl.DateTimeFormat('de-DE',{month:'long',year:'numeric'});
   const dateFormat = new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'long',year:'numeric'});
+  const numericDate = new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
   const longWeekday = new Intl.DateTimeFormat('de-DE',{weekday:'long'});
   const names = ['Mo','Di','Mi','Do','Fr','Sa','So'];
   const viewMode = () => new URLSearchParams(location.search).get('cal_view') || 'day';
@@ -39,7 +40,8 @@
     return iso(date);
   }
   function currentDate() {
-    return new URLSearchParams(location.search).get('date') || iso(new Date());
+    const requested = new URLSearchParams(location.search).get('date');
+    return parse(requested) ? requested : document.body.dataset.calendarDate || iso(new Date());
   }
   function urlFor(value, mode = viewMode()) {
     const params = new URLSearchParams(location.search);
@@ -59,9 +61,7 @@
       label.className = 'sb-reference-day-label';
       head.prepend(label);
     }
-    label.textContent = longWeekday.format(date)+', '+
-      String(date.getDate()).padStart(2,'0')+'-'+
-      String(date.getMonth()+1).padStart(2,'0')+'-'+date.getFullYear();
+    label.textContent = longWeekday.format(date)+', '+numericDate.format(date);
   }
   function renderWeekHeads() {
     if (!isWeek()) return;
@@ -75,8 +75,7 @@
         label.className='sb-reference-day-label';
         head.prepend(label);
       }
-      label.textContent=String(date.getDate()).padStart(2,'0')+'-'+
-        String(date.getMonth()+1).padStart(2,'0')+'-'+date.getFullYear();
+      label.textContent=numericDate.format(date);
     });
   }
   function scrollWeekTo(value) {

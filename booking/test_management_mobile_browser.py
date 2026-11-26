@@ -268,12 +268,12 @@ class ManagementMobileBrowserTests(TestCase):
                         }""")
                         self.assertGreater(geom["scrollWidth"],geom["width"]+90,geom)
                         self.assertEqual(geom["overflowX"],"auto",geom)
-                        self.assertIn(geom["touch"],("auto","pan-x pan-y","pan-y pan-x"),geom)
+                        self.assertIn(geom["touch"],("auto","pan-x pan-y","pan-y pan-x","pan-x pan-y pinch-zoom","manipulation"),geom)
                         self.assertLessEqual(geom["headBottom"],geom["trackTop"]+2,geom)
                         self.assertLess(geom["headTop"],geom["trackTop"],geom)
                         # Horizontal wheel should only move the columns,
                         # leaving the time labels in the fixed first grid cell.
-                        axis_x=page.locator(".sb-calendar-shell.is-week > .sb-time-axis").evaluate(
+                        axis_x=page.locator(".sb-calendar-shell.is-week .sb-time-axis").evaluate(
                             "el=>el.getBoundingClientRect().left")
                         # Locate the actual visible calendar cell, not a
                         # hard-coded screen coordinate (the main viewport may
@@ -295,7 +295,7 @@ class ManagementMobileBrowserTests(TestCase):
                         page.wait_for_timeout(220)
                         self.assertGreater(viewport.evaluate("el=>el.scrollLeft"),65,
                             "Horizontal wheel did not move "+mode+" at "+str(coords))
-                        axis_after=page.locator(".sb-calendar-shell.is-week > .sb-time-axis").evaluate(
+                        axis_after=page.locator(".sb-calendar-shell.is-week .sb-time-axis").evaluate(
                             "el=>el.getBoundingClientRect().left")
                         self.assertLess(abs(axis_after-axis_x),2)
                         viewport.evaluate("el=>el.scrollLeft=0")

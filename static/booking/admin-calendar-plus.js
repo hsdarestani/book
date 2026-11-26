@@ -327,6 +327,7 @@
     node.style.top = `${data.top}%`;
     node.style.height = `${data.height}%`;
     node.dataset.fastAppointmentId = String(data.id);
+    node.dataset.calendarStart = data.start;
     node.title = `${data.customer_name} – ${data.service_name}`;
     if (Number(data.buffer_minutes) > 0) {
       node.dataset.calendarBuffer = String(data.buffer_minutes);

@@ -23,7 +23,7 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
             "data-admin-calendar-reference-v2",
             "admin-calendar-sheet-fix-v3.css",
             "admin-calendar-date-dock-v6.css",
-            "20261029-horizontal2",
+            "20261126-calendar-acceptance1",
             "20261029-reference2",
         ):
             self.assertIn(marker, admin)
@@ -149,9 +149,9 @@ class IPhoneCalendarIntegrationTests(SimpleTestCase):
         script=self.source("static/booking/admin-calendar-iphone-v1.js")
         self.assertIn('class="sb-horizontal-track-viewport"',template)
         self.assertIn("calendar_view != 'day'",template)
-        self.assertIn("overflow-x:auto!important",style)
-        self.assertIn("touch-action:auto!important",style)
-        self.assertIn("grid-template-columns:62px minmax(0,1fr)",style)
+        self.assertIn("overflow: auto !important",style)
+        self.assertIn("touch-action: pan-x pan-y pinch-zoom",style)
+        self.assertIn("grid-template-columns: var(--calendar-ruler) minmax(0, 1fr)",style)
         self.assertIn("document.querySelector('.sb-calendar-shell.is-week > .sb-horizontal-track-viewport')",script)
 
     def test_note_form_save_and_mobile_calendar_modes(self):

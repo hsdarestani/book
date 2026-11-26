@@ -84,36 +84,6 @@
     });
   }
 
-  function initStickyCalendarDates() {
-    const shell = document.querySelector('.sb-calendar-shell');
-    const days = shell?.querySelector('.sb-calendar-days');
-    const heads = days ? [...days.querySelectorAll('.sb-day-head')] : [];
-    if (!shell || !days || !heads.length) return;
-
-    const sticky = document.createElement('div');
-    sticky.className = 'ferrari-calendar-sticky';
-    sticky.innerHTML = '<div class="ferrari-calendar-sticky-inner"><div class="ferrari-sticky-axis"></div><div class="ferrari-sticky-days"></div></div>';
-    const target = sticky.querySelector('.ferrari-sticky-days');
-    target.style.setProperty('--day-count', String(heads.length));
-    target.innerHTML = heads.map(h => '<div class="ferrari-sticky-day">' + h.innerHTML + '</div>').join('');
-    document.body.appendChild(sticky);
-
-    const sync = () => {
-      const rect = shell.getBoundingClientRect();
-      const top = window.innerWidth <= 760 ? 52 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0) : 88;
-      sticky.classList.toggle('is-visible', rect.top < top && rect.bottom > top + 60);
-      const bodyDays = shell.querySelector('.sb-calendar-days');
-      if (bodyDays) {
-        target.style.width = bodyDays.scrollWidth + 'px';
-        const scrollLeft = shell.scrollLeft || 0;
-        target.style.transform = 'translateX(' + (-scrollLeft) + 'px)';
-      }
-    };
-    shell.addEventListener('scroll', sync, {passive:true});
-    window.addEventListener('scroll', sync, {passive:true});
-    window.addEventListener('resize', sync);
-    sync();
-  }
 
   function initGenericListScrollMemory() {
     const key = 'aplus-admin-list-scroll-v1';
@@ -160,7 +130,6 @@
     initEditorModals();
     initCustomerScrollMemory();
     initGenericListScrollMemory();
-    initStickyCalendarDates();
     initReturnHighlight();
     const sheetObserver = new MutationObserver(records => {
       for (const record of records) {
