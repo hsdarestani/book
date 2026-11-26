@@ -38,6 +38,17 @@ jobs:
             item=rows[0]
             print("QA_LOCAL_STATE",item.simplybook_sync_state,"remote_id_present",bool(item.simplybook_booking_id),"remote_client_present",bool(item.simplybook_client_id))
             call=session()
+            for method,params in [("getTimeframe",[]),("isPluginActivated",["location"]),("isPluginActivated",["event_field"]),("getAdditionalFields",[5]),("getLocationsList",[False])]:
+                try:
+                    value=call(method,params)
+                    if method=="getAdditionalFields":
+                        print("QA_CONFIG",method,[(r.get("type"),r.get("is_required",r.get("required")),str(r.get("title",""))[:80]) for r in value if isinstance(r,dict)])
+                    elif method=="getLocationsList":
+                        print("QA_CONFIG",method,[(r.get("id"),r.get("name")) for r in value if isinstance(r,dict)])
+                    else:
+                        print("QA_CONFIG",method,value if isinstance(value,(bool,int,str)) else type(value).__name__)
+                except Exception as e:
+                    print("QA_CONFIG_ERROR",method,type(e).__name__)
             try:
                 clients=call("getClientList",[item.customer.email,None])
                 exact=[r for r in clients if _contact_matches(r,item.customer)]
