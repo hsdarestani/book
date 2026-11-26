@@ -4,3 +4,4 @@ booking/management/commands/reconcile_mobile_cancellations.py
 booking/mobile_staff_api.py
 booking/notifications.py
 booking/test_admin_notification_routing.py
+booking/test_simplybook_outbound.py
