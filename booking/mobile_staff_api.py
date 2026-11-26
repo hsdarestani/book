@@ -34,7 +34,7 @@ from .models import (
     MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour, OfficeIntakeForm,
 )
 from .intake_forms import build_intake_pdf, confirm_form_link
-from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
+from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder
 from .services import effective_working_ranges
 from .simplybook_writeback import enabled as simplybook_write_enabled, source_id as simplybook_source_id, write_existing_booking, SourceConflict, SourceUnavailable
 from .patient_identity_review import possible_duplicate_pairs
@@ -393,7 +393,7 @@ def workspace(request, action, ident=None, record_id=None):
             return _private({'ok': True, 'id': review.pk})
         if request.method == 'GET' and action in {'calendar', 'catalog', 'overview', 'appointments', 'patients', 'patient', 'record', 'visit'}:
             return _read(request, actor, providers, action, ident, record_id)
-        if request.method == 'POST' and action in {'appointment', 'block', 'availability', 'service', 'record-note', 'record-upload','record-edit'}:
+        if request.method == 'POST' and action in {'appointment', 'block', 'availability', 'service', 'record-note', 'record-upload','record-edit','appointment-reminder'}:
             return _mutate(request, actor, providers, action)
     except (ValidationError, TypeError, ValueError, OverflowError) as exc:
         message = ' '.join(exc.messages) if isinstance(exc, ValidationError) else 'Die Eingaben sind ungültig.'
@@ -461,8 +461,10 @@ def _save_synced_appointment(data, actor, item):
             write_existing_booking(item,operation='cancel')
         except (SourceConflict,SourceUnavailable) as exc:
             raise CommandConflict(str(exc)) from exc
+        previous = appointment_snapshot(item)
         item.status='cancelled'
         item.save(update_fields=['status','updated_at'])
+        transaction.on_commit(lambda: _notify(notify_admin_changed, item, previous))
         return item.pk
 
     if (int(data.get('staff_id') or 0)!=item.staff_id or
@@ -508,11 +510,13 @@ def _save_appointment(data, actor, providers, previous_item):
         if revision != item.updated_at:
             raise CommandConflict('Der Termin wurde zwischenzeitlich geändert. Bitte neu laden.')
     if operation == 'cancel':
+        previous = appointment_snapshot(item)
         item.status = 'cancelled'
         item.save(update_fields=['status', 'updated_at'])
         MobileStaffCancellation.objects.get_or_create(
-            booking_public_id=item.public_id, defaults={'appointment': item},
+            booking_public_id=item.public_id, defaults={'appointment': item, 'notification_independent': True},
         )
+        transaction.on_commit(lambda: _notify(notify_admin_changed, item, previous))
         return item.pk
 
     staff = providers.filter(pk=int(data['staff_id'])).first()
@@ -664,7 +668,7 @@ def _mutate(request, actor, providers, action):
             if 'staff_id' in data:
                 lock_ids.append(int(data['staff_id']))
             ident = data.get('id')
-            if action == 'appointment' and ident:
+            if action in {'appointment', 'appointment-reminder'} and ident:
                 original_staff = _appointments(providers).filter(pk=int(ident)).values_list('staff_id', flat=True).first()
                 if not original_staff:
                     return _private({'ok': False, 'error': 'not_found'}, 404)
@@ -683,6 +687,18 @@ def _mutate(request, actor, providers, action):
                 if ident and (not item or item.staff_id not in lock_ids):
                     raise CommandConflict('Der Termin wurde zwischenzeitlich geändert. Bitte neu laden.')
                 result = _save_appointment(data, actor, providers, item)
+            elif action == 'appointment-reminder':
+                item = _appointments(providers).filter(pk=int(ident or 0)).first()
+                if not item or item.staff_id not in lock_ids:
+                    raise PermissionError
+                if item.status not in {'new', 'confirmed'} or item.starts_at <= timezone.now():
+                    raise CommandConflict('Nur zukünftige aktive Termine können erinnert werden.')
+                # The transaction receipt prevents a retry from sending again after a
+                # successful response. The relay must report an actual inbox entry.
+                reply = notify_manual_app_reminder(item)
+                if not reply.get('ok') or not reply.get('notifications'):
+                    raise CommandConflict('Keine App-Benachrichtigung zugestellt. Bitte Kontoverknüpfung prüfen.')
+                result = item.pk
             elif action == 'block':
                 result = _save_block(data, providers)
             elif action == 'availability':
