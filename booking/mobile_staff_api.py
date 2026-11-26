@@ -35,7 +35,7 @@ from .models import (
     MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour, OfficeIntakeForm,
 )
 from .intake_forms import build_intake_pdf, confirm_form_link
-from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder
+from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder, notify_admin_source_changed
 from .simplybook_writeback import source_managed as _managed_appointment, source_editable, change_locked
 from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS
 from .services import effective_working_ranges
@@ -518,6 +518,7 @@ def _save_appointment(data, actor, providers, previous_item):
                     int(data['staff_id']) != item.staff_id or int(data['service_id']) != item.service_id
                     or int(data['customer_id']) != item.customer_id or data.get('status') != item.status):
                 raise CommandConflict('Die SimplyBook-Buchungsdaten können hier nicht geändert werden.')
+            previous = appointment_snapshot(item)
             try:
                 changed = change_locked(item, cancel=operation == 'cancel',
                                         starts_at=parse_clinic_wall_time(data.get('date'), data.get('start')) if operation == 'update' else None)
@@ -527,13 +528,17 @@ def _save_appointment(data, actor, providers, previous_item):
                 MobileStaffCancellation.objects.get_or_create(
                     booking_public_id=item.public_id, defaults={'appointment': item},
                 )
+            if changed and appointment_snapshot(item) != previous:
+                transaction.on_commit(lambda: _notify(notify_admin_source_changed, item, previous))
             return item.pk if changed else None
     if operation == 'cancel':
+        previous = appointment_snapshot(item)
         item.status = 'cancelled'
         item.save(update_fields=['status', 'updated_at'])
         MobileStaffCancellation.objects.get_or_create(
             booking_public_id=item.public_id, defaults={'appointment': item},
         )
+        transaction.on_commit(lambda: _notify(notify_admin_changed, item, previous))
         return item.pk
 
     staff = providers.filter(pk=int(data['staff_id'])).first()

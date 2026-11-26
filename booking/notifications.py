@@ -9,7 +9,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from .clinical_time import clinic_localtime
-from .emails import send_appointment_event_emails
+from .emails import send_appointment_event_emails, send_admin_appointment_event_email
 
 
 logger = logging.getLogger(__name__)
@@ -157,12 +157,40 @@ def notify_customer_rescheduled(appointment):
     return {"customer": customer, "admin": admin, "doctor": doctor}
 
 
+def _notify_admin_action(appointment, *, event, title, email_event):
+    # Keep the system lock-screen alert free of patient names and treatments.
+    local = _local_start(appointment)
+    result = _push(
+        appointment, target="admin", event=event, title=title,
+        body=f"Termin am {local:%d.%m.%Y} um {local:%H:%M}. Details in der App.",
+    )
+    try:
+        send_admin_appointment_event_email(appointment, email_event)
+    except Exception:
+        logger.exception("Admin-Termin-E-Mail konnte nicht versendet werden: %s", email_event)
+    return result
+
+
+def notify_admin_source_changed(appointment, previous):
+    """Confirmed remote write: alert administrators without duplicating vendor customer mail."""
+    if appointment_snapshot(appointment) == previous:
+        return {"ok": True, "skipped": "unchanged"}
+    cancelled = appointment.status == "cancelled"
+    return _notify_admin_action(
+        appointment,
+        event="admin_status_changed" if cancelled else "admin_rescheduled",
+        title="Termin abgesagt" if cancelled else "Termin geändert",
+        email_event="cancelled" if cancelled else "changed",
+    )
+
+
 def notify_admin_created(appointment):
     local = _local_start(appointment)
     result = _push(
         appointment, target="customer", event="admin_created", title="Neuer Termin",
         body=f"Für Sie wurde ein Termin für {appointment.service.name} am {local:%d.%m.%Y} um {local:%H:%M} eingetragen.",
     )
+    _notify_admin_action(appointment, event="admin_created", title="Neuer Termin", email_event="created")
     _referral_booking(appointment)
     _notify_doctor(
         appointment, event="booking_created", title="Neuer Termin",
@@ -197,6 +225,11 @@ def notify_admin_changed(appointment, previous):
         or previous.get("service_id") != current.get("service_id")
     ):
         send_appointment_event_emails(appointment, "changed", include_admin=False)
+    _notify_admin_action(
+        appointment, event=event, title=title,
+        email_event="cancelled" if appointment.status == "cancelled" else
+        ("status_changed" if status_changed else "changed"),
+    )
     _notify_doctor(
         appointment, event=event, title="Termin aktualisiert",
         body=f"{appointment.customer.full_name} · {local:%d.%m.%Y %H:%M}",
@@ -211,6 +244,7 @@ def notify_admin_deleted(appointment):
         body=f"Ihr Termin für {appointment.service.name} am {local:%d.%m.%Y} um {local:%H:%M} wurde abgesagt.",
     )
     send_appointment_event_emails(appointment, "cancelled", include_admin=False)
+    _notify_admin_action(appointment, event="admin_deleted", title="Termin gelöscht", email_event="cancelled")
     _notify_doctor(
         appointment, event="booking_cancelled", title="Termin abgesagt",
         body=f"{appointment.customer.full_name} · {local:%d.%m.%Y %H:%M}",
