@@ -1,4 +1,4 @@
-name: Guarded Book native reminder endpoint release
+name: Guarded Book user acceptance correction release
 
 on:
   push:
@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BOOK_BASELINE: a5149246445de713cbe5d7bfa2c517e611875a3f
-  BOOK_TARGET: 0c3a8108812732091b3732cfdeed59340c95c08b
+  BOOK_BASELINE: 0c3a8108812732091b3732cfdeed59340c95c08b
+  BOOK_TARGET: 255a682e78e23c0cb275de108384a69cb4ce80ad
   BOOK_TOOLS_REF: ${{ github.sha }}
 
 jobs:
@@ -39,11 +39,14 @@ jobs:
           git -C candidate diff --name-only "$BOOK_BASELINE" "$BOOK_TARGET" | cmp -s scripts/book_admin_web_scope.txt -
           test ! -e candidate/static/booking/calendar-mobile-sticky-day-header-v1.css
 
-      - name: Verify mocked reminder delivery and replay only
+      - name: Verify focused integrated user acceptance scenarios
         working-directory: candidate
         run: |
-          pip install -r requirements.txt
-          python manage.py test booking.test_mobile_staff_workspace.WorkspaceTests.test_manual_app_reminder_is_scoped_and_idempotent booking.test_mobile_staff_workspace.WorkspaceTests.test_uncertain_reminder_is_quarantined_even_with_new_key --noinput
+          pip install -r requirements.txt playwright
+          python -m playwright install --with-deps chromium
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_same_domain_invoices booking.test_general_intake booking.test_simplybook_outbound booking.test_goae_draft_browser booking.test_acceptance_polish_browser booking.test_populated_calendar_browser --noinput
 
   release:
     needs: rehearse
@@ -67,3 +70,34 @@ jobs:
               git -C "$app" show "$BOOK_TOOLS_REF:scripts/$name" > "$tools/$name"
             done
             bash "$tools/book_admin_web_release.sh" "$BOOK_BASELINE" "$BOOK_TARGET"
+            # Reconcile only pre-existing unassigned signed forms; aggregates only.
+            run_book() {
+              runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; cd /opt/aesthetic-book/app; exec /opt/aesthetic-book/venv/bin/python manage.py "$@"' bash "$@"
+            }
+            preview=$(run_book reconcile_office_intake)
+            printf '%s\n' "$preview"
+            if printf '%s\n' "$preview" | grep -Eq '^(matched|created)=[1-9][0-9]*$'; then
+              # A recoverable private DB snapshot before altering historic records.
+              umask 077
+              backup=$(mktemp -d /opt/aesthetic-book/remediation-rollbacks/intake-reconciliation.XXXXXXXX)
+              if ! runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; cd /opt/aesthetic-book/app; exec /opt/aesthetic-book/venv/bin/python -c "$1"' bash '
+            import os, subprocess
+            os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+            import django
+            django.setup()
+            from django.conf import settings
+            db = settings.DATABASES["default"]
+            assert "postgresql" in db["ENGINE"]
+            env = os.environ.copy()
+            for key, name in (("NAME","PGDATABASE"),("USER","PGUSER"),("PASSWORD","PGPASSWORD"),("HOST","PGHOST"),("PORT","PGPORT")):
+                if db.get(key): env[name] = str(db[key])
+            subprocess.run(["pg_dump","--format=custom"], env=env, check=True)
+            ' > "$backup/office-before.dump" 2>"$backup/backup.log"; then
+                echo 'INTAKE_RECONCILIATION=blocked_backup_failed'; exit 1
+              fi
+              pg_restore --list "$backup/office-before.dump" >/dev/null 2>"$backup/verify.log"
+              echo 'INTAKE_BACKUP_VERIFIED=yes'
+              run_book reconcile_office_intake --apply
+            else
+              echo 'INTAKE_RECONCILIATION=no_eligible_forms'
+            fi

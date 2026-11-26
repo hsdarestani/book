@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 source "$(dirname "$0")/book_phase_a_release.sh"
-release_id=staff-goae
+release_id=acceptance-corrections
 
 verify_release_scope() {
   printf '%s\n' "$1" | cmp -s "$tools_dir/book_admin_web_scope.txt" - ||
@@ -16,7 +16,7 @@ prepare_candidate() {
 
 check_live_calendar_asset() {
   local path
-  for path in admin-calendar-horizontal-v2.css clinic-desktop-notifications-v1.js clinic-notification-inbox.css patient-select-filter.js goae-rechner-v2.js goae-rechner-v2.css admin-wait-ux-v16.js; do
+  for path in admin-calendar-horizontal-v2.css clinic-desktop-notifications-v1.js clinic-notification-inbox.css patient-select-filter.js goae-rechner-v2.js goae-rechner-v2.css admin-wait-ux-v16.js clinic-acceptance-polish.css clinic-german-fields.js; do
     curl --compressed --silent --fail --max-time 10 \
       "https://book.a-esthetic.de/static/booking/$path?release=$target" |
       cmp -s "$app/static/booking/$path" - || return 1
