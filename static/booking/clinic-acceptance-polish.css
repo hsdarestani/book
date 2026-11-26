@@ -1,0 +1,91 @@
+/* Shared non-calendar acceptance polish. The established calendar geometry,
+   day header, scrolling and appointment colours remain untouched. */
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell {
+  --clinic-readable:#24342f;
+  --clinic-field-border:#c6c3b9;
+  font-size:15px;
+  line-height:1.5;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell :is(.intake-detail,.intake-filters,.hero-admin-card,.availability-editor,.exceptions-panel,.service-editor,.app-form-grid,.app-core-panel) {
+  font-size:15px!important;
+  line-height:1.5!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell :is(.intake-detail,.intake-filters,.hero-admin-card,.availability-editor,.exceptions-panel,.service-editor,.app-form-grid) :is(label,dt) {
+  font-size:14px!important;
+  line-height:1.45!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell :is(.intake-detail,.intake-filters,.hero-admin-card,.availability-editor,.exceptions-panel,.service-editor,.app-form-grid) :is(input:not([type="checkbox"],[type="radio"],[type="hidden"]),select,textarea) {
+  min-height:44px!important;
+  padding:10px 12px!important;
+  font-size:15px!important;
+  line-height:1.4!important;
+  border:1px solid var(--clinic-field-border)!important;
+  border-radius:10px!important;
+  color:var(--clinic-readable)!important;
+  background:#fff!important;
+  box-sizing:border-box;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell :is(.intake-list-item small,.intake-detail-header time,.intake-review-form p,.intake-fields dd,.hero-admin-card p,.hero-admin-tip,.command-panel p,.next-day-row span,.patient-result-copy p) {
+  font-size:13px!important;
+  line-height:1.55!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell :is(.intake-detail,.hero-admin-card,.availability-editor,.exceptions-panel,.app-core-panel) button:not([class]):not([aria-label]) {
+  appearance:none;
+  min-height:42px;
+  padding:9px 15px;
+  border:1px solid #c1b8a5;
+  border-radius:10px;
+  background:#fff;
+  color:#24342f;
+  font-family:inherit;font-size:14px;font-weight:650;line-height:1.35;
+  cursor:pointer;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell :is(.admin-primary,.ferrari-primary,.hero-admin-save,.intake-review-form button,.intake-filters button) {
+  color:#fff!important;
+  background:#24484b!important;
+  -webkit-text-fill-color:#fff!important;
+  border-radius:10px!important;
+  min-height:44px;
+  font-size:14px!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell :is(.intake-detail,.intake-filters,.app-form-grid) label:has(>input[type="checkbox"]):not(.day-toggle) {
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:flex-start!important;
+  gap:10px!important;
+}
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell :is(.intake-detail,.intake-filters,.app-form-grid) label>input[type="checkbox"] {
+  width:18px!important;height:18px!important;flex:0 0 18px;margin:2px 0 0!important;accent-color:#24484b;
+}
+html[data-admin-page="hero"] .hero-admin-grid {align-items:stretch!important;grid-template-columns:repeat(auto-fit,minmax(min(100%,275px),1fr))!important;}
+html[data-admin-page="hero"] .hero-admin-card {display:flex!important;flex-direction:column!important;gap:10px!important;}
+html[data-admin-page="hero"] .hero-admin-card h2 {margin:0!important;min-height:1.45em;}
+html[data-admin-page="hero"] .hero-admin-card p {margin:0!important;min-height:3em;}
+html[data-admin-page="hero"] .hero-admin-card .hero-admin-photo {width:100%;margin-top:0;}
+html[data-admin-page="hero"] .hero-admin-card form {margin-top:4px!important;gap:9px!important;}
+html[data-admin-page="hero"] .hero-admin-card input[type="file"] {min-width:0;overflow:hidden;}
+html[data-admin-page="settings"] .sb-settings-panel .calendar-layout {gap:18px!important;align-items:start!important;}
+html[data-admin-page="settings"] .week-row {gap:10px!important;grid-template-columns:minmax(100px,.75fr) repeat(2,minmax(0,1fr))!important;}
+html[data-admin-page="settings"] .week-row :is(.time-period,.time-period>div) {min-width:0!important;}
+html[data-admin-page="settings"] .editor-head h3 {font-size:21px!important;line-height:1.35!important;}
+html[data-admin-page="settings"] .doctor-pill.is-active {color:white!important;background:#24484b!important;}
+.clinic-german-field {display:flex;align-items:center;position:relative;width:100%;min-width:0;gap:6px;}
+.clinic-german-field>input.clinic-german-display {width:100%;min-width:0;min-height:44px;}
+.clinic-german-field>input.clinic-german-source {position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;min-width:0!important;opacity:0!important;padding:0!important;pointer-events:none;}
+.clinic-german-field>.clinic-german-picker {flex:0 0 44px!important;width:44px;min-height:44px!important;display:grid;place-items:center;border:1px solid #c6c3b9!important;border-radius:10px!important;background:#fff!important;color:#24484b!important;cursor:pointer;}
+.clinic-german-field>.clinic-german-picker:focus-visible,.clinic-german-display:focus-visible {outline:2px solid #326c55!important;outline-offset:2px;}
+.clinic-patient-native[hidden],.clinic-patient-panel[hidden],.clinic-patient-more[hidden]{display:none!important;}
+.clinic-patient-combobox{position:relative;width:100%;min-width:0;font-size:15px;line-height:1.45;}
+.clinic-patient-combobox>.clinic-patient-trigger{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px;width:100%;min-height:44px;padding:10px 12px!important;border:1px solid #c6c3b9!important;border-radius:10px!important;background:#fff!important;color:#24342f!important;text-align:left!important;font:inherit;cursor:pointer;}
+.clinic-patient-selected{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.clinic-patient-chevron{flex:none;color:#42665b;}
+.clinic-patient-panel{position:relative;z-index:22;display:grid;gap:7px;margin-top:5px;padding:9px;border:1px solid #bcb8aa;border-radius:11px;background:#fff;box-shadow:0 8px 22px #253b3320;color:#24342f;}
+.clinic-patient-panel>.clinic-patient-search{width:100%;min-height:44px;padding:10px;border:1px solid #c6c3b9;border-radius:8px;font-size:15px;box-sizing:border-box;}
+.clinic-patient-status{font-size:13px;color:#53645d;line-height:1.4;}
+.clinic-patient-options{display:grid;max-height:240px;overflow:auto;overscroll-behavior:contain;}
+.clinic-patient-options>.clinic-patient-option,.clinic-patient-panel>.clinic-patient-more{display:block;width:100%;min-height:44px;padding:10px 12px!important;border:0!important;border-radius:7px!important;text-align:left!important;background:#fff!important;color:#24342f!important;font:inherit;cursor:pointer;white-space:normal;overflow-wrap:anywhere;}
+.clinic-patient-options>.clinic-patient-option:is(:hover,.is-active,[aria-selected="true"]){background:#e4efe8!important;color:#174b3e!important;}
+.clinic-patient-panel>.clinic-patient-more{font-weight:700;border-top:1px solid #dedad1!important;}
+.clinic-patient-combobox :is(button,input):focus-visible{outline:2px solid #326c55!important;outline-offset:2px;}
+@media(max-width:1050px){html[data-admin-page="settings"] .sb-settings-panel .calendar-layout {display:grid!important;grid-template-columns:minmax(0,1fr)!important;}}
+@media(max-width:620px){html[data-admin-page="settings"] .week-row {grid-template-columns:minmax(0,1fr)!important;}.hero-admin-card p{min-height:0!important;}}

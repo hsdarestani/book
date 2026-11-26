@@ -1,6 +1,6 @@
 <section class="intake-command">
 <div><small>A+ ESTHETIC · PATIENTENVERWALTUNG</small><h2 style="color:#fffaf0!important;-webkit-text-fill-color:#fffaf0!important">Digitale Aufnahmebögen</h2>
-<p>Alle übermittelten Anamnesen und Unterschriften in der bestehenden Book-Verwaltung. Die Daten sind praxisintern.</p></div>
+<p>Aufnahmebögen werden automatisch einer eindeutigen Patientenakte zugeordnet oder einer neuen Akte hinzugefügt. Nur Identitätskonflikte benötigen eine Prüfung.</p></div>
 <div class="intake-metrics"><span><strong>{{ form_total }}</strong> Gesamt</span><span><strong>{{ form_open }}</strong> Zu prüfen</span></div>
 </section>
 <form method="get" action="/verwaltung/app/forms/" class="intake-filters" role="search">
@@ -26,9 +26,9 @@
 <time>{{ selected_intake_form.submitted_at|date:"d.m.Y · H:i" }}</time></div>
 <span class="intake-status {% if selected_intake_form.status == 'review' %}needs-review{% endif %}">{{ selected_intake_form.get_status_display }}</span></div>
 {% if selected_intake_form.customer %}
-<p class="intake-associated"><strong>Patientenakte:</strong> <a href="/verwaltung/app/patients/?customer={{ selected_intake_form.customer.pk }}&tab=forms">{{ selected_intake_form.customer.full_name }} · Akte öffnen</a></p>
+<p class="intake-associated"><strong>{% if selected_intake_form.reviewed_by_id %}Geprüft zugeordnet{% else %}Automatisch zugeordnet{% endif %}:</strong> <a href="/verwaltung/app/patients/?customer={{ selected_intake_form.customer.pk }}&amp;tab=forms">{{ selected_intake_form.customer.full_name }} · Akte öffnen</a></p>
 {% if selected_intake_form.record %}<a class="intake-pdf" href="/verwaltung/patienten/{{ selected_intake_form.customer_id }}/datei/{{ selected_intake_form.record.public_id }}/ansicht/" target="_blank" rel="noopener">Aufnahmebogen-PDF öffnen (nur Personal)</a>{% endif %}
-{% else %}<p class="intake-review-banner">Automatische Zuordnung angehalten: kein eindeutiger Patient mit 3/5 Merkmalen. Bitte Identität prüfen.</p>{% endif %}
+{% else %}<p class="intake-review-banner"><strong>Identitätsprüfung erforderlich.</strong> Eine sichere automatische Zuordnung ist für diesen Ausnahmefall nicht möglich. Bitte prüfen Sie die Identität vor einer Zuordnung.</p>{% endif %}
 <div class="intake-fields"><h4>Patienteninformationen</h4>
 {% for key,val in selected_intake_form.payload.identity.items %}
 <div><dt>{{ key }}</dt><dd>{{ val|default:"–" }}</dd></div>
@@ -39,11 +39,11 @@
 {% endfor %}</div>
 <div class="intake-privacy"><h4>Datenerhebung und Datenschutz – A+ Esthetic</h4><p>{{ selected_intake_form.payload.consent_text|linebreaksbr }}</p></div>
 <div class="intake-sign"><h4>Digitale Patientenunterschrift</h4><img src="{{ selected_intake_form.signature_png }}" alt="Digitale Unterschrift" loading="lazy"></div>
-{% if selected_intake_form.status == 'review' %}
+{% if selected_intake_form.status == 'review' and not selected_intake_form.customer_id %}
 <form method="post" class="intake-review-form">{% csrf_token %}
 <input type="hidden" name="action" value="link_form"><input type="hidden" name="form_id" value="{{ selected_intake_form.pk }}">
-<h4>Manuelle Zuordnung</h4><p>Mindestens drei der fünf Datenpunkte müssen übereinstimmen. Vor Bestätigung Patient prüfen.</p>
-<label>Patienten suchen<input type="search" placeholder="Name, E-Mail oder Telefon" aria-controls="intakePatient" data-filter-patient-select="intakePatient" autocomplete="off"></label>
+<h4>Ausnahme: Identität prüfen</h4><p>Mindestens drei der fünf Datenpunkte müssen übereinstimmen. Ordnen Sie den Bogen nur nach eindeutiger Identitätsprüfung zu.</p>
+<label>Patienten suchen<input type="search" placeholder="Name, E-Mail oder Telefon" aria-controls="intakePatient" data-filter-patient-select="intakePatient" data-patient-search-url="{% url 'booking:staff_patient_search' %}" autocomplete="off"></label>
 <p data-patient-search-status="intakePatient" role="status"></p>
 <label>Patientenakte<select id="intakePatient" name="customer_id" required><option value="">Patient auswählen</option>
 {% for candidate in link_candidates %}<option value="{{ candidate.pk }}" data-phone="{{ candidate.phone }}">{{ candidate.full_name }} · {{ candidate.date_of_birth|date:"d.m.Y" }} · {{ candidate.email }}</option>{% endfor %}</select></label>

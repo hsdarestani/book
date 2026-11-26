@@ -18,7 +18,8 @@ class GoaeDraftBrowserTests(StaticLiveServerTestCase):
     def test_lost_draft_response_allows_same_key_retry(self, billing):
         from playwright.sync_api import expect, sync_playwright
 
-        billing.return_value = {'ok': True, 'customers': [{'id': 42, 'name': 'Synthetic Patient'}]}
+        billing.return_value = {'ok': True, 'customers': [{'id': 42, 'name': 'Synthetic Patient'}],
+                                'treatments': {'hyaluron': ['2442', '1', '5']}}
         admin = get_user_model().objects.create_user(username='goae-browser-fixture', is_staff=True)
         self.client.force_login(admin)
         path = '/verwaltung/app/invoices/'
@@ -54,9 +55,11 @@ class GoaeDraftBrowserTests(StaticLiveServerTestCase):
             page = context.new_page()
             page.goto(self.live_server_url + path, wait_until='load')
             page.locator('[data-mlr-details]').evaluate('(details) => { details.open = true }')
+            page.locator('.clinic-patient-trigger').click()
             page.locator('[data-filter-patient-select=goaePatient]').fill('Synthetic Remote')
             expect(page.locator('[data-patient-search-status=goaePatient]')).to_contain_text('1 passende Patienten')
-            page.locator('#goaePatient').select_option('84')
+            page.locator('.clinic-patient-option').first.click()
+            expect(page.locator('#goaePatient')).to_have_value('84')
             page.locator('[data-material]').fill('0,00')
             for item in page.locator('[data-g="clinical_confirmed"]').all():
                 item.check()

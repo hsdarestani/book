@@ -22,6 +22,7 @@ from .patient_identity_review import approved_patient_groups, approved_patient_r
 from .models import Appointment, Customer, PatientRecord, OfficeIntakeForm, WhatsAppTemplate, Service
 from .intake_identity import intake_review_candidates
 from .intake_forms import confirm_form_link
+from .goae_treatment_cards import treatment_cards
 
 
 AESTHETIC_ADMIN_API = 'https://esthetic.smarbiz.sbs/api/mobile/admin'
@@ -631,7 +632,7 @@ def app_management(request, section='bookings'):
             context.update(_forms_context(request))
         elif section == 'invoices':
             data = _billing_api(request, 'billing/')
-            context['goae_clinic_services'] = Service.objects.filter(active=True).values('name', 'slug')
+            clinic_services = Service.objects.filter(active=True).values('name', 'slug')
             context['goae_invoices'] = [inv for inv in (data.get('invoices') or [])
                 if inv.get('billing_method') == 'goae']
             try:
@@ -641,6 +642,7 @@ def app_management(request, section='bookings'):
             except (RuntimeError,ValueError,PermissionError):
                 context['goae_catalog'] = []
                 context['goae_treatments'] = {}
+            context['goae_treatment_cards'] = treatment_cards(clinic_services, context['goae_treatments'])
         else:
             data = _api(request, 'referrals/')
             context['referrals'] = _referral_rows(data)

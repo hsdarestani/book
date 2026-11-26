@@ -238,7 +238,7 @@ def _polish_admin_response(
         f'<option value="{member.pk}">{escape(member.display_name)}</option>' for member in staff_members
     )
     customer_options = ''.join(
-        f'<option value="{customer.pk}">{escape(customer.full_name)} · {escape(customer.email)}</option>'
+        f'<option value="{customer.pk}" data-phone="{escape(customer.phone)}">{escape(customer.full_name)} · {escape(customer.email)}</option>'
         for customer in customers
     )
     status_options = ''.join(
@@ -352,7 +352,7 @@ def _polish_admin_response(
       <input type="hidden" name="return_view" value="{escape(calendar_view)}">
       <label class="sb-form-row"><span class="sb-row-icon">◒</span><div><small>Dienstleistung</small><select name="service_id" required>{service_options_html}</select></div></label>
       <label class="sb-form-row"><span class="sb-row-icon">♟</span><div><small>Dienstleister</small><select name="appointment_staff_id" required>{staff_options}</select></div></label>
-      <label class="sb-form-row"><span class="sb-row-icon">♙</span><div><small>Kunde</small><select name="customer_id" required>{customer_options}</select></div></label>
+      <label class="sb-form-row"><span class="sb-row-icon">♙</span><div><small>Kunde</small><select name="customer_id" data-patient-combobox required>{customer_options}</select></div></label>
       <label class="sb-form-row"><span class="sb-row-icon">▣</span><div><small>Datum</small><input type="date" name="appointment_date" required></div></label>
       <label class="sb-form-row"><span class="sb-row-icon">◷</span><div><small>Uhrzeit</small><input type="time" name="appointment_time" step="900" required></div></label>
       <label class="sb-form-row"><span class="sb-row-icon">✓</span><div><small>Status</small><select name="status">{status_options}</select></div></label>
@@ -505,6 +505,7 @@ def _polish_admin_response(
     form.elements.service_id.value = data.service_id;
     form.elements.appointment_staff_id.value = data.staff_id;
     form.elements.customer_id.value = data.customer_id;
+    form.elements.customer_id.clinicPatientRefresh?.();
     form.elements.appointment_date.value = data.date;
     form.elements.appointment_time.value = data.time;
     form.elements.status.value = data.status;

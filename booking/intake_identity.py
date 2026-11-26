@@ -72,18 +72,22 @@ def locate_unique_intake_patient(data):
     for patient in _patients().iterator():
         values = identity_values(patient)
         if _score(incoming, values) >= 3:
-            qualifying.append((patient, values[3]))
+            qualifying.append((patient, values))
         if any(incoming[i] and incoming[i] == values[i] for i in (2, 4)):
             contacts.add(patient.pk)
 
     if len(qualifying) > 1:
         return None, "multiple_three_of_five_matches"
     if qualifying:
-        patient, birth_date = qualifying[0]
+        patient, values = qualifying[0]
         if contacts - {patient.pk}:
             return None, "contact_collision"
-        if birth_date and incoming[3] and birth_date != incoming[3]:
+        if values[3] and incoming[3] and values[3] != incoming[3]:
             return None, "birth_date_conflict"
+        # A single changed or misspelled name may be legitimate. Two populated,
+        # contradictory names with matching shared contact/DOB require review.
+        if all(incoming[i] and values[i] and incoming[i] != values[i] for i in (0,1)):
+            return None, "name_conflict"
         return patient, ""
     if contacts:
         return None, "insufficient_identity_evidence"

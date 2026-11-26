@@ -26,13 +26,14 @@ const fmtDate=iso=>{let p=iso.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p
 const toISO=v=>{const m=/^(\d{2})\.(\d{2})\.(\d{4})$/.exec(v.trim());if(!m)return '';
  const iso=m[3]+'-'+m[2]+'-'+m[1],d=new Date(iso+'T12:00:00');
  return Number.isFinite(d.getTime())&&d.getDate()===Number(m[1])&&d.getMonth()===Number(m[2])-1&&d.getFullYear()===Number(m[3])?iso:'';};
-const sel={fixed:{},reasonValues:{},reasonSignature:'',injections:null,reasonText:'',reasonTreatment:null,treatment:'hyaluron',qty:1,verified:null,verifiedHash:null,materialsExplicit:false,clinicalTouched:false,working:false,quoting:false,revision:0};
+const sel={fixed:{},reasonValues:{},reasonSignature:'',injections:null,reasonText:'',reasonTreatment:null,treatment:'hyaluron',card:null,manual:false,qty:1,verified:null,verifiedHash:null,materialsExplicit:false,clinicalTouched:false,working:false,quoting:false,revision:0};
+let quoteTimer;
 const field=(line,key)=>line.querySelector('[data-g="'+key+'"]');
 const csrf=form.querySelector('input[name=csrfmiddlewaretoken]');
 function rowData(line){
  const val=k=>field(line,k)?.value?.trim()||'';
  const main=val('goae_number')===treatmentLabels[sel.treatment].code;
- const agreement=main&&Number(val('goae_factor').replace(',','.'))>3.5?{agreement_confirmed:$('[data-agreement-confirm]').checked,agreement_document_id:$('[data-agreement-document]').value,agreement_date:$('[data-agreement-date]').value,agreement_amount_eur:$('[data-agreement-amount]').value}:{};
+ const agreement=main&&Number(val('goae_factor').replace(',','.'))>3.5?{agreement_confirmed:$('[data-agreement-confirm]').checked,agreement_document_id:$('[data-agreement-document]').value,agreement_date:toISO($('[data-agreement-date]').value),agreement_amount_eur:$('[data-agreement-amount]').value}:{};
  return {...agreement,analog:field(line,'analog').checked,analog_confirmed:field(line,'analog_confirmed').checked,kind:'service',tariff_source:val('official')?'official_catalog':'manual',
    goae_number:val('goae_number'),goae_description:val('goae_description'),quantity:val('quantity'),
    goae_points:val('goae_points'),goae_base_eur:val('goae_base_eur'),goae_factor:val('goae_factor'),
@@ -66,7 +67,7 @@ function linesForServer(){
 function resetMaterials(){
  $('[data-material]').value='';$('[data-material-description]').value='';$('[data-material-receipt]').value='';$('[data-material-confirm]').checked=false;
  $('[data-material-qty]').value=String(sel.qty);$('[data-material]').placeholder=(treatmentLabels[sel.treatment].cost/100).toFixed(2).replace('.',',');
- $('[data-material-description]').placeholder=materialNames[sel.treatment];$('[data-extra-materials]').replaceChildren();
+ $('[data-material-description]').placeholder=materialNames[sel.treatment]||'Tatsächliches Material';$('[data-extra-materials]').replaceChildren();
 }
 function addMaterial(){
  if($$('[data-extra-material]').length>=19)return;
@@ -76,7 +77,7 @@ function addMaterial(){
  $('[data-extra-materials]').append(row);
 }
 function buildFixed(){
- sel.fixed=Object.fromEntries(['1','5',...(treatmentLabels[sel.treatment].extra||[])].map(code=>[code,code==='250'?'2,3':'2,3']));
+ sel.fixed=Object.fromEntries((sel.manual?[]:['1','5',...(treatmentLabels[sel.treatment].extra||[])]).map(code=>[code,'2,3']));
  const wrap=$('[data-fixed-factors]');wrap.replaceChildren();
  for(const code of Object.keys(sel.fixed)){
   const label=document.createElement('label'),input=document.createElement('input');
@@ -85,11 +86,11 @@ function buildFixed(){
   input.addEventListener('input',()=>{sel.fixed[code]=input.value;resetClinicalProposal()});wrap.append(label);
  }
 }
-function resetVerification(){sel.revision++;sel.verified=null;sel.verifiedHash=null;render();$('#goaeLinesJson').value='';}
+function resetVerification(){sel.revision++;sel.verified=null;sel.verifiedHash=null;render();$('#goaeLinesJson').value='';scheduleQuote();}
 function resetClinicalProposal(){
  $('[data-agreement-confirm]').checked=false;
  for(const line of $$('.mlr-line'))field(line,'clinical_confirmed').checked=false;
- sel.clinicalTouched=false;resetVerification();
+ resetVerification();
 }
 function addLine(code){
  const t=document.getElementById('goaeLineTemplate');const line=t.content.firstElementChild.cloneNode(true),dropdown=field(line,'official');
@@ -101,33 +102,43 @@ function addLine(code){
   field(line,'goae_base_eur').value='';
   if(code==='268'&&sel.treatment==='prp'){field(line,'analog').checked=true;field(line,'goae_description').value='';}
  }
+ if(sel.manual&&!code){field(line,'goae_factor').value='';field(line,'goae_category').prepend(new Option('Bitte prüfen',''));field(line,'goae_category').value='';}
  dropdown.addEventListener('change',()=>{const item=catalogByCode[dropdown.value];
   if(item){field(line,'goae_number').value=item.number;field(line,'goae_description').value=item.de;
    field(line,'goae_points').value=item.points;field(line,'goae_category').value=item.category;field(line,'goae_base_eur').value='';}
-  resetVerification();
+  field(line,'clinical_confirmed').checked=false;resetVerification();
  });
  line.querySelector('[data-goae-remove]').addEventListener('click',()=>{
   if(list.children.length>1){line.remove();renumber();resetVerification();}
  });
- line.addEventListener('input',()=>{sel.clinicalTouched=true;resetVerification()});
- line.addEventListener('change',()=>{sel.clinicalTouched=true;resetVerification()});
+ const lineChanged=e=>{if(!e.target.matches('[data-g="clinical_confirmed"],[data-g="analog_confirmed"]')){sel.clinicalTouched=true;field(line,'clinical_confirmed').checked=false;}resetVerification()};
+ line.addEventListener('input',lineChanged);
+ line.addEventListener('change',lineChanged);
  list.append(line);renumber();
 }
 function renumber(){$$('.mlr-line').forEach((line,i)=>{line.querySelector('[data-line-title]').textContent='Position '+(i+1)})}
-function changeTreatment(t){
- if(!treatmentLabels[t])return;
- if(t===sel.treatment&&list.children.length)return;
- if(t!==sel.treatment){$('[data-material]').value='';$('[data-material-description]').value='';$('[data-material-receipt]').value='';$('[data-material-confirm]').checked=false;}
- $('[data-agreement-confirm]').checked=false;sel.treatment=t;sel.injections=null;sel.reasonText='';sel.reasonTreatment=null;sel.reasonValues={};sel.reasonSignature='';sel.qty=Math.min(sel.qty,treatmentLabels[t].max);$('[data-qty]').textContent=sel.qty;
- $$('.mlr-treatment').forEach(button=>{const active=button.dataset.treatment===t;
+function changeTreatment(card){
+ const button=$$('.mlr-treatment').find(b=>b.dataset.treatment===card);if(!button)return;
+ if(card===sel.card&&list.children.length)return;
+ const preset=button.dataset.presetKey;
+ const manual=!preset||!treatmentLabels[preset];
+ const t=manual?'manual':preset;
+ if(manual)treatmentLabels.manual={title:button.dataset.treatmentTitle,unit:'',plural:'',hint:'',max:1,cost:0,code:''};
+ if(card!==sel.card){$('[data-material]').value='';$('[data-material-description]').value='';$('[data-material-receipt]').value='';$('[data-material-confirm]').checked=false;}
+ $('[data-agreement-confirm]').checked=false;sel.card=card;sel.manual=manual;sel.treatment=t;sel.injections=null;sel.reasonText='';sel.reasonTreatment=null;sel.reasonValues={};sel.reasonSignature='';sel.qty=Math.min(sel.qty,treatmentLabels[t].max);$('[data-qty]').textContent=sel.qty;
+ $$('.mlr-treatment').forEach(button=>{const active=button.dataset.treatment===card;
   button.classList.toggle('is-active',active);button.setAttribute('aria-pressed',String(active));});
+ $('[data-config-notice]').hidden=!manual;
+ $$('[data-proposal-step],[data-proposal-detail]').forEach(el=>el.hidden=manual);
+ if(manual)details.open=true;
+ buildDiagnoses();
  const meta=treatmentLabels[t];resetMaterials();buildFixed();
  $('[data-quantity-label]').textContent='Wie viele '+meta.plural+'?';
  $('[data-quantity-hint]').textContent=meta.hint;
  if(sel.clinicalTouched){sel.clinicalTouched=false;$('[data-material-confirm]').checked=false;}
  {
   list.replaceChildren();
-  const codes=[meta.code,...(meta.extra||[]),'5','1'];
+  const codes=manual?['']:(treatmentMap[t]||[]);
   for(const code of codes)addLine(code);
   if(!list.children.length)addLine('');
  }
@@ -176,16 +187,37 @@ function targetOrZero(){return desiredTotal()??0}
    field(line,'goae_factor').value=decimalFactor(proposal.factor);
   }
  }
+// Display the current entered quantities, fees and materials immediately.
+// The browser estimate is explicitly non-binding. Only a server quote can
+// authorize the amount used for the draft and its eventual PDF.
+function enteredPreview(){
+ const lines=$$('.mlr-line').map(rowData),materials=readMaterials(),vat=Number($('[data-vat]').value)/100;
+ let fee=0,material=0,tax=0,valid=!materials.invalid&&!materials.example&&!!$('[data-vat]').value;
+ const rows=lines.map(line=>{
+  const official=line.tariff_source==='official_catalog'?catalogByCode[line.goae_number]:null;
+  const points=official?.points??line.goae_points;
+  const base=points?Number(points)*5.82873:parseCents(line.goae_base_eur);
+  const factor=Number(String(line.goae_factor).replace(',','.'));
+  const qty=Number(line.quantity),amount=Number.isFinite(base)&&base>0&&factor>=1&&factor<=99.9999&&Number.isInteger(qty)&&qty>=1&&qty<=100?Math.round(base*factor)*qty:null;
+  if(amount===null||!line.goae_number)valid=false;else{fee+=amount;tax+=Math.round(amount*vat);}
+  return {code:line.goae_number||'–',description:line.goae_description||official?.de||'Leistung noch erfassen',quantity:line.quantity||'–',factor:line.goae_factor||'–',amount};
+ });
+ materials.rows.filter(m=>m.cost>0&&!m.example).forEach(m=>{const amount=m.cost*m.qty;material+=amount;tax+=Math.round(amount*vat);rows.push({code:'§ 10',description:m.description||'Auslage',quantity:String(m.qty),factor:'–',amount});});
+ return {fee,material,tax,total:fee+material+tax,rows,impossible:!valid,materials:materials.rows};
+}
 function renderPaper(preview){
- $('[data-paper-fee]').textContent=euro(preview.fee);
- $('[data-paper-material]').textContent=euro(preview.material);
- $('[data-paper-tax]').textContent=euro(preview.tax);
- $('[data-paper-total]').textContent=euro(preview.total);
+ const display=amount=>preview.impossible?'–':euro(amount);
+ $('[data-paper-fee]').textContent=display(preview.fee);
+ $('[data-paper-material]').textContent=display(preview.material);
+ $('[data-paper-tax]').textContent=display(preview.tax);
+ $('[data-paper-total]').textContent=display(preview.total);
  const selected=$('#goaePatient').selectedOptions?.[0];$('[data-paper-patient]').textContent=selected&&selected.value?selected.textContent.trim().split(' · ')[0]:'Patient: bitte auswählen';
+ const address=selected&&selected.value?(selected.dataset.address||[selected.dataset.street,[selected.dataset.postalCode,selected.dataset.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')):'';
+ $('[data-paper-patient-address]').textContent=address||(selected?.value?'Anschrift aus Patientenakte beim Speichern':'');
  const date=toISO($('#goaeDateGerman').value);$('[data-paper-date]').textContent=date?fmtDate(date):'–';
  $('[data-paper-diagnosis]').textContent=diagnosisText()?'Diagnose / Behandlungsanlass: '+diagnosisText():'';
- const d=$('[data-invoice-date]').value;$('[data-today]').textContent=d?fmtDate(d):'–';
- const due=$('[data-due-date]').value||(d?addDays(d,14):'');$('[data-paper-due]').textContent=due?'Zahlbar bis (Vorschau): '+fmtDate(due):'';
+ const d=toISO($('[data-invoice-date]').value);$('[data-today]').textContent=d?fmtDate(d):'–';
+ const due=toISO($('[data-due-date]').value)||(d?addDays(d,14):'');$('[data-paper-due]').textContent=due?'Zahlbar bis (Vorschau): '+fmtDate(due):'';
  const rows=$('[data-paper-rows]');rows.replaceChildren();
  if(sel.verified&&sel.verified.items?.length){
   sel.verified.items.forEach((line,i)=>{
@@ -193,6 +225,8 @@ function renderPaper(preview){
    const vals=[line.goae_number||'§ 10',line.description||'Auslage',src.quantity||'1',src.kind==='material'?'–':(src.goae_factor||'–'),euro(line.net_cents)];
    vals.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td)});rows.append(tr);
   });
+ }else if(preview.rows){
+  for(const line of preview.rows){const tr=document.createElement('tr');[line.code,line.description,line.quantity,line.factor,line.amount===null?'–':euro(line.amount)].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td)});rows.append(tr);}
  }else{
   const row=document.createElement('tr');const col=document.createElement('td');col.colSpan=5;
   if(!preview.impossible&&preview.proposals){
@@ -245,7 +279,7 @@ function addDays(iso,n){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+
 function buildDiagnoses(){
  const med=$('[data-vat]').value==='0',select=$('[data-diagnosis]');
  select.replaceChildren();
- if(med)select.append(new Option('Bitte wählen …',''));
+ if(med||sel.manual)select.append(new Option('Bitte wählen …',''));
  for(const text of diagnoses[med?'med':'aest'])select.append(new Option(text,text));
  select.append(new Option('Eigener Text …','custom'));
  if(!med)select.append(new Option('Keine Angabe',''));
@@ -319,20 +353,26 @@ function printAgreement(){
  frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});frame.contentWindow.focus();frame.contentWindow.print();
 }
 function render(){
- const target=desiredTotal();const calculated=fiscalPreview();syncProposals(calculated);renderAdditional(calculated);
- $('[data-total]').textContent=euro(sel.verified?sel.verified.total:calculated.total);
- $('[data-treatment-summary]').textContent=treatmentLabels[sel.treatment].title+' · '+sel.qty+' '+(sel.qty===1?treatmentLabels[sel.treatment].unit:treatmentLabels[sel.treatment].plural)+'\n'+($('[data-vat]').value==='0'?'Medizinisch / steuerfrei (zu prüfen)':'Ästhetisch, inkl. '+$('[data-vat]').value+' % USt.');
- const preview=sel.verified?sel.verified:(calculated.impossible?{...calculated,fee:0,tax:0}:calculated);
- $('[data-fee]').textContent=euro(preview.fee);$('[data-material-total]').textContent=euro(preview.material);$('[data-tax]').textContent=euro(preview.tax);
+ const target=desiredTotal();let calculated;
+ if(sel.manual){calculated=enteredPreview();$('[data-agreement-evidence]').hidden=true;$('[data-reason-section]').hidden=true;$('[data-agreement-preview]').hidden=true;}
+ else{calculated=fiscalPreview();syncProposals(calculated);renderAdditional(calculated);if(sel.clinicalTouched)calculated=enteredPreview();}
+ const preview=sel.verified||calculated,display=amount=>preview.impossible?'–':euro(amount);
+ $('[data-total]').textContent=display(preview.total);
+ $('[data-treatment-summary]').textContent=treatmentLabels[sel.treatment].title+(sel.manual?' · Individuelle GOÄ-Erfassung':' · '+sel.qty+' '+(sel.qty===1?treatmentLabels[sel.treatment].unit:treatmentLabels[sel.treatment].plural))+'\n'+($('[data-vat]').value==='0'?'Steuerfrei (zu prüfen)':$('[data-vat]').value?$('[data-vat]').value+' % USt.':'Umsatzsteuerstatus wählen');
+ $('[data-fee]').textContent=display(preview.fee);$('[data-material-total]').textContent=display(preview.material);$('[data-tax]').textContent=display(preview.tax);
  for(const [part,key] of [['fee','fee'],['material','material'],['tax','tax']]){
   $('[data-bar-'+part+']').style.width=(preview.total?Math.max(0,100*preview[key]/preview.total):0)+'%';
  }
- if(target===null||target<5000||target>300000){
+ if(sel.manual&&!sel.verified){
+  setStatus('Individuelle GOÄ-Zuordnung erforderlich','Positionen, Faktoren, Material und Steuerstatus erfassen und bestätigen. Die Vorschau ist bis zur Serverprüfung unverbindlich.','warning');
+ }else if(!sel.manual&&(target===null||target<5000||target>300000)){
   setStatus('Betrag eingeben','Bitte einen gültigen Gesamtbetrag in Euro angeben.','error');
  }else if(sel.verified){
-  const gap=Math.abs(sel.verified.total-target);
+  const gap=sel.manual?0:Math.abs(sel.verified.total-target);
   setStatus(gap===0?'✓ GOÄ-Entwurf rechnerisch geprüft':'Gesamtbetrag weicht ab',
    gap===0?'Positionen wurden serverseitig geprüft. Ärztliche und steuerliche Prüfung bleibt notwendig.':'Die ausgewählten GOÄ-Positionen ergeben '+euro(sel.verified.total)+' statt '+euro(target)+'. Faktoren/Positionen prüfen; keine automatische Anpassung.',''+(gap===0?'ok':'error'));
+ }else if(sel.clinicalTouched){
+  setStatus('Geänderte Positionen · Vorschau','Die eingegebenen Positionen werden angezeigt. Verbindliche rechnerische Prüfung und ärztliche Bestätigung vor dem Speichern erforderlich.','warning');
  }else if(calculated.impossible){
   setStatus('Preis oder Material prüfen','Der Wunschbetrag deckt Material und Mindestsätze nicht oder die Eingabe ist ungültig. Rechnerischer Mindestbetrag: '+euro(calculated.minimum)+'.','error');
  }else{
@@ -345,7 +385,7 @@ function render(){
   else setStatus('Im Regelrahmen (Vorschau)',note,'ok');
  }
  renderPaper(preview);
- $('[data-material-notice]').hidden=!calculated.materials.some(m=>m.cost>2556);
+ $('[data-material-notice]').hidden=!calculated.materials?.some(m=>m.cost>2556);
 }
 function setMessage(msg,kind='error'){const el=$('[data-goae-feedback]');el.textContent=msg;el.className='mlr-feedback '+kind;}
 const saveButton=form.querySelector('.mlr-save');
@@ -356,6 +396,11 @@ function setBusy(){
  saveButton.disabled=busy;
  saveButton.setAttribute('aria-busy',String(busy));
  previewButton.disabled=busy;
+}
+function scheduleQuote(){
+ clearTimeout(quoteTimer);
+ if(sel.working||sel.quoting||!$('#goaePatient').value||!toISO($('#goaeDateGerman').value)||linesForServer().error||(!sel.manual&&!(desiredTotal()>=100)))return;
+ quoteTimer=setTimeout(()=>{if(!sel.working&&!sel.quoting&&!sel.verified)verify();},400);
 }
 async function fetchBilling(url, options){
  const controller=new AbortController();
@@ -368,7 +413,8 @@ async function fetchBilling(url, options){
  }finally{clearTimeout(timer);}
 }
 async function verify(){
- const target=desiredTotal();if(target===null||target<100){setMessage('Zuerst einen gültigen Gesamtbetrag eingeben.');return false;}
+ clearTimeout(quoteTimer);
+ const target=sel.manual?null:desiredTotal();if(!sel.manual&&(target===null||target<100)){setMessage('Zuerst einen gültigen Gesamtbetrag eingeben.');return false;}
  if(!$('#goaePatient').value){setMessage('Patient auswählen.');details.open=true;$('#goaePatient').focus();return false;}
  const date=toISO($('#goaeDateGerman').value);$('#goaeDateIso').value=date;
  if(!date){setMessage('Leistungsdatum bitte als TT.MM.JJJJ eingeben.');details.open=true;$('#goaeDateGerman').focus();return false;}
@@ -390,14 +436,14 @@ async function verify(){
   return false;
  }finally{sel.quoting=false;setBusy();}
  const current=linesForServer();
- if(sel.revision!==revision||current.error||JSON.stringify(current.lines)!==sig||desiredTotal()!==target||$('#goaePatient').value!==patientId||toISO($('#goaeDateGerman').value)!==date){setMessage('Eingaben wurden geändert. Bitte erneut prüfen.');return false;}
+ if(sel.revision!==revision||current.error||JSON.stringify(current.lines)!==sig||(!sel.manual&&desiredTotal()!==target)||$('#goaePatient').value!==patientId||toISO($('#goaeDateGerman').value)!==date){setMessage('Eingaben wurden geändert. Bitte erneut prüfen.');scheduleQuote();return false;}
  if(!data.ok){setMessage(data.message||'GOÄ-Positionen oder Auslagen nicht zulässig.');return false;}
  const total=Number(data.total_cents)||0,fee=(data.items||[]).reduce((sum,x)=>sum+(x.goae_number?x.net_cents:0),0);
  const material=(data.items||[]).reduce((sum,x)=>sum+(!x.goae_number?x.net_cents:0),0);
  const tax=Number(data.tax_cents)||0;
  sel.verified={total,fee,material,tax,items:data.items,lines:source.lines};
  sel.verifiedHash=sig;render();
- const matched=total===target;
+ const matched=sel.manual||total===target;
  setMessage(matched?'Serverberechnung erfolgreich. GOÄ-Entwurf kann gespeichert werden.':'Rechnerisch geprüft, aber Wunschpreis und GOÄ-Positionen stimmen nicht überein: '+euro(total)+' statt '+euro(target)+'. Bitte Faktoren und Angaben prüfen.',matched?'ok':'error');
  return matched;
 }
@@ -415,10 +461,14 @@ $$('[data-material],[data-material-qty],[data-vat],[data-material-confirm],[data
 });
 $('#goaePatient').addEventListener('change',()=>{$('[data-agreement-confirm]').checked=false;$('[data-agreement-document]').value='';$('[data-agreement-date]').value='';$('[data-agreement-amount]').value='';for(const line of $$('.mlr-line'))field(line,'clinical_confirmed').checked=false;$('[data-material-confirm]').checked=false;resetVerification()});
 $('#goaeDateGerman').addEventListener('input',()=>{$('#goaeDateIso').value='';$('[data-agreement-confirm]').checked=false;for(const line of $$('.mlr-line'))field(line,'clinical_confirmed').checked=false;resetVerification()});
-$('[data-native-date]').addEventListener('change',e=>{if(e.target.value)$('#goaeDateGerman').value=fmtDate(e.target.value);resetVerification()});
-$('[data-open-calendar]').addEventListener('click',()=>{
- const input=$('[data-native-date]');input.value=toISO($('#goaeDateGerman').value);
- if(typeof input.showPicker==='function')input.showPicker();else{input.focus();input.click()}
+$$('.mlr-date-control').forEach(control=>{
+ const text=control.querySelector('input[type=text]'),native=control.querySelector('input[type=date]');
+ const validate=()=>text.setCustomValidity(text.value&&!toISO(text.value)?'Datum bitte als TT.MM.JJJJ eingeben.':'');
+ text.addEventListener('input',validate);
+ native.addEventListener('change',()=>{if(native.value){text.value=fmtDate(native.value);text.dispatchEvent(new Event('input',{bubbles:true}));text.dispatchEvent(new Event('change',{bubbles:true}));}});
+ control.querySelector('[data-open-calendar]').addEventListener('click',()=>{
+  native.value=toISO(text.value);try{if(typeof native.showPicker==='function')native.showPicker();else{native.focus();native.click()}}catch(_){text.focus();}
+ });
 });
 $('[data-goae-add]').addEventListener('click',()=>{addLine('');sel.clinicalTouched=true;resetVerification()});
 previewButton.addEventListener('click',()=>{if(!sel.working&&!sel.quoting)verify();});
@@ -426,7 +476,7 @@ $('[data-injection-count]').addEventListener('input',e=>{sel.injections=e.target
 $('[data-material-add]').addEventListener('click',addMaterial);
 $('[data-diagnosis]').addEventListener('change',()=>{$('[data-diagnosis-custom-wrap]').hidden=$('[data-diagnosis]').value!=='custom';resetVerification()});
 $('[data-diagnosis-custom]').addEventListener('input',resetVerification);
-$$('[data-invoice-date],[data-due-date]').forEach(x=>x.addEventListener('change',resetVerification));
+$$('[data-invoice-date],[data-due-date]').forEach(x=>x.addEventListener('input',resetVerification));
 $('[data-vat]').addEventListener('change',()=>{buildDiagnoses();resetVerification()});
 $$('[data-boundary]').forEach(button=>button.addEventListener('click',()=>{
  const cap=Number(button.dataset.boundary);
@@ -437,9 +487,10 @@ $('[data-standard-values]').addEventListener('click',()=>{resetMaterials();build
 $('[data-agreement-preview]').addEventListener('click',printAgreement);
 $$('[data-agreement-document],[data-agreement-date],[data-agreement-amount],[data-agreement-confirm]').forEach(el=>el.addEventListener('input',()=>{if(!el.matches('[data-agreement-confirm]'))$('[data-agreement-confirm]').checked=false;resetVerification()}));
 $('[data-open-details]').addEventListener('click',()=>{details.open=true;details.scrollIntoView({behavior:'smooth',block:'start'})});
+$('[data-configure-treatment]').addEventListener('click',()=>{details.open=true;list.scrollIntoView({behavior:'smooth',block:'start'});list.querySelector('select')?.focus();});
 $('[data-reset]').addEventListener('click',()=>{
  $('[data-agreement-confirm]').checked=false;$('[data-agreement-document]').value='';$('[data-agreement-date]').value='';$('[data-agreement-amount]').value='';sel.qty=1;sel.injections=null;sel.reasonText='';sel.reasonTreatment=null;sel.clinicalTouched=false;$('[data-qty]').textContent='1';
- $('[data-target-input]').value='260';$('[data-target-slider]').value='260';$('[data-vat]').value='19';buildDiagnoses();$('[data-invoice-date]').value=localISO(new Date());$('[data-due-date]').value='';
+ $('[data-target-input]').value='260';$('[data-target-slider]').value='260';$('[data-vat]').value='19';buildDiagnoses();$('[data-invoice-date]').value=fmtDate(localISO(new Date()));$('[data-due-date]').value='';
  $('[data-material]').value='';$('[data-material-receipt]').value='';$('[data-material-description]').value='';$('[data-material-confirm]').checked=false;
  list.replaceChildren();changeTreatment('hyaluron');setMessage('Alle Beispielwerte zurückgesetzt; Patientendaten bleiben erhalten.','');
 });
@@ -447,13 +498,14 @@ $('[data-print-simulation]').addEventListener('click',()=>{render();window.print
 form.addEventListener('submit',async ev=>{
  ev.preventDefault();
  if(sel.working||sel.quoting)return;
+ clearTimeout(quoteTimer);
  sel.working=true;
  setBusy();
  try{
   const data=linesForServer();
   if(data.error){setMessage(data.error);details.open=true;return;}
   const sig=JSON.stringify(data.lines||[]);
-  if(!sel.verified||sel.verifiedHash!==sig||sel.verified.total!==targetOrZero()){
+  if(!sel.verified||sel.verifiedHash!==sig||(!sel.manual&&sel.verified.total!==targetOrZero())){
    details.open=true;
    if(!await verify())return;
   }
@@ -462,7 +514,7 @@ form.addEventListener('submit',async ev=>{
   if(!date){setMessage('Ungültiges Leistungsdatum.');return;}
   $('#goaeDateIso').value=date;
   $('#goaeLinesJson').value=sig;
-  $('#goaeTargetCents').value=String(targetOrZero());
+  $('#goaeTargetCents').value=String(sel.verified.total);
   const payload=new FormData(form);
   const signature=JSON.stringify([payload.get('customer_id'),date,sig,payload.get('goae_target_cents')]);
   if(!draftRequests.has(signature))draftRequests.set(signature,crypto.randomUUID());
@@ -477,7 +529,7 @@ form.addEventListener('submit',async ev=>{
  }finally{sel.working=false;setBusy();}
 });
 const today=new Date();
-$('[data-invoice-date]').value=localISO(today);buildDiagnoses();$('[data-today]').textContent=today.toLocaleDateString('de-DE');
+$('[data-invoice-date]').value=fmtDate(localISO(today));buildDiagnoses();$('[data-today]').textContent=fmtDate(localISO(today));
 $('#goaeDateGerman').value=today.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
 changeTreatment('hyaluron');syncSlider();render();
 })();

@@ -12,8 +12,10 @@ import django
 django.setup()
 
 from django.template.loader import get_template
+from booking.goae_treatment_cards import treatment_cards
 from playwright.sync_api import sync_playwright
 template=get_template('booking/_billing_goae_form.html')
+test_treatments={'hyaluron':['2442','1','5'],'botox':['252','1','5'],'prp':['268','250','1','5'],'lipolysis':['252','1','5']}
 html='<html lang="de"><head><meta charset="utf-8"></head><body>'+template.render({
  'csrf_token':'browser-test-only',
  'data':{'customers':[{'id':1,'name':'Anna Muster','email':'synthetic@example.test'}],
@@ -24,7 +26,8 @@ html='<html lang="de"><head><meta charset="utf-8"></head><body>'+template.render
    {'number':'5','de':'Symptombezogene Untersuchung','points':80,'category':'general'},
    {'number':'2442','de':'Implantation alloplastischen Materials zur Weichteilunterfütterung','points':900,'category':'general'},
  ],
- 'goae_treatments':{'hyaluron':['2442','1','5'],'botox':['1','5'],'prp':['1','5'],'lipolysis':['1','5']}
+ 'goae_treatments':test_treatments,
+ 'goae_treatment_cards':treatment_cards([{'name':'Botox - Neupatient'},{'name':'Botox-Behandlung (Neupatient)'},{'name':'Laser-Haarentfernung'}], test_treatments),
 })+'</body></html>'
 
 def smoke():
@@ -121,8 +124,18 @@ def smoke():
   sizes=page.evaluate('''() => ({body:document.body.scrollWidth,view:document.documentElement.clientWidth})''')
   assert sizes['body']<=sizes['view']+4, 'Mobile horizontal overflow '+str(sizes)
   assert not errors,'Unexpected browser errors: '+str(errors)
-  page.screenshot(path='/tmp/goae-mobile-390.png',full_page=True)
-  print('PASS: reference UI, 260=>142.06+76.43+41.51, 4 treatment choices, quantity, slider presets, details, German date, no patient/no POST guard, mobile 390px; no real invoices created')
+  assert page.locator('[data-treatment="botox"]').count()==1
+  page.locator('[data-treatment="laser"]').click()
+  assert page.locator('[data-config-notice]').is_visible()
+  assert page.locator('[data-proposal-step]').first.is_hidden()
+  assert page.locator('[data-g="goae_number"]').input_value()==''
+  assert page.locator('[data-g="goae_factor"]').input_value()==''
+  assert page.locator('[data-invoice-date]').get_attribute('type')=='text'
+  assert page.locator('[data-invoice-date]').get_attribute('placeholder')=='TT.MM.JJJJ'
+  assert 'Laser-Haarentfernung' in page.locator('[data-treatment-summary]').inner_text()
+  assert page.locator('[data-paper-total]').inner_text()=='–'
+  assert not errors,'Unexpected browser errors: '+str(errors)
+  print('PASS: reference UI, deduplicated treatment cards, manual clinical entry, German text dates, no patient/no POST guard, mobile 390px; no real invoices created')
   browser.close()
 
 if __name__=='__main__':

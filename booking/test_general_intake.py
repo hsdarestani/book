@@ -11,10 +11,12 @@ from datetime import date
 
 from PIL import Image
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.db import close_old_connections, connection
 from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
+from .intake_forms import CONSENT_TEXT
 from .intake_identity import locate_unique_intake_patient, match_score
 from .models import Customer, OfficeIntakeAssignmentLock, OfficeIntakeForm, PatientRecord
 
@@ -146,6 +148,64 @@ class GeneralIntakeTests(TestCase):
         form = OfficeIntakeForm.objects.get(source_id=self.source_id)
         self.assertEqual(form.payload['answers'], self.data['answers'])
         self.assertEqual(PatientRecord.objects.count(), 1)
+
+    def test_historical_signed_forms_reconcile_match_create_and_exception_once(self):
+        patient=Customer.objects.create(first_name='Anna',last_name='Muster',
+            email='older@example.test',phone='+49 172 0009999',date_of_birth=date(1990,3,2))
+
+        def old_form(identity):
+            return OfficeIntakeForm.objects.create(source_id=uuid.uuid4(), status='review',
+                signature_png=self.signature, payload={
+                    'identity':identity, 'answers':{'allergies':'Nein'},
+                    'consent_accepted':True, 'consent_text':CONSENT_TEXT})
+
+        matched=old_form(self.identity)
+        new_identity={**self.identity, 'first_name':'Lena','last_name':'Beispiel',
+            'email':'new@example.test', 'phone':'+49 171 1112223','date_of_birth':'1995-05-04'}
+        created=old_form(new_identity)
+        same_new_patient=old_form(new_identity)
+        ambiguous={**self.identity, 'first_name':'Mira','last_name':'Person',
+            'email':'ambiguous@example.test', 'phone':'+49 170 1122334','date_of_birth':'1988-11-07'}
+        for i in range(2):
+            Customer.objects.create(first_name='Mira',last_name='Person',
+                email=f'old{i}@example.test',phone=f'+49 170 333444{i}',date_of_birth=date(1988,11,7))
+        needs_review=old_form(ambiguous)
+        names_conflict=old_form({**self.identity, 'first_name':'Unrelated','last_name':'Person',
+            'email':patient.email,'phone':patient.phone})
+
+        before=io.StringIO()
+        call_command('reconcile_office_intake',stdout=before)
+        self.assertIn('mode=preview',before.getvalue())
+        self.assertEqual(Customer.objects.count(),3)
+        self.assertEqual(PatientRecord.objects.count(),0)
+
+        result=io.StringIO()
+        call_command('reconcile_office_intake','--apply',stdout=result)
+        self.assertIn('created=1',result.getvalue())
+        self.assertIn('matched=2',result.getvalue())
+        self.assertIn('review_identity_conflict=2',result.getvalue())
+        self.assertNotIn(self.identity['email'],result.getvalue())
+        for item in (matched,created,same_new_patient,needs_review,names_conflict):
+            item.refresh_from_db()
+        self.assertEqual(matched.customer_id,patient.pk)
+        self.assertEqual(created.customer_id,same_new_patient.customer_id)
+        self.assertEqual(needs_review.status,'review')
+        self.assertIsNone(needs_review.customer_id)
+        self.assertEqual(names_conflict.status,'review')
+        self.assertEqual(Customer.objects.count(),4)
+        self.assertEqual(PatientRecord.objects.count(),3)
+        self.assertEqual(matched.payload['identity'],self.identity)
+        self.assertEqual(matched.signature_png,self.signature)
+        self.assertTrue(matched.record.has_file)
+        call_command('reconcile_office_intake','--apply',stdout=io.StringIO())
+        self.assertEqual(PatientRecord.objects.count(),3)
+
+        staff=get_user_model().objects.create_user(username='historical-intake-admin',is_staff=True)
+        self.client.force_login(staff)
+        linked=self.client.get('/verwaltung/app/forms/', {'form':matched.pk})
+        self.assertContains(linked,'Automatisch zugeordnet')
+        self.assertContains(linked,f'customer={patient.pk}&amp;tab=forms')
+        self.assertNotContains(linked,'name="confirmed_same_patient"')
 
 
 @skipUnless(connection.vendor == 'postgresql', 'Requires PostgreSQL row-lock semantics')

@@ -42,10 +42,12 @@ def goae_patient_search(request):
     except (UnicodeError, ValueError):
         data = None
     query = data.get('query') if isinstance(data, dict) else None
-    if not isinstance(query, str) or not query.isprintable() or not 2 <= len(query.strip()) <= 80:
+    offset = data.get('offset', 0) if isinstance(data, dict) else None
+    if (not isinstance(query, str) or not query.isprintable() or not 2 <= len(query.strip()) <= 80
+            or type(offset) is not int or not 0 <= offset <= 100000):
         return JsonResponse({'ok': False}, status=400)
     try:
-        result = _request_bridge(request, 'patient-search', method='POST', payload={'query': query.strip()})
+        result = _request_bridge(request, 'patient-search', method='POST', payload={'query': query.strip(), 'offset': offset})
     except PermissionError:
         return JsonResponse({'ok': False}, status=403)
     except (ValueError, RuntimeError):
