@@ -1,0 +1,63 @@
+.clinic-notification-inbox[hidden], .clinic-inbox-count[hidden] { display: none; }
+.clinic-notification-inbox {
+  position: fixed;
+  top: 64px;
+  inset-inline-end: 12px;
+  z-index: 12000;
+  width: min(26rem, calc(100vw - 24px));
+  max-height: min(70dvh, 34rem);
+  padding: 1rem;
+  box-sizing: border-box;
+  overflow: auto;
+  color: #223934;
+  background: #fff;
+  border: 1px solid #b8c5bf;
+  border-radius: 14px;
+  box-shadow: 0 12px 36px #142c2a33;
+  font: 400 0.9rem/1.5 system-ui, sans-serif;
+}
+.clinic-notification-inbox header, .clinic-notification-inbox li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.clinic-notification-inbox h2 { margin: 0; color: inherit; font-size: 1.1rem; }
+.clinic-notification-inbox [data-inbox-close] { font-size: 1.3rem; }
+.clinic-notification-inbox p { margin: 0.5rem 0; }
+.clinic-notification-inbox ul { margin: 0.5rem 0; padding: 0; list-style: none; }
+.clinic-notification-inbox li { padding: 0.55rem 0; border-top: 1px solid #dce5e1; }
+.clinic-notification-inbox time { display: block; color: #4c625a; }
+.clinic-notification-inbox .is-unread a { font-weight: 700; }
+.clinic-notification-inbox a { color: #114d42; text-decoration: underline; }
+.clinic-notification-inbox button {
+  flex: none;
+  padding: 0.35rem 0.6rem;
+  color: #17493e;
+  background: #f0f6f2;
+  border: 1px solid #b2c7bd;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+.clinic-notification-inbox button:disabled { opacity: 0.7; cursor: default; }
+.clinic-notification-inbox :is(button, a):focus-visible { outline: 2px solid #156050; outline-offset: 2px; }
+.clinic-notification-button { position: relative; }
+.clinic-inbox-count {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  min-width: 1rem;
+  border-radius: 999px;
+  padding: 0 0.2rem;
+  background: #a63e44;
+  color: #fff;
+  font: 700 0.65rem/1rem system-ui, sans-serif;
+  text-align: center;
+}
+@media (max-width: 980px) {
+  html[data-clinic-navigation][data-admin-page="calendar"][data-clinic-design="premium"]
+  body.sb-admin-body.sb-calendar-pro > .sb-reference-calendar-bar:has(.clinic-notification-button) {
+    grid-template-columns: 38px minmax(0, 1fr) repeat(3, 36px) !important;
+  }
+}

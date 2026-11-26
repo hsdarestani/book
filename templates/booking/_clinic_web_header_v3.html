@@ -1,4 +1,5 @@
 {% load static %}
+{% if not view_only %}<link rel="stylesheet" href="{% static 'booking/clinic-notification-inbox.css' %}">{% endif %}
 {# Canonical web header, reused by all non-calendar admin pages. #}
 <header class="admin-topbar sb-desktop-topbar clinic-header-v3" data-clinic-header data-clinic-view-only="{{ view_only|yesno:'1,0' }}">
   <div class="premium-utility-context" aria-hidden="true"><span>A+ ESTHETIC  /  PRAXISMANAGEMENT</span><strong>{{ section_title|default:"Übersicht" }}</strong></div>
