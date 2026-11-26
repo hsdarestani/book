@@ -242,7 +242,7 @@ class DoctorPrivateCalendarTests(TestCase):
         })
         self.assertEqual(html.status_code, 200)
         self.assertContains(html, 'data-doctor-role="1"')
-        self.assertContains(html, 'admin-unified-nav-v14.js?v=20261020-doctor-menu')
+        self.assertContains(html, 'admin-unified-nav-v14.js?v=20261126-nav1')
         for section in ('dashboard', 'calendar', 'bookings', 'customers', 'settings'):
             self.assertContains(html, f'/verwaltung/arzt/?section={section}')
             landing = self.client.get('/verwaltung/arzt/', {'section': section})
@@ -286,7 +286,7 @@ class DoctorPrivateCalendarTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-doctor-role="1"')
         self.assertContains(response, '/verwaltung/arzt/?section=customers')
-        self.assertContains(response, 'admin-unified-nav-v14.js?v=20261020-doctor-menu')
+        self.assertContains(response, 'admin-unified-nav-v14.js?v=20261126-nav1')
         self.assertNotContains(response, 'href="/verwaltung/app/wallet/"')
         self.assertNotContains(response, 'href="/verwaltung/dashboard/"')
 

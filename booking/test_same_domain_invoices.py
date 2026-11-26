@@ -78,9 +78,10 @@ class SameDomainInvoicesTests(TestCase):
 
     def test_calendar_has_shared_header_but_calendar_grid_is_unchanged(self):
         source = get_template("booking/dashboard.html").template.source
-        self.assertIn("{% include \"booking/_clinic_web_header_v3.html\" %}", source)
+        self.assertIn('{% include "booking/_clinic_web_header_v3.html"', source)
         self.assertIn("clinic-calendar-topbar-v1.css", source)
-        self.assertIn('data-admin-page="calendar"', source)
+        self.client.force_login(self.staff)
+        self.assertContains(self.client.get('/verwaltung/kalender/'), 'data-admin-page="calendar"')
         grid = get_template("booking/_shared_admin_calendar.html").template.source
         self.assertIn('class="sb-calendar-shell', grid)
         self.assertNotIn("clinic-header-v3", grid)
