@@ -171,6 +171,19 @@ def _notify_admin_action(appointment, *, event, title, email_event):
     return result
 
 
+def notify_admin_source_changed(appointment, previous):
+    """Confirmed remote write: alert administrators without duplicating vendor customer mail."""
+    if appointment_snapshot(appointment) == previous:
+        return {"ok": True, "skipped": "unchanged"}
+    cancelled = appointment.status == "cancelled"
+    return _notify_admin_action(
+        appointment,
+        event="admin_status_changed" if cancelled else "admin_rescheduled",
+        title="Termin abgesagt" if cancelled else "Termin geändert",
+        email_event="cancelled" if cancelled else "changed",
+    )
+
+
 def notify_admin_created(appointment):
     local = _local_start(appointment)
     result = _push(
