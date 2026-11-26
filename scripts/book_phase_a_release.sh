@@ -84,6 +84,22 @@ restore_checkout() {
   check_book
 }
 
+verify_release_scope() {
+  local path
+  while IFS= read -r path; do
+    case "$path" in
+      .github/workflows/verify-mobile-booking-recovery.yml|docs/qa/AESTHETIC_REMEDIATION.md|\
+      booking/admin_views.py|booking/api.py|booking/app_admin_api.py|booking/calendar_admin_api.py|\
+      booking/clinical_time.py|booking/doctor_views.py|booking/emails.py|\
+      booking/migrations/0032_appointment_treatment_duration.py|booking/mobile_api.py|\
+      booking/models.py|booking/notifications.py|booking/services.py|booking/simplybook_outbound.py|\
+      booking/test_booking_reservation_duration.py|booking/test_clinical_time.py|booking/test_doctor_read_only.py|booking/views.py|\
+      static/booking/admin-calendar-plus.js|static/booking/admin.js|templates/booking/dashboard.html) ;;
+      *) fail_release 'The release contains changes outside the Phase A allowlist.' ;;
+    esac
+  done <<< "$1"
+}
+
 release_book() (
   set -euo pipefail
   app="$1" env_file="$2" backups="$3" tools_dir="$4" baseline="$5" target="$6"
@@ -105,22 +121,11 @@ release_book() (
   [[ -f "$env_file" && ! -L "$env_file" ]]
   git -C "$app" merge-base --is-ancestor "$baseline" "$target"
   changes="$(git -C "$app" diff --name-only "$baseline" "$target")"
-  while IFS= read -r path; do
-    case "$path" in
-      .github/workflows/verify-mobile-booking-recovery.yml|docs/qa/AESTHETIC_REMEDIATION.md|\
-      booking/admin_views.py|booking/api.py|booking/app_admin_api.py|booking/calendar_admin_api.py|\
-      booking/clinical_time.py|booking/doctor_views.py|booking/emails.py|\
-      booking/migrations/0032_appointment_treatment_duration.py|booking/mobile_api.py|\
-      booking/models.py|booking/notifications.py|booking/services.py|booking/simplybook_outbound.py|\
-      booking/test_booking_reservation_duration.py|booking/test_clinical_time.py|booking/test_doctor_read_only.py|booking/views.py|\
-      static/booking/admin-calendar-plus.js|static/booking/admin.js|templates/booking/dashboard.html) ;;
-      *) fail_release 'The release contains changes outside the Phase A allowlist.' ;;
-    esac
-  done <<< "$changes"
+  verify_release_scope "$changes"
   check_book
 
-  snapshot="$(mktemp -d "$backups/phase-a.XXXXXXXX")"
-  stage="$(mktemp -d "$(dirname "$app")/.phase-a-stage.XXXXXXXX")"
+  snapshot="$(mktemp -d "$backups/${release_id:-phase-a}.XXXXXXXX")"
+  stage="$(mktemp -d "$(dirname "$app")/.${release_id:-phase-a}-stage.XXXXXXXX")"
   original_branch="$(git -C "$app" symbolic-ref --quiet --short HEAD || true)"
   trap '
     result=$?
