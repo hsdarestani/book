@@ -13,7 +13,7 @@ concurrency:
 
 env:
   BOOK_BASELINE: ee931357afe243ad9dbf3e8d2c53845a958ffeff
-  BOOK_TARGET: c4457ab5d35c0a67fe9db6ca5c821bf976c3ad62
+  BOOK_TARGET: 5e33fba8f3bd6864831c1244a100efae3cbc927a
   BOOK_TOOLS_REF: ${{ github.sha }}
 
 jobs:
