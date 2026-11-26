@@ -22,10 +22,10 @@ Updated 2026-11-26. There are 71 previously successful manual checklist items re
 | BUG-006 | Admin desktop viewport and content widths | DEPLOYED | The scoped release at 75cfb30 serves the five-viewport layout. At 1920px the content shell uses all 1668px available after the sidebar. |
 | BUG-007 | Admin typography and spacing | IN_PROGRESS | Shared controls and heading typography improved in PR #118. Review remaining section-specific type and spacing. |
 | BUG-008 | Google Bewertungen navigation | TESTED | PR #118 removes reviews from navigation and preserves the protected direct route. |
-| BUG-009 | Admin app session | TESTED | Book #124 distinguishes denied permissions from expired App sessions. A denied upstream request no longer clears the shared credential. Staging verification pending. |
-| BUG-010 | Intake identity matching | TESTED | Book #120 attaches one qualifying match across validated identity fields. Conflicting or ambiguous identities go to review. |
-| BUG-011 | Automatic transactional intake assignment and review | TESTED | Book #120 passed simultaneous PostgreSQL submissions with one patient and two signed records. Migration 0033 awaits release. |
-| BUG-012 | Searchable patient selection | IN_PROGRESS | Intake review and GOÄ full-catalog lookup are tested. Other assignment workflows still need review. |
+| BUG-009 | Admin app session | DEPLOYED | Campaign and referral session recovery is live in Book #128. Reconnection acceptance with a signed-in App session remains open. |
+| BUG-010 | Intake identity matching | DEPLOYED | Book #128 deploys normalized matching and exceptional identity review. |
+| BUG-011 | Automatic transactional intake assignment and review | DEPLOYED | Migration 0033 and the replay-safe Book path are live. The PostgreSQL lock case passed on the intake draft. |
+| BUG-012 | Searchable patient selection | IN_PROGRESS | Intake search and the local invoice selector are live. Full invoice catalog search is staged with the App billing API. |
 | BUG-013 | Required medical history responses | TESTED | Patient PR #88 requires explicit responses in the form and on the server. Release remains pending. |
 | BUG-014 | Consolidated prior operations question | TESTED | Patient PR #88 removes the redundant question for new submissions and retains the historical data path. |
 | BUG-015 | Invoice treatment options and approved billing mappings | BLOCKED | Clinic-approved mappings beyond the existing presets are required. Unsupported services remain configuration-required. |
@@ -35,13 +35,13 @@ Updated 2026-11-26. There are 71 previously successful manual checklist items re
 | BUG-019 | Hide internal SimplyBook provider in clinical selectors | DEPLOYED | The scoped release carries the tested ordinary-selector exclusions and retains the source provider mapping. |
 | BUG-020 | Calendar controls on non-calendar admin pages | DEPLOYED | The scoped release keeps calendar controls out of Settings. Hosted Chromium checked the Settings route at five widths. |
 | BUG-021 | Active sidebar state | IN_PROGRESS | PR #118 corrects tested Settings and forms navigation and uses accessible active states. Audit remaining subroutes. |
-| BUG-022 | Intermittent admin session/authentication issues | IN PROGRESS | Book #124 prevents upstream request failures from erasing the current credential. End-to-end browser reconnection remains to be tested in staging. |
+| BUG-022 | Intermittent admin session/authentication issues | IN_PROGRESS | Route-specific recovery is live in Book #128. Signed-in browser acceptance remains pending. |
 | BUG-023 | Admin form controls and alignment | IN_PROGRESS | PR #118 applies shared form dimensions and focus styling. A broader form and table review remains. |
 | BUG-024 | Admin navigation and content organization | IN_PROGRESS | PR #118 groups patient work and separates campaigns, templates and Settings. Verify remaining entry points. |
 | BUG-025 | Settings and homepage image management | IN_PROGRESS | PR #118 verifies the homepage images layout and existing mobile scrolling. Further management UX remains. |
-| BUG-026 | Referrals information and points | TESTED | Book #124 displays status, Berlin dates and pending versus awarded points from the API. Staging verification remains pending. |
+| BUG-026 | Referrals information and points | DEPLOYED | The scoped Book batch displays status, awarded points and Berlin dates. |
 | BUG-027 | German copy, date formatting and responsive consistency | IN_PROGRESS | PR #118 unifies German page and navigation labels in tested routes. Date formats and other pages remain open. |
-| BUG-028 | Admin bell and communication QA | TESTED | Book #122 passed notification inbox, template and reminder regressions using synthetic data. Staged acceptance and release remain pending. |
+| BUG-028 | Admin bell and communication QA | DEPLOYED | The signed-form inbox and per-admin read state are live. Synthetic production smoke passed. |
 | NATIVE | Existing Swift/Android admin functionality | IN_PROGRESS | Existing B65 candidate builds and native feature inventory are in the native tracker. Reconcile native and Book source candidates and run device acceptance. |
 | RELEASE | Regression, deployment, native builds and acceptance | BLOCKED | Live checkout and 0031 confirmed. Existing deploy resets the checkout and runs unrelated writes and reminders. A rollback directory exists but exact restore has not been verified. |
 | QAMAR | Dedicated Qamar doctor-panel QA | DEFERRED | Dedicated panel QA deferred by request. Provider isolation remains in booking regression scope. |
@@ -140,3 +140,8 @@ For TODO and IN_PROGRESS entries with no report below, root cause, relevant file
 - [B66 builds and simulator/emulator QA](https://github.com/hsdarestani/a_esthetic/actions/runs/45858322997) completed. Artifact download links and remaining signed-in device acceptance are in the [native tracker](https://github.com/hsdarestani/a_esthetic/blob/remediation/aesthetic-20261126/docs/qa/AESTHETIC_NATIVE_REMEDIATION.md).
 
 - The [guarded calendar release](https://github.com/hsdarestani/book/actions/runs/45862178393) deployed `6ff0fb7785de5e778206ccd3e0147ea1d82aa0bb`. Both jobs passed. Populated Chromium and rollback-scoped live smoke confirmed 18:30/19:15/19:25 for the synthetic fixture. [QA artifact](https://github.com/hsdarestani/book/actions/runs/45862178393/artifacts/15137424851). BUG-002 still requires the original booking trace.
+
+### Grouped admin release
+
+- [Book #128](https://github.com/hsdarestani/book/pull/128) at `c2caac56e943daf9f14082cc87bc2a4c3a158cb5` is live through [guarded run 45863387183](https://github.com/hsdarestani/book/actions/runs/45863387183). Migrations 0033 and 0034 are additive. Thirty-one focused tests ran with the PostgreSQL lock covered by its separate hosted check. Synthetic production calendar and inbox smoke passed.
+- [Patient billing #90](https://github.com/hsdarestani/a_esthetic/pull/90) at `fffc52f16c8a113a6329d6c6275aeca173271353` passed six bridge tests including equal synthetic quote, retried draft and PDF totals. Release remains paired with Book #121. The existing patient deployment rewrites configuration, so the next safe action is the scoped patient API rollout with migration 0008. Approved clinic billing mappings and the December 30 source trace remain open.
