@@ -54,7 +54,7 @@
   function loadCalendarPlus() {
     if (document.querySelector('script[data-admin-calendar-plus]')) return;
     const script = document.createElement('script');
-    script.src = '/static/booking/admin-calendar-plus.js?v=20261126-combobox2';
+    script.src = '/static/booking/admin-calendar-plus.js?v=20261126-clean-grid';
     script.defer = true;
     script.setAttribute('data-admin-calendar-plus', '1');
     document.head.appendChild(script);

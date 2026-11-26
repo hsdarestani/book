@@ -23,7 +23,8 @@ from .notifications import notify_booking_created, notify_customer_cancelled, no
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
 from .package_bridge import sync_package
 from .services import BOOKING_HORIZON_DAYS, LEAD_TIME, available_slots, booking_source_availability, create_appointment, source_day
-from .simplybook_outbound import ARIANE, SOURCE_AVAILABILITY_ERRORS, integrated, public_sync_enabled, REFERRAL_ANSWERS
+from .simplybook_outbound import ARIANE, SOURCE_AVAILABILITY_ERRORS, integrated, patient_booking_answers
+from .simplybook_writeback import change_locked, source_editable, source_id
 
 CHANGE_DEADLINE_HOURS = max(1, int(getattr(settings, 'BOOKING_CHANGE_DEADLINE_HOURS', 24)))
 logger = logging.getLogger(__name__)
@@ -202,7 +203,6 @@ def mobile_slots(request):
         return _error('staff_not_found', 'Für diese Terminart ist aktuell kein passender Termin verfügbar.', 400)
 
     slots = set()
-    source_answers_required = False
     provider_available = False
     for member in staff:
         try:
@@ -210,7 +210,6 @@ def mobile_slots(request):
         except SOURCE_AVAILABILITY_ERRORS:
             continue
         provider_available = True
-        source_answers_required |= source is not None
         slots.update(available_slots(
             service, member, day, exclude_appointment_id=exclude_id, reserved_duration=reserved_duration,
             source_availability=source_day(source, day),
@@ -222,7 +221,7 @@ def mobile_slots(request):
         'service_id': service.pk,
         'day': day.isoformat(),
         'slots': [item.isoformat() for item in sorted(slots)],
-        'source_answers_required': source_answers_required,
+        'source_answers_required': False,
     })
 
 
@@ -350,12 +349,12 @@ def mobile_booking(request):
         privacy_accepted = bool(data.get('privacy_accepted', legacy_consent))
         returning = data.get('returning_customer')
         referral = str(data.get('referral_source') or '')
-        explicit = isinstance(returning, bool) and referral in REFERRAL_ANSWERS
-        if public_sync_enabled() and integrated(service, staff) and not explicit:
-            return _error('source_answers_required', 'Bitte beantworte beide Pflichtfragen zur Terminbuchung.', 422)
+        answered = isinstance(returning, bool)
         sync_state = ''
-        if staff.display_name == ARIANE:
-            sync_state = 'queued' if explicit else 'awaiting_answers'
+        if integrated(service, staff):
+            returning, referral = patient_booking_answers(customer)
+            answered = True
+            sync_state = 'queued'
 
         try:
             appointment, created = create_appointment(
@@ -370,8 +369,8 @@ def mobile_booking(request):
                 cancellation_terms_accepted=cancellation_terms_accepted,
                 privacy_accepted=privacy_accepted,
                 returning_customer=returning is True,
-                returning_customer_answered=isinstance(returning, bool),
-                referral_source=referral if explicit else '',
+                returning_customer_answered=answered,
+                referral_source=referral,
                 simplybook_sync_state=sync_state,
                 source_availability=availability,
             )
@@ -452,9 +451,10 @@ def mobile_manageable_appointments(request):
         'appointments': [
             {
                 **_appointment_payload(item),
-                'change_allowed': now <= item.starts_at - timedelta(hours=CHANGE_DEADLINE_HOURS) and not (
-                    item.simplybook_booking_id or (item.idempotency_key or '').startswith('simplybook-')
-                    or item.simplybook_sync_state in {'sending','review'}),
+                'change_allowed': now <= item.starts_at - timedelta(hours=CHANGE_DEADLINE_HOURS) and (
+                    source_editable(item) if source_id(item)
+                    else item.simplybook_sync_state not in {'sending', 'review'}
+                ),
             }
             for item in items
         ],
@@ -485,17 +485,19 @@ def mobile_appointment_change(request, appointment_id):
     if not customer:
         return _error('appointment_not_found', 'Termin nicht gefunden.', 404)
 
+    owned = Appointment.objects.filter(public_id=appointment_id, customer=customer)
+    initial = owned.values('staff_id').first()
+    if not initial:
+        return _error('appointment_not_found', 'Termin nicht gefunden.', 404)
+
     with transaction.atomic():
-        item = Appointment.objects.select_for_update().select_related('service', 'staff').filter(
-            public_id=appointment_id,
-            customer=customer,
-        ).first()
-        if not item:
+        StaffMember.objects.select_for_update().get(pk=initial['staff_id'])
+        item = owned.select_for_update().select_related('service', 'staff').first()
+        if not item or item.staff_id != initial['staff_id']:
             return _error('appointment_not_found', 'Termin nicht gefunden.', 404)
         if item.status not in {'new', 'confirmed'}:
             return _error('appointment_not_changeable', 'Dieser Termin kann nicht mehr geändert werden.', 409)
-        if (item.simplybook_booking_id or (item.idempotency_key or '').startswith('simplybook-')
-                or item.simplybook_sync_state in {'sending','review'}):
+        if item.simplybook_sync_state in {'sending', 'review'}:
             return _error('source_change_requires_review', 'Bitte kontaktiere die Praxis für diese Terminänderung.', 409)
         if timezone.now() > item.starts_at - timedelta(hours=CHANGE_DEADLINE_HOURS):
             return JsonResponse({
@@ -505,7 +507,23 @@ def mobile_appointment_change(request, appointment_id):
                 'deadline_hours': CHANGE_DEADLINE_HOURS,
             }, status=409)
 
-        if action == 'cancel':
+        if source_id(item):
+            if not source_editable(item):
+                return _error('source_change_requires_review', 'Bitte kontaktiere die Praxis für diese Terminänderung.', 409)
+            starts_at = None
+            if action == 'reschedule':
+                starts_at = parse_appointment_start(data.get('starts_at'))
+                if not starts_at or starts_at < timezone.now() + LEAD_TIME:
+                    return _error('invalid_start_time', 'Bitte wähle einen späteren Termin.', 400)
+                if data.get('staff_id') and str(data['staff_id']) != str(item.staff_id):
+                    return _error('source_provider_change', 'Bitte kontaktiere die Praxis für einen Behandlerwechsel.', 409)
+            try:
+                changed = change_locked(item, starts_at=starts_at, cancel=action == 'cancel')
+            except SOURCE_AVAILABILITY_ERRORS:
+                changed = False
+            if not changed:
+                return _error('source_change_requires_review', 'Die Änderung wurde von SimplyBook noch nicht bestätigt.', 409)
+        elif action == 'cancel':
             item.status = 'cancelled'
             item.save(update_fields=['status', 'updated_at'])
         else:

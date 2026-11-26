@@ -58,7 +58,7 @@
           <div class="sb-day-head">{% if day.column_label %}<strong class="sb-reference-day-label" title="{{ day.column_label }}">{{ day.column_label }}</strong>{% else %}<span>{{ day.day_name }}</span><b>{{ day.date|date:"d.m." }}</b>{% endif %}</div>
           <div class="sb-day-track">
             {% for segment in day.working_segments %}
-            <div class="sb-working-segment" style="top:{{ segment.top }}%;height:{{ segment.height }}%;"><span>{{ segment.label }}</span></div>
+            <div class="sb-working-segment" style="top:{{ segment.top }}%;height:{{ segment.height }}%;"></div>
             {% endfor %}
 
             {% for event in day.appointments %}

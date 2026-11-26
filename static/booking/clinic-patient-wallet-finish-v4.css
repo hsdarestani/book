@@ -71,10 +71,10 @@ html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .po
   color:#203a2d!important;-webkit-text-fill-color:#203a2d!important;
 }
 html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card p {
-  color:#7d867d!important;-webkit-text-fill-color:#7d867d!important;
+  color:#526357!important;-webkit-text-fill-color:#526357!important;
 }
 html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card > div > span {
-  color:#a6844b!important;-webkit-text-fill-color:#a6844b!important;
+  color:#765722!important;-webkit-text-fill-color:#765722!important;
 }
 html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card button,
 html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-save {
@@ -235,5 +235,49 @@ html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .po
   }
   html[data-clinic-design="premium"][data-admin-page="patients"] body.admin-body .premium-patient-list .premium-patient-metric:nth-of-type(3) {
     margin-left:0!important;
+  }
+}
+
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card {
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)!important;
+  align-items:end!important;
+  gap:clamp(12px,2vw,22px)!important;
+  margin:0 0 20px!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card form {
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:8px!important;
+  margin:0!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-shell
+:is(.points-search-card input,.points-adjust-form input) {
+  min-width:0!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  color:#23392e!important;
+  background:#fff!important;
+  -webkit-text-fill-color:currentColor!important;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-person {
+  align-items:center!important;
+  min-width:0!important;
+  overflow-wrap:anywhere;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-card-grid {
+  align-items:stretch;
+}
+html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-admin-card {
+  margin:0!important;
+}
+@media(max-width:760px) {
+  html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card {
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+}
+@media(max-width:390px) {
+  html[data-clinic-design="premium"][data-admin-page="wallet"] body.admin-body .points-search-card form {
+    grid-template-columns:minmax(0,1fr)!important;
   }
 }

@@ -130,9 +130,9 @@ def create_appointment(*, customer, service, staff, starts_at, message='', idemp
 
 def booking_source_availability(service, staff, day, end_day=None):
     """Fetch the vendor grid only for the active SimplyBook integration."""
-    from .simplybook_outbound import SERVICE_MAP, integrated, public_sync_enabled, session, source_slots
+    from .simplybook_outbound import SERVICE_MAP, integrated, public_availability_enabled, session, source_slots
 
-    if not public_sync_enabled() or not integrated(service, staff):
+    if not public_availability_enabled() or not integrated(service, staff):
         return None
     return source_slots(session(), SERVICE_MAP[service.slug][0], day.isoformat(), (end_day or day).isoformat())
 

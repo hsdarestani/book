@@ -643,7 +643,7 @@ def app_management(request, section='bookings'):
             context.update(_forms_context(request))
         elif section == 'invoices':
             data = _billing_api(request, 'billing/')
-            clinic_services = Service.objects.filter(active=True).values('name', 'slug')
+            clinic_services = list(Service.objects.filter(active=True).order_by('name').values('name', 'slug'))
             context['goae_invoices'] = [inv for inv in (data.get('invoices') or [])
                 if inv.get('billing_method') == 'goae']
             try:
@@ -655,6 +655,13 @@ def app_management(request, section='bookings'):
             except (RuntimeError,ValueError,PermissionError):
                 context['goae_catalog'] = []
                 context['goae_treatments'] = {}
+            quick_templates = context.get('goae_quick_templates', {})
+            context['goae_quick_choices'] = [
+                {'key': item['slug'], 'label': item['name'],
+                 'version': quick_templates.get(item['slug'], {}).get('version', '')}
+                for item in clinic_services
+            ]
+            context['goae_quick_date'] = clinic_localtime().date().isoformat()
             context['goae_treatment_cards'] = treatment_cards(clinic_services, context['goae_treatments'])
         else:
             data = _api(request, 'referrals/')

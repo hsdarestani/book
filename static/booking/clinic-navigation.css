@@ -44,3 +44,18 @@ html[data-clinic-navigation][data-clinic-navigation] body.admin-body .sb-mobile-
 @media(min-width:981px){
 html[data-clinic-navigation][data-clinic-navigation] body.admin-body .sb-mobile-bar{display:none!important;}
 }
+
+
+/* Keep the rendered glyph color tied to the foreground of shared controls. */
+html[data-clinic-navigation] body.admin-body
+:is(.clinic-header-nav,.clinic-header-more,.sb-drawer-nav,.premium-sidebar-nav,.hero-admin-nearby,.customer-profile-tabs)
+:is(a,button,summary) {
+  -webkit-text-fill-color:currentColor!important;
+}
+html[data-clinic-navigation] body.admin-body
+:is(.hero-admin-nearby,.customer-profile-tabs) :is(a,button):is([aria-current="page"],[aria-selected="true"],.is-active) {
+  background:#292c2a!important;
+  color:#fff!important;
+  border-color:#292c2a!important;
+  -webkit-text-fill-color:currentColor!important;
+}

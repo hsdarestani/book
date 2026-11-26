@@ -1,10 +1,10 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'booking/goae-rechner-v2.css' %}?v=20261126-cards67">
+<link rel="stylesheet" href="{% static 'booking/goae-rechner-v2.css' %}?v=20261126-invoice-fields">
 <section class="mlr" id="goae-rechnung">
   <header class="mlr-head">
     <h2>GOÄ-Schnellrechnung</h2>
   </header>
-  {% if goae_quick_templates %}
+  {% if goae_quick_choices %}
   <form data-goae-quick action="{% url 'booking:goae_quick' %}" method="post">
     {% csrf_token %}
     <div class="mlr-step mlr-field-grid">
@@ -23,14 +23,14 @@
       <label>Behandlung
         <select name="treatment" required>
           <option value="">Vorlage auswählen</option>
-          {% for key, item in goae_quick_templates.items %}<option value="{{ key }}" data-version="{{ item.version }}">{{ item.label }}</option>{% endfor %}
+          {% for item in goae_quick_choices %}<option value="{{ item.key }}" data-version="{{ item.version }}">{{ item.label }}{% if not item.version %} · Freigabe erforderlich{% endif %}</option>{% endfor %}
         </select>
       </label>
       <label>Behandlungsumfang
         <input name="quantity" type="number" value="1" min="1" max="100" step="1" required>
       </label>
       <label>Gewünschter Gesamtbetrag (€)
-        <input name="desired" type="text" inputmode="decimal" placeholder="0,00" required>
+        <input name="desired" type="text" inputmode="decimal" placeholder="Optional">
       </label>
     </div>
     <details class="mlr-details">
@@ -52,7 +52,7 @@
       <a class="mlr-print" data-quick-pdf href="#" hidden>A4-PDF herunterladen</a>
     </div>
   </form>
-  <script src="{% static 'booking/goae-quick.js' %}" defer></script>
+  <script src="{% static 'booking/goae-quick.js' %}?v=20261126-draft-fields" defer></script>
   {% else %}
   <p>Für die Schnellrechnung muss eine ärztlich freigegebene Behandlungsvorlage hinterlegt sein.</p>
   {% endif %}
@@ -211,7 +211,7 @@
 </template>
 {{ goae_catalog|json_script:"goaeTariffCatalog" }}
 {{ goae_treatments|json_script:"goaeTreatmentMap" }}
-<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261126-pdf-download" defer></script>
+<script src="{% static 'booking/goae-rechner-v2.js' %}?v=20261126-invoice-fields" defer></script>
 
     </div>
   </details>
