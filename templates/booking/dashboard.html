@@ -10,8 +10,8 @@
   <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/patient.css{% else %}{% static 'booking/patient.css' %}{% endif %}">
   <script defer src="{% if doctor_mode %}/static/booking/admin.js{% else %}{% static 'booking/admin.js' %}{% endif %}?v=20261126-calendar-acceptance1"></script>
   <script defer src="{% if doctor_mode %}/static/booking/admin-ferrari-v17.js{% else %}{% static 'booking/admin-ferrari-v17.js' %}{% endif %}?v=20261126-calendar-acceptance1"></script>
-  <link rel="stylesheet" href="{% static 'booking/clinic-acceptance-polish.css' %}">
-  <script defer src="{% static 'booking/patient-select-filter.js' %}?v=20261126-combobox2"></script>
+  <link rel="stylesheet" href="{% if doctor_mode %}/static/booking/clinic-acceptance-polish.css{% else %}{% static 'booking/clinic-acceptance-polish.css' %}{% endif %}?v=20261126-combobox2">
+  <script defer src="{% if doctor_mode %}/static/booking/patient-select-filter.js{% else %}{% static 'booking/patient-select-filter.js' %}{% endif %}?v=20261126-combobox2"></script>
   {% if doctor_mode %}<script defer src="/static/booking/admin-unified-nav-v14.js?v=20261126-nav1" data-aplus-unified-nav-v14></script>{% else %}
   <link rel="stylesheet" href="/static/booking/clinic-header-v3.css?v=20261020-header4">
   <link rel="stylesheet" href="/static/booking/clinic-calendar-topbar-v1.css?v=20261020-header4">
