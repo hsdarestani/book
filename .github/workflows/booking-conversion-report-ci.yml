@@ -1,0 +1,26 @@
+name: Booking conversion report CI
+on:
+  pull_request:
+    paths:
+      - 'booking/management/commands/booking_conversion_report.py'
+      - 'booking/test_booking_conversion_report.py'
+      - '.github/workflows/booking-conversion-report-ci.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python manage.py check
+        env:
+          DJANGO_DEBUG: '1'
+      - run: python manage.py test booking.test_booking_conversion_report
+        env:
+          DJANGO_DEBUG: '1'
