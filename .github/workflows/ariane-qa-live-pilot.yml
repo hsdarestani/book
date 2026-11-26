@@ -59,3 +59,5 @@ jobs:
                 print("PILOT_RESULT="+(str(exc) if isinstance(exc,SyncConflict) else "source_error_check_state_privately"))
                 raise SystemExit(1) from None
             PY
+
+# Explicitly triggered by the QA repair request.
