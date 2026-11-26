@@ -193,6 +193,19 @@ class WorkspaceTests(TestCase):
             self.assertIsNotNone(MobileStaffCancellation.objects.get().completed_at)
             self.assertEqual(relay.call_count,2)
 
+    def test_cancellation_notification_independent_of_package_reconciliation(self):
+        with patch('booking.mobile_staff_api.notify_admin_changed') as notify:
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.post('appointment', operation='cancel', id=self.own.pk,
+                                     revision=self.own.updated_at.isoformat())
+            self.assertEqual(response.status_code, 200)
+            notify.assert_called_once()
+            self.assertTrue(MobileStaffCancellation.objects.get().notification_independent)
+            with patch('booking.management.commands.reconcile_mobile_cancellations._post_internal',
+                       return_value={'ok': True}), patch('booking.management.commands.reconcile_mobile_cancellations.notify_admin_changed') as duplicate:
+                call_command('reconcile_mobile_cancellations')
+                duplicate.assert_not_called()
+
     def test_external_source_blocks_and_appointments_are_read_only(self):
         from .management.commands.sync_simplybook_notes import _marker
         from .models import MobileStaffCommand
