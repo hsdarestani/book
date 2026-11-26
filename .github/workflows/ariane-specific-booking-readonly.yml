@@ -1,12 +1,15 @@
-name: Read-only Ariane specific booking reconciliation preflight
+name: Guarded reconciliation of the authorized synthetic Ariane appointment
 on:
   push:
     branches: [release/admin-batch-runner-20261126]
     paths: ['.github/workflows/ariane-specific-booking-readonly.yml']
 permissions:
   contents: read
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
 jobs:
-  inspect:
+  reconcile:
     runs-on: ubuntu-latest
     steps:
       - uses: appleboy/ssh-action@v1.2.0
@@ -19,80 +22,110 @@ jobs:
           script: |
             set -euo pipefail
             test -r /etc/aesthetic-simplybook-credentials.env
+            set -a
             source /etc/aesthetic-simplybook-credentials.env
+            set +a
             cd /opt/aesthetic-book/app
+            test "$(git rev-parse HEAD)" = f063ce82d07fc13e4d30b92dccf665451ab0fa51
             runuser -u aestheticbook --preserve-environment -- bash -c 'set -ae; source /etc/aesthetic-book.env; cd /opt/aesthetic-book/app; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+
             import logging
-            from booking.models import Appointment
-            from booking.clinical_time import parse_clinic_wall_time
-            from booking.simplybook_outbound import session, _verify_catalog, _get_client, _verify_availability, _additional_answers, SyncConflict, SERVICE_MAP
-            logging.disable(logging.CRITICAL)
-            start = parse_clinic_wall_time('2026-12-30','16:15')
-            candidates = list(Appointment.objects.select_related('staff','service','customer').filter(staff__display_name='Frau Ariane Regaei',service__slug='aesthetische-erstberatung',starts_at=start,source='app',status__in=['new','confirmed'])[:2])
-            print('EXACT_LOCAL_MATCH_COUNT=' + str(len(candidates)))
-            if len(candidates) != 1: raise SystemExit(0)
-            item = candidates[0]
-            state = item.simplybook_sync_state
-            print('SYNC_STATE=' + (state if state in {'sending','review','linked'} else 'unattempted' if not state else 'other'))
-            print('LOCAL_REMOTE_ID_PRESENT=' + str(bool(item.simplybook_booking_id)).lower())
-            print('MAPPING_PRESENT=' + str(item.service.slug in SERVICE_MAP).lower())
-            print('LOCAL_REFERRAL_ANSWER_PRESENT=' + str(bool(item.referral_source)).lower())
-            print('LOCAL_RETURNING_POSITIVE_PRESENT=' + str(bool(item.returning_customer)).lower())
-            allowed={'unsupported_appointment','already_source_managed','unmapped_service','unexpected_timezone','unexpected_provider_catalog','source_service_mismatch','missing_credentials','empty_token','ambiguous_client_identity','linked_client_not_verified','source_client_readback_failed','source_client_link_owned_by_other','source_additional_answer_required','source_additional_choice_changed','unexpected_additional_field','unexpected_additional_fields_shape','unexpected_bookings_shape','source_slot_unavailable','source_reserved_interval_conflict','unexpected_reserved_shape','duplicate_source_bookings'}
-            def category(error):
-                return str(error) if isinstance(error, SyncConflict) and str(error) in allowed else 'source_unavailable_or_unexpected'
-            try:
-                call=session()
-                event=_verify_catalog(call,item)
-                print('REMOTE_CATALOG=verified')
-            except Exception as exc:
-                print('REMOTE_CATALOG='+category(exc)); raise SystemExit(0)
-            try:
-                client=_get_client(call,item.customer,apply=False)
-                previous=_verify_availability(call,item,event,client)
-                print('REMOTE_EXACT_BOOKING_FOUND='+str(bool(previous)).lower())
-                print('REMOTE_AVAILABILITY=verified')
-            except Exception as exc:
-                print('REMOTE_RECONCILIATION='+category(exc))
-            # Only report fixed diagnostic categories, never raw remote objects.
-            try:
-                day='2026-12-30'
-                matrix=call('getStartTimeMatrix',[day,day,event,2,1])
-                times=matrix.get(day) if isinstance(matrix,dict) else None
-                print('MATRIX_DAY_PRESENT='+str(isinstance(times,list)).lower())
-                print('MATRIX_TIME_STRING='+str(isinstance(times,list) and all(isinstance(t,str) for t in times)).lower())
-                print('MATRIX_1615_PRESENT='+str(isinstance(times,list) and any(str(t)[:5]=='16:15' for t in times)).lower())
-                print('NEARBY_AVAILABLE='+','.join(t for t in ('15:30','15:45','16:00','16:15','16:30','16:45') if isinstance(times,list) and any(str(v)[:5]==t for v in times)))
-                reserved=call('getReservedTimeIntervals',[day,day,event,2,1])
-                print('RESERVATION_DATA_VALID='+str(isinstance(reserved,dict)).lower())
-                fields=call('getAdditionalFields',[event])
-                from booking.customer_identity import normalize_name
-                from booking.management.commands.simplybook_import import as_bool
-                for key,title in [('RETURNING','warst du schon einmal bei uns?'),('REFERRAL','wie bist du auf uns aufmerksam geworden?')]:
-                    found=[f for f in fields if normalize_name(f.get('title'))==title] if isinstance(fields,list) else []
-                    print(key+'_FIELD_PRESENT='+str(bool(found)).lower())
-                    print(key+'_REQUIRED_FLAG='+str(any(as_bool(f.get(k)) for f in found for k in ('required','is_required','mandatory','is_mandatory'))).lower())
-            except Exception:
-                print('EXTRA_PREFLIGHT=unavailable')
-            try:
-                _additional_answers(call,item,event)
-                print('MANDATORY_ANSWERS=verified')
-            except Exception as exc:
-                print('MANDATORY_ANSWERS='+category(exc))
+            from copy import copy
+            from datetime import timedelta
+            from django.db import transaction
+            from booking.clinical_time import add_elapsed, clinic_localdate, parse_clinic_wall_time
+            from booking.customer_identity import normalize_name
+            from booking.models import Appointment, StaffMember
             from booking.services import available_slots
-            from booking.clinical_time import add_elapsed
-            alternative=parse_clinic_wall_time('2026-12-30','16:00')
-            duration=item.reserved_duration
-            local_ok=alternative in available_slots(item.service,item.staff,alternative.astimezone(__import__('booking.clinical_time',fromlist=['CLINIC_TZ']).CLINIC_TZ).date(),exclude_appointment_id=item.public_id,reserved_duration=duration)
-            print('ALTERNATIVE_LOCAL_AVAILABLE='+str(local_ok).lower())
-            item.starts_at=alternative
-            item.ends_at=add_elapsed(alternative,duration)
+            from booking import simplybook_outbound as sync
+
+            logging.disable(logging.CRITICAL)
+            old = parse_clinic_wall_time('2026-12-30', '16:15')
+            new = parse_clinic_wall_time('2026-12-30', '16:00')
+
+            def run():
+                if old is None or new is None:
+                    return 'invalid_time'
+                with transaction.atomic():
+                    staff = StaffMember.objects.select_for_update().get(display_name=sync.ARIANE)
+                    rows = list(Appointment.objects.select_for_update().select_related('customer', 'service', 'staff').filter(
+                        staff=staff, service__slug='aesthetische-erstberatung', starts_at=old,
+                        source='app', status__in=['new', 'confirmed'])[:2])
+                    if len(rows) != 1:
+                        return 'original_test_not_unique'
+                    item = rows[0]
+                    if (item.simplybook_booking_id or item.simplybook_sync_state
+                            or item.treatment_minutes_at_booking not in (None, 30)
+                            or item.service.duration_minutes != 30
+                            or not timedelta(minutes=30) <= item.reserved_duration <= timedelta(hours=2)):
+                        return 'original_test_changed'
+
+                    call = sync.session()
+                    event = sync._verify_catalog(call, item)
+                    client = sync._get_client(call, item.customer, apply=False)
+                    day = '2026-12-30'
+                    existing = call('getBookings', [{'date_from': day, 'date_to': day, 'booking_type': 'non_cancelled'}])
+                    if not isinstance(existing, list) or any(not isinstance(row, dict) for row in existing):
+                        return 'source_reconciliation_unavailable'
+                    target = copy(item)
+                    target.starts_at = new
+                    target.ends_at = add_elapsed(new, item.reserved_duration)
+                    same_client = [row for row in existing if client is not None and str(row.get('client_id')) == str(client)]
+                    if any(not sync._same_booking(row, target, event, client) for row in same_client):
+                        return 'source_booking_requires_review'
+                    if new not in available_slots(item.service, staff, clinic_localdate(new),
+                            exclude_appointment_id=item.public_id, reserved_duration=item.reserved_duration):
+                        return 'local_interval_unavailable'
+                    sync._verify_availability(call, target, event, client)
+                    if not sync.as_bool(call('isPluginActivated', ['event_field'])):
+                        return 'source_answers_not_verifiable'
+                    fields = call('getAdditionalFields', [event])
+                    if not isinstance(fields, list):
+                        return 'source_answers_not_verifiable'
+                    expected = {'warst du schon einmal bei uns?': 'Nein',
+                                'wie bist du auf uns aufmerksam geworden?': 'Google'}
+                    additional = {}
+                    for field in fields:
+                        title = normalize_name(field.get('title'))
+                        answer = expected.pop(title, None)
+                        choices = [value.strip() for value in str(field.get('values') or '').split(',')]
+                        required = any(sync.as_bool(field.get(key)) for key in
+                            ('required','is_required','mandatory','is_mandatory'))
+                        name = field.get('name')
+                        if not name or name in additional or (answer is not None and answer not in choices) or (required and answer is None):
+                            return 'source_answers_not_verifiable'
+                        additional[name] = answer or ''
+                    if expected:
+                        return 'source_answers_not_verifiable'
+                    item.starts_at, item.ends_at = target.starts_at, target.ends_at
+                    item.status = 'new'
+                    item.returning_customer = False
+                    item.referral_source = 'Google'
+                    update_fields = ['starts_at', 'ends_at', 'status', 'returning_customer', 'referral_source', 'updated_at']
+                    if hasattr(item, 'returning_customer_answered'):
+                        item.returning_customer_answered = True
+                        update_fields.append('returning_customer_answered')
+                    item.full_clean()
+                    item.save(update_fields=update_fields)
+
+                # Existing source-first creation claims the row before any write,
+                # rechecks the interval, reads back the vendor ID and records it.
+                from unittest.mock import patch
+                with patch.object(sync, '_additional_answers', return_value=additional):
+                    result = sync.sync_existing(item.pk, apply=True, call=call)
+                item.refresh_from_db()
+                if (result.get('result') != 'linked' or not item.simplybook_booking_id
+                        or result.get('source_booking_id') != item.simplybook_booking_id):
+                    return 'source_link_unverified'
+                Appointment.objects.filter(pk=item.pk, simplybook_sync_state='linked', status='new').update(status='confirmed')
+                return 'confirmed_source_id_verified_and_stored'
+
             try:
-                client=_get_client(call,item.customer,apply=False)
-                existing=_verify_availability(call,item,event,client)
-                print('ALTERNATIVE_REMOTE_AVAILABLE='+str(not bool(existing)).lower())
-                print('ALTERNATIVE_ALREADY_LINKABLE='+str(bool(existing)).lower())
-            except Exception as exc:
-                print('ALTERNATIVE_REMOTE_CONFLICT='+category(exc))
-            print('SOURCE_WRITES=none')
+                outcome = run()
+            except Exception:
+                # Preserve the existing review state after an uncertain source write.
+                outcome = 'stopped_for_reconciliation'
+            print('SYNTHETIC_APPOINTMENT_RESULT=' + outcome)
+            if outcome != 'confirmed_source_id_verified_and_stored':
+                raise SystemExit(2)
             PY
