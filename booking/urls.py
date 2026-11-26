@@ -21,6 +21,7 @@ urlpatterns = [
     path('verwaltung/app/identity-review/', patient_identity_views.identity_review, name='patient_identity_review'),
     path('verwaltung/app/<slug:section>/', app_management_views.app_management, name='app_management'),
     path('verwaltung/api/patient-form-notifications/', desktop_notifications.new_patient_forms, name='patient_form_notifications'),
+    path('verwaltung/api/notifications/', desktop_notifications.notification_inbox, name='notification_inbox'),
     path('verwaltung/api/goae-quote/', goae_quote_views.goae_quote, name='goae_quote'),
     path('verwaltung/app/invoices/<int:invoice_id>/pdf/', invoice_bridge.invoice_pdf, name='billing_invoice_pdf'),
     path('verwaltung/api/day-availability/', calendar_admin_api.day_availability, name='admin_day_availability'),

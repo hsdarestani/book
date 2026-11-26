@@ -169,6 +169,14 @@ class PatientRecord(models.Model):
     def __str__(self): return f'{self.customer} – {self.title}'
 
 
+class PatientFormNotificationRead(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    record = models.ForeignKey(PatientRecord, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'record'], name='patient_form_read_once')]
+
+
 class OfficeIntakeAssignmentLock(models.Model):
     """Serializes patient lookup and creation for signed Office submissions."""
 
