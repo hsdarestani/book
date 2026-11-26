@@ -20,7 +20,6 @@ html[data-admin-page="wallet"] body.wallet-management-body {
 html[data-admin-page="patients"] .app-management-shell,
 html[data-admin-page="invoices"] .app-management-shell,
 html[data-admin-page="wallet"] .wallet-management-shell{
-  max-width:1240px!important;
   padding-bottom:56px!important;
 }
 html[data-admin-page="patients"] .app-page-heading,

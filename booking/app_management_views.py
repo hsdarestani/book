@@ -24,7 +24,7 @@ from .intake_forms import confirm_form_link
 AESTHETIC_ADMIN_API = 'https://esthetic.smarbiz.sbs/api/mobile/admin'
 SECTIONS = {
     'bookings': ('Termine', 'Reservierungen und Terminstatus verwalten'),
-    'patients': ('Patientenakten', 'Dokumente, Termine, Punkte und Kommunikation an einem Ort'),
+    'patients': ('Patienten & Akten', 'Dokumente, Termine, Punkte und Kommunikation an einem Ort'),
     'reviews': ('Google Bewertungen', 'Bewertungen verifizieren und Punkte erst nach Prüfung freigeben'),
     'wallet': ('A+ Punkte', 'Punktestände suchen, prüfen und manuell korrigieren'),
     'referrals': ('Empfehlungen', 'Empfehlungen an Freunde und Punkteaktivitäten im Blick behalten'),

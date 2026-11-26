@@ -266,7 +266,7 @@ def patient_record_file(request, customer_id, record_id):
 @require_http_methods(['GET', 'POST'])
 def dashboard(request):
     doctor_staff = getattr(request, 'doctor_staff_scope', None)
-    staff_qs = StaffMember.objects.filter(active=True).order_by('sort_order', 'display_name')
+    staff_qs = StaffMember.clinical_choices().filter(active=True).order_by('sort_order', 'display_name')
     if doctor_staff is not None:
         staff_qs = staff_qs.filter(pk=doctor_staff.pk)
     selected_staff = None
@@ -721,7 +721,17 @@ def dashboard(request):
                 calendar_overlaps.append(start_label)
         known_end_by_staff[item.staff_id] = max(known_end, item.ends_at) if known_end else item.ends_at
 
+    route = getattr(request.resolver_match, 'url_name', None)
+    admin_page, admin_page_title = {
+        'admin_bookings': ('bookings', 'Buchungen'),
+        'admin_customers': ('customers', 'Patienten & Akten'),
+        'admin_settings': ('settings', 'Einstellungen'),
+        'admin_services': ('services', 'Behandlungen'),
+        'admin_information': ('information', 'Informationen'),
+    }.get(route, ('calendar', 'Kalender'))
     context = {
+        'admin_page': admin_page,
+        'admin_page_title': admin_page_title,
         'doctor_mode': doctor_staff is not None,
         'today_count': appointment_scope.filter(starts_at__date=today).exclude(status='cancelled').count(),
         'new_count': appointment_scope.filter(status='new', starts_at__gte=now).count(),
