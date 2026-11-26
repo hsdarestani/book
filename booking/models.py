@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 
 class Service(models.Model):
@@ -311,7 +312,9 @@ class PatientIdentityDecision(models.Model):
     action = models.CharField(max_length=12, choices=ACTIONS)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='patient_identity_decisions',
+        null=True, blank=True,
     )
+    reviewed_by_aesthetic_id = models.PositiveBigIntegerField(null=True, blank=True)
     reason = models.CharField(max_length=120)
     snapshot = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -323,6 +326,11 @@ class PatientIdentityDecision(models.Model):
             models.CheckConstraint(
                 condition=Q(left__lt=models.F('right')),
                 name='patient_decision_ordered_pair',
+            ),
+            models.CheckConstraint(
+                condition=(Q(reviewed_by__isnull=False, reviewed_by_aesthetic_id__isnull=True) |
+                           Q(reviewed_by__isnull=True, reviewed_by_aesthetic_id__isnull=False)),
+                name='patient_decision_verified_actor',
             ),
         ]
         verbose_name = 'Prüfung möglicher Patienten-Duplikate'
@@ -381,3 +389,27 @@ class SimplyBookClientLink(models.Model):
     class Meta:
         verbose_name = 'SimplyBook-Kundenverknüpfung'
         verbose_name_plural = 'SimplyBook-Kundenverknüpfungen'
+
+
+class MobileStaffCommand(models.Model):
+    """Audit and replay receipt for commands issued by the bundled app."""
+    actor_id = models.PositiveBigIntegerField()
+    key = models.UUIDField()
+    fingerprint = models.CharField(max_length=64)
+    action = models.CharField(max_length=32)
+    object_id = models.PositiveBigIntegerField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['actor_id', 'key'], name='mobile_staff_command_actor_key')]
+
+
+class MobileStaffCancellation(models.Model):
+    """Durable delivery of an idempotent package release after Book commits."""
+    appointment = models.OneToOneField(
+        Appointment, null=True, on_delete=models.SET_NULL, related_name='mobile_cancellation',
+    )
+    booking_public_id = models.UUIDField(unique=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    completed_at = models.DateTimeField(null=True)
