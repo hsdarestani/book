@@ -375,19 +375,35 @@ def appointment_action(request, appointment_id):
     service = Service.objects.filter(pk=data.get("service_id") or item.service_id).first()
     staff = StaffMember.objects.filter(pk=data.get("staff_id") or item.staff_id, active=True).first()
     customer = Customer.objects.filter(pk=data.get("customer_id") or item.customer_id).first()
-    starts_at = parse_clinic_wall_time(data.get("date") or clinic_localtime(item.starts_at).date().isoformat(), data.get("time") or clinic_localtime(item.starts_at).strftime("%H:%M"))
-    if not service or not staff or not customer or not starts_at or not _is_quarter(starts_at):
+    starts_at = item.starts_at
+    local_start = clinic_localtime(starts_at)
+    day = data.get("date") or local_start.date().isoformat()
+    clock = data.get("time") or local_start.strftime("%H:%M")
+    if (day, clock) != (local_start.date().isoformat(), local_start.strftime("%H:%M")):
+        starts_at = parse_clinic_wall_time(day, clock)
+        if not _is_quarter(starts_at):
+            return _private({"ok": False, "error": "invalid_appointment"}, 400)
+    if not service or not staff or not customer:
         return _private({"ok": False, "error": "invalid_appointment"}, 400)
     if not staff.services.filter(pk=service.pk).exists():
         return _private({"ok": False, "error": "service_not_assigned_to_staff"}, 409)
-    ends_at = add_elapsed(starts_at, timedelta(minutes=service.duration_minutes + service.buffer_minutes))
+    ends_at = add_elapsed(starts_at, item.reservation_for(service))
+    time_changed = starts_at != item.starts_at
+    service_changed = service.pk != item.service_id
+    if status in {'new', 'confirmed'} and (time_changed or service_changed or staff.pk != item.staff_id):
+        if BlockedPeriod.objects.filter(
+            staff=staff, starts_at__lt=ends_at, ends_at__gt=starts_at,
+        ).exclude(reason__startswith='[NOTE]').exists():
+            return _private({"ok": False, "error": "appointment_conflict"}, 409)
+    if service_changed:
+        item.treatment_minutes_at_booking = service.duration_minutes
     item.service = service
     item.staff = staff
     item.customer = customer
     item.starts_at = starts_at
     item.ends_at = ends_at
     item.status = status
-    if starts_at.isoformat() != previous.get("starts_at"):
+    if time_changed:
         item.reminder_1h_sent_at = None
         item.reminder_1h_admin_email_sent_at = None
         item.reminder_1h_admin_push_sent_at = None

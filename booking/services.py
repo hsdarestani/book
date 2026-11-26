@@ -25,7 +25,7 @@ def effective_working_ranges(staff, day):
     return [(item.start_time, item.end_time) for item in hours], None
 
 
-def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None):
+def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None, reserved_duration=None):
     if not service.active or not service.bookable or not staff.active:
         return []
     if not staff.services.filter(pk=service.pk).exists():
@@ -34,7 +34,7 @@ def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment
     if day < today or day > today + timedelta(days=BOOKING_HORIZON_DAYS):
         return []
 
-    duration = timedelta(minutes=service.duration_minutes + service.buffer_minutes)
+    duration = service.reserved_duration if reserved_duration is None else reserved_duration
     day_start = datetime.combine(day, datetime.min.time(), tzinfo=CLINIC_TZ)
     day_end = day_start + timedelta(days=1)
     now_with_lead = timezone.now() + LEAD_TIME
@@ -90,7 +90,6 @@ def create_appointment(*, customer, service, staff, starts_at, message='', idemp
         if existing:
             return existing, False
 
-    duration = timedelta(minutes=service.duration_minutes + service.buffer_minutes)
     with transaction.atomic():
         locked_staff = StaffMember.objects.select_for_update().get(pk=staff.pk, active=True)
         local_day = clinic_localdate(starts_at)
@@ -101,7 +100,8 @@ def create_appointment(*, customer, service, staff, starts_at, message='', idemp
             service=service,
             staff=locked_staff,
             starts_at=starts_at,
-            ends_at=add_elapsed(starts_at, duration),
+            ends_at=add_elapsed(starts_at, service.reserved_duration),
+            treatment_minutes_at_booking=service.duration_minutes,
             status='new' if service.requires_confirmation else 'confirmed',
             source=source,
             notes_customer=message[:3000],

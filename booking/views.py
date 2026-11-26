@@ -383,7 +383,7 @@ def dashboard(request):
                 return redirect(f'{calendar_return}&notice=booking-error')
             if not staff.services.filter(pk=service.pk).exists():
                 return redirect(f'{calendar_return}&notice=booking-service-error')
-            ends_at = add_elapsed(starts_at, timedelta(minutes=service.duration_minutes + service.buffer_minutes))
+            ends_at = add_elapsed(starts_at, service.reserved_duration)
             conflict = Appointment.objects.filter(
                 staff=staff,
                 status__in=['new', 'confirmed'],
@@ -403,6 +403,7 @@ def dashboard(request):
                 staff=staff,
                 starts_at=starts_at,
                 ends_at=ends_at,
+                treatment_minutes_at_booking=service.duration_minutes,
                 status='confirmed',
                 source='admin',
                 returning_customer=Appointment.objects.filter(customer=customer).exists(),

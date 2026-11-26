@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import UTC
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -7,6 +8,7 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.utils import timezone
 
+from .clinical_time import clinic_localtime
 from .emails import send_appointment_event_emails
 
 
@@ -60,7 +62,7 @@ def _post_internal(url, payload):
 def appointment_snapshot(appointment):
     return {
         "status": appointment.status,
-        "starts_at": appointment.starts_at.isoformat() if appointment.starts_at else "",
+        "starts_at": appointment.starts_at.astimezone(UTC).isoformat() if appointment.starts_at else "",
         "service_id": appointment.service_id,
         "staff_id": appointment.staff_id,
         "customer_id": appointment.customer_id,
@@ -68,7 +70,7 @@ def appointment_snapshot(appointment):
 
 
 def _local_start(appointment):
-    return timezone.localtime(appointment.starts_at)
+    return clinic_localtime(appointment.starts_at)
 
 
 def _push(appointment, *, target, event, title, body):

@@ -669,7 +669,7 @@ def dashboard_proxy(request):
         ):
             return redirect(_calendar_url(day=old_day, view=request.POST.get('return_view') or 'day', staff_id=old_staff_id, notice='appointment-edit-error', focus_appointment=appointment.pk))
 
-        ends_at = add_elapsed(starts_at, timedelta(minutes=service.duration_minutes + service.buffer_minutes))
+        ends_at = add_elapsed(starts_at, appointment.reservation_for(service))
         if status in {'new', 'confirmed'}:
             conflict = Appointment.objects.filter(
                 staff=staff,
@@ -685,19 +685,22 @@ def dashboard_proxy(request):
             if conflict or blocked:
                 return redirect(_calendar_url(day=old_day, view=request.POST.get('return_view') or 'day', staff_id=old_staff_id, notice='appointment-edit-error', focus_appointment=appointment.pk))
 
+        time_changed = starts_at != appointment.starts_at
+        if service.pk != appointment.service_id:
+            appointment.treatment_minutes_at_booking = service.duration_minutes
         appointment.service = service
         appointment.staff = staff
         appointment.customer = customer
         appointment.starts_at = starts_at
         appointment.ends_at = ends_at
         appointment.status = status
-        if starts_at.isoformat() != previous.get('starts_at'):
+        if time_changed:
             appointment.reminder_1h_sent_at = None
             appointment.reminder_1h_admin_email_sent_at = None
             appointment.reminder_1h_admin_push_sent_at = None
         try:
             appointment.full_clean()
-            appointment.save(update_fields=['service', 'staff', 'customer', 'starts_at', 'ends_at', 'status', 'reminder_1h_sent_at', 'reminder_1h_admin_email_sent_at', 'reminder_1h_admin_push_sent_at', 'updated_at'])
+            appointment.save(update_fields=['service', 'staff', 'customer', 'starts_at', 'ends_at', 'treatment_minutes_at_booking', 'status', 'reminder_1h_sent_at', 'reminder_1h_admin_email_sent_at', 'reminder_1h_admin_push_sent_at', 'updated_at'])
         except ValidationError:
             return redirect(_calendar_url(day=old_day, view=request.POST.get('return_view') or 'day', staff_id=old_staff_id, notice='appointment-edit-error', focus_appointment=appointment.pk))
         notify_admin_changed(appointment, previous)

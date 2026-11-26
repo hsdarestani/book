@@ -1,10 +1,12 @@
 import uuid
-from datetime import timedelta
+from datetime import UTC, timedelta
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+
+from .clinical_time import add_elapsed
 
 
 class Service(models.Model):
@@ -23,6 +25,10 @@ class Service(models.Model):
         ordering = ['sort_order', 'name']
         verbose_name = 'Behandlung'
         verbose_name_plural = 'Behandlungen'
+
+    @property
+    def reserved_duration(self):
+        return timedelta(minutes=self.duration_minutes + self.buffer_minutes)
 
     def __str__(self): return self.name
 
@@ -191,6 +197,7 @@ class Appointment(models.Model):
     staff=models.ForeignKey(StaffMember,on_delete=models.PROTECT,related_name='appointments',verbose_name='Mitarbeiter')
     starts_at=models.DateTimeField('Beginn')
     ends_at=models.DateTimeField('Ende')
+    treatment_minutes_at_booking = models.PositiveIntegerField(null=True, blank=True, editable=False)
     status=models.CharField('Status',max_length=20,choices=STATUS,default='new')
     source=models.CharField('Quelle',max_length=20,choices=SOURCE,default='web')
     notes_customer=models.TextField('Nachricht des Kunden',blank=True)
@@ -213,25 +220,32 @@ class Appointment(models.Model):
     class Meta:
         ordering=['starts_at']; indexes=[models.Index(fields=['starts_at','staff','status'],name='booking_app_starts__1de48f_idx')]; verbose_name='Termin'; verbose_name_plural='Termine'
     @property
+    def reserved_duration(self):
+        return self.ends_at.astimezone(UTC) - self.starts_at.astimezone(UTC)
+
+    def reservation_for(self, service):
+        return self.reserved_duration if service.pk == self.service_id else service.reserved_duration
+
+    @property
     def calendar_buffer_minutes(self):
-        # Only label a buffer when the local reservation's stored span agrees
-        # with the service configuration. Imported or historical mismatches
-        # retain their authoritative end time rather than inventing a buffer.
+        if self.treatment_minutes_at_booking is not None:
+            buffer = self.reserved_duration - timedelta(minutes=self.treatment_minutes_at_booking)
+            return max(0, int(buffer.total_seconds() // 60))
+        # Keep the existing display for legacy local records where the stored
+        # reservation agrees with the catalog. Imported spans remain opaque.
         if (self.idempotency_key or '').startswith('simplybook-') or not self.service_id:
             return 0
-        duration = self.service.duration_minutes
-        buffer = self.service.buffer_minutes
-        if duration > 0 and buffer > 0 and self.ends_at - self.starts_at == timedelta(minutes=duration + buffer):
-            return buffer
+        if self.service.duration_minutes and self.reserved_duration == self.service.reserved_duration:
+            return self.service.buffer_minutes
         return 0
 
     @property
     def calendar_treatment_end(self):
-        return self.ends_at - timedelta(minutes=self.calendar_buffer_minutes)
+        return add_elapsed(self.ends_at, -timedelta(minutes=self.calendar_buffer_minutes))
 
     @property
     def calendar_buffer_percent(self):
-        total = (self.ends_at - self.starts_at).total_seconds() / 60
+        total = self.reserved_duration.total_seconds() / 60
         return round(100 * self.calendar_buffer_minutes / total) if total > 0 else 0
 
     def clean(self):

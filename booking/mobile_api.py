@@ -4,6 +4,7 @@ import logging
 from datetime import timedelta
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from uuid import UUID
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -126,14 +127,15 @@ def _eligible_staff(service, staff_id=None):
     return items
 
 
-def _pick_staff(service, starts_at, staff_id=None, exclude_appointment_id=None):
+def _pick_staff(service, starts_at, staff_id=None, *, appointment=None):
     local_day = clinic_localdate(starts_at)
     for candidate in _eligible_staff(service, staff_id):
         if starts_at in available_slots(
             service,
             candidate,
             local_day,
-            exclude_appointment_id=exclude_appointment_id,
+            exclude_appointment_id=appointment.public_id if appointment else None,
+            reserved_duration=appointment.reserved_duration if appointment else None,
         ):
             return candidate
     return None
@@ -169,14 +171,33 @@ def mobile_slots(request):
         return _error('invalid_day', 'Dieses Datum liegt außerhalb des Buchungszeitraums.', 400)
 
     staff_id = request.GET.get('staff_id') or None
-    exclude_id = request.GET.get('exclude_appointment_id') or None
+    exclude_id = request.GET.get('exclude_appointment_id')
+    reserved_duration = None
+    if exclude_id:
+        try:
+            exclude_id = UUID(exclude_id)
+        except ValueError:
+            return _error('invalid_appointment', 'Ungültiger Termin.', 400)
+        identity, error = _member(request)
+        if error:
+            return error
+        customer = _app_booking_customer(identity)
+        appointment = Appointment.objects.filter(
+            public_id=exclude_id, customer=customer, service=service,
+            status__in=['new', 'confirmed'],
+        ).first()
+        if appointment is None:
+            return _error('appointment_not_found', 'Termin nicht gefunden.', 404)
+        reserved_duration = appointment.reserved_duration
     staff = _eligible_staff(service, staff_id)
     if not staff.exists():
         return _error('staff_not_found', 'Für diese Terminart ist aktuell kein passender Termin verfügbar.', 400)
 
     slots = set()
     for member in staff:
-        slots.update(available_slots(service, member, day, exclude_appointment_id=exclude_id))
+        slots.update(available_slots(
+            service, member, day, exclude_appointment_id=exclude_id, reserved_duration=reserved_duration,
+        ))
     return JsonResponse({
         'ok': True,
         'service_id': service.pk,
@@ -442,12 +463,12 @@ def mobile_appointment_change(request, appointment_id):
                 item.service,
                 starts_at,
                 data.get('staff_id'),
-                exclude_appointment_id=str(item.public_id),
+                appointment=item,
             )
             if not staff:
                 return _error('time_not_available', 'Diese Zeit ist inzwischen nicht mehr verfügbar.', 409)
 
-            duration = timedelta(minutes=item.service.duration_minutes + item.service.buffer_minutes)
+            duration = item.reserved_duration
             item.staff = staff
             item.starts_at = starts_at
             item.ends_at = add_elapsed(starts_at, duration)

@@ -12,6 +12,7 @@ from django.utils.dateparse import parse_date, parse_time
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
+from .clinical_time import add_elapsed
 from .models import Appointment, BlockedPeriod, DailyAvailabilityOverride, WorkingHour
 from .customer_identity import resolve_patient_identity
 from .notifications import appointment_snapshot, notify_admin_changed
@@ -114,11 +115,11 @@ def _change_appointment(staff, post):
             raise ValidationError('Ungültige Uhrzeit oder Datum.')
         starts = timezone.make_aware(datetime.combine(new_day, new_time), timezone.get_current_timezone())
         if starts not in available_slots(appointment.service, staff, new_day,
-                                        exclude_appointment_id=appointment.public_id):
+                                        exclude_appointment_id=appointment.public_id,
+                                        reserved_duration=appointment.reserved_duration):
             raise ValidationError('Diese Uhrzeit ist nicht verfügbar.')
+        appointment.ends_at = add_elapsed(starts, appointment.reserved_duration)
         appointment.starts_at = starts
-        appointment.ends_at = starts + timedelta(
-            minutes=appointment.service.duration_minutes + appointment.service.buffer_minutes)
         appointment.reminder_1h_sent_at = None
         appointment.reminder_24h_sent_at = None
     appointment.full_clean()
@@ -226,16 +227,21 @@ def _edit_own_appointment(staff, post):
     new_start = timezone.make_aware(datetime.combine(day, time_value), timezone.get_current_timezone())
     # Prevent collisions and booking during closure; retaining an unchanged
     # appointment during a subsequently closed day remains valid.
-    changing_time = new_start != item.starts_at or service.pk != item.service_id
-    if changing_time and new_status in {'new', 'confirmed'}:
-        if new_start not in available_slots(service, staff, day, exclude_appointment_id=item.public_id):
+    changing_service = service.pk != item.service_id
+    changing_time = new_start != item.starts_at
+    duration = item.reservation_for(service)
+    if (changing_time or changing_service) and new_status in {'new', 'confirmed'}:
+        if new_start not in available_slots(service, staff, day, exclude_appointment_id=item.public_id,
+                                            reserved_duration=duration):
             raise ValidationError('Zeitfenster nicht verfügbar.')
     previous = appointment_snapshot(item)
+    if changing_service:
+        item.treatment_minutes_at_booking = service.duration_minutes
     item.service = service
     item.starts_at = new_start
-    item.ends_at = new_start + timedelta(minutes=service.duration_minutes + service.buffer_minutes)
+    item.ends_at = add_elapsed(new_start, duration)
     item.status = new_status
-    if new_start.isoformat() != previous['starts_at']:
+    if changing_time:
         item.reminder_1h_sent_at = None
         item.reminder_24h_sent_at = None
     item.full_clean()
