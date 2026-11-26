@@ -39,6 +39,6 @@ class Command(BaseCommand):
                 item.save(update_fields=['attempts', 'next_attempt_at', 'completed_at'])
             if appointment and appointment.status == 'cancelled':
                 try:
-                    notify_admin_changed(appointment, {**appointment_snapshot(appointment), 'status': 'confirmed'})
+                    notify_admin_changed(appointment, {**appointment_snapshot(appointment), 'status': 'confirmed'}, include_admin=False)
                 except Exception:
                     self.stderr.write(f'Cancellation {pk} credit settled. Notification failed.')
