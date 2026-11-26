@@ -1,4 +1,4 @@
-name: Guarded Book user acceptance correction release
+name: Guarded Book clinician asset fallback
 
 on:
   push:
@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BOOK_BASELINE: 0c3a8108812732091b3732cfdeed59340c95c08b
-  BOOK_TARGET: 4e8832baf07354a3b4f264d5a32d744fa1bb6470
+  BOOK_BASELINE: 4e8832baf07354a3b4f264d5a32d744fa1bb6470
+  BOOK_TARGET: 7facee0707df750f05dc74f958d14b82da1f1e2d
   BOOK_TOOLS_REF: ${{ github.sha }}
 
 jobs:
@@ -42,11 +42,10 @@ jobs:
       - name: Verify focused integrated user acceptance scenarios
         working-directory: candidate
         run: |
-          pip install -r requirements.txt playwright
-          python -m playwright install --with-deps chromium
+          pip install -r requirements.txt
           python manage.py check
           python manage.py makemigrations --check --dry-run
-          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_acceptance_polish_browser --noinput
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_doctor_read_only.DoctorPrivateCalendarTests --noinput
 
   release:
     needs: rehearse
@@ -70,34 +69,3 @@ jobs:
               git -C "$app" show "$BOOK_TOOLS_REF:scripts/$name" > "$tools/$name"
             done
             bash "$tools/book_admin_web_release.sh" "$BOOK_BASELINE" "$BOOK_TARGET"
-            # Reconcile only pre-existing unassigned signed forms; aggregates only.
-            run_book() {
-              runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; cd /opt/aesthetic-book/app; exec /opt/aesthetic-book/venv/bin/python manage.py "$@"' bash "$@"
-            }
-            preview=$(run_book reconcile_office_intake)
-            printf '%s\n' "$preview"
-            if printf '%s\n' "$preview" | grep -Eq '^(matched|created)=[1-9][0-9]*$'; then
-              # A recoverable private DB snapshot before altering historic records.
-              umask 077
-              backup=$(mktemp -d /opt/aesthetic-book/remediation-rollbacks/intake-reconciliation.XXXXXXXX)
-              if ! runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; cd /opt/aesthetic-book/app; exec /opt/aesthetic-book/venv/bin/python -c "$1"' bash '
-            import os, subprocess
-            os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
-            import django
-            django.setup()
-            from django.conf import settings
-            db = settings.DATABASES["default"]
-            assert "postgresql" in db["ENGINE"]
-            env = os.environ.copy()
-            for key, name in (("NAME","PGDATABASE"),("USER","PGUSER"),("PASSWORD","PGPASSWORD"),("HOST","PGHOST"),("PORT","PGPORT")):
-                if db.get(key): env[name] = str(db[key])
-            subprocess.run(["pg_dump","--format=custom"], env=env, check=True)
-            ' > "$backup/office-before.dump" 2>"$backup/backup.log"; then
-                echo 'INTAKE_RECONCILIATION=blocked_backup_failed'; exit 1
-              fi
-              pg_restore --list "$backup/office-before.dump" >/dev/null 2>"$backup/verify.log"
-              echo 'INTAKE_BACKUP_VERIFIED=yes'
-              run_book reconcile_office_intake --apply
-            else
-              echo 'INTAKE_RECONCILIATION=no_eligible_forms'
-            fi
