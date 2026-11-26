@@ -1,14 +1,7 @@
-"""Require the two reviewed additive Book migrations and no other pending change."""
+"""Refuse rollout unless the live Book schema is already current."""
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
-
-executor = MigrationExecutor(connection)
-assert ("booking", "0032_appointment_treatment_duration") in executor.loader.applied_migrations
-allowed = [
-    ("booking", "0033_office_intake_assignment_lock", False),
-    ("booking", "0034_patient_form_notification_read", False),
-]
-expected = [item for item in allowed if item[:2] not in executor.loader.applied_migrations]
-actual = [(migration.app_label, migration.name, backwards)
-          for migration, backwards in executor.migration_plan(executor.loader.graph.leaf_nodes())]
-assert actual == expected
+e = MigrationExecutor(connection)
+e.loader.check_consistent_history(connection)
+assert ("booking", "0034_patient_form_notification_read") in e.loader.applied_migrations
+assert not e.migration_plan(e.loader.graph.leaf_nodes())
