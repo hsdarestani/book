@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from booking.emails import send_booking_emails
 from booking.models import Appointment, Customer, Service, StaffMember
+from booking.notifications import (appointment_snapshot, notify_admin_created, notify_admin_changed, notify_admin_deleted, notify_admin_source_changed)
 
 
 @override_settings(
@@ -92,3 +93,58 @@ class AdminNotificationRoutingTests(TestCase):
         admin_push.assert_called_once()
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["info@a-esthetic.de"])
+
+    @patch("booking.notifications._post_internal", return_value={"ok": True})
+    def test_staff_created_alerts_admin_without_duplicate_customer_email(self, relay):
+        notify_admin_created(self.appointment)
+        targets = [call.args[1].get("target") for call in relay.call_args_list]
+        self.assertEqual(targets.count("admin"), 1)
+        self.assertEqual(targets.count("customer"), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["info@a-esthetic.de"])
+        self.assertIn("NEUER TERMIN", mail.outbox[0].subject)
+
+    @patch("booking.notifications._post_internal", return_value={"ok": True})
+    def test_staff_status_changes_alert_admin_and_noop_does_not(self, relay):
+        before = appointment_snapshot(self.appointment)
+        notify_admin_changed(self.appointment, before)
+        relay.assert_not_called()
+        self.assertEqual(len(mail.outbox), 0)
+        self.appointment.status = "completed"
+        notify_admin_changed(self.appointment, before)
+        self.assertEqual(sum(c.args[1].get("target") == "admin" for c in relay.call_args_list), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["info@a-esthetic.de"])
+
+    @patch("booking.notifications._post_internal", return_value={"ok": True})
+    def test_staff_cancel_and_delete_alert_admin_and_customer_once(self, relay):
+        before = appointment_snapshot(self.appointment)
+        self.appointment.status = "cancelled"
+        notify_admin_changed(self.appointment, before)
+        self.assertEqual(sum(c.args[1].get("target") == "admin" for c in relay.call_args_list), 1)
+        self.assertEqual(len(mail.outbox), 2)
+        relay.reset_mock()
+        mail.outbox.clear()
+        notify_admin_deleted(self.appointment)
+        self.assertEqual(sum(c.args[1].get("target") == "admin" for c in relay.call_args_list), 1)
+        self.assertEqual(len(mail.outbox), 2)
+
+    @patch("booking.notifications._post_internal", return_value={"ok": True})
+    def test_verified_source_change_alerts_only_admin(self, relay):
+        before = appointment_snapshot(self.appointment)
+        self.appointment.status = "cancelled"
+        notify_admin_source_changed(self.appointment, before)
+        self.assertEqual([c.args[1].get("target") for c in relay.call_args_list], ["admin"])
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["info@a-esthetic.de"])
+
+    @patch("booking.notifications._post_internal", return_value={"ok": True})
+    def test_cancellation_reconciliation_does_not_repeat_admin_alert(self, relay):
+        before = appointment_snapshot(self.appointment)
+        self.appointment.status = "cancelled"
+        notify_admin_source_changed(self.appointment, before)
+        notify_admin_changed(self.appointment, before, include_admin=False)
+        targets = [c.args[1].get("target") for c in relay.call_args_list]
+        self.assertEqual(targets.count("admin"), 1)
+        self.assertEqual(targets.count("customer"), 1)
+        self.assertEqual(len(mail.outbox), 2)
