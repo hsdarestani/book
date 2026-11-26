@@ -302,7 +302,32 @@ class Command(BaseCommand):
                 defaults={'customer':customer,'service':service,'staff':archive_provider,'starts_at':starts_at,'ends_at':ends_at,
                     'status':'confirmed' if as_bool(row.get('is_confirm')) else 'cancelled','source':'admin','notes_customer':'\n\n'.join(text_parts)[:3000],
                     'returning_customer':counts.get(client_id,0)>1,'marketing_opt_in':False,'cancellation_terms_accepted':False,'privacy_accepted':False}
-                appointment,created=Appointment.objects.update_or_create(idempotency_key=f'simplybook-{booking_id}',defaults=defaults)
+                # A booking created from Book retains its local UUID, request key,
+                # service, staff and patient. Only authoritative scheduling fields
+                # come back from SimplyBook. Never insert a second appointment.
+                linked = Appointment.objects.select_for_update().filter(simplybook_booking_id=booking_id).first()
+                if linked is None and client_id:
+                    uncertain = list(Appointment.objects.select_for_update().filter(
+                        simplybook_sync_state__in=['sending','review'], simplybook_booking_id__isnull=True,
+                        simplybook_event_id=event_id, simplybook_client_id=client_id,
+                        customer=customer, starts_at=starts_at, ends_at=ends_at,
+                        staff__display_name='Frau Ariane Regaei'))
+                    if len(uncertain) == 1:
+                        linked = uncertain[0]
+                    elif len(uncertain) > 1:
+                        raise CommandError('Ambiguous outbound SimplyBook reconciliation; no changes committed.')
+                if linked is not None:
+                    if linked.customer_id != customer.pk or linked.simplybook_event_id != event_id or linked.simplybook_client_id != client_id:
+                        raise CommandError('Linked SimplyBook booking identity changed; no changes committed.')
+                    linked.simplybook_booking_id = booking_id
+                    linked.simplybook_sync_state = 'linked'
+                    linked.starts_at = starts_at
+                    linked.ends_at = ends_at
+                    linked.status = defaults['status']
+                    linked.save(update_fields=['simplybook_booking_id','simplybook_sync_state','starts_at','ends_at','status','updated_at'])
+                    appointment, created = linked, False
+                else:
+                    appointment,created=Appointment.objects.update_or_create(idempotency_key=f'simplybook-{booking_id}',defaults=defaults)
                 summary['appointments_created' if created else 'appointments_updated']+=1
                 record_date=parse_source_datetime(row.get('record_date'),source_tz)
                 if record_date: Appointment.objects.filter(pk=appointment.pk).update(created_at=record_date)

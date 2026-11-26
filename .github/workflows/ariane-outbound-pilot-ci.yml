@@ -1,0 +1,24 @@
+name: Ariane outbound pilot safety
+on:
+  push:
+    branches: [fix/ariane-simplybook-outbound-pilot-20261126]
+  pull_request:
+    paths:
+      - 'booking/**'
+      - '.github/workflows/ariane-outbound-pilot-ci.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python manage.py check
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py test booking.test_simplybook_outbound booking.test_simplybook_sync_integrity booking.test_simplybook_synthetic_identity
