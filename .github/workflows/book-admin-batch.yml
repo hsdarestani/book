@@ -1,4 +1,4 @@
-name: Guarded final Book admin and booking corrections
+name: Guarded vendor availability compatibility release
 
 on:
   push:
@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BOOK_BASELINE: fc678f84d52535885e7102fb4f20366ce57113b8
-  BOOK_TARGET: 98280e5012417c001bf7b8e6b2eee4b3b4615287
+  BOOK_BASELINE: 98280e5012417c001bf7b8e6b2eee4b3b4615287
+  BOOK_TARGET: ee931357afe243ad9dbf3e8d2c53845a958ffeff
   BOOK_TOOLS_REF: ${{ github.sha }}
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
           pip install -r requirements.txt
           python manage.py check
           python manage.py makemigrations --check --dry-run
-          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_simplybook_outbound.SimplyBookOutboundPilotTests.test_booking_answers_use_only_completed_visits_and_verified_referral --noinput
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_simplybook_outbound.SimplyBookOutboundPilotTests.test_live_reservation_response_parses_reserved_and_busy_time booking.tests.BookingApiTests.test_unverified_ariane_booking_is_pending_and_populates_answers --noinput
 
   release:
     needs: rehearse
