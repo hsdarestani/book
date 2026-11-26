@@ -650,6 +650,8 @@ def app_management(request, section='bookings'):
                 catalog_data = _billing_api(request,'billing/goae/')
                 context['goae_catalog'] = catalog_data.get('catalog',[])
                 context['goae_treatments'] = catalog_data.get('treatments',{})
+                context['goae_quick_templates'] = catalog_data.get('quick_templates', {})
+                context['goae_quick_date'] = clinic_localtime().date().isoformat()
             except (RuntimeError,ValueError,PermissionError):
                 context['goae_catalog'] = []
                 context['goae_treatments'] = {}

@@ -61,7 +61,7 @@
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
     // The GOÄ form handles its own cancellable quote and save status.
-    if (form.matches('[data-goae-full]')) return;
+    if (form.matches('[data-goae-full], [data-goae-quick]')) return;
     // GET is navigation/filtering, not a write operation. In particular,
     // disabling a named submitter during the submit event makes its name/value
     // disappear from the browser's form data; that made every patient tab

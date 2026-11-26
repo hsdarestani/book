@@ -13,7 +13,8 @@ from .customer_identity import resolve_patient_identity
 from .models import Customer, Service, StaffMember
 from .notifications import notify_booking_created
 from .demo_booking_guard import is_blocked_demo_customer, blocked_demo_response, log_blocked_demo_booking
-from .services import BOOKING_HORIZON_DAYS, available_slots, create_appointment
+from .services import BOOKING_HORIZON_DAYS, available_slots, booking_source_availability, create_appointment, source_day
+from .simplybook_outbound import REFERRAL_ANSWERS, SOURCE_AVAILABILITY_ERRORS
 
 
 def _json(request):
@@ -90,7 +91,11 @@ def availability(request):
     member = StaffMember.objects.filter(pk=staff_id, active=True, services=service).first() if service else None
     if not service or not member:
         return _error('not_available', 'Die gewählte Kombination ist nicht verfügbar.', 404)
-    slots = available_slots(service, member, day)
+    try:
+        source = booking_source_availability(service, member, day)
+    except SOURCE_AVAILABILITY_ERRORS:
+        return _error('source_availability_unavailable', 'Die Terminverfügbarkeit kann gerade nicht geprüft werden.', 503)
+    slots = available_slots(service, member, day, source_availability=source_day(source, day))
     return JsonResponse({'ok': True, 'slots': [
         {'starts_at': slot.isoformat(), 'label': slot.strftime('%H:%M')}
         for slot in slots
@@ -113,10 +118,14 @@ def availability_overview(request):
         return _error('not_available', 'Die gewählte Kombination ist nicht verfügbar.', 404)
 
     today = clinic_localdate()
+    try:
+        source = booking_source_availability(service, member, today, today + timedelta(days=days - 1))
+    except SOURCE_AVAILABILITY_ERRORS:
+        return _error('source_availability_unavailable', 'Die Terminverfügbarkeit kann gerade nicht geprüft werden.', 503)
     groups = []
     for offset in range(days):
         day = today + timedelta(days=offset)
-        slots = available_slots(service, member, day)
+        slots = available_slots(service, member, day, source_availability=source_day(source, day))
         if not slots:
             continue
         groups.append({
@@ -172,6 +181,15 @@ def appointments(request):
                 },
             })
 
+    day = clinic_localdate(starts_at)
+    try:
+        availability = source_day(booking_source_availability(service, member, day), day)
+    except SOURCE_AVAILABILITY_ERRORS:
+        return _error('source_availability_unavailable', 'Die Terminverfügbarkeit kann gerade nicht geprüft werden.', 503)
+    returning = data.get('returning_customer')
+    referral = str(data.get('referral_source') or '').strip()
+    if availability is not None and (not isinstance(returning, bool) or referral not in REFERRAL_ANSWERS):
+        return _error('source_answers_required', 'Bitte beantworte beide Pflichtfragen zur Terminbuchung.', 422)
     with transaction.atomic():
         first = str(data.get('first_name') or '').strip()[:80]
         last = str(data.get('last_name') or '').strip()[:80]
@@ -195,22 +213,25 @@ def appointments(request):
                 starts_at=starts_at,
                 idempotency_key=idempotency_key,
                 source='web',
-                returning_customer=_as_bool(data.get('returning_customer')),
-                referral_source=str(data.get('referral_source') or '').strip(),
+                returning_customer=_as_bool(returning),
+                returning_customer_answered=isinstance(returning, bool),
+                referral_source=referral,
+                simplybook_sync_state='queued' if availability is not None else '',
+                source_availability=availability,
                 marketing_opt_in=_as_bool(data.get('marketing_opt_in'), default=True),
                 cancellation_terms_accepted=True,
                 privacy_accepted=True,
             )
         except ValueError:
             return _error('time_not_available', 'Dieser Termin ist inzwischen nicht mehr verfügbar.', 409)
-        if created:
+        if created and not appointment.simplybook_sync_state:
             transaction.on_commit(lambda appointment=appointment: send_booking_emails(appointment))
             transaction.on_commit(lambda appointment=appointment: notify_booking_created(appointment))
 
     return JsonResponse({
         'ok': True,
         'created': created,
-        'message': 'Dein Termin wurde erfolgreich gespeichert.',
+        'message': 'Bestätigung ausstehend.' if appointment.simplybook_sync_state == 'queued' else 'Dein Termin wurde erfolgreich gespeichert.',
         'appointment': {
             'id': str(appointment.public_id),
             'status': appointment.status,

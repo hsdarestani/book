@@ -53,3 +53,23 @@ def goae_patient_search(request):
     except (ValueError, RuntimeError):
         return JsonResponse({'ok': False}, status=502)
     return JsonResponse(result)
+
+
+
+@never_cache
+@staff_member_required(login_url='/verwaltung/login/')
+@require_POST
+def goae_quick(request):
+    if _local_view_only(request):
+        return JsonResponse({'ok': False}, status=403)
+    try:
+        data = json.loads(request.body) if len(request.body) <= 4096 else None
+        if not isinstance(data, dict) or data.get('operation') not in {'quote', 'draft'}:
+            raise ValueError('Ungültige Entwurfsangaben.')
+        operation = data.pop('operation')
+        result = _request_bridge(request, f'quick-{operation}', method='POST', payload=data)
+    except PermissionError:
+        return JsonResponse({'ok': False}, status=403)
+    except (ValueError, RuntimeError, TypeError, UnicodeError) as exc:
+        return JsonResponse({'ok': False, 'message': str(exc)[:200]}, status=400)
+    return JsonResponse(result)

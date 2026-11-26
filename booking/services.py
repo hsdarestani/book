@@ -25,7 +25,7 @@ def effective_working_ranges(staff, day):
     return [(item.start_time, item.end_time) for item in hours], None
 
 
-def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None, reserved_duration=None):
+def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None, reserved_duration=None, source_availability=None):
     if not service.active or not service.bookable or not staff.active:
         return []
     if not staff.services.filter(pk=service.pk).exists():
@@ -56,6 +56,14 @@ def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment
         conflict_qs = conflict_qs.exclude(public_id=exclude_appointment_id)
     conflicts = list(conflict_qs.values_list('starts_at', 'ends_at'))
 
+    if source_availability is not None:
+        starts, remote_blocks = source_availability
+        conflicts += remote_blocks
+        return [start for start in starts if start >= now_with_lead
+                and clinic_localdate(add_elapsed(start, duration - timedelta(seconds=1))) == day
+                and not any(a < add_elapsed(start, duration) and b > start
+                            for a, b in blocked_periods + conflicts)]
+
     slots = []
     ranges, _override = effective_working_ranges(staff, day)
     step = timedelta(minutes=step_minutes)
@@ -84,7 +92,8 @@ def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment
 
 def create_appointment(*, customer, service, staff, starts_at, message='', idempotency_key=None, source='web',
                        returning_customer=False, referral_source='', marketing_opt_in=True,
-                       cancellation_terms_accepted=False, privacy_accepted=False):
+                       cancellation_terms_accepted=False, privacy_accepted=False,
+                       returning_customer_answered=False, simplybook_sync_state='', source_availability=None):
     if idempotency_key:
         existing = Appointment.objects.filter(idempotency_key=idempotency_key).first()
         if existing:
@@ -93,7 +102,7 @@ def create_appointment(*, customer, service, staff, starts_at, message='', idemp
     with transaction.atomic():
         locked_staff = StaffMember.objects.select_for_update().get(pk=staff.pk, active=True)
         local_day = clinic_localdate(starts_at)
-        if starts_at not in available_slots(service, locked_staff, local_day):
+        if starts_at not in available_slots(service, locked_staff, local_day, source_availability=source_availability):
             raise ValueError('time_not_available')
         appointment = Appointment(
             customer=customer,
@@ -102,10 +111,12 @@ def create_appointment(*, customer, service, staff, starts_at, message='', idemp
             starts_at=starts_at,
             ends_at=add_elapsed(starts_at, service.reserved_duration),
             treatment_minutes_at_booking=service.duration_minutes,
-            status='new' if service.requires_confirmation else 'confirmed',
+            status='new' if service.requires_confirmation or simplybook_sync_state else 'confirmed',
             source=source,
             notes_customer=message[:3000],
             returning_customer=bool(returning_customer),
+            returning_customer_answered=returning_customer_answered,
+            simplybook_sync_state=simplybook_sync_state,
             referral_source=(referral_source or '')[:100],
             marketing_opt_in=bool(marketing_opt_in),
             cancellation_terms_accepted=bool(cancellation_terms_accepted),
@@ -115,3 +126,19 @@ def create_appointment(*, customer, service, staff, starts_at, message='', idemp
         appointment.full_clean()
         appointment.save()
     return appointment, True
+
+
+def booking_source_availability(service, staff, day, end_day=None):
+    """Fetch the vendor grid only for the active SimplyBook integration."""
+    from .simplybook_outbound import SERVICE_MAP, integrated, public_sync_enabled, session, source_slots
+
+    if not public_sync_enabled() or not integrated(service, staff):
+        return None
+    return source_slots(session(), SERVICE_MAP[service.slug][0], day.isoformat(), (end_day or day).isoformat())
+
+
+def source_day(booked, day):
+    if booked is None:
+        return None
+    days, blocked = booked
+    return days.get(day.isoformat(), []), blocked

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from django.test import TestCase
 from django.utils import timezone
 from booking.models import Appointment, Customer, Service, StaffMember
@@ -85,6 +85,20 @@ class SimplyBookOutboundPilotTests(TestCase):
         args=[c.args[1] for c in self.call.call_args_list if c.args[0]=='book'][0]
         self.assertEqual(args[8],{'returning-id':'Ja','referral-id':'Google'})
 
+    def test_explicit_negative_answer_is_preserved_in_queued_booking(self):
+        self.item.returning_customer_answered = True
+        self.item.referral_source = 'Google'
+        self.item.simplybook_sync_state = 'queued'
+        self.item.save(update_fields=['returning_customer_answered','referral_source','simplybook_sync_state'])
+        self.responses['isPluginActivated'] = True
+        self.responses['getAdditionalFields'] = [
+            {'name':'returning-id','title':'Warst du schon einmal bei uns?','values':'Ja,Nein','required':True},
+            {'name':'referral-id','title':'Wie bist du auf uns aufmerksam geworden?','values':'Google,Sonstiges','required':True},
+        ]
+        self.assertEqual(sync_existing(self.item.pk,apply=True,call=self.call)['result'],'linked')
+        args=[c.args[1] for c in self.call.call_args_list if c.args[0]=='book'][0]
+        self.assertEqual(args[8],{'returning-id':'Nein','referral-id':'Google'})
+
     def test_unanswered_mandatory_field_never_mutates_source(self):
         self.responses['isPluginActivated']=True
         self.responses['getAdditionalFields']=[{'name':'interest-id','title':'Für welche Behandlung interessierst du dich?','values':'Botox-Behandlung,RF-Microneedling','required':True}]
@@ -146,3 +160,41 @@ class SimplyBookOutboundPilotTests(TestCase):
         with self.assertRaisesRegex(SyncConflict, 'source_additional_answer_required'):
             sync_existing(self.item.pk, apply=True, call=self.call)
         self.assertNotIn('book', [call.args[0] for call in self.call.call_args_list])
+
+
+    @patch.dict('os.environ', {'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED': 'true'})
+    def test_buffered_source_lifecycle_preserves_local_span_and_link(self):
+        from booking.clinical_time import add_elapsed
+        from booking.simplybook_writeback import change_locked, source_editable
+
+        self.item.treatment_minutes_at_booking = 45
+        self.item.save(update_fields=['treatment_minutes_at_booking'])
+        remote_end = self.day + ' 16:45:00'
+        self.detail['end_date_time'] = remote_end
+        self.responses['calculateEndTime'] = remote_end
+        self.assertEqual(sync_existing(self.item.pk, apply=True, call=self.call)['result'], 'linked')
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.reserved_duration, timedelta(minutes=55))
+        self.assertEqual(self.item.simplybook_remote_ends_at, add_elapsed(self.item.starts_at, timedelta(minutes=45)))
+        self.assertTrue(source_editable(self.item))
+        self.assertEqual(sync_existing(self.item.pk, apply=True, call=self.call)['result'], 'already_linked')
+
+        start = add_elapsed(self.item.starts_at, timedelta(hours=2, minutes=10))
+        self.responses['getStartTimeMatrix'][self.day].append('18:10:00')
+        def remote(method, args):
+            if method == 'editBook':
+                self.detail.update(start_date_time=self.day + ' 18:10:00', end_date_time=self.day + ' 18:55:00')
+                return True
+            if method == 'cancelBooking':
+                self.detail.update(is_confirmed=False, is_cancelled=True)
+                return True
+            return self.responses[method]
+        self.call.side_effect = remote
+        self.assertTrue(change_locked(self.item, starts_at=start, call=self.call))
+        self.assertEqual(self.item.starts_at, start)
+        self.assertEqual(self.item.reserved_duration, timedelta(minutes=55))
+        self.assertTrue(change_locked(self.item, cancel=True, call=self.call))
+        self.assertFalse(source_editable(self.item))
+        self.assertEqual(self.item.simplybook_booking_id, '92')
+        writes = [step.args[0] for step in self.call.call_args_list if step.args[0] in {'book', 'editBook', 'cancelBooking'}]
+        self.assertEqual(writes, ['book', 'editBook', 'cancelBooking'])
