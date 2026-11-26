@@ -40,7 +40,7 @@ html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="do
   font-family:inherit;font-size:14px;font-weight:650;line-height:1.35;
   cursor:pointer;
 }
-html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell :is(.admin-primary,.ferrari-primary,.hero-admin-save,.intake-review-form button,.intake-filters button) {
+html[data-admin-page]:not([data-admin-page="calendar"]):not([data-admin-page="doctor"]) body.admin-body .sb-admin-shell :is(.admin-primary,.ferrari-primary,.hero-admin-save,.intake-review-form button,.intake-filters button):not(.clinic-patient-trigger,.clinic-patient-option,.clinic-patient-more,.clinic-german-picker) {
   color:#fff!important;
   background:#24484b!important;
   -webkit-text-fill-color:#fff!important;

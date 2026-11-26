@@ -49,10 +49,12 @@ class AdminAcceptancePolishTests(StaticLiveServerTestCase):
                     heights = [item.bounding_box()['y'] for item in photos]
                     self.assertLess(max(heights)-min(heights), 4)
             self.assertEqual(page.goto(self.live_server_url + '/verwaltung/app/forms/').status, 200)
-            field = page.locator('.clinic-german-display').first
+            field = page.locator('input[name=from]')
             self.assertEqual(field.get_attribute('placeholder'), 'TT.MM.JJJJ')
             field.fill('30.12.2026')
-            self.assertEqual(page.locator('input[name=from]').input_value(), '2026-12-30')
-            field.fill('31.02.2026')
-            self.assertFalse(field.evaluate('(input)=>input.checkValidity()'))
+            page.locator('.intake-filters button[type=submit]').click()
+            page.wait_for_url('**/verwaltung/app/forms/?*')
+            self.assertEqual(page.locator('input[name=from]').input_value(), '30.12.2026')
+            page.goto(self.live_server_url + '/verwaltung/app/forms/?from=31.02.2026')
+            self.assertIn('gültiges Datum', page.locator('[role=alert]').inner_text())
             browser.close()
