@@ -26,7 +26,7 @@ class SimplyBookOutboundPilotTests(TestCase):
             'isPluginActivated':False,'getAdditionalFields':[],
             'getBookings':[],'getStartTimeMatrix':{self.day:['16:00:00']},
             'getReservedTimeIntervals':{self.day:[]},'book':{'require_confirm':False,'bookings':[self.detail]},
-            'getBookingDetails':self.detail}
+            'getBookingDetails':self.detail,'calculateEndTime':self.detail['end_date_time']}
         self.call=Mock(side_effect=lambda m,p:self.responses[m])
     def test_dry_run_never_mutates(self):
         self.assertEqual(sync_existing(self.item.pk,call=self.call)['result'],'preflight_ok')
