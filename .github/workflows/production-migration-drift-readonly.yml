@@ -27,4 +27,8 @@ jobs:
             for key,m in sorted(l.disk_migrations.items()):
                 if key[0]=="booking" and key[1]>="0026":
                     print("MIGRATION",key,"applied",key in l.applied_migrations,"deps",m.dependencies,"operations",[(type(o).__name__,getattr(o,"model_name",None),getattr(o,"name",None)) for o in m.operations])
+            from booking.models import StaffMember
+            ariane=StaffMember.objects.get(display_name="Frau Ariane Regaei")
+            for service in ariane.services.filter(active=True,bookable=True).order_by("slug"):
+                print("ARIANE_LOCAL_SERVICE",service.pk,service.slug,service.name,service.duration_minutes,service.buffer_minutes,service.requires_confirmation)
             PY
