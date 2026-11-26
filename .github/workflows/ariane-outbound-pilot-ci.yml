@@ -1,7 +1,7 @@
 name: Ariane outbound pilot safety
 on:
   push:
-    branches: [fix/ariane-simplybook-outbound-pilot-20261126]
+    branches: [fix/ariane-simplybook-outbound-pilot-20261126, feature/ariane-all-services-sync-20261126]
   pull_request:
     paths:
       - 'booking/**'
