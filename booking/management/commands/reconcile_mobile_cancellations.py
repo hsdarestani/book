@@ -31,7 +31,7 @@ class Command(BaseCommand):
                 )
                 if reply.get('ok'):
                     item.completed_at = timezone.now()
-                    appointment = item.appointment
+                    appointment = None if item.notification_independent else item.appointment
                 else:
                     backoff = min(3600, 60 * 2 ** min(6, item.attempts - 1))
                     item.next_attempt_at = timezone.now() + timedelta(seconds=backoff)
