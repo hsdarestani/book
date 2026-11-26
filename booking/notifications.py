@@ -11,7 +11,7 @@ from .emails import send_appointment_event_emails
 
 
 logger = logging.getLogger(__name__)
-DEFAULT_RELAY_URL = "https://esthetic.smarbiz.sbs/api/mobile/internal/booking-notifications/"
+DEFAULT_RELAY_URL = "https://app.a-esthetic.de/api/mobile/internal/booking-notifications/"
 DEFAULT_REFERRAL_URL = "https://esthetic.smarbiz.sbs/api/mobile/internal/referral-booking/"
 
 
