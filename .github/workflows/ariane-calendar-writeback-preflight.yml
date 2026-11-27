@@ -1,0 +1,43 @@
+name: Read-only SimplyBook calendar writeback preflight
+on:
+  push:
+    branches: [fix/simplybook-calendar-writeback-20261127]
+    paths: ['.github/workflows/ariane-calendar-writeback-preflight.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify live release and read-only calendar access
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            printf 'LIVE_BOOK_SHA='
+            git rev-parse HEAD
+            systemctl is-active aesthetic-book
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            import os
+            from booking.management.commands.sync_simplybook_notes import AUTH_URL, NOTES_URL, _request_json
+            from booking.simplybook_outbound import session, UNIT_ID
+            for key in ('SIMPLYBOOK_OUTBOUND_ENABLED', 'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED', 'SIMPLYBOOK_AVAILABILITY_ENABLED'):
+                print(key + '_ACTIVE=' + str(os.getenv(key, '').lower() in ('1', 'true')))
+            try:
+                company = os.environ['SIMPLYBOOK_COMPANY_LOGIN']
+                auth = _request_json(AUTH_URL, method='POST', payload={'company': company, 'login': os.environ['SIMPLYBOOK_USER_LOGIN'], 'password': os.environ['SIMPLYBOOK_USER_PASSWORD']}, timeout=12)
+                headers = {'X-Company-Login': company, 'X-Token': auth['token']}
+                note_type = _request_json(NOTES_URL + '/types/default', headers=headers, timeout=12)
+                print('NOTES_DEFAULT_TYPE_AVAILABLE=' + str(bool(note_type.get('id'))))
+                call = session()
+                print('STATUS_OPTIONS_AVAILABLE=' + str(bool(call('getStatuses', []))))
+                print('ARIANE_WORKDAY_AVAILABLE=' + str(bool(call('getUnitWorkdayInfo', [UNIT_ID]))))
+            except Exception:
+                raise SystemExit('PREFLIGHT_READ_UNCONFIRMED') from None
+            PY
