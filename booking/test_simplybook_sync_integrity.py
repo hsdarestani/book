@@ -82,6 +82,23 @@ class SimplyBookReliableSyncTests(TestCase):
         self.assertEqual(Customer.objects.filter(email="simplybook-booking-503@invalid.local").count(), 1)
 
     @patch("booking.management.commands.simplybook_import.rpc")
+    def test_verified_cancellation_with_deleted_client_does_not_stop_active_import(self, rpc):
+        def source(url, method, params, *args, **kwargs):
+            rows = self.response(url, method, params, *args, **kwargs)
+            if method != "getBookings":
+                return rows
+            obsolete = {**rows[0], "id": "504", "client_id": "999", "is_confirm": "0"}
+            return [obsolete] if params[0]["booking_type"] == "cancelled" else [*rows, obsolete]
+
+        rpc.side_effect = source
+        with patch.dict(os.environ, self.environment):
+            out = io.StringIO()
+            call_command("simplybook_import", strict=True, stdout=out)
+        self.assertEqual(Appointment.objects.count(), 3)
+        self.assertFalse(Appointment.objects.filter(idempotency_key="simplybook-504").exists())
+        self.assertIn('"cancelled_without_source_client": 1', out.getvalue())
+
+    @patch("booking.management.commands.simplybook_import.rpc")
     def test_missing_source_service_rolls_back_every_change(self, rpc):
         def missing_event(url, method, params, *args, **kwargs):
             if method == "getEventList":

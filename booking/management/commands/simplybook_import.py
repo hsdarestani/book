@@ -88,6 +88,30 @@ def month_iter(start_day, end_day):
         yield current.year, current.month
         current = date(current.year + 1, 1, 1) if current.month == 12 else date(current.year, current.month + 1, 1)
 
+
+def _booking_identity(row):
+    return tuple(str(row.get(key) or '').strip() for key in ('id', 'client_id', 'event_id'))
+
+
+def _cancelled_without_source_clients(clients, bookings, headers):
+    client_ids = {str(row.get('id') or '').strip() for row in clients if isinstance(row, dict)}
+    possible = set()
+    for row in bookings:
+        if not isinstance(row, dict) or as_bool(row.get('is_confirm')):
+            continue
+        identity = _booking_identity(row)
+        if all(identity) and identity[1] not in client_ids:
+            possible.add(identity)
+    if not possible:
+        return set()
+    cancelled = rpc(ADMIN_URL, 'getBookings', [{
+        'date_from': '2000-01-01', 'date_to': '2035-12-31', 'booking_type': 'cancelled',
+    }], headers=headers)
+    if not isinstance(cancelled, list):
+        raise CommandError('SimplyBook cancellation inventory could not be verified.')
+    return possible & {_booking_identity(row) for row in cancelled if isinstance(row, dict)}
+
+
 class Command(BaseCommand):
     help = 'Imports SimplyBook clients, services, provider, bookings and dated work calendar. Idempotent; sends no emails.'
 
@@ -115,6 +139,7 @@ class Command(BaseCommand):
         providers_raw = rpc(ADMIN_URL,'getUnitList',[False,True,None,''],headers=headers) or []
         clients_raw = rpc(ADMIN_URL,'getClientList',['',None],headers=headers) or []
         bookings_raw = rpc(ADMIN_URL,'getBookings',[{'date_from':'2000-01-01','date_to':'2035-12-31','booking_type':'all','order':'date_start_asc'}],headers=headers) or []
+        cancelled_tombstones = _cancelled_without_source_clients(clients_raw, bookings_raw, headers)
 
         raw_backup = {'exported_at':timezone.now().isoformat(),'company':company_info,'timezone':timezone_info,'services':services_raw,'providers':providers_raw,'clients':clients_raw,'bookings':bookings_raw,'work_calendars':{},'extra':{}}
         optional_calls = {
@@ -166,6 +191,7 @@ class Command(BaseCommand):
             self.stdout.write(f'Raw SimplyBook backup written: {target}')
 
         summary = {'source_link_profiles_updated':0,'source_clients':len(clients_raw),'source_bookings':len(bookings_raw),'source_services':len(services_raw),'source_providers':len(providers_raw),'customers_created':0,'customers_matched':0,'client_links_created':0,'identity_conflicts':0,'synthetic_customers_created':0,'synthetic_customers_reused':0,'missing_source_client_ids':0,'services_created':0,'services_updated':0,'appointments_created':0,'appointments_updated':0,'daily_schedules_written':0,'skipped_bookings':0}
+        summary['cancelled_without_source_client'] = 0
 
         with transaction.atomic():
             archive_provider,_ = StaffMember.objects.get_or_create(display_name=f'A+ Esthetic (SimplyBook #{provider_external_id})',defaults={'role':'team','bio':'Importierter SimplyBook-Bestand. Nicht für neue Online-Buchungen verwenden.','active':True,'sort_order':9000})
@@ -203,7 +229,8 @@ class Command(BaseCommand):
                     'source_email':str(row.get('email') or '').strip().lower()[:254],
                     'source_phone':phone,
                 }
-                link=SimplyBookClientLink.objects.select_related('customer').filter(external_client_id=external_id).first()
+                link = (SimplyBookClientLink.objects.select_related('customer')
+                        .select_for_update(of=('self', 'customer')).filter(external_client_id=external_id).first())
                 customer=link.customer if link else None
                 if customer is None:
                     # Shared email is not proof of the same person (families
@@ -264,6 +291,11 @@ class Command(BaseCommand):
                     cid=str(row.get('client_id') or ''); counts[cid]=counts.get(cid,0)+1
             for row in bookings_raw:
                 if not isinstance(row,dict): summary['skipped_bookings']+=1; continue
+                if _booking_identity(row) in cancelled_tombstones:
+                    # The vendor retains a cancelled booking after deleting
+                    # its client. Preserve local history and never recreate a contact.
+                    summary['cancelled_without_source_client'] += 1
+                    continue
                 booking_id=str(row.get('id') or '').strip(); event_id=str(row.get('event_id') or '').strip(); client_id=str(row.get('client_id') or '').strip()
                 service=service_map.get(event_id); starts_at=parse_source_datetime(row.get('start_date'),source_tz); ends_at=parse_source_datetime(row.get('end_date'),source_tz)
                 if not service or not starts_at or not booking_id: summary['skipped_bookings']+=1; continue
@@ -358,6 +390,10 @@ class Command(BaseCommand):
                         'start_time_2':None,'end_time_2':None})
                     summary['daily_schedules_written']+=1
             if options.get('strict') and (summary['skipped_bookings'] or summary['missing_source_client_ids']):
+                self.stderr.write(
+                    f"SimplyBook import unresolved: bookings={summary['skipped_bookings']} "
+                    f"client_links={summary['missing_source_client_ids']}"
+                )
                 raise CommandError('Incomplete SimplyBook source import: rollback requested (missing bookings or client IDs).')
             if options.get('dry_run'): transaction.set_rollback(True)
 
