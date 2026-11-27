@@ -125,6 +125,12 @@ class BlockedPeriod(models.Model):
     def __str__(self): return f'{self.staff} – {self.starts_at:%d.%m.%Y %H:%M}'
 
 
+class SimplyBookCalendarRevision(models.Model):
+    block = models.OneToOneField(BlockedPeriod, on_delete=models.CASCADE, related_name='simplybook_revision')
+    source_id = models.PositiveBigIntegerField(unique=True)
+    digest = models.CharField(max_length=64)
+
+
 class Customer(models.Model):
     SALUTATION = [('', 'Neutral / nicht angegeben'), ('frau', 'Frau'), ('herr', 'Herr'), ('divers', 'Divers')]
     first_name = models.CharField('Vorname', max_length=80)

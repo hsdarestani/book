@@ -17,6 +17,7 @@ from .models import Appointment, BlockedPeriod, Customer, Service, StaffMember
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_deleted, notify_admin_source_changed
 from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS
 from .simplybook_writeback import source_managed, source_editable, change_locked
+from .simplybook_calendar import CalendarSourceConflict, mutate_note, notes_enabled, source_revision, source_staff
 from . import views
 
 
@@ -156,6 +157,7 @@ def _block_payload(item):
     local_start = clinic_localtime(item.starts_at)
     local_end = clinic_localtime(item.ends_at)
     scope, service_id = _scope_from_reason(item.reason)
+    revision = source_revision(item) if notes_enabled() and item.simplybook_managed else None
     return {
         'id': item.pk,
         'staff_id': item.staff_id,
@@ -167,6 +169,7 @@ def _block_payload(item):
         'service_id': service_id or '',
         'text': _clean_reason(item.reason),
         'source_managed': item.simplybook_managed,
+        'source_revision': revision.pk if revision else '',
     }
 
 
@@ -325,6 +328,7 @@ def _polish_admin_response(
     <form method="post" class="sb-sheet-form" id="sb-edit-block-form" data-calendar-item-edit-form>
       <input type="hidden" name="csrfmiddlewaretoken" value="{escape(csrf_value)}">
       <input type="hidden" name="block_id">
+      <input type="hidden" name="item_revision">
       <input type="hidden" name="staff_id" value="{escape(staff_value)}">
       <input type="hidden" name="return_view" value="{escape(calendar_view)}">
       <label class="sb-form-row"><span class="sb-row-icon">◉</span><div><small>Typ</small><select name="item_kind"><option value="block">Zeitraum blockieren</option><option value="note">Notiz</option></select></div></label>
@@ -457,6 +461,7 @@ def _polish_admin_response(
     if (!modal) return;
     const form = modal.querySelector('[data-calendar-item-edit-form]');
     form.elements.block_id.value = data.id;
+    form.elements.item_revision.value = data.source_revision || '';
     form.elements.staff_id.value = data.staff_id;
     form.elements.item_kind.value = data.kind;
     form.elements.item_date.value = data.date;
@@ -569,6 +574,25 @@ def _polish_admin_response(
     return response
 
 
+def _source_block_action(request, staff, operation, *, start=None, end=None, blocked=False,
+                         text='', scope='staff', existing=None, notice='block'):
+    from .doctor_views import _doctor_staff
+    day = clinic_localtime(start or existing.starts_at).date()
+    view = request.POST.get('return_view') or 'day'
+    revision = source_revision(existing) if existing else None
+    try:
+        if _doctor_staff(request) or scope != 'staff' or not source_staff(staff):
+            raise CalendarSourceConflict('Nur Arianes Kalender kann hier geändert werden.')
+        if existing and (not revision or str(revision.pk) != request.POST.get('item_revision')):
+            raise CalendarSourceConflict('Der Kalendereintrag wurde geändert.')
+        pk, _action = mutate_note(staff.pk, operation, revision_id=revision.pk if revision else None,
+                                  start=start, end=end, text=text, blocked=blocked)
+    except CalendarSourceConflict:
+        return redirect(_calendar_url(day=day, view=view, staff_id=staff.pk, notice='simplybook-block-read-only'))
+    return redirect(_calendar_url(day=day, view=view, staff_id=staff.pk, notice=notice,
+                                  focus_block=None if operation == 'delete' else pk))
+
+
 @staff_member_required(login_url='/verwaltung/login/')
 @require_http_methods(['GET', 'POST'])
 def dashboard_proxy(request):
@@ -589,6 +613,9 @@ def dashboard_proxy(request):
         scope = request.POST.get('block_scope') or 'all'
         service_id = request.POST.get('block_service_id') or None
         text = (request.POST.get('block_text') or '').strip()[:120]
+        if notes_enabled() and source_staff(selected_staff):
+            return _source_block_action(request, selected_staff, 'create', start=starts_at, end=ends_at,
+                                        text=text, blocked=True, scope=scope)
         reason = f'[BLOCKNOTE]{_scope_prefix(scope, service_id)} {text or "Gesperrt"}'[:160]
         focus = _create_scoped_periods(
             staff_qs=staff_qs,
@@ -617,6 +644,9 @@ def dashboard_proxy(request):
         scope = request.POST.get('note_scope') or 'all'
         service_id = request.POST.get('note_service_id') or None
         prefix = '[BLOCKNOTE]' if request.POST.get('note_blocked') == 'on' else '[NOTE]'
+        if notes_enabled() and source_staff(selected_staff):
+            return _source_block_action(request, selected_staff, 'create', start=starts_at, end=ends_at,
+                                        text=text, blocked=prefix == '[BLOCKNOTE]', scope=scope, notice='note')
         reason = f'{prefix}{_scope_prefix(scope, service_id)} {text or "Notiz"}'[:160]
         focus = _create_scoped_periods(
             staff_qs=staff_qs,
@@ -635,7 +665,7 @@ def dashboard_proxy(request):
         item = BlockedPeriod.objects.filter(pk=request.POST.get('block_id')).select_related('staff').first()
         if not item:
             return redirect('/verwaltung/kalender/?notice=block-error')
-        if item.simplybook_managed:
+        if item.simplybook_managed and not notes_enabled():
             return redirect(_calendar_url(day=clinic_localtime(item.starts_at).date(),
                 view=request.POST.get('return_view') or 'day', staff_id=item.staff_id, notice='simplybook-block-read-only'))
         starts_at = parse_clinic_wall_time(request.POST.get('item_date'), request.POST.get('item_start'))
@@ -649,6 +679,12 @@ def dashboard_proxy(request):
             return redirect(_calendar_url(day=clinic_localtime(item.starts_at).date(), view=request.POST.get('return_view') or 'day', staff_id=item.staff_id, notice='block-error', focus_block=item.pk))
         kind = request.POST.get('item_kind') if request.POST.get('item_kind') in {'block', 'note'} else _kind_from_reason(item.reason)
         text = (request.POST.get('item_text') or '').strip()[:120]
+        if item.simplybook_managed:
+            if request.POST.get('staff_id') and request.POST.get('staff_id') != str(item.staff_id):
+                return redirect(_calendar_url(day=clinic_localtime(item.starts_at).date(),
+                    view=request.POST.get('return_view') or 'day', staff_id=item.staff_id, notice='simplybook-block-read-only'))
+            return _source_block_action(request, item.staff, 'update', start=starts_at, end=ends_at, text=text,
+                                        blocked=kind == 'block', scope=scope, existing=item, notice='block-updated')
         prefix = '[NOTE]' if kind == 'note' else '[BLOCKNOTE]'
         reason = f'{prefix}{_scope_prefix(scope, service_id)} {text or ("Notiz" if kind == "note" else "Gesperrt")}'[:160]
         original_group = _period_group(item)
@@ -673,6 +709,8 @@ def dashboard_proxy(request):
         day = clinic_localtime(item.starts_at).date()
         staff_id = item.staff_id
         if item.simplybook_managed:
+            if notes_enabled():
+                return _source_block_action(request, item.staff, 'delete', existing=item, notice='block-deleted')
             return redirect(_calendar_url(day=day, view=request.POST.get('return_view') or 'day',
                 staff_id=staff_id, notice='simplybook-block-read-only'))
         _period_group(item).delete()

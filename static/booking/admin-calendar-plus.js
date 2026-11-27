@@ -306,6 +306,7 @@
     const form = modal?.querySelector('[data-calendar-item-edit-form]');
     if (!form) return;
     form.elements.block_id.value = data.id;
+    if (form.elements.item_revision) form.elements.item_revision.value = data.source_revision || '';
     form.elements.staff_id.value = data.staff_id;
     form.elements.item_kind.value = data.kind;
     form.elements.item_date.value = data.date;

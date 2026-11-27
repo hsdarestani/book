@@ -63,6 +63,16 @@ def _additional_values(call, event, remote):
     values = remote.get('additional_fields')
     if values in (None, {}, [], ''):
         return {}
+    if isinstance(values, list):
+        mapped = {}
+        for field in values:
+            if not isinstance(field, dict):
+                raise SyncConflict('source_fields_require_review')
+            name, value = field.get('field_name'), field.get('value')
+            if not isinstance(name, str) or not name or name in mapped or not isinstance(value, str):
+                raise SyncConflict('source_fields_require_review')
+            mapped[name] = value
+        values = mapped
     if not isinstance(values, dict) or not all(isinstance(value, str) for value in values.values()):
         raise SyncConflict('source_fields_require_review')
     definitions = call('getAdditionalFields', [event])
@@ -80,6 +90,30 @@ def _additional_values(call, event, remote):
         if choices and value and value not in choices:
             raise SyncConflict('source_fields_require_review')
     return values
+
+
+def _verified_cancellation(call, item, remote_id, event, client):
+    detail = _details(call, remote_id)
+    if (str(detail.get('event_id')) != str(event) or str(detail.get('client_id')) != str(client)
+            or str(detail.get('unit_id')) != str(UNIT_ID)):
+        return False
+    if as_bool(detail.get('is_cancelled', detail.get('is_canceled'))) or str(detail.get('status') or '').lower() in {
+        'cancelled', 'canceled',
+    }:
+        return True
+    if as_bool(detail.get('is_confirmed', detail.get('is_confirm'))):
+        return False
+    day = clinic_localtime(item.starts_at).date().isoformat()
+    params = {'date_from': day, 'date_to': day, 'booking_type': 'cancelled'}
+    cancelled = call('getBookings', [params])
+    if not isinstance(cancelled, list):
+        return False
+    return sum(
+        isinstance(row, dict) and str(row.get('id')) == str(remote_id)
+        and str(row.get('event_id')) == str(event) and str(row.get('client_id')) == str(client)
+        and str(row.get('unit_id')) == str(UNIT_ID)
+        for row in cancelled
+    ) == 1
 
 
 def change_locked(item, *, starts_at=None, cancel=False, call=None):
@@ -139,15 +173,12 @@ def change_locked(item, *, starts_at=None, cancel=False, call=None):
     try:
         call(method, params)
         if cancel:
-            verified = _details(call, remote_id)
-            cancelled = verified.get('is_cancelled', verified.get('is_canceled'))
-            status = str(verified.get('status') or '').lower()
-            if (str(verified.get('event_id')) != str(event) or str(verified.get('client_id')) != str(client)
-                    or str(verified.get('unit_id')) != str(UNIT_ID)
-                    or (not as_bool(cancelled) and status not in {'cancelled', 'canceled'})):
+            if not _verified_cancellation(call, item, remote_id, event, client):
                 raise SyncConflict('source_cancellation_unverified')
         else:
             _verify_readback(call, remote_id, target, event, client, remote_end=remote_end)
+            if additional and _additional_values(call, event, _details(call, remote_id)) != additional:
+                raise SyncConflict('source_fields_require_review')
     except SOURCE_AVAILABILITY_ERRORS:
         item.simplybook_sync_state = 'review'
         item.save(update_fields=['simplybook_sync_state', 'updated_at'])

@@ -38,6 +38,7 @@ from .intake_forms import build_intake_pdf, confirm_form_link
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder, notify_admin_source_changed
 from .simplybook_writeback import source_managed as _managed_appointment, source_editable, change_locked
 from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS
+from .simplybook_calendar import ACTION_ID_BASE, CalendarSourceConflict, mutate_note, notes_enabled, source_revision, source_staff
 from .services import effective_working_ranges
 from .patient_identity_review import possible_duplicate_pairs
 from .patient_identity_views import process_decision
@@ -124,15 +125,18 @@ def _appointment(item):
     }
 
 
-def _block(item, editable):
+def _block(item, editable, *, admin):
     # SimplyBook note sync stores its source identifier after an invisible
     # separator. This is read-only provenance, NOT permission to change source.
     imported = item.simplybook_managed
     payload = _block_payload(item)
+    revision = source_revision(item) if imported and admin and notes_enabled() else None
     if imported:
         payload['text'] = payload['text'].split('\u2063', 1)[0].strip()
     return payload | {
-        'editable': editable and not imported,
+        'id': ACTION_ID_BASE + revision.pk if revision else item.pk,
+        'editable': bool(revision) if imported else editable,
+        'source_editable': bool(revision),
         'source_managed': imported,
         'management_system': 'SimplyBook' if imported else 'Book',
         'start_at': clinic_localtime(item.starts_at).isoformat(),
@@ -156,7 +160,7 @@ def _date(value):
     return day
 
 
-def _calendar(request, providers):
+def _calendar(request, providers, *, admin):
     start = _date(request.GET.get('start'))
     count = int(request.GET.get('days', '1'))
     if count not in (1, 7):
@@ -181,14 +185,15 @@ def _calendar(request, providers):
                 'date': day.isoformat(), 'staff_id': person.pk, 'override': bool(override),
                 'ranges': [{'start': a.strftime('%H:%M'), 'end': b.strftime('%H:%M')} for a, b in ranges],
             })
-    blocks = list(BlockedPeriod.objects.filter(staff__in=providers, starts_at__lt=upper, ends_at__gt=lower))
+    blocks = list(BlockedPeriod.objects.filter(staff__in=providers, starts_at__lt=upper, ends_at__gt=lower)
+                  .select_related('simplybook_revision', 'staff'))
     editable = set(MobileStaffCommand.objects.filter(action='block', object_id__in=[row.pk for row in blocks])
                    .values_list('object_id', flat=True))
     return _private({
         'ok': True, 'availability': availability,
         'appointments': [_appointment(item) for item in _appointments(providers)
                          .filter(starts_at__lt=upper, ends_at__gt=lower).exclude(status='cancelled')],
-        'blocks': [_block(item, item.pk in editable) for item in blocks],
+        'blocks': [_block(item, item.pk in editable, admin=admin) for item in blocks],
     })
 
 
@@ -241,7 +246,7 @@ def _record_revision(item):
 
 def _read(request, actor, providers, action, ident, record_id):
     if action == 'calendar':
-        return _calendar(request, providers)
+        return _calendar(request, providers, admin=actor['role'] == 'admin')
     if action == 'catalog':
         return _catalog(providers)
     items = _appointments(providers)
@@ -635,6 +640,40 @@ def _save_block(data, providers):
     return item.pk
 
 
+def _save_source_block(data, actor, member, key, fingerprint):
+    if actor['role'] != 'admin':
+        return _private({'ok': False, 'error': 'admin_required'}, 403)
+
+    def check_replay():
+        receipt = MobileStaffCommand.objects.filter(actor_id=actor['id'], key=key).first()
+        if receipt:
+            if receipt.fingerprint != fingerprint or receipt.action != 'simplybook-block':
+                raise CalendarSourceConflict('Dieser Auftrag wurde bereits mit anderen Eingaben verwendet.')
+            return None, receipt.object_id
+        return None
+
+    def save_receipt(result):
+        MobileStaffCommand.objects.create(actor_id=actor['id'], key=key, fingerprint=fingerprint,
+                                          action='simplybook-block', object_id=result[1])
+
+    operation = data.get('operation')
+    start = end = None
+    if operation in {'create', 'update'}:
+        start = _slot(data.get('date'), data.get('start'))
+        end = _slot(data.get('date'), data.get('end'))
+        if data.get('kind') not in {'note', 'block'}:
+            raise ValidationError('Ungültiger Kalendereintrag.')
+    try:
+        _block_id, result = mutate_note(
+            member.pk, operation, revision_id=int(data.get('id') or 0) - ACTION_ID_BASE,
+            start=start, end=end, text=str(data.get('text') or ''), blocked=data.get('kind') == 'block',
+            check_replay=check_replay, save_receipt=save_receipt,
+        )
+    except CalendarSourceConflict as exc:
+        return _private({'ok': False, 'error': 'source_calendar_conflict', 'message': str(exc)}, 409)
+    return _private({'ok': True, 'id': result, 'source_confirmed': True})
+
+
 def _save_hours(data, providers):
     staff = providers.filter(pk=int(data['staff_id'])).first()
     if not staff or data.get('operation') not in {'daily', 'weekly', 'reset'}:
@@ -685,6 +724,11 @@ def _mutate(request, actor, providers, action):
         fingerprint = hashlib.sha256(json.dumps([action, data], sort_keys=True).encode()).hexdigest()
     except (TypeError, ValueError):
         raise ValidationError('Ungültiger Auftrag.')
+    if action == 'block' and notes_enabled():
+        member = providers.filter(pk=int(data.get('staff_id') or 0)).first()
+        if member and source_staff(member) and (
+                data.get('operation') == 'create' or int(data.get('id') or 0) >= ACTION_ID_BASE):
+            return _save_source_block(data, actor, member, key, fingerprint)
     try:
         with transaction.atomic():
             # Take provider locks in a stable order before touching appointments. Public

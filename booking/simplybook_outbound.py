@@ -41,12 +41,12 @@ class SyncConflict(ValueError):
 
 SOURCE_AVAILABILITY_ERRORS = (RpcError, OSError, ValueError, TypeError)
 
-def _source_credentials():
+def source_credential_values():
     names = ('SIMPLYBOOK_COMPANY_LOGIN', 'SIMPLYBOOK_USER_LOGIN',
              'SIMPLYBOOK_API_USER_KEY', 'SIMPLYBOOK_USER_PASSWORD')
     values = {key: os.getenv(key, '') for key in names}
     directory = os.getenv('CREDENTIALS_DIRECTORY')
-    if directory and not (values[names[0]] and values[names[1]] and (values[names[2]] or values[names[3]])):
+    if directory and not all(values.values()):
         try:
             for line in (Path(directory) / 'simplybook').read_text().splitlines():
                 parts = shlex.split(line)
@@ -55,8 +55,16 @@ def _source_credentials():
                     if name in values and not values[name]:
                         values[name] = value
         except (OSError, ValueError):
-            raise SyncConflict('missing_credentials') from None
-    company, user, key, password = (values[name].strip() for name in names)
+            if not (values[names[0]] and values[names[1]] and (values[names[2]] or values[names[3]])):
+                raise SyncConflict('missing_credentials') from None
+    return {name: value.strip() for name, value in values.items()}
+
+
+def _source_credentials():
+    values = source_credential_values()
+    company, user, key, password = (values[name] for name in (
+        'SIMPLYBOOK_COMPANY_LOGIN', 'SIMPLYBOOK_USER_LOGIN', 'SIMPLYBOOK_API_USER_KEY', 'SIMPLYBOOK_USER_PASSWORD',
+    ))
     return company, user, key or password
 
 

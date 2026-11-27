@@ -8,7 +8,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from booking.clinical_time import parse_appointment_start
-from booking.models import BlockedPeriod, StaffMember
+from booking.models import BlockedPeriod, ExternalSyncState, StaffMember
+from booking.simplybook_calendar import WRITE_STATE, record_revision
 from booking.block_conflict_alerts import (
     enqueue_block_conflicts, process_pending_block_conflict_alerts, resolve_block_conflicts,
 )
@@ -90,56 +91,87 @@ class Command(BaseCommand):
     help = 'Synchronizes SimplyBook calendar notes/time blocks to Frau Ariane Regaei.'
 
     def add_arguments(self, parser):
+        parser.add_argument('--note-id', type=int, help='Reconcile one verified SimplyBook note ID.')
         parser.add_argument(
             '--suppress-conflict-alerts', action='store_true', default=False,
             help='Baseline import: do not notify for historically imported blocks.',
         )
 
     def handle(self, *args, **options):
-        company = (os.environ.get('SIMPLYBOOK_COMPANY_LOGIN') or '').strip()
-        login = (os.environ.get('SIMPLYBOOK_USER_LOGIN') or '').strip()
-        password = (os.environ.get('SIMPLYBOOK_USER_PASSWORD') or '').strip()
-        if not company or not login or not password:
-            raise CommandError('SIMPLYBOOK_COMPANY_LOGIN, SIMPLYBOOK_USER_LOGIN and SIMPLYBOOK_USER_PASSWORD are required for calendar-note sync.')
+        suppressed = bool(options.get('suppress_conflict_alerts'))
+        note_id = options.get('note_id')
+        if note_id is not None and not 0 < note_id < 10**18:
+            raise CommandError('Invalid SimplyBook calendar note ID.')
+        with transaction.atomic():
+            ExternalSyncState.objects.select_for_update().get_or_create(source=WRITE_STATE)
+            summary = self._sync(suppressed, source_note_id=note_id)
 
-        auth = _request_json(AUTH_URL, method='POST', payload={
-            'company': company,
-            'login': login,
-            'password': password,
-        })
-        token = str((auth or {}).get('token') or '').strip() if isinstance(auth, dict) else ''
-        if not token:
-            if isinstance(auth, dict) and auth.get('require2fa'):
-                raise CommandError('SimplyBook REST authentication requires 2FA; calendar notes cannot be synchronized unattended.')
-            raise CommandError('SimplyBook REST authentication returned no token.')
+        # Keep notification delivery outside the source synchronization lock.
+        summary['conflict_delivery'] = process_pending_block_conflict_alerts() if not suppressed else {}
+        self.stdout.write('SIMPLYBOOK_NOTES_SYNC_JSON=' + json.dumps(summary, sort_keys=True))
+        self.stdout.write(self.style.SUCCESS('SimplyBook calendar notes synchronized to Frau Ariane Regaei.'))
 
-        headers = {'X-Company-Login': company, 'X-Token': token}
+    def _sync(self, suppressed, *, source_note_id=None, source=None):
+        if source is None:
+            company = (os.environ.get('SIMPLYBOOK_COMPANY_LOGIN') or '').strip()
+            login = (os.environ.get('SIMPLYBOOK_USER_LOGIN') or '').strip()
+            password = (os.environ.get('SIMPLYBOOK_USER_PASSWORD') or '').strip()
+            if not company or not login or not password:
+                raise CommandError('SIMPLYBOOK_COMPANY_LOGIN, SIMPLYBOOK_USER_LOGIN and SIMPLYBOOK_USER_PASSWORD are required for calendar-note sync.')
+
+            auth = _request_json(AUTH_URL, method='POST', payload={
+                'company': company,
+                'login': login,
+                'password': password,
+            })
+            token = str((auth or {}).get('token') or '').strip() if isinstance(auth, dict) else ''
+            if not token:
+                if isinstance(auth, dict) and auth.get('require2fa'):
+                    raise CommandError('SimplyBook REST authentication requires 2FA; calendar notes cannot be synchronized unattended.')
+                raise CommandError('SimplyBook REST authentication returned no token.')
+
+            headers = {'X-Company-Login': company, 'X-Token': token}
+
+            def source(path):
+                return _request_json(NOTES_URL + path, headers=headers)
         all_notes = []
         source_ids = set()
-        per_page = 100
-        for page in range(1, 501):
-            query = urllib.parse.urlencode([
-                ('page', page),
-                ('on_page', per_page),
-                ('filter[date_from]', '2000-01-01'),
-                ('filter[date_to]', '2035-12-31'),
-            ])
-            payload = _request_json(f'{NOTES_URL}?{query}', headers=headers)
-            items = _items_from_page(payload)
-            for item in items:
-                note_id = str(item.get('id', '')) if isinstance(item, dict) else ''
-                if not (0 < len(note_id) <= 19 and note_id.isascii() and note_id.isdecimal() and note_id[0] != '0'):
-                    raise CommandError('Invalid SimplyBook calendar note identity.')
-                if note_id in source_ids:
-                    raise CommandError('SimplyBook calendar notes changed during paging.')
-                source_ids.add(note_id)
-            all_notes.extend(items)
-            total_pages = _total_pages(payload)
-            last_page = page >= total_pages if total_pages is not None else len(items) < per_page
-            if last_page:
-                break
+        if source_note_id is not None:
+            try:
+                row = source(f'/{source_note_id}')
+            except CommandError as exc:
+                if str(exc) != 'SimplyBook notes HTTP 404':
+                    raise
+            else:
+                if not isinstance(row, dict) or str(row.get('id')) != str(source_note_id):
+                    raise CommandError('SimplyBook calendar note identity did not match.')
+                all_notes = [row]
+                source_ids = {str(source_note_id)}
         else:
-            raise CommandError('SimplyBook calendar note list did not finish paging.')
+            per_page = 100
+            for page in range(1, 501):
+                query = urllib.parse.urlencode([
+                    ('page', page),
+                    ('on_page', per_page),
+                    ('filter[date_from]', '2000-01-01'),
+                    ('filter[date_to]', '2035-12-31'),
+                ])
+                payload = source(f'?{query}')
+                items = _items_from_page(payload)
+                for item in items:
+                    note_id = str(item.get('id', '')) if isinstance(item, dict) else ''
+                    if not (0 < len(note_id) <= 19 and note_id.isascii() and note_id.isdecimal() and note_id[0] != '0'):
+                        raise CommandError('Invalid SimplyBook calendar note identity.')
+                    if note_id in source_ids:
+                        raise CommandError('SimplyBook calendar notes changed during paging.')
+                    source_ids.add(note_id)
+                all_notes.extend(items)
+                total_pages = _total_pages(payload)
+                last_page = page >= total_pages if total_pages is not None else len(items) < per_page
+                if last_page:
+                    break
+            else:
+                raise CommandError('SimplyBook calendar note list did not finish paging.')
 
         ariane = StaffMember.objects.filter(display_name='Frau Ariane Regaei').order_by('pk').first()
         if ariane is None:
@@ -150,8 +182,6 @@ class Command(BaseCommand):
         updated = 0
         skipped = 0
         conflicts_queued = 0
-        suppressed = bool(options.get('suppress_conflict_alerts'))
-
         with transaction.atomic():
             for row in all_notes:
                 note_id = row.get('id')
@@ -200,9 +230,15 @@ class Command(BaseCommand):
                         conflicts_queued += enqueue_block_conflicts(
                             item, source_note_id=note_id,
                         )
+                record_revision(item, row)
 
             stale = []
-            for item in BlockedPeriod.objects.filter(staff=ariane, reason__contains=MARKER_SEP):
+            stored = BlockedPeriod.objects.filter(staff=ariane, reason__contains=MARKER_SEP)
+            if source_note_id is not None:
+                stored = stored.filter(reason__endswith=_marker(source_note_id))
+            for item in stored:
+                if not item.simplybook_managed:
+                    continue
                 reason = item.reason or ''
                 marker_start = reason.rfind(MARKER_SEP, 0, max(0, len(reason) - 1))
                 marker = reason[marker_start:] if marker_start >= 0 else ''
@@ -214,18 +250,12 @@ class Command(BaseCommand):
                     resolve_block_conflicts(item)
                 BlockedPeriod.objects.filter(pk__in=stale).delete()
 
-        # Never hold the note-import transaction while contacting SMTP/push.
-        # Failed channels are retried by the existing five-minute reminder timer.
-        delivery = process_pending_block_conflict_alerts() if not suppressed else {}
-
-        self.stdout.write('SIMPLYBOOK_NOTES_SYNC_JSON=' + json.dumps({
+        return {
             'source_notes': len(all_notes),
             'created': created,
             'updated': updated,
             'deleted': deleted,
             'skipped': skipped,
             'conflicts_queued': conflicts_queued,
-            'conflict_delivery': delivery,
             'owner': ariane.display_name,
-        }, sort_keys=True))
-        self.stdout.write(self.style.SUCCESS('SimplyBook calendar notes synchronized to Frau Ariane Regaei.'))
+        }

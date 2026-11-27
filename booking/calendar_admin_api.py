@@ -12,6 +12,7 @@ from django.views.decorators.http import require_http_methods
 from .clinical_time import CLINIC_TZ, clinic_localdate, clinic_localtime
 from .models import Appointment, BlockedPeriod, DailyAvailabilityOverride, StaffMember
 from .services import effective_working_ranges
+from .simplybook_calendar import notes_enabled, source_revision
 
 
 CALENDAR_START_MINUTE = 10 * 60
@@ -131,6 +132,7 @@ def _block_payload(item):
     local_end = clinic_localtime(item.ends_at)
     scope, service_id = _scope_from_reason(item.reason)
     top, height = _position(item.starts_at, item.ends_at)
+    revision = source_revision(item) if notes_enabled() and item.simplybook_managed else None
     return {
         'id': item.pk,
         'staff_id': item.staff_id,
@@ -139,6 +141,7 @@ def _block_payload(item):
         'end': local_end.strftime('%H:%M'),
         'kind': _block_kind(item.reason),
         'visual_kind': _block_visual_kind(item.reason),
+        'source_revision': revision.pk if revision else '',
         'scope': scope,
         'service_id': service_id or '',
         'text': _clean_reason(item.reason),
@@ -189,7 +192,7 @@ def calendar_day(request):
             starts_at__lt=end,
             ends_at__gt=start,
         )
-        .select_related('staff')
+        .select_related('staff', 'simplybook_revision')
         .order_by('starts_at', 'pk')
     )
 
