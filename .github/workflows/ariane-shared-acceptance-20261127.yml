@@ -1,0 +1,42 @@
+name: SimplyBook shared-session synthetic acceptance
+on:
+  push:
+    branches: [fix/simplybook-calendar-writeback-20261127]
+    paths: ['.github/workflows/ariane-shared-acceptance-20261127.yml']
+concurrency:
+  group: ariane-synthetic-live-acceptance-20261127
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify synthetic booking create, move, cancel and cleanup
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            printf 'LIVE_BOOK_SHA='
+            git rev-parse HEAD
+            systemctl is-active aesthetic-book
+            pid=$(systemctl show aesthetic-book -p MainPID --value)
+            for flag in SIMPLYBOOK_OUTBOUND_ENABLED=1 SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true SIMPLYBOOK_AVAILABILITY_ENABLED=1; do
+              if tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx "$flag" >/dev/null; then printf 'SERVICE_FLAG=%s\n' "$flag"; fi
+            done
+            source /etc/aesthetic-simplybook-credentials.env
+            test "$(git rev-parse HEAD)" = d3022b198ba52d7e0800ae721b425fa56ab83085
+            git fetch --no-tags origin b9bfb5b0c9a631a56ebd1916556f9d1590f76496
+            stage=$(mktemp -d)
+            trap 'rm -rf -- "$stage"' EXIT
+            chmod 0755 "$stage"
+            for name in shared_acceptance booking_acceptance calendar_notes; do
+              git show "b9bfb5b0c9a631a56ebd1916556f9d1590f76496:scripts/ariane_synthetic_$name.py" > "$stage/$name.py"
+            done
+            runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python "$@"' -- "$stage/shared_acceptance.py" "$stage/booking_acceptance.py" "$stage/calendar_notes.py"
