@@ -12,7 +12,7 @@ from booking.clinical_time import add_elapsed, clinic_localdate
 from booking.models import Appointment, Customer, Service, SimplyBookClientLink, StaffMember
 from booking.services import available_slots
 from booking.simplybook_outbound import (
-    ARIANE, SERVICE_MAP, UNIT_ID, SyncConflict, _contact_matches, as_bool, session,
+    ARIANE, SERVICE_MAP, UNIT_ID, SyncConflict, _contact_matches, _dt, as_bool, session,
     source_slots, sync_existing,
 )
 from booking.simplybook_writeback import change_locked
@@ -53,23 +53,33 @@ try:
         raise RuntimeError('client_deletion_unverified')
     stage = 'slot_selection'
     call = session()
-    slug = 'laser-haarentfernung'
-    event = SERVICE_MAP[slug][0]
-    service = Service.objects.get(slug=slug, active=True, bookable=True)
-    staff = StaffMember.objects.get(display_name=ARIANE, active=True, services=service)
-    start_day = clinic_localdate() + timedelta(days=14)
-    end_day = start_day + timedelta(days=10)
-    matrix, blocks = source_slots(call, event, start_day.isoformat(), end_day.isoformat())
-    for date, raw in sorted(matrix.items()):
-        if date == '2026-12-30' or not raw:
-            continue
-        live = available_slots(service, staff, raw[0].date(), source_availability=(raw, blocks))
-        if len(live) >= 2 and live[-1] >= add_elapsed(live[0], service.reserved_duration):
+    staff = StaffMember.objects.get(display_name=ARIANE, active=True)
+    first_day = clinic_localdate() + timedelta(days=5)
+    last_day = first_day + timedelta(days=15)
+    eligible_services = staff.services.filter(slug__in=SERVICE_MAP, active=True, bookable=True).exclude(
+        slug='aesthetische-erstberatung').order_by('sort_order', 'pk')
+    eligible = None
+    for service in eligible_services:
+        event = SERVICE_MAP[service.slug][0]
+        matrix, blocks = source_slots(call, event, first_day.isoformat(), last_day.isoformat())
+        for date, raw in sorted(matrix.items()):
+            if date == '2026-12-30' or not raw:
+                continue
+            live = sorted(available_slots(service, staff, raw[0].date(), source_availability=(raw, blocks)))
+            if len(live) < 2 or live[-1] < add_elapsed(live[0], service.reserved_duration):
+                continue
             start, moved = live[0], live[-1]
-            candidate_days = [date]
+            vendor_end = _dt(call('calculateEndTime', [start.strftime('%Y-%m-%d %H:%M:%S'), event, UNIT_ID, []]))
+            if vendor_end is None or not add_elapsed(start, service.reserved_duration - timedelta(minutes=service.buffer_minutes)) <= vendor_end <= add_elapsed(start, service.reserved_duration):
+                continue
+            eligible = date
             break
-    else:
-        raise RuntimeError('two_isolated_bookable_slots_unavailable')
+        if eligible:
+            break
+    if not eligible:
+        raise RuntimeError('two_isolated_bookable_slots_with_matching_durations_unavailable')
+    candidate_days = [eligible]
+    print('BOOKING_CONFIG_VERIFIED_SERVICE_EVENT=' + str(event), flush=True)
     assert not Customer.objects.filter(email__iexact=email).exists()
     assert call('getClientList', [email, None]) == []
     with transaction.atomic():
