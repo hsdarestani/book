@@ -25,6 +25,8 @@ jobs:
             systemctl show aesthetic-simplybook-sync.service -p ActiveState -p Result
             journalctl -u aesthetic-simplybook-sync.service --since '-35 min' --output=cat --no-pager |
               python3 -c "import sys; s=sys.stdin.read().casefold(); print({k:s.count(k) for k in ('sync lock','timed out','rate limited','http 403','http 429','not found','traceback','commanderror','field','migration','operationalerror','integrityerror','invalid simplybook calendar note identity','unexpected simplybook calendar note list','appointment reconciliation','skipped bookings','after import','baseline completed','simplybook import completed','simplybook calendar notes synchronized') if k in s})"
+            journalctl -u aesthetic-simplybook-sync.service --since '-30 min' --output=cat --no-pager |
+              python3 -c 'import re,sys; s=sys.stdin.read(); pattern=r'\''File "/opt/aesthetic-book/app/(booking/[a-z0-9_/]+[.]py)", line (\d+)|(?:constraint|index) "([a-z0-9_]+)"|((?:ValueError|TypeError|CommandError|IntegrityError|RpcError|OperationalError|ValidationError):)|((?:Incomplete SimplyBook source import|Invalid SimplyBook calendar note identity|Unexpected SimplyBook calendar note list|source booking identity mismatch|SimplyBook notes HTTP [0-9]+))'\''; print(sorted({next(v for v in m.groups()[2:] if v) if not m.group(1) else m.group(1)+'\'':'\''+m.group(2) for m in re.finditer(pattern,s)}))'
             runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
             from booking.models import ExternalSyncState
             state = ExternalSyncState.objects.filter(source='simplybook').first()
