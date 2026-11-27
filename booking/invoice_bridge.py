@@ -59,8 +59,12 @@ def _request_bridge(request, operation, method="GET", payload=None, binary=False
         result = json.loads(raw.decode("utf-8")) if raw else {}
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise RuntimeError("Ungültige Antwort der Rechnungsdatenbank.") from exc
+    if not isinstance(result, dict):
+        raise RuntimeError("Ungültige Antwort der Rechnungsdatenbank.")
     if status == 401 or status == 403:
         raise PermissionError("Die interne Rechnungsanbindung muss serverseitig freigeschaltet werden.")
+    if status == 429 or status >= 500:
+        raise RuntimeError("Rechnungsserver vorübergehend nicht verfügbar. Bitte erneut versuchen.")
     if status >= 400 or not result.get("ok"):
         # Never expose remote exception traces or internal credential details.
         reason = str(result.get("message") or result.get("error") or "Unbekannter Fehler")[:180]

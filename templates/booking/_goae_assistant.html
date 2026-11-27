@@ -1,0 +1,26 @@
+<aside class="mlr-assistant" aria-labelledby="goaeAssistantTitle" data-goae-assistant data-url="{% url 'booking:goae_assistant' %}">
+  <div class="mlr-assistant-head">
+    <h3 id="goaeAssistantTitle">GOÄ-Assistent</h3>
+    <p>Angaben übernehmen, Formularfragen klären und Prüfhinweise sehen.</p>
+  </div>
+  <div class="mlr-assistant-topics" aria-label="Fragen zur Abrechnung">
+    <button type="button" data-topic="entry">Wie beginne ich?</button>
+    <button type="button" data-topic="factor">Faktor</button>
+    <button type="button" data-topic="material">Auslagen</button>
+    <button type="button" data-topic="analog">Analog</button>
+    <button type="button" data-topic="tax">Umsatzsteuer</button>
+    <button type="button" data-topic="total">Wunschbetrag</button>
+  </div>
+  <div data-chat-log class="mlr-assistant-log" role="log" aria-label="Unterhaltung" aria-live="polite"></div>
+  <form data-chat-form>
+    <label for="goaeChatInput">Nachricht</label>
+    <textarea id="goaeChatInput" rows="3" maxlength="500" required placeholder="Botox, 2 Zonen, 300 € gesamt, 0 € Material"></textarea>
+    <small>Bitte keine Patientennamen oder Diagnosen eingeben.</small>
+    <button type="submit" class="mlr-verify">Nachricht senden</button>
+  </form>
+  <div class="mlr-assistant-checks" aria-live="polite">
+    <h4>Hinweise zur Abrechnung</h4>
+    <ul data-goae-warnings></ul>
+    <p><a href="https://www.gesetze-im-internet.de/go__1982/" target="_blank" rel="noopener">GOÄ im Wortlaut</a> · <a href="https://www.gesetze-im-internet.de/ustg_1980/__4.html" target="_blank" rel="noopener">§ 4 UStG</a></p>
+  </div>
+</aside>
