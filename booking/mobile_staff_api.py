@@ -25,7 +25,7 @@ from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .app_admin_api import _day_bounds, _private, _service_payload
+from .app_admin_api import _day_bounds, _private as _staff_private, _service_payload
 from .calendar_admin_api import _block_payload
 from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, clinic_wall_time, parse_clinic_wall_time
 from .doctor_views import _save_availability, _save_weekly, _time
@@ -46,6 +46,15 @@ from .patient_identity_review import possible_duplicate_pairs
 from .patient_identity_views import process_decision
 
 logger = logging.getLogger(__name__)
+
+# Public protocol identifier, not a process identity or deployment secret.
+CALENDAR_EDITABILITY_CONTRACT = 'source-revisions-v2'
+
+
+def _private(payload, status=200):
+    response = _staff_private(payload, status)
+    response['X-APlus-Staff-Contract'] = CALENDAR_EDITABILITY_CONTRACT
+    return response
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -253,6 +262,7 @@ def _calendar(request, providers, *, admin):
                    .values_list('object_id', flat=True))
     return _private({
         'ok': True, 'availability': availability,
+        'calendar_editability_contract': CALENDAR_EDITABILITY_CONTRACT,
         'appointments': [_appointment(item) for item in _appointments(providers)
                          .filter(starts_at__lt=upper, ends_at__gt=lower).exclude(status='cancelled')],
         'blocks': [_block(item, admin or item.pk in editable, admin=admin) for item in blocks],
