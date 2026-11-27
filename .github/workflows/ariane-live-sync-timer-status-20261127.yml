@@ -23,6 +23,8 @@ jobs:
             cd /opt/aesthetic-book/app
             systemctl show aesthetic-simplybook-sync.timer -p ActiveState -p LastTriggerUSec
             systemctl show aesthetic-simplybook-sync.service -p ActiveState -p Result
+            journalctl -u aesthetic-simplybook-sync.service --since '-35 min' --output=cat --no-pager |
+              python3 -c "import sys; s=sys.stdin.read().casefold(); print({k:s.count(k) for k in ('sync lock','timed out','rate limited','http 403','http 429','not found','traceback','commanderror','field','migration','operationalerror','integrityerror','invalid simplybook calendar note identity','unexpected simplybook calendar note list','appointment reconciliation','skipped bookings','after import','baseline completed','simplybook import completed','simplybook calendar notes synchronized') if k in s})"
             runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
             from booking.models import ExternalSyncState
             state = ExternalSyncState.objects.filter(source='simplybook').first()
