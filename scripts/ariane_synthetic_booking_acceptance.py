@@ -5,6 +5,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 import json
 import os
+import re
 
 from django.db import transaction
 from booking.clinical_time import add_elapsed, clinic_localdate
@@ -83,7 +84,14 @@ try:
     stage = 'booking_create'
     class Telemetry:
         def __call__(self, method, params):
-            result = call(method, params)
+            try:
+                result = call(method, params)
+            except Exception as exc:
+                details = str(exc).lower()
+                code = re.search(r'(?:failed:|http)\s*(-?\d+)', details)
+                categories = [name for name in ('invalid', 'required', 'field', 'email', 'phone', 'permission', 'rate limit', 'timeframe', 'duration', 'available', 'payment', 'confirmation', 'parameter') if name in details]
+                print('BOOK_VENDOR_ERROR=' + method + ':' + (code.group(1) if code else 'unknown') + ':' + ','.join(categories), flush=True)
+                raise
             if method == 'book':
                 print('BOOK_RESULT_IS_OBJECT=' + str(isinstance(result, dict)), flush=True)
                 if isinstance(result, dict):
