@@ -1,11 +1,2 @@
-booking/admin_views.py
-booking/calendar_admin_api.py
-booking/management/commands/sync_simplybook_notes.py
-booking/migrations/0037_simplybook_calendar_revision.py
-booking/mobile_staff_api.py
-booking/models.py
-booking/simplybook_calendar.py
-booking/simplybook_outbound.py
-booking/simplybook_writeback.py
-booking/test_simplybook_calendar_writeback.py
-static/booking/admin-calendar-plus.js
+booking/management/commands/simplybook_import.py
+booking/test_simplybook_sync_integrity.py
