@@ -38,7 +38,7 @@
   <section class="patient-hero">
     <div class="patient-identity">
       <div class="patient-big-avatar">{{ customer.first_name|slice:":1" }}{{ customer.last_name|slice:":1" }}</div>
-      <div><div class="eyebrow">Gemeinsame digitale Patientenakte</div><h1>{{ customer.full_name }}</h1><div class="patient-contact-line"><a href="mailto:{{ customer.email }}">{{ customer.email }}</a><span>·</span><a href="tel:{{ customer.phone }}">{{ customer.phone|default:"Keine Telefonnummer" }}</a></div></div>
+      <div><div class="eyebrow">Gemeinsame digitale Patientenakte</div><h1>{{ customer.full_name }}</h1><div class="patient-contact-line"><a href="mailto:{{ customer.contact_email }}">{{ customer.contact_email }}</a><span>·</span><a href="tel:{{ customer.contact_phone }}">{{ customer.contact_phone|default:"Keine Telefonnummer" }}</a></div></div>
     </div>
     <div class="patient-facts">
       <article><span>Patient seit</span><strong>{{ customer.created_at|date:"d.m.Y" }}</strong></article>

@@ -5,6 +5,7 @@ import binascii
 import hashlib
 import json
 import logging
+import re
 from io import BytesIO
 from datetime import datetime, timedelta
 from uuid import UUID
@@ -14,6 +15,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.db.models import Prefetch, Q, Count
@@ -103,7 +105,60 @@ def _records(actor, person, providers):
 
 
 def _person(person):
-    return {'id': person.pk, 'name': person.full_name, 'email': person.email, 'phone': person.phone}
+    return {'id': person.pk, 'name': person.full_name, 'email': person.contact_email, 'phone': person.contact_phone}
+
+
+def _contact(person):
+    payload = _person(person)
+    serialized = json.dumps([person.pk, payload['email'], payload['phone']])
+    return payload | {'contact_revision': hashlib.sha256(serialized.encode()).hexdigest()}
+
+
+def _save_contact(request, actor, ident):
+    if actor['role'] != 'admin':
+        return _private({'ok': False, 'error': 'admin_required'}, 403)
+    if len(request.body) > 2048:
+        raise ValueError('Invalid contact payload')
+    data = json.loads(request.body)
+    if not isinstance(data, dict) or set(data) - {'revision', 'phone', 'email'}:
+        raise ValueError('Invalid contact payload')
+    revision = data.get('revision')
+    if not isinstance(revision, str) or not re.fullmatch(r'[a-f0-9]{64}', revision):
+        raise ValueError('Invalid contact revision')
+    changes = {field: data[field] for field in ('email', 'phone') if field in data}
+    if not changes or any(not isinstance(item, str) for item in changes.values()):
+        raise ValueError('Invalid contact payload')
+    if email := changes.get('email'):
+        if len(email) > 254 or re.search(r'[<>,;?&#%]', email) or email.lower().endswith('@invalid.local'):
+            raise ValueError('Invalid contact email')
+        validate_email(email)
+        if '.' not in email.rsplit('@', 1)[1]:
+            raise ValueError('Invalid contact email')
+    if (phone := changes.get('phone')) and not re.fullmatch(r'\+[1-9][0-9]{6,14}', phone):
+        raise ValueError('Invalid contact telephone')
+
+    with transaction.atomic():
+        person = Customer.objects.select_for_update().filter(pk=ident).first()
+        if not person:
+            return _private({'ok': False, 'error': 'not_found'}, 404)
+        contact = _contact(person)
+        changes = {field: item for field, item in changes.items() if contact[field] != item}
+        if not changes:
+            return _private({'ok': True, 'patient': contact})
+        if revision != contact['contact_revision']:
+            return _private({'ok': False, 'error': 'contact_conflict'}, 409)
+        if (email := changes.get('email')) and Customer.objects.exclude(pk=ident).filter(
+            Q(email__iexact=email) | Q(contact_email_override__iexact=email)
+        ).exists():
+            return _private({'ok': False, 'error': 'contact_conflict'}, 409)
+        updates = {f'contact_{field}_override': item for field, item in changes.items()}
+        for field, item in updates.items():
+            setattr(person, field, item)
+        person.save(update_fields=[*updates, 'updated_at'])
+        # Do not write the contact details themselves into the audit log.
+        logger.info('Staff contact updated: actor_id=%s customer_id=%s fields=%s',
+                    actor['id'], ident, ','.join(changes))
+        return _private({'ok': True, 'patient': _contact(person)})
 
 
 def _appointment(item):
@@ -274,12 +329,15 @@ def _read(request, actor, providers, action, ident, record_id):
     if action == 'patients':
         for term in query.split():
             people = people.filter(Q(first_name__icontains=term) | Q(last_name__icontains=term) |
-                                   Q(email__icontains=term) | Q(phone__icontains=term))
+                                   Q(email__icontains=term) | Q(phone__icontains=term) |
+                                   Q(contact_email_override__icontains=term) | Q(contact_phone_override__icontains=term))
         rows = list(people.order_by('last_name', 'first_name', 'pk')[offset:offset+31])
         return _private({'ok': True, 'items': [_person(row) for row in rows[:30]], 'has_more': len(rows) > 30})
     person = people.filter(pk=ident).first()
     if not person:
         return _private({'ok': False, 'error': 'not_found'}, 404)
+    if action == 'patient-contact':
+        return _private({'ok': True, 'patient': _contact(person)})
     if action == 'visit':
         if actor['role'] != 'admin':
             return _private({'ok': False, 'error': 'admin_required'}, 403)
@@ -385,6 +443,7 @@ def workspace(request, action, ident=None, record_id=None):
                 rows = possible_duplicate_pairs(limit=150)
                 def identity(person):
                     return _person(person) | {
+                        'email': person.email, 'phone': person.phone,
                         'first_name': person.first_name, 'last_name': person.last_name,
                         'date_of_birth': person.date_of_birth.isoformat() if person.date_of_birth else None,
                     }
@@ -402,7 +461,9 @@ def workspace(request, action, ident=None, record_id=None):
             except ValueError as exc:
                 return _private({'ok': False, 'error': 'identity_review_conflict', 'message': str(exc)}, 409)
             return _private({'ok': True, 'id': review.pk})
-        if request.method == 'GET' and action in {'calendar', 'catalog', 'overview', 'appointments', 'patients', 'patient', 'record', 'visit'}:
+        if request.method == 'POST' and action == 'patient-contact':
+            return _save_contact(request, actor, ident)
+        if request.method == 'GET' and action in {'calendar', 'catalog', 'overview', 'appointments', 'patients', 'patient', 'patient-contact', 'record', 'visit'}:
             return _read(request, actor, providers, action, ident, record_id)
         if request.method == 'POST' and action == 'appointment-reminder':
             return _manual_reminder(request, actor, providers)

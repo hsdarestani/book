@@ -247,7 +247,7 @@ def _polish_admin_response(
         f'<option value="{member.pk}">{escape(member.display_name)}</option>' for member in staff_members
     )
     customer_options = ''.join(
-        f'<option value="{customer.pk}" data-phone="{escape(customer.phone)}">{escape(customer.full_name)} · {escape(customer.email)}</option>'
+        f'<option value="{customer.pk}" data-phone="{escape(customer.contact_phone)}">{escape(customer.full_name)} · {escape(customer.contact_email)}</option>'
         for customer in customers
     )
     status_options = ''.join(
