@@ -1,0 +1,60 @@
+name: Guarded authenticated native editability diagnostics
+on:
+  push:
+    branches: [release/native-editability-diagnostics-20261127]
+    paths: ['.github/workflows/native-editability-diagnostics-release.yml']
+permissions:
+  contents: read
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Release the harmless public API protocol identifier
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 6m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
+            flock -n 9
+            base=fa2838d6963a0144b7728e2defbc45943ccb1805
+            candidate=1d98f8cc440ca7fc0ea2844017fd166ff93c8319
+            test "$(git rev-parse HEAD)" = "$base"
+            test -z "$(git status --porcelain --untracked-files=no)"
+            systemctl is-active --quiet aesthetic-book
+            git fetch -q --no-tags origin "$candidate"
+            test "$(git rev-parse "$candidate^")" = "$base"
+            test "$(git diff --name-only "$base" "$candidate" | sort)" = "$(printf '%s\n' booking/mobile_staff_api.py booking/test_mobile_staff_workspace.py | sort)"
+            switched=0
+            finish() {
+              result=$?
+              trap - EXIT
+              if [ "$result" != 0 ] && [ "$switched" = 1 ]; then
+                git switch -q --no-overwrite-ignore --detach "$base" &&
+                  systemctl restart aesthetic-book && systemctl is-active --quiet aesthetic-book || result=2
+              fi
+              exit "$result"
+            }
+            trap finish EXIT
+            git switch -q --no-overwrite-ignore --detach "$candidate"
+            switched=1
+            /opt/aesthetic-book/venv/bin/python -c 'import pathlib; compile(pathlib.Path("booking/mobile_staff_api.py").read_text(),"booking/mobile_staff_api.py","exec")'
+            systemctl restart aesthetic-book
+            for attempt in {1..12}; do
+              if systemctl is-active --quiet aesthetic-book && curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null; then break; fi
+              sleep 2
+            done
+            systemctl is-active --quiet aesthetic-book
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null
+            test "$(curl -s --max-time 8 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/mobile/staff/calendar/)" = 401
+            echo NATIVE_DIAGNOSTICS_RELEASE_HEALTHY=yes
