@@ -1,0 +1,59 @@
+name: Guarded Ariane appointment writeback activation
+on:
+  push:
+    branches: [fix/simplybook-calendar-writeback-20261127]
+    paths: ['.github/workflows/ariane-booking-writeback-activation-20261127.yml']
+permissions:
+  contents: read
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - name: Accept live appointment lifecycle and reverse timer mirroring
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 16m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
+            flock -w 30 9
+            test "$(git rev-parse HEAD)" = b66979a745fec9879052aaf152ba3306e0fa98a0
+            systemctl is-active --quiet aesthetic-book
+            config=/etc/systemd/system/aesthetic-book.service.d/57-simplybook-appointment-writeback.conf
+            test ! -e "$config"
+            source /etc/aesthetic-simplybook-credentials.env
+            git fetch --no-tags origin 3a9b3c41aa01a1de3f64d13bc52953e90d7bee83
+            git show 3a9b3c41aa01a1de3f64d13bc52953e90d7bee83:scripts/ariane_synthetic_booking_acceptance.py |
+              runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -c "import django,sys; django.setup(); exec(compile(sys.stdin.read(), \"booking_acceptance\", \"exec\"))"'
+            activated=0
+            rollback() {
+              status=$?
+              trap - EXIT
+              if [ "$status" != 0 ] && [ "$activated" = 1 ]; then
+                rm -f "$config"
+                systemctl daemon-reload
+                systemctl restart aesthetic-book
+                echo 'SIMPLYBOOK_APPOINTMENT_ACTIVATION_ROLLED_BACK=true'
+              fi
+              exit "$status"
+            }
+            trap rollback EXIT
+            install -m 0644 /dev/null "$config"
+            activated=1
+            printf '%s\n' '[Service]' 'Environment=SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true' > "$config"
+            systemctl daemon-reload
+            systemctl restart aesthetic-book
+            curl -fsS --retry 6 --retry-connrefused --retry-delay 2 --max-time 20 https://book.a-esthetic.de/api/health/ -o /dev/null
+            pid=$(systemctl show aesthetic-book -p MainPID --value)
+            tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx 'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true' >/dev/null
+            tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx 'SIMPLYBOOK_AVAILABILITY_ENABLED=1' >/dev/null
+            echo 'SIMPLYBOOK_ARIANE_ADMIN_APPOINTMENT_WRITEBACK_ACTIVE=true'
