@@ -9,7 +9,7 @@ import re
 
 from django.db import transaction
 from booking.clinical_time import add_elapsed, clinic_localdate
-from booking.models import Appointment, Customer, Service, StaffMember
+from booking.models import Appointment, Customer, Service, SimplyBookClientLink, StaffMember
 from booking.services import available_slots
 from booking.simplybook_outbound import (
     ARIANE, SERVICE_MAP, UNIT_ID, SyncConflict, _contact_matches, as_bool, session,
@@ -42,6 +42,8 @@ try:
                 with urlopen(Request(endpoint, headers=headers, method=method), timeout=15) as response:
                     if method == 'GET':
                         record = json.load(response)
+                        if int(record['id']) == ident and as_bool(record.get('is_deleted')):
+                            return
                         if int(record['id']) != ident or str(record.get('email', '')).casefold() != email:
                             raise RuntimeError('client_cleanup_identity_mismatch')
             except HTTPError as exc:
@@ -51,7 +53,7 @@ try:
         raise RuntimeError('client_deletion_unverified')
     stage = 'slot_selection'
     call = session()
-    slug = 'aesthetische-erstberatung'
+    slug = 'laser-haarentfernung'
     event = SERVICE_MAP[slug][0]
     service = Service.objects.get(slug=slug, active=True, bookable=True)
     staff = StaffMember.objects.get(display_name=ARIANE, active=True, services=service)
@@ -152,8 +154,12 @@ try:
                         if not cancelled(call('getBookingDetails', [ident])):
                             raise RuntimeError('booking_cleanup_unverified')
             delete_client(client_id)
-        item.delete()
-        customer.delete()
+        with transaction.atomic():
+            if item is not None:
+                item.delete()
+            if client_id:
+                SimplyBookClientLink.objects.filter(customer=customer, external_client_id=str(client_id)).delete()
+            customer.delete()
         print('BOOK_PILOT_TEMPORARY_RECORDS_CLEANED=true', flush=True)
     else:
         print('BOOK_PILOT_NO_FIXTURE_CREATED=true', flush=True)
