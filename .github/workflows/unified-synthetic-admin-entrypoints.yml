@@ -1,0 +1,48 @@
+name: Verify customer booking and reverse cancellation through the live timer
+
+on:
+  push:
+    branches: [qa/unified-live-timer-b70]
+    paths: ['.github/workflows/unified-synthetic-admin-entrypoints.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+
+env:
+  UNIFIED_BOOK_DEPLOYED_REVISION: 81ccfa136d0ed44cdaea959fae45982d98df8a92
+  UNIFIED_FIXTURE_WORKFLOW_REVISION: ${{ github.sha }}
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 29
+    steps:
+      - name: Wait for the existing timer on an isolated customer reservation
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: UNIFIED_BOOK_DEPLOYED_REVISION,UNIFIED_FIXTURE_WORKFLOW_REVISION
+          command_timeout: 26m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
+            flock -w 30 9
+            test "$(git rev-parse HEAD)" = "$UNIFIED_BOOK_DEPLOYED_REVISION"
+            systemctl is-active --quiet aesthetic-book
+            git fetch -q --no-tags origin "$UNIFIED_FIXTURE_WORKFLOW_REVISION"
+            source /etc/aesthetic-simplybook-credentials.env
+            export SIMPLYBOOK_OUTBOUND_ENABLED=1 SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true
+            for mode in customer; do
+              export UNIFIED_SYNTHETIC_ENTRYPOINT="$mode"
+              git show "$UNIFIED_FIXTURE_WORKFLOW_REVISION:scripts/unified_synthetic_admin_entrypoints.py" |
+                runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -c "import django,sys; django.setup(); exec(compile(sys.stdin.read(), \"unified_synthetic\", \"exec\"))"'
+              printf 'SYNTHETIC_ENTRYPOINT_VERIFIED=%s\n' "$mode"
+            done
