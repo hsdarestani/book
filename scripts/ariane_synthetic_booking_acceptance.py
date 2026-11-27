@@ -126,32 +126,58 @@ try:
     item.refresh_from_db()
     assert item.starts_at == moved and item.public_id == public_id
     print('BOOK_RESCHEDULE_SOURCE_READBACK=true', flush=True)
-    stage = 'source_reschedule'
-    target = copy(item)
-    target.starts_at = start
-    target.ends_at = add_elapsed(start, item.reserved_duration)
-    source_id = int(item.simplybook_booking_id)
-    remote = call('getBookingDetails', [source_id])
-    additional = _additional_values(call, event, remote)
-    source_end = add_elapsed(start, item.simplybook_remote_ends_at - item.starts_at)
-    assert not _verify_availability(call, target, event, client_id, exclude_source_id=source_id, remote_end=source_end)
-    a, b = clinic_localtime(start), clinic_localtime(source_end)
-    call('editBook',[source_id,event,UNIT_ID,client_id,a.strftime('%Y-%m-%d'),a.strftime('%H:%M:%S'),
-                     b.strftime('%Y-%m-%d'),b.strftime('%H:%M:%S'),int(remote.get('client_time_offset') or 0),additional])
-    _verify_readback(call, source_id, target, event, client_id, remote_end=source_end)
-    print('SOURCE_RESCHEDULE_CONFIRMED_WAITING_FOR_BOOK_TIMER=true', flush=True)
-    stage = 'book_timer_mirror'
-    deadline = monotonic() + 11 * 60
-    while monotonic() < deadline:
-        item.refresh_from_db()
-        if item.starts_at == start:
-            assert (item.public_id, item.idempotency_key, item.ends_at) == (public_id, local_key, target.ends_at)
-            assert int(item.simplybook_booking_id) == source_id
-            print('SOURCE_RESCHEDULE_MIRRORED_BY_LIVE_BOOK_TIMER=true', flush=True)
-            break
-        sleep(15)
-    else:
-        raise RuntimeError('book_timer_did_not_reconcile_fixture')
+    reverse_error = None
+    try:
+        stage = 'source_reschedule'
+        source_id = int(item.simplybook_booking_id)
+        remote = call('getBookingDetails', [source_id])
+        additional = _additional_values(call, event, remote)
+        matrix, blocks = source_slots(call, event, first_day.isoformat(), last_day.isoformat())
+        target = None
+        for reverse_day, row in sorted(matrix.items()):
+            if reverse_day == '2026-12-30' or not row:
+                continue
+            candidates = available_slots(service, staff, row[0].date(), exclude_appointment_id=item.pk,
+                                         source_availability=(row, blocks))
+            for candidate in candidates:
+                if candidate in {start, moved}:
+                    continue
+                attempt = copy(item)
+                attempt.starts_at = candidate
+                attempt.ends_at = add_elapsed(candidate, item.reserved_duration)
+                source_end = add_elapsed(candidate, item.simplybook_remote_ends_at - item.starts_at)
+                try:
+                    if _verify_availability(call, attempt, event, client_id, exclude_source_id=source_id, remote_end=source_end):
+                        continue
+                except SyncConflict:
+                    continue
+                target = attempt
+                break
+            if target:
+                break
+        if target is None:
+            raise RuntimeError('no_verified_third_slot')
+        a, b = clinic_localtime(target.starts_at), clinic_localtime(source_end)
+        candidate_days = sorted({*candidate_days, a.date().isoformat()})
+        call('editBook',[source_id,event,UNIT_ID,client_id,a.strftime('%Y-%m-%d'),a.strftime('%H:%M:%S'),
+                         b.strftime('%Y-%m-%d'),b.strftime('%H:%M:%S'),int(remote.get('client_time_offset') or 0),additional])
+        _verify_readback(call, source_id, target, event, client_id, remote_end=source_end)
+        print('SOURCE_RESCHEDULE_CONFIRMED_WAITING_FOR_BOOK_TIMER=true', flush=True)
+        stage = 'book_timer_mirror'
+        deadline = monotonic() + 11 * 60
+        while monotonic() < deadline:
+            item.refresh_from_db()
+            if item.starts_at == target.starts_at:
+                assert (item.public_id, item.idempotency_key, item.ends_at) == (public_id, local_key, target.ends_at)
+                assert int(item.simplybook_booking_id) == source_id
+                print('SOURCE_RESCHEDULE_MIRRORED_BY_LIVE_BOOK_TIMER=true', flush=True)
+                break
+            sleep(15)
+        else:
+            raise RuntimeError('book_timer_did_not_reconcile_fixture')
+    except Exception as exc:
+        reverse_error = (stage, type(exc).__name__)
+        print('SOURCE_RESCHEDULE_ACCEPTANCE_INCOMPLETE=' + ':'.join(reverse_error), flush=True)
     stage = 'booking_cancel'
     with transaction.atomic():
         StaffMember.objects.select_for_update().get(pk=staff.pk)
@@ -160,6 +186,8 @@ try:
     item.refresh_from_db()
     assert item.status == 'cancelled'
     print('BOOK_CANCEL_SOURCE_READBACK=true', flush=True)
+    if reverse_error:
+        raise RuntimeError('reverse_acceptance_incomplete')
 except Exception as exc:
     key = str(exc) if type(exc) is SyncConflict and str(exc).replace('_','').isalnum() else type(exc).__name__
     print('BOOK_PILOT_FAILED=' + stage + ':' + key, flush=True)
