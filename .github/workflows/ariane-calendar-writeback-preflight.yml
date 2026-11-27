@@ -1,4 +1,4 @@
-name: Read-only SimplyBook calendar writeback preflight
+name: SimplyBook synthetic calendar writeback acceptance
 on:
   push:
     branches: [fix/simplybook-calendar-writeback-20261127]
@@ -46,3 +46,6 @@ jobs:
             except Exception as exc:
                 raise SystemExit('PREFLIGHT_READ_UNCONFIRMED=' + type(exc).__name__) from None
             PY
+            git fetch --no-tags origin 16cd694e123d342dbda14156437135003da366d9
+            git show 16cd694e123d342dbda14156437135003da366d9:scripts/ariane_synthetic_calendar_notes.py |
+              runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -c "import django,sys; django.setup(); exec(compile(sys.stdin.read(), \"synthetic_calendar_notes\", \"exec\"))"'
