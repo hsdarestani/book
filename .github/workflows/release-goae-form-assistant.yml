@@ -1,0 +1,139 @@
+name: Guarded GOÄ form and assistant release
+
+on:
+  push:
+    branches: [release/goae-form-assistant]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: |
+          pip install -r requirements.txt playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - run: |
+          python manage.py check
+          python manage.py test booking.test_goae_assistant booking.test_same_domain_invoices booking.test_goae_draft_browser --noinput
+          python scripts/test_goae_reference_browser.py
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Release the scoped GOÄ changes
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          BOOK_TARGET: ${{ github.sha }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_AI_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_API_TOKEN }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 8m
+          envs: BOOK_TARGET,CLOUDFLARE_ACCOUNT_ID,CLOUDFLARE_AI_API_TOKEN
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            base=1d98f8cc440ca7fc0ea2844017fd166ff93c8319
+            exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
+            flock -n 9
+            test "$(git rev-parse HEAD)" = "$base"
+            test -z "$(git status --porcelain --untracked-files=no)"
+            git fetch -q --no-tags origin "$BOOK_TARGET"
+            test "$(git rev-parse "$BOOK_TARGET^")" = "$base"
+            scope="$(printf '%s\n' .github/workflows/release-goae-form-assistant.yml booking/goae_assistant.py booking/goae_quote_views.py booking/invoice_bridge.py booking/test_goae_assistant.py booking/test_goae_draft_browser.py booking/urls.py scripts/test_goae_reference_browser.py static/booking/goae-assistant.js static/booking/goae-rechner-v2.css static/booking/goae-rechner-v2.js templates/booking/_billing_goae_form.html templates/booking/_goae_assistant.html | sort)"
+            test "$(git diff --name-only "$base" "$BOOK_TARGET" | sort)" = "$scope"
+            test -d staticfiles && test ! -L staticfiles
+            systemctl is-active --quiet aesthetic-book
+            secret_file=/etc/aesthetic-book-goae-ai.env
+            dropin=/etc/systemd/system/aesthetic-book.service.d/60-goae-assistant.conf
+            test ! -e "$secret_file" && test ! -L "$secret_file"
+            test ! -e "$dropin" && test ! -L "$dropin"
+            backup=$(mktemp -d /opt/aesthetic-book/remediation-rollbacks/goae-assistant.XXXXXX)
+            cp -a staticfiles "$backup/staticfiles"
+            switched=0
+            configured=0
+            finish() {
+              result=$?
+              trap - EXIT
+              if (( result != 0 )); then
+                if (( configured )); then
+                  rm -f -- "$secret_file" "$dropin"
+                  systemctl daemon-reload || result=2
+                fi
+                if (( switched )); then
+                  git switch -q --no-overwrite-ignore --detach "$base" || result=2
+                  mv staticfiles "$backup/staticfiles-failed" && mv "$backup/staticfiles" staticfiles || result=2
+                  systemctl restart aesthetic-book && systemctl is-active --quiet aesthetic-book || result=2
+                  echo "GOAE_ROLLBACK_STATUS=$result"
+                fi
+              fi
+              exit "$result"
+            }
+            trap finish EXIT
+            git switch -q --no-overwrite-ignore --detach "$BOOK_TARGET"
+            switched=1
+            django() {
+              runuser -u aestheticbook -- bash -c '
+                set -ae
+                source /etc/aesthetic-book.env
+                exec /opt/aesthetic-book/venv/bin/python manage.py "$@"
+              ' bash "$@"
+            }
+            django check
+            django collectstatic --noinput
+            if [[ "${CLOUDFLARE_ACCOUNT_ID:-}" =~ ^[0-9a-fA-F]{32}$ && "${CLOUDFLARE_AI_API_TOKEN:-}" =~ ^[A-Za-z0-9_-]{20,256}$ ]]; then
+              configured=1
+              umask 077
+              printf 'CLOUDFLARE_ACCOUNT_ID=%s\nCLOUDFLARE_AI_API_TOKEN=%s\n' "$CLOUDFLARE_ACCOUNT_ID" "$CLOUDFLARE_AI_API_TOKEN" > "$secret_file"
+              install -d -m 0755 "$(dirname "$dropin")"
+              printf '[Service]\nEnvironmentFile=%s\n' "$secret_file" > "$dropin"
+              systemctl daemon-reload
+              umask 022
+            fi
+            unset CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_AI_API_TOKEN
+            systemctl restart aesthetic-book
+            for attempt in {1..12}; do
+              if systemctl is-active --quiet aesthetic-book && curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null; then break; fi
+              sleep 2
+            done
+            systemctl is-active --quiet aesthetic-book
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null
+            for name in goae-rechner-v2.js goae-rechner-v2.css goae-assistant.js; do
+              curl -fsS --compressed --max-time 12 "https://book.a-esthetic.de/static/booking/$name?release=$BOOK_TARGET" | cmp -s - "static/booking/$name"
+            done
+            if (( configured )); then
+              main_pid=$(systemctl show --property=MainPID --value aesthetic-book)
+              python3 - "$main_pid" <<'PY'
+            import os, subprocess, sys
+            from pathlib import Path
+            from pwd import getpwnam
+
+            process_env = dict(entry.split(b'=', 1) for entry in Path(f'/proc/{sys.argv[1]}/environ').read_bytes().split(b'\0') if b'=' in entry)
+            env = {os.fsdecode(key): os.fsdecode(value) for key, value in process_env.items()}
+            user = getpwnam('aestheticbook')
+            command = 'from booking.goae_assistant import explain_topic; print("GOAE_WORKERS_AI_VERIFIED=" + ("yes" if explain_topic("entry") else "fallback"))'
+            subprocess.run(['/opt/aesthetic-book/venv/bin/python', 'manage.py', 'shell', '-c', command], env=env, user=user.pw_uid, group=user.pw_gid, extra_groups=[], check=True)
+            PY
+            else
+              echo GOAE_WORKERS_AI_VERIFIED=fallback
+            fi
+            echo "GOAE_RELEASE_VERIFIED=$BOOK_TARGET"

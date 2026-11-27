@@ -4,6 +4,8 @@ from . import mobile_staff_api
 from . import staff_patient_search
 from . import email_cancellation, record_views, doctor_views, admin_dashboard_views, admin_more_views, admin_views, api, app_admin_api, app_management_views, app_wallet_views, auth_views, calendar, calendar_admin_api, internal_api, internal_app_api, desktop_notifications, invoice_bridge, goae_quote_views, intake_forms, mobile_api, patient_portal, patient_portal_api, patient_routes, patient_identity_views, referral_relay, views
 
+from .goae_assistant import goae_assistant
+
 app_name = 'booking'
 urlpatterns = [
     path('api/mobile/staff/<slug:action>/', mobile_staff_api.workspace),
@@ -34,6 +36,7 @@ urlpatterns = [
     path('verwaltung/api/patient-form-notifications/', desktop_notifications.new_patient_forms, name='patient_form_notifications'),
     path('verwaltung/api/notifications/', desktop_notifications.notification_inbox, name='notification_inbox'),
     path('verwaltung/api/goae-quick/', goae_quote_views.goae_quick, name='goae_quick'),
+    path('verwaltung/api/goae-assistant/', goae_assistant, name='goae_assistant'),
     path('verwaltung/api/goae-quote/', goae_quote_views.goae_quote, name='goae_quote'),
     path('verwaltung/api/goae-patient-search/', goae_quote_views.goae_patient_search, name='goae_patient_search'),
     path('verwaltung/api/patient-search/', staff_patient_search.staff_patient_search, name='staff_patient_search'),

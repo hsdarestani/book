@@ -16,16 +16,20 @@ from .invoice_bridge import _request_bridge
 @require_POST
 def goae_quote(request):
     if _local_view_only(request):
-        return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+        return JsonResponse({'ok': False, 'message': 'Dieses Konto hat keinen Rechnungszugriff.'}, status=403)
     if len(request.body) > 150000:
-        return JsonResponse({'ok': False, 'error': 'too_large'}, status=413)
+        return JsonResponse({'ok': False, 'message': 'Zu viele Positionsdaten. Bitte Positionen und Beschreibungen prüfen.'}, status=413)
     try:
         data = json.loads(request.body)
         if not isinstance(data, dict):
             raise ValueError('Ungültige Angaben.')
         result = _billing_api(request, 'billing/quote/', method='POST', payload=data)
-    except (ValueError, TypeError, RuntimeError, PermissionError) as exc:
-        return JsonResponse({'ok': False, 'message': str(exc)[:200]}, status=400)
+    except PermissionError as exc:
+        return JsonResponse({'ok': False, 'message': str(exc)[:240]}, status=403)
+    except RuntimeError as exc:
+        return JsonResponse({'ok': False, 'message': str(exc)[:240]}, status=502)
+    except (ValueError, TypeError) as exc:
+        return JsonResponse({'ok': False, 'message': str(exc)[:240]}, status=400)
     response = JsonResponse(result)
     response['Cache-Control'] = 'private, no-store'
     return response
