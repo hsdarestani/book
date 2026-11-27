@@ -1,0 +1,338 @@
+name: Server-only read-only existing-record diagnostic
+on:
+  push:
+    branches: [qa/private-existing-record-diagnostics-20261127]
+    paths: ['.github/workflows/server-only-record-source-audit.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Store confidential diagnostic exclusively on Book production host
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 17m
+          script: |
+            set -euo pipefail
+            umask 077
+            directory=/run/aesthetic-record-audit-20261127-7f6291
+            test -d "$directory"
+            test "$(stat -c '%u:%a' "$directory")" = '0:700'
+            rm -f "$directory/input.key"
+            cd /opt/aesthetic-book/app
+            test "$(git rev-parse HEAD)" = 81ccfa136d0ed44cdaea959fae45982d98df8a92
+            set -a
+            source /etc/aesthetic-book.env
+            source /etc/aesthetic-simplybook-credentials.env
+            set +a
+            pid=$(systemctl show aesthetic-book -p MainPID --value)
+            for gate in SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED SIMPLYBOOK_CALENDAR_WRITEBACK_ENABLED SIMPLYBOOK_OUTBOUND_ENABLED; do
+              setting=$(tr '\0' '\n' <"/proc/$pid/environ" | grep -m 1 "^$gate=")
+              export "$setting"
+            done
+            export DJANGO_SETTINGS_MODULE=config.settings PYTHONPATH=/opt/aesthetic-book/app
+            # No raw results, aggregate counts, target selectors, or diagnostic errors
+            # are sent to GitHub. Output stays only in the root-owned server directory.
+            runuser -u aestheticbook --preserve-environment -- /opt/aesthetic-book/venv/bin/python - >"$directory/report.json.tmp" 2>"$directory/report-errors.log" <<'PY'
+            """Read-only production audit. Output is confidential; run only on the Book host.
+            
+            Never expose raw records, source responses, credentials or diagnostic tracebacks.
+            Target selectors come from a private input, not repository content.
+            """
+            import json
+            import os
+            from collections import Counter, defaultdict
+            from copy import copy
+            from urllib.parse import urlencode
+            
+            import django
+            
+            django.setup()
+            
+            from django.db import connection, transaction
+            from django.db.models import Q
+            from django.utils import timezone
+            
+            from booking.clinical_time import clinic_localdate, clinic_localtime, parse_appointment_start
+            from booking.models import Appointment, BlockedPeriod, ExternalSyncState
+            from booking.mobile_staff_api import _appointment, _block
+            from booking.admin_views import _block_payload as web_block
+            from booking.simplybook_outbound import ARIANE, UNIT_ID, SERVICE_MAP, SOURCE_AVAILABILITY_ERRORS, _same_booking, as_bool, session
+            from booking.simplybook_writeback import _details, _identity, source_id, source_managed, source_editable
+            from booking.simplybook_calendar import _digest, _note, _notes_session, note_fields, source_revision, source_staff
+            from booking.management.commands.sync_simplybook_notes import _items_from_page, _total_pages
+            
+            
+            def stamp(value):
+                return clinic_localtime(value).strftime('%Y-%m-%dT%H:%M')
+            
+            
+            def payment_protected(row):
+                return (row.get('invoice_id') not in (None, 0, '0', '')
+                        or row.get('invoice_payment_received') not in (None, 0, '0', '')
+                        or as_bool(row.get('deposit_is_enabled'))
+                        or row.get('price') not in (None, {}, [], '')
+                        or row.get('promo') not in (None, {}, [], '')
+                        or row.get('batch_id') not in (None, 0, '0', ''))
+            
+            
+            def appointment_report(item, remote, detail_status):
+                ident = source_id(item)
+                payload = _appointment(item)
+                reasons = []
+                if item.staff.display_name != ARIANE or not item.staff.active:
+                    reasons.append('provider_scope')
+                if item.status != 'confirmed':
+                    reasons.append('not_confirmed')
+                if item.simplybook_sync_state not in {'', 'linked'}:
+                    reasons.append('sync_state_not_ready')
+                if ident is None:
+                    reasons.append('missing_source_id')
+                if not payload['source_editable'] and not reasons:
+                    reasons.append('serialization_or_runtime_gate')
+                verified = False
+                if remote is None:
+                    reasons.append(detail_status)
+                else:
+                    try:
+                        event, client = _identity(item, remote)
+                        expected = copy(item)
+                        expected.ends_at = item.simplybook_remote_ends_at or item.ends_at
+                        if not _same_booking(remote, expected, event, client):
+                            if str(remote.get('unit_id')) != str(UNIT_ID):
+                                reasons.append('source_provider_mismatch')
+                            if str(remote.get('event_id')) != str(event):
+                                reasons.append('source_service_mismatch')
+                            if str(remote.get('client_id')) != str(client):
+                                reasons.append('source_client_mismatch')
+                            if parse_appointment_start(remote.get('start_date_time') or remote.get('start_date')) != item.starts_at:
+                                reasons.append('source_start_mismatch')
+                            if parse_appointment_start(remote.get('end_date_time') or remote.get('end_date')) != expected.ends_at:
+                                reasons.append('source_end_mismatch')
+                            if not as_bool(remote.get('is_confirmed', remote.get('is_confirm'))):
+                                reasons.append('source_not_confirmed')
+                            if not any(r.startswith('source_') for r in reasons):
+                                reasons.append('source_booking_changed')
+                        else:
+                            verified = True
+                    except SOURCE_AVAILABILITY_ERRORS as exc:
+                        reason = str(exc)
+                        reasons.append(reason if reason in {'source_service_mismatch', 'source_client_not_verified', 'source_client_not_unique', 'source_identity_unverified'} else 'source_identity_unverified')
+                    if remote is not None and payment_protected(remote):
+                        reasons.append('payment_protection')
+                return {
+                    'api_editable': payload['source_editable'], 'api_source_managed': payload['source_managed'],
+                    'api_source_identity_available': payload['source_identity_available'], 'api_source_time_supported': payload['source_time_supported'],
+                    'status': item.status if item.status in {'new', 'confirmed', 'cancelled', 'completed', 'no_show'} else 'unknown',
+                    'sync_state': item.simplybook_sync_state if item.simplybook_sync_state in {'', 'linked', 'queued', 'sending', 'review', 'blocked'} else 'other',
+                    'source_id_kind': 'explicit' if item.simplybook_booking_id else 'legacy' if ident else 'missing',
+                    'service_mapping': 'canonical' if item.service.slug in SERVICE_MAP else 'legacy' if item.service.slug.startswith('simplybook-event-') else 'unknown',
+                    'mapped_event_present': bool(item.simplybook_event_id), 'mapped_client_present': bool(item.simplybook_client_id),
+                    'remote_end_saved': bool(item.simplybook_remote_ends_at), 'source_verified': verified,
+                    'detail_status': detail_status, 'reasons': sorted(set(reasons)),
+                    'source_location_present': bool(remote and remote.get('location') not in (None, {}, [], '')),
+                }
+            
+            
+            def marker_id(item):
+                if not item.simplybook_managed:
+                    return None
+                marker = item.reason[:-1].rpartition('\u2063')[2]
+                ident = int(marker.replace('\u200b', '0').replace('\u200c', '1'), 2)
+                return ident if 0 < ident < 10**18 else None
+            
+            
+            def block_report(item, remote, detail_status):
+                payload = _block(item, True, admin=True)
+                raw_revision = getattr(item, 'simplybook_revision', None)
+                revision = source_revision(item)
+                ident = marker_id(item)
+                reasons = []
+                start, end = clinic_localtime(item.starts_at), clinic_localtime(item.ends_at)
+                if not source_staff(item.staff):
+                    reasons.append('provider_scope')
+                if start.date() != end.date():
+                    reasons.append('cross_day_interval')
+                if any(t.minute % 15 or t.second or t.microsecond for t in (start, end)):
+                    reasons.append('interval_not_quarter_hour')
+                if ident is None:
+                    reasons.append('missing_legacy_marker')
+                if not raw_revision:
+                    reasons.append('missing_revision')
+                elif raw_revision.source_id != ident:
+                    reasons.append('revision_identity_mismatch')
+                verified = False
+                scope = 'unknown'
+                text_shape = 'unknown'
+                if remote is None:
+                    reasons.append(detail_status)
+                else:
+                    scope = ('provider_ariane' if remote.get('mode') == 'provider' and str(remote.get('provider_id')) == str(UNIT_ID)
+                             and remote.get('service_id') in (None, '', 0, '0') else 'outside_supported_provider_scope')
+                    if scope != 'provider_ariane':
+                        reasons.append('source_scope_not_supported')
+                    else:
+                        try:
+                            fields = note_fields(remote)
+                            note = fields['note']
+                            text_shape = 'long' if len(note) > 120 else 'noncanonical_whitespace' if note != ' '.join(note.split()) else 'supported'
+                            if text_shape != 'supported':
+                                reasons.append('source_text_' + text_shape)
+                            if parse_appointment_start(fields['start_date_time']) != item.starts_at or parse_appointment_start(fields['end_date_time']) != item.ends_at:
+                                reasons.append('source_time_mismatch')
+                            if raw_revision is not None and raw_revision.digest != _digest(fields):
+                                reasons.append('source_revision_digest_mismatch')
+                            if revision and revision.source_id == ident and revision.digest == _digest(fields) and text_shape == 'supported':
+                                verified = True
+                        except ValueError:
+                            reasons.append('source_fields_not_supported')
+                if not payload['editable'] and not reasons:
+                    reasons.append('serialization_or_runtime_gate')
+                return {'api_editable': payload['editable'], 'api_source_managed': payload['source_managed'],
+                        'api_revision_available': payload['source_revision_available'], 'web_revision_available': bool(web_block(item)['source_revision']),
+                        'local_kind': 'note' if item.reason.startswith('[NOTE]') else 'blocked_period', 'marker_present': ident is not None,
+                        'stored_revision_present': raw_revision is not None, 'eligible_revision_present': revision is not None,
+                        'source_scope': scope, 'source_text_shape': text_shape, 'source_verified': verified,
+                        'detail_status': detail_status, 'reasons': sorted(set(reasons))}
+            
+            
+            def read_notes(call, start, end):
+                result = {}
+                for page in range(1, 501):
+                    query = urlencode({'page': page, 'on_page': 100, 'filter[date_from]': start, 'filter[date_to]': end})
+                    response = call('?' + query)
+                    rows = _items_from_page(response)
+                    for row in rows:
+                        ident = str(row.get('id', ''))
+                        if not ident.isascii() or not ident.isdecimal() or ident in result:
+                            raise ValueError('invalid inventory')
+                        result[ident] = row
+                    pages = _total_pages(response)
+                    if (pages and page >= pages) or (not pages and len(rows) < 100):
+                        return result
+                raise ValueError('incomplete inventory')
+            
+            
+            def run():
+                now = timezone.now()
+                targets = json.loads(os.environ.get('AUDIT_TARGETS', '[]'))
+                if not isinstance(targets, list) or (targets and (len(targets) != 2 or {target.get('kind') for target in targets} != {'appointment', 'block'})):
+                    raise ValueError('invalid target definition')
+                target_results = {str(i + 1): [] for i in range(len(targets))}
+                appointments = list(Appointment.objects.filter(starts_at__gt=now).select_related('staff', 'service', 'customer', 'mobile_cancellation').order_by('starts_at'))
+                blocks = list(BlockedPeriod.objects.filter(starts_at__gt=now).select_related('staff', 'simplybook_revision').order_by('starts_at'))
+                day = clinic_localdate(now).isoformat()
+                end = max(['2035-12-31'] + [clinic_localdate(item.starts_at).isoformat() for item in appointments + blocks])
+                booking_call = None
+                try:
+                    booking_call = session()
+                    inventory = booking_call('getBookings', [{'date_from': day, 'date_to': end, 'booking_type': 'non_cancelled'}])
+                    if not isinstance(inventory, list) or any(not isinstance(r, dict) for r in inventory):
+                        raise ValueError('bad source inventory')
+                    booking_inventory = {str(row.get('id')): row for row in inventory}
+                    if len(booking_inventory) != len(inventory):
+                        raise ValueError('duplicate source identities')
+                    booking_inventory_state = 'verified'
+                except Exception:
+                    booking_inventory, booking_inventory_state = {}, 'unavailable'
+                note_call = None
+                try:
+                    note_call = _notes_session()
+                    note_inventory = read_notes(note_call, day, end)
+                    note_inventory_state = 'verified'
+                except Exception:
+                    note_inventory, note_inventory_state = {}, 'unavailable'
+                totals = defaultdict(Counter)
+                private_records = []
+                previous = {'appointment': None, 'block': None}
+                prior_appointments = [item.pk for item in appointments if item.staff.display_name == ARIANE and item.status == 'confirmed'
+                                      and (item.idempotency_key or '').startswith('simplybook-') and 'synthetic' not in item.customer.first_name.lower()][:5]
+                prior_blocks = [item.pk for item in blocks if item.staff.display_name == ARIANE and getattr(item, 'simplybook_revision', None)][:5]
+                local_booking_ids, local_note_ids = set(), set()
+                for kind, rows in [('appointment', appointments), ('block', blocks)]:
+                    for item in rows:
+                        imported = source_managed(item) if kind == 'appointment' else bool(item.simplybook_managed or getattr(item, 'simplybook_revision', None))
+                        matching = [i for i, target in enumerate(targets) if target['kind'] == kind and item.staff.display_name == ARIANE and target['start'] == stamp(item.starts_at)]
+                        if not imported and not matching and item.staff.display_name != ARIANE:
+                            continue
+                        if kind == 'appointment':
+                            ident = source_id(item)
+                            if ident is not None:
+                                local_booking_ids.add(str(ident))
+                            remote = None
+                            detail_status = 'missing_source_id' if ident is None else 'source_readback_unavailable'
+                            if ident is not None and booking_call is not None and item.status == 'confirmed':
+                                try:
+                                    # Only a GET-style source RPC: no creation, update, cancellation, or retry.
+                                    remote = _details(booking_call, ident)
+                                    detail_status = 'detail_verified'
+                                except Exception:
+                                    remote = booking_inventory.get(str(ident))
+                                    detail_status = 'inventory_only' if remote is not None else 'source_readback_unverified'
+                            elif ident is not None and str(ident) in booking_inventory:
+                                remote = booking_inventory[str(ident)]
+                                detail_status = 'inventory_only'
+                            result = appointment_report(item, remote, detail_status)
+                            bucket = 'appointments'
+                            if item.pk in prior_appointments and previous[kind] is None and result['api_editable'] and result['source_verified'] and detail_status == 'detail_verified':
+                                previous[kind] = result
+                        else:
+                            ident = marker_id(item)
+                            if ident is not None:
+                                local_note_ids.add(str(ident))
+                            remote = note_inventory.get(str(ident))
+                            detail_status = 'inventory_verified' if remote is not None else 'source_note_unverified'
+                            if note_call and ident and (matching or item.pk in prior_blocks):
+                                try:
+                                    remote = _note(note_call, ident)
+                                    detail_status = 'detail_verified' if remote is not None else 'source_note_not_found'
+                                except Exception:
+                                    detail_status = 'inventory_only' if remote is not None else 'source_readback_unverified'
+                            result = block_report(item, remote, detail_status)
+                            bucket = 'notes' if result['local_kind'] == 'note' else 'blocked_periods'
+                            if item.pk in prior_blocks and previous[kind] is None and result['api_editable'] and result['source_verified'] and detail_status == 'detail_verified':
+                                previous[kind] = result
+                        private_records.append({'kind': kind, 'start': stamp(item.starts_at), 'end': stamp(item.ends_at),
+                                                'ariane': item.staff.display_name == ARIANE, 'imported': imported, **result})
+                        if imported:
+                            counter = totals[bucket]
+                            counter['total'] += 1
+                            counter['api_editable' if result['api_editable'] else 'api_read_only'] += 1
+                            counter['source_verified' if result['source_verified'] else 'source_unverified'] += 1
+                            counter['fully_eligible' if result['api_editable'] and result['source_verified'] and not result['reasons']
+                                    and (kind == 'block' or result['detail_status'] == 'detail_verified') else 'not_fully_eligible'] += 1
+                            counter['readback:' + result['detail_status']] += 1
+                            for reason in result['reasons']:
+                                counter['reason:' + reason] += 1
+                        for index in matching:
+                            target_results[str(index + 1)].append({**result, 'end_matches': targets[index]['end'] == stamp(item.ends_at)})
+                remote_bookings = {ident for ident, row in booking_inventory.items() if str(row.get('unit_id')) == str(UNIT_ID)
+                                   and (parse_appointment_start(row.get('start_date_time') or row.get('start_date')) or now) > now}
+                remote_notes = {ident for ident, row in note_inventory.items() if (parse_appointment_start(row.get('start_date_time') or row.get('from')) or now) > now}
+                return {'counts': totals, 'targets': target_results, 'previous_sample_comparison': previous,
+                        'private_records': private_records,
+                        'booking_inventory': booking_inventory_state, 'note_inventory': note_inventory_state,
+                        'source_only_booking_count': len(remote_bookings - local_booking_ids) if booking_inventory_state == 'verified' else None,
+                        'source_only_note_count': len(remote_notes - local_note_ids) if note_inventory_state == 'verified' else None,
+                        'snapshot_is_read_only': True}
+            
+            
+            if __name__ == '__main__':
+                with transaction.atomic():
+                    if connection.vendor != 'postgresql':
+                        raise RuntimeError('expected production PostgreSQL environment')
+                    with connection.cursor() as cursor:
+                        cursor.execute('SET TRANSACTION READ ONLY')
+                    print(json.dumps(run(), sort_keys=True))
+            PY
+            test -s "$directory/report.json.tmp"
+            python3 -c 'import json,sys; x=json.load(open(sys.argv[1])); assert x["snapshot_is_read_only"] is True and isinstance(x["private_records"],list)' "$directory/report.json.tmp" >/dev/null 2>&1
+            chmod 600 "$directory/report.json.tmp" "$directory/report-errors.log"
+            mv "$directory/report.json.tmp" "$directory/report.json"
+            echo PRIVATE_REPORT_STORED_ON_HOST=yes
