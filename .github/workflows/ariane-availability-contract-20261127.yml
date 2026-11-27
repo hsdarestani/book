@@ -1,0 +1,46 @@
+name: Read-only Ariane working-hours contract
+on:
+  push:
+    branches: [fix/simplybook-calendar-writeback-20261127]
+    paths: ['.github/workflows/ariane-availability-contract-20261127.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Confirm the production schedule methods for Ariane only
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 4m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            source /etc/aesthetic-simplybook-credentials.env
+            runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            import logging
+            from datetime import timedelta
+            from booking.clinical_time import clinic_localdate
+            from booking.simplybook_outbound import UNIT_ID, session
+            logging.disable(logging.CRITICAL)
+            try:
+                call = session()
+                start = clinic_localdate() + timedelta(days=7)
+                end = start + timedelta(days=2)
+                days = call('getUnitWorkdayInfo',[start.isoformat(),end.isoformat(),UNIT_ID])
+                calendar = call('getWorkCalendar',[start.year,start.month,UNIT_ID])
+                week = call('getWorkDaysInfo',[start.isoformat(),end.isoformat(),UNIT_ID])
+                assert isinstance(calendar,dict) and isinstance(week,dict) and days
+                fields = {key for value in calendar.values() if isinstance(value,dict) for key in value}
+                print('ARIANE_PROVIDER_WORKDAY_AND_RANGE_READBACK=true')
+                print('WORK_CALENDAR_DATE_PROVENANCE_VISIBLE=' + str(bool(fields & {'is_special','is_special_day','override','schedule_id','special_day_id'})))
+                statuses = call('getStatuses',[])
+                print('BOOKING_CUSTOM_STATUS_COUNT=' + str(len(statuses) if isinstance(statuses, (dict,list)) else 0))
+            except Exception as exc:
+                raise SystemExit('SCHEDULE_READ_CHECK_FAILED=' + type(exc).__name__) from None
+            PY
