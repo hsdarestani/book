@@ -130,7 +130,10 @@
     {% elif notice == 'simplybook-block-read-only' %}SimplyBook muss die Änderung bestätigen. Der Eintrag wurde nicht geändert.
     {% elif notice == 'appointment' %}Terminstatus wurde aktualisiert.
     {% elif notice == 'service' %}Behandlung wurde gespeichert.
-    {% elif notice == 'booking' %}Termin wurde angelegt und die Bestätigung an den Kunden gesendet.
+    {% elif notice == 'booking' %}Termin wurde angelegt.
+    {% elif notice == 'booking-pending' %}Terminanfrage angelegt. Die SimplyBook-Bestätigung steht aus.
+    {% elif notice == 'hours-source' %}Arianes Arbeitszeiten und Tagesausnahmen werden direkt in SimplyBook verwaltet.
+    {% elif notice == 'booking-source-unavailable' %}Dieser Termin konnte in SimplyBook nicht reserviert werden. Bitte Verfügbarkeit prüfen und erneut versuchen.
     {% elif notice == 'customer' %}Kunde wurde gespeichert.
     {% elif notice == 'note' %}Notiz wurde gespeichert.
     {% elif notice == 'booking-conflict' %}Dieser Zeitraum ist bereits belegt oder gesperrt.
@@ -204,13 +207,14 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="save_hours">
         <input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">
-        <div class="editor-head"><div><span>Wochenplan</span><h3>{{ selected_staff.display_name }}</h3></div><button type="submit" class="admin-primary">Speichern</button></div>
+        <div class="editor-head"><div><span>Wochenplan</span><h3>{{ selected_staff.display_name }}</h3></div>{% if not working_hours_source_managed %}<button type="submit" class="admin-primary">Speichern</button>{% endif %}</div>
+        {% if working_hours_source_managed %}<p>Arianes Wochenplan und Tagesausnahmen werden in SimplyBook verwaltet.</p>{% endif %}
         <div class="week-grid">
           {% for row in availability_rows %}
           <div class="week-row">
-            <label class="day-toggle"><input type="checkbox" name="day_{{ row.weekday }}_enabled" {% if row.enabled %}checked{% endif %}><span></span><b>{{ row.label }}</b></label>
-            <div class="time-period"><small>Zeitraum 1</small><div><input type="time" name="day_{{ row.weekday }}_start_1" value="{{ row.start_1 }}"><span>bis</span><input type="time" name="day_{{ row.weekday }}_end_1" value="{{ row.end_1 }}"></div></div>
-            <div class="time-period optional-period"><small>Zeitraum 2 <em>optional</em></small><div><input type="time" name="day_{{ row.weekday }}_start_2" value="{{ row.start_2 }}"><span>bis</span><input type="time" name="day_{{ row.weekday }}_end_2" value="{{ row.end_2 }}"></div></div>
+            <label class="day-toggle"><input type="checkbox" {% if working_hours_source_managed %}disabled {% endif %}name="day_{{ row.weekday }}_enabled" {% if row.enabled %}checked{% endif %}><span></span><b>{{ row.label }}</b></label>
+            <div class="time-period"><small>Zeitraum 1</small><div><input type="time" {% if working_hours_source_managed %}disabled {% endif %}name="day_{{ row.weekday }}_start_1" value="{{ row.start_1 }}"><span>bis</span><input type="time" {% if working_hours_source_managed %}disabled {% endif %}name="day_{{ row.weekday }}_end_1" value="{{ row.end_1 }}"></div></div>
+            <div class="time-period optional-period"><small>Zeitraum 2 <em>optional</em></small><div><input type="time" {% if working_hours_source_managed %}disabled {% endif %}name="day_{{ row.weekday }}_start_2" value="{{ row.start_2 }}"><span>bis</span><input type="time" {% if working_hours_source_managed %}disabled {% endif %}name="day_{{ row.weekday }}_end_2" value="{{ row.end_2 }}"></div></div>
           </div>
           {% endfor %}
         </div>
@@ -263,7 +267,7 @@
     <div class="sb-sheet-head"><button type="button" data-close-modal>×</button><strong>Neuen Termin buchen</strong><span></span></div>
     <div class="sb-sheet-section-title">Buchungsinformationen</div>
     <form method="post" class="sb-sheet-form">
-      {% csrf_token %}<input type="hidden" name="action" value="add_appointment"><input type="hidden" name="staff_id" value="{{ selected_staff.pk }}"><input type="hidden" name="return_date" value="{{ calendar_date|date:'Y-m-d' }}"><input type="hidden" name="return_view" value="{{ calendar_view }}">
+      {% csrf_token %}<input type="hidden" name="action" value="add_appointment"><input type="hidden" name="appointment_request_key" value="{{ appointment_request_key }}"><input type="hidden" name="staff_id" value="{{ selected_staff.pk }}"><input type="hidden" name="return_date" value="{{ calendar_date|date:'Y-m-d' }}"><input type="hidden" name="return_view" value="{{ calendar_view }}">
       <label class="sb-form-row"><span class="sb-row-icon">◒</span><div><small>Dienstleistung</small><select name="service_id" required><option value="">Eine Dienstleistung auswählen</option>{% for service in services %}<option value="{{ service.pk }}">{{ service.name }}</option>{% endfor %}</select></div></label>
       <label class="sb-form-row"><span class="sb-provider-avatar">{% if selected_staff %}{{ selected_staff.display_name|slice:":1" }}{% else %}A{% endif %}</span><div><small>Dienstleister</small><select name="appointment_staff_id" required>{% for member in staff_members %}<option value="{{ member.pk }}" {% if selected_staff and member.pk == selected_staff.pk %}selected{% endif %}>{{ member.display_name }}</option>{% endfor %}</select></div></label>
       <button type="button" class="sb-form-row sb-customer-picker-trigger" data-open-customer-picker><span class="sb-row-icon">♙</span><div><small>Kunde</small><strong data-picked-customer-name>Einen Kunden auswählen</strong></div><b>⌄</b></button>

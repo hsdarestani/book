@@ -38,10 +38,10 @@ from .models import (
 )
 from .intake_forms import build_intake_pdf, confirm_form_link
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder, notify_admin_source_changed
-from .simplybook_writeback import source_managed as _managed_appointment, source_editable, change_locked
-from .simplybook_outbound import SOURCE_AVAILABILITY_ERRORS
+from .simplybook_writeback import source_managed as _managed_appointment, source_editable, change_locked, source_id
+from .simplybook_outbound import ARIANE, SOURCE_AVAILABILITY_ERRORS, integrated
 from .simplybook_calendar import ACTION_ID_BASE, CalendarSourceConflict, mutate_note, notes_enabled, source_revision, source_staff
-from .services import effective_working_ranges
+from .services import effective_working_ranges, prepare_staff_booking
 from .patient_identity_review import possible_duplicate_pairs
 from .patient_identity_views import process_decision
 
@@ -174,6 +174,10 @@ def _appointment(item):
         'status': item.status, 'notes': item.notes_customer, 'revision': item.updated_at.isoformat(),
         'source_managed': source_managed,
         'source_editable': source_editable(item),
+        'sync_state': item.simplybook_sync_state,
+        'source_identity_available': source_id(item) is not None,
+        'source_time_supported': item.staff.display_name == ARIANE and item.starts_at > timezone.now()
+        and item.status == 'confirmed',
         'treatment_end_at': treatment_end.isoformat(), 'reserved_end_at': end.isoformat(),
         'management_system': 'SimplyBook' if source_managed else 'Book',
         'credit_pending': hasattr(item, 'mobile_cancellation') and item.mobile_cancellation.completed_at is None,
@@ -190,8 +194,11 @@ def _block(item, editable, *, admin):
         payload['text'] = payload['text'].split('\u2063', 1)[0].strip()
     return payload | {
         'id': ACTION_ID_BASE + revision.pk if revision else item.pk,
-        'editable': bool(revision) if imported else editable,
+        'record_id': item.pk,
+        'editable': bool(revision) if imported else editable and not (
+            '[ALL]' in item.reason or '[SERVICE:' in item.reason),
         'source_editable': bool(revision),
+        'source_revision_available': bool(source_revision(item)) if imported and admin else False,
         'source_managed': imported,
         'management_system': 'SimplyBook' if imported else 'Book',
         'start_at': clinic_localtime(item.starts_at).isoformat(),
@@ -248,7 +255,7 @@ def _calendar(request, providers, *, admin):
         'ok': True, 'availability': availability,
         'appointments': [_appointment(item) for item in _appointments(providers)
                          .filter(starts_at__lt=upper, ends_at__gt=lower).exclude(status='cancelled')],
-        'blocks': [_block(item, item.pk in editable, admin=admin) for item in blocks],
+        'blocks': [_block(item, admin or item.pk in editable, admin=admin) for item in blocks],
     })
 
 
@@ -259,6 +266,7 @@ def _catalog(providers):
         'providers': [{
             'id': item.pk, 'name': item.display_name, 'role': item.role,
             'source_managed': item.display_name.startswith('A+ Esthetic (SimplyBook #'),
+            'working_hours_source_managed': source_staff(item) or item.display_name.startswith('A+ Esthetic (SimplyBook #'),
             'management_system': ('SimplyBook' if item.display_name.startswith('A+ Esthetic (SimplyBook #') else 'Book'),
             'services': [service.pk for service in item.services.all() if service.active],
             'working_hours': [
@@ -564,7 +572,7 @@ def _check_schedule(staff, start, end):
         raise CommandConflict('Die gewählte Zeit ist gesperrt.')
 
 
-def _save_appointment(data, actor, providers, previous_item):
+def _save_appointment(data, actor, providers, previous_item, *, key):
     operation = data.get('operation')
     item = previous_item
     if operation not in {'create', 'update', 'cancel'} or bool(item) == (operation == 'create'):
@@ -627,7 +635,8 @@ def _save_appointment(data, actor, providers, previous_item):
             raise CommandConflict('Eine Änderung der Behandlung erfordert die Prüfung des Behandlungspakets.')
         if not service.active or not service.bookable:
             raise CommandConflict('Die Behandlung ist derzeit nicht buchbar.')
-        _check_schedule(staff, start, end)
+        if item or not integrated(service, staff):
+            _check_schedule(staff, start, end)
 
     if not item:
         item = Appointment(
@@ -644,6 +653,10 @@ def _save_appointment(data, actor, providers, previous_item):
     item.starts_at = start
     item.ends_at = end
     item.status = status
+    if 'notes' in data:
+        item.notes_customer = str(data['notes']).strip()[:3000]
+    if not previous:
+        prepare_staff_booking(item, request_key=f'mobile-staff-{actor["id"]}-{key}')
     if schedule_changed:
         for field in ('reminder_24h_sent_at', 'reminder_1h_sent_at', 'reminder_1h_admin_email_sent_at',
                       'reminder_1h_admin_push_sent_at'):
@@ -655,14 +668,14 @@ def _save_appointment(data, actor, providers, previous_item):
     item.save()
     if previous:
         transaction.on_commit(lambda: _notify(notify_admin_changed, item, previous))
-    else:
+    elif not item.simplybook_sync_state:
         if actor['role'] == 'admin':
             transaction.on_commit(lambda: _notify(send_customer_booking_email, item))
         transaction.on_commit(lambda: _notify(notify_admin_created, item))
     return item.pk
 
 
-def _save_block(data, providers):
+def _save_block(data, providers, *, admin):
     staff = providers.filter(pk=int(data['staff_id'])).first()
     if not staff:
         raise ValidationError('Ungültiger Behandler.')
@@ -676,7 +689,8 @@ def _save_block(data, providers):
         item = BlockedPeriod.objects.select_for_update().filter(pk=int(data['id']), staff=staff).first()
         if item and item.simplybook_managed:
             raise CommandConflict('Dieser Kalendereintrag wird über SimplyBook synchronisiert. Bitte direkt in SimplyBook ändern.')
-        if not item or not MobileStaffCommand.objects.filter(action='block',object_id=item.pk).exists():
+        if (not item or '[ALL]' in item.reason or '[SERVICE:' in item.reason
+                or (not admin and not MobileStaffCommand.objects.filter(action='block',object_id=item.pk).exists())):
             raise CommandConflict('Dieser Eintrag wird in der Book-Verwaltung verwaltet. Bitte dort ändern.')
         if operation == 'delete':
             ident = item.pk
@@ -739,7 +753,7 @@ def _save_hours(data, providers):
     staff = providers.filter(pk=int(data['staff_id'])).first()
     if not staff or data.get('operation') not in {'daily', 'weekly', 'reset'}:
         raise ValidationError('Ungültige Verfügbarkeit.')
-    if staff.display_name.startswith('A+ Esthetic (SimplyBook #'):
+    if source_staff(staff) or staff.display_name.startswith('A+ Esthetic (SimplyBook #'):
         raise CommandConflict('Diese Arbeitszeiten werden aus SimplyBook synchronisiert. Bitte direkt in SimplyBook ändern.')
     date = _date(data.get('date'))
     post = {**data, 'closed': 'on' if data.get('closed') is True else '', 'action': data['operation']}
@@ -811,18 +825,23 @@ def _mutate(request, actor, providers, action):
             if not created:
                 if receipt.fingerprint != fingerprint:
                     raise CommandConflict('Dieser Auftrag wurde bereits mit anderen Eingaben verwendet.')
-                return _private({'ok': True, 'id': receipt.object_id, 'replayed': True})
+                result = {'ok': True, 'id': receipt.object_id, 'replayed': True}
+                if action == 'appointment' and data.get('operation') == 'create':
+                    current = Appointment.objects.filter(pk=receipt.object_id).first()
+                    result['external_confirmation_pending'] = bool(
+                        current and current.simplybook_sync_state in {'queued','sending','review','blocked'})
+                return _private(result)
             if action == 'appointment':
                 item = _appointments(providers).select_for_update(of=('self',)).filter(pk=int(ident)).first() if ident else None
                 if ident and (not item or item.staff_id not in lock_ids):
                     raise CommandConflict('Der Termin wurde zwischenzeitlich geändert. Bitte neu laden.')
-                result = _save_appointment(data, actor, providers, item)
+                result = _save_appointment(data, actor, providers, item, key=key)
                 if result is None:
                     receipt.delete()
                     return _private({'ok': False, 'error': 'source_review_required',
                                      'message': 'SimplyBook-Status muss geprüft werden.'}, 409)
             elif action == 'block':
-                result = _save_block(data, providers)
+                result = _save_block(data, providers, admin=actor['role']=='admin')
             elif action == 'availability':
                 result = _save_hours(data, providers)
             elif action == 'service':
@@ -904,4 +923,7 @@ def _mutate(request, actor, providers, action):
         return _private({'ok': False, 'error': 'admin_required'}, 403)
     except KeyError as exc:
         raise ValidationError('Erforderliche Eingaben fehlen.') from exc
+    if action == 'appointment' and data.get('operation') == 'create':
+        state = Appointment.objects.values_list('simplybook_sync_state', flat=True).get(pk=result)
+        return _private({'ok': True, 'id': result, 'external_confirmation_pending': state == 'queued'})
     return _private({'ok': True, 'id': result})

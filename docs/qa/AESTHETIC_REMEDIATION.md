@@ -101,3 +101,11 @@ For TODO and IN_PROGRESS entries with no report below, root cause, relevant file
 - Read-only production reconciliation [45877076784](https://github.com/hsdarestani/book/actions/runs/45877076784) found one local unattempted reservation without a remote ID; catalog mapping verified, but the requested 16:15 was not present in the source start-time matrix. [45877414669](https://github.com/hsdarestani/book/actions/runs/45877414669) verified the clinic-approved synthetic alternative at 16:00 in both systems without writing anything.
 - Candidate preserves explicit negative-answer provenance (additive 0035), reports unverified source reservations as pending, prevents unverified confirmation email and protects source-linked mutations; a gated queue reuses the existing outbound reconciliation code. Focused outbound and mobile tests passed. Automatic outbound and admin/native edits remain gated pending verified controlled lifecycle. No real records or patient contact information in action logs.
 - Next: guarded migration/release, recheck the synthetic alternative in both calendars, then perform the explicitly authorized source lifecycle with actual answers. Quick invoice still needs physician-approved template configuration. Standalone PDF was deployed previously at `f063ce82d07fc13e4d30b92dccf665451ab0fa51`.
+
+
+## Unified 1.0.64 candidate
+
+- The staff web and native creation paths check Ariane's vendor availability and queue the existing outbound worker. Patient history supplies the returning answer and verified referral. The worker sends local confirmations after source read-back.
+- Imported appointments verify the selected source client against the existing patient links. Native detail actions reload the current calendar revision. Staff-only Book entries can be edited from either surface. Provider-wide and treatment-wide Book groups continue to use the web group editor.
+- Verified capabilities carried forward include appointment rescheduling and cancellation and provider-scoped calendar note and block writeback. External working-hours or availability writes, arbitrary imported status updates, and arbitrary appointment-note writes require a verified vendor contract before enabling them.
+- Production acceptance and store status are tracked separately from the implementation and regression tests.

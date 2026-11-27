@@ -1,4 +1,7 @@
 from datetime import datetime, timedelta
+from uuid import uuid4
+
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_wall_time
@@ -142,3 +145,29 @@ def source_day(booked, day):
         return None
     days, blocked = booked
     return days.get(day.isoformat(), []), blocked
+
+
+def prepare_staff_booking(appointment, *, request_key=None):
+    """Initialize a new staff reservation with the same source contract as public bookings."""
+    from .simplybook_outbound import (
+        SOURCE_AVAILABILITY_ERRORS, integrated, patient_booking_answers, public_sync_enabled,
+    )
+
+    if not integrated(appointment.service, appointment.staff):
+        return
+    if not public_sync_enabled():
+        raise ValidationError('Die SimplyBook-Buchung ist für diesen Behandler momentan nicht verfügbar.')
+    day = clinic_localdate(appointment.starts_at)
+    try:
+        availability = source_day(booking_source_availability(appointment.service, appointment.staff, day), day)
+    except SOURCE_AVAILABILITY_ERRORS as exc:
+        raise ValidationError('Die SimplyBook-Verfügbarkeit kann gerade nicht geprüft werden.') from exc
+    if availability is None or appointment.starts_at not in available_slots(
+        appointment.service, appointment.staff, day, source_availability=availability,
+    ):
+        raise ValidationError('Dieser Zeitraum ist in SimplyBook nicht verfügbar.')
+    appointment.returning_customer, appointment.referral_source = patient_booking_answers(appointment.customer)
+    appointment.returning_customer_answered = True
+    appointment.idempotency_key = request_key or f'staff-{uuid4()}'
+    appointment.simplybook_sync_state = 'queued'
+    appointment.status = 'new'

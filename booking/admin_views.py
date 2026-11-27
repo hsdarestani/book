@@ -525,6 +525,10 @@ def _polish_admin_response(
     for (const name of ['service_id', 'appointment_staff_id', 'customer_id']) {{
       form.elements[name].disabled = data.source_managed;
     }}
+    for (const option of form.elements.status.options) {{
+      option.hidden = !!data.source_managed && !['confirmed', 'cancelled'].includes(option.value);
+      option.disabled = option.hidden;
+    }}
     for (const name of ['appointment_date', 'appointment_time', 'status']) {{
       form.elements[name].disabled = data.source_managed && !data.source_editable;
     }}

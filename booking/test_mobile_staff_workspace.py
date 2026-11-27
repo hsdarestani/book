@@ -66,6 +66,61 @@ class WorkspaceTests(TestCase):
         with patch('booking.mobile_staff_api._verify', return_value=(None,401)):
             self.assertEqual(self.client.get('/api/mobile/staff/catalog/').status_code, 401)
 
+    @patch.dict('os.environ', {'SIMPLYBOOK_OUTBOUND_ENABLED':'1'})
+    def test_ariane_staff_creation_queues_verified_answers_and_replays(self):
+        from .simplybook_outbound import ARIANE
+        from .clinical_time import parse_clinic_wall_time
+
+        ariane = StaffMember.objects.create(display_name=ARIANE)
+        service = Service.objects.get_or_create(slug='botox-neupatient', defaults={
+            'name':'Botox synthetic', 'duration_minutes':30, 'buffer_minutes':0})[0]
+        ariane.services.add(service)
+        past = timezone.now() - timedelta(days=2)
+        Appointment.objects.create(customer=self.patient, staff=ariane, service=service,
+            status='completed', starts_at=past, ends_at=past+timedelta(minutes=30),
+            returning_customer_answered=True, referral_source='Freunde und Bekannten')
+        slot = parse_clinic_wall_time(self.day.isoformat(), '16:00')
+        payload = {'operation':'create', 'staff_id':ariane.pk, 'service_id':service.pk,
+            'customer_id':self.patient.pk, 'date':self.day.isoformat(), 'start':'16:00',
+            'notes':'Synthetic local note', 'key':str(uuid4())}
+        with patch('booking.services.booking_source_availability',
+                   return_value=({self.day.isoformat():[slot]}, [])) as availability, patch(
+                       'booking.mobile_staff_api.notify_admin_created') as notify:
+            with self.captureOnCommitCallbacks(execute=True):
+                result = self.post('appointment', **payload)
+                replay = self.post('appointment', **payload)
+            availability.assert_called_once()
+            notify.assert_not_called()
+            blocked = self.post('appointment', **{**payload, 'start':'17:00', 'key':str(uuid4())})
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertTrue(result.json()['external_confirmation_pending'])
+        self.assertTrue(replay.json()['external_confirmation_pending'])
+        self.assertEqual(replay.json()['id'],result.json()['id'])
+        self.assertEqual(blocked.status_code,400)
+        item = Appointment.objects.get(pk=result.json()['id'])
+        self.assertEqual((item.source,item.status,item.simplybook_sync_state), ('admin','new','queued'))
+        self.assertTrue(item.returning_customer and item.returning_customer_answered)
+        self.assertEqual(item.referral_source,'Freunde und Bekannten')
+        self.assertEqual(item.notes_customer,'Synthetic local note')
+        self.assertTrue(item.idempotency_key)
+
+        from django.contrib.auth import get_user_model
+        admin = get_user_model().objects.create_user('synthetic-admin', is_staff=True)
+        self.client.force_login(admin)
+        web = {'action':'add_appointment', 'appointment_staff_id':ariane.pk, 'service_id':service.pk,
+               'customer_id':self.patient.pk, 'appointment_date':self.day.isoformat(),
+               'appointment_time':'17:00', 'appointment_request_key':str(uuid4())}
+        slot = parse_clinic_wall_time(self.day.isoformat(), '17:00')
+        with patch('booking.services.booking_source_availability',
+                   return_value=({self.day.isoformat():[slot]}, [])) as availability, patch(
+                       'booking.views.send_customer_booking_email') as confirm:
+            for _ in range(2):
+                response = self.client.post('/verwaltung/kalender/', web)
+                self.assertIn('notice=booking-pending',response['Location'])
+            availability.assert_called_once()
+            confirm.assert_not_called()
+        self.assertEqual(Appointment.objects.filter(staff=ariane, simplybook_sync_state='queued').count(),2)
+
     def test_staff_contact_edits_keep_identity_and_are_visible_to_book_administrators(self):
         from .app_admin_api import _appointment_payload, _customer_payload
 

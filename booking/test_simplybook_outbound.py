@@ -43,6 +43,18 @@ class SimplyBookOutboundPilotTests(TestCase):
         self.assertEqual(book[0][6],'16:55:00')
         self.assertEqual(sync_existing(self.item.pk,apply=True,call=self.call)['result'],'already_linked')
         self.assertEqual(len([x for x in self.call.call_args_list if x.args[0]=='book']),1)
+    def test_legacy_remote_readback_can_select_one_verified_client_from_multiple_links(self):
+        from .models import SimplyBookClientLink
+        from .simplybook_writeback import _identity
+
+        self.item.service.slug = 'simplybook-event-2'
+        links = ['50', '51']
+        for external in links:
+            SimplyBookClientLink.objects.get_or_create(external_client_id=external, customer=self.item.customer)
+        self.assertEqual(_identity(self.item, {'client_id':'51'}), (2, 51))
+        with self.assertRaisesRegex(SyncConflict, 'source_client_not_verified'):
+            _identity(self.item, {'client_id':'52'})
+
     def test_uncertain_write_never_retries(self):
         self.responses['getBookingDetails']={}
         with self.assertRaises(SyncConflict):

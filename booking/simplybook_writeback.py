@@ -38,7 +38,7 @@ def _details(call, remote_id):
     return row
 
 
-def _identity(item):
+def _identity(item, remote=None):
     if item.simplybook_booking_id:
         mapping = SERVICE_MAP.get(item.service.slug)
         client = item.simplybook_client_id
@@ -48,11 +48,16 @@ def _identity(item):
     else:
         slug = item.service.slug
         event = slug.removeprefix('simplybook-event-') if slug.startswith('simplybook-event-') else ''
-        client = SimplyBookClientLink.objects.filter(customer=item.customer).values_list('external_client_id', flat=True)
-        clients = list(client[:2])
-        if len(clients) != 1:
-            raise SyncConflict('source_client_not_unique')
-        client = clients[0]
+        links = SimplyBookClientLink.objects.filter(customer_id=item.customer_id)
+        if remote is not None:
+            client = str(remote.get('client_id') or '')
+            if not links.filter(external_client_id=client).exists():
+                raise SyncConflict('source_client_not_verified')
+        else:
+            clients = list(links.values_list('external_client_id', flat=True)[:2])
+            if len(clients) != 1:
+                raise SyncConflict('source_client_not_unique')
+            client = clients[0]
     if not (str(event).isdecimal() and str(client).isdecimal()):
         raise SyncConflict('source_identity_unverified')
     return int(event), int(client)
@@ -125,9 +130,9 @@ def change_locked(item, *, starts_at=None, cancel=False, call=None):
     if not source_editable(item):
         raise SyncConflict('source_booking_not_editable')
     remote_id = source_id(item)
-    event, client = _identity(item)
     call = call or session()
     remote = _details(call, remote_id)
+    event, client = _identity(item, remote)
     expected = copy(item)
     expected.ends_at = item.simplybook_remote_ends_at or item.ends_at
     if not _same_booking(remote, expected, event, client):

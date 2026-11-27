@@ -8,6 +8,7 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import authenticate, login, logout
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,10 +18,12 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
 from .simplybook_writeback import source_managed
+from .simplybook_calendar import source_staff
 from .emails import send_customer_booking_email
 from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, parse_clinic_wall_time
 from .models import Appointment, BlockedPeriod, Customer, PatientRecord, Service, StaffMember, WorkingHour
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
+from .services import prepare_staff_booking
 
 logger = logging.getLogger(__name__)
 
@@ -288,9 +291,11 @@ def dashboard(request):
         return_date = request.POST.get('return_date') or calendar_date.isoformat()
         return_view = request.POST.get('return_view') or calendar_view
         staff_suffix = f'&staff={selected_staff.pk}' if selected_staff else ''
-        calendar_return = f'/verwaltung/?date={return_date}&cal_view={return_view}{staff_suffix}#kalender'
+        calendar_return = f'/verwaltung/?date={return_date}&cal_view={return_view}{staff_suffix}'
 
         if action == 'save_hours' and selected_staff:
+            if source_staff(selected_staff):
+                return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=hours-source#einstellungen')
             WorkingHour.objects.filter(staff=selected_staff).delete()
             for weekday in range(7):
                 if request.POST.get(f'day_{weekday}_enabled') != 'on':
@@ -390,37 +395,43 @@ def dashboard(request):
                 return redirect(f'{calendar_return}&notice=booking-error')
             if not staff.services.filter(pk=service.pk).exists():
                 return redirect(f'{calendar_return}&notice=booking-service-error')
-            ends_at = add_elapsed(starts_at, service.reserved_duration)
-            conflict = Appointment.objects.filter(
-                staff=staff,
-                status__in=['new', 'confirmed'],
-                starts_at__lt=ends_at,
-                ends_at__gt=starts_at,
-            ).exists()
-            blocked = BlockedPeriod.objects.filter(
-                staff=staff,
-                starts_at__lt=ends_at,
-                ends_at__gt=starts_at,
-            ).exclude(reason__startswith='[NOTE]').exists()
-            if conflict or blocked:
-                return redirect(f'{calendar_return}&notice=booking-conflict')
-            appointment = Appointment(
-                customer=customer,
-                service=service,
-                staff=staff,
-                starts_at=starts_at,
-                ends_at=ends_at,
-                treatment_minutes_at_booking=service.duration_minutes,
-                status='confirmed',
-                source='admin',
-                returning_customer=Appointment.objects.filter(customer=customer).exists(),
-                marketing_opt_in=False,
-            )
+            request_key = request.POST.get('appointment_request_key')
             try:
-                appointment.full_clean()
-                appointment.save()
-            except ValidationError:
-                return redirect(f'{calendar_return}&notice=booking-conflict')
+                key = f'web-staff-{request.user.pk}-{uuid.UUID(request_key)}' if request_key else None
+            except ValueError:
+                return redirect(f'{calendar_return}&notice=booking-error')
+            with transaction.atomic():
+                staff = StaffMember.objects.select_for_update().get(pk=staff.pk)
+                if key:
+                    previous = Appointment.objects.filter(idempotency_key=key).first()
+                    if previous:
+                        same = (previous.customer_id, previous.staff_id, previous.service_id, previous.starts_at) == (
+                            customer.pk, staff.pk, service.pk, starts_at)
+                        outcome = ('booking-pending' if previous.simplybook_sync_state in {'queued', 'sending', 'review', 'blocked'}
+                                   else 'booking') if same else 'booking-conflict'
+                        return redirect(f'{calendar_return}&notice={outcome}')
+                ends_at = add_elapsed(starts_at, service.reserved_duration)
+                if BlockedPeriod.objects.filter(staff=staff, starts_at__lt=ends_at, ends_at__gt=starts_at).exclude(
+                    reason__startswith='[NOTE]',
+                ).exists():
+                    return redirect(f'{calendar_return}&notice=booking-conflict')
+                appointment = Appointment(
+                    customer=customer, service=service, staff=staff, starts_at=starts_at, ends_at=ends_at,
+                    treatment_minutes_at_booking=service.duration_minutes, status='confirmed', source='admin',
+                    returning_customer=Appointment.objects.filter(customer=customer).exists(),
+                    marketing_opt_in=False, idempotency_key=key,
+                )
+                try:
+                    prepare_staff_booking(appointment, request_key=key)
+                except ValidationError:
+                    return redirect(f'{calendar_return}&notice=booking-source-unavailable')
+                try:
+                    appointment.full_clean()
+                    appointment.save()
+                except ValidationError:
+                    return redirect(f'{calendar_return}&notice=booking-conflict')
+            if appointment.simplybook_sync_state == 'queued':
+                return redirect(f'{calendar_return}&notice=booking-pending')
             try:
                 send_customer_booking_email(appointment)
             except Exception:
@@ -776,4 +787,6 @@ def dashboard(request):
         'range_start': range_start,
         'range_end_display': range_end - timedelta(days=1),
     }
+    context['appointment_request_key'] = uuid.uuid4()
+    context['working_hours_source_managed'] = bool(selected_staff and source_staff(selected_staff))
     return render(request, 'booking/dashboard.html', context)
