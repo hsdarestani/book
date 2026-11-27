@@ -28,6 +28,6 @@ jobs:
               if tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx "$flag" >/dev/null; then printf 'SERVICE_FLAG=%s\n' "$flag"; fi
             done
             source /etc/aesthetic-simplybook-credentials.env
-            git fetch --no-tags origin 16cd694e123d342dbda14156437135003da366d9
-            git show 16cd694e123d342dbda14156437135003da366d9:scripts/ariane_synthetic_calendar_notes.py |
+            git fetch --no-tags origin ce8326efa0f46214a4b59738157eb5d318657d29
+            git show ce8326efa0f46214a4b59738157eb5d318657d29:scripts/ariane_synthetic_calendar_notes.py |
               runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -c "import django,sys; django.setup(); exec(compile(sys.stdin.read(), \"synthetic_calendar_notes\", \"exec\"))"'
