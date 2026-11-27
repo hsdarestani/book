@@ -32,11 +32,11 @@ try:
     call = session()
     event = SERVICE_MAP['aesthetische-erstberatung'][0]
     staff = StaffMember.objects.get(display_name=ARIANE, active=True)
-    first_day = clinic_localdate() + timedelta(days=21)
-    last_day = first_day + timedelta(days=6)
+    first_day = clinic_localdate() + timedelta(days=7)
+    last_day = first_day + timedelta(days=13)
     matrix, reserved = source_slots(call, event, first_day.isoformat(), last_day.isoformat())
     candidates = [start for day in matrix.values() for start in sorted(day)]
-    start = next(s for s in candidates if s + timedelta(minutes=15) in candidates
+    start = next(s for s in candidates if s.date() == (s + timedelta(minutes=30)).date()
                  and not any(a < s + timedelta(minutes=30) and b > s for a, b in reserved)
                  and not Appointment.objects.filter(staff=staff, status__in=['new', 'confirmed'],
                      starts_at__lt=s + timedelta(minutes=30), ends_at__gt=s).exists()
