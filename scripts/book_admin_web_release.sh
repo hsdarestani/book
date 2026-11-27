@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 source "$(dirname "$0")/book_phase_a_release.sh"
-release_id=simplybook-quick-drafts
+release_id=simplybook-calendar-writeback
 
 verify_release_scope() {
   printf '%s\n' "$1" | cmp -s "$tools_dir/book_admin_web_scope.txt" - ||
@@ -11,7 +11,7 @@ verify_release_scope() {
 prepare_candidate() {
   django_at "$stage" check || return 1
   django_at "$stage" shell < "$tools_dir/check_admin_web_schema.py" || return 1
-  django_at "$stage" migrate booking 0036_simplybook_remote_end --noinput || return 1
+  django_at "$stage" migrate booking 0037_simplybook_calendar_revision --noinput || return 1
   django_at "$stage" shell < "$tools_dir/book_phase_a_smoke.py"
 }
 
