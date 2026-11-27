@@ -8,6 +8,13 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.test import override_settings
 
 
+CATALOG = [
+    {'number': '2442', 'de': 'Synthetische Hauptleistung', 'points': 900, 'category': 'general'},
+    {'number': '1', 'de': 'Synthetische Beratung', 'points': 80, 'category': 'general'},
+    {'number': '5', 'de': 'Synthetische Untersuchung', 'points': 80, 'category': 'general'},
+]
+
+
 @skipUnless(find_spec('playwright'), 'Chromium browser regression')
 @override_settings(STORAGES={
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
@@ -21,7 +28,7 @@ class GoaeDraftBrowserTests(StaticLiveServerTestCase):
         from playwright.sync_api import expect, sync_playwright
 
         billing.return_value = {'ok': True, 'customers': [{'id': 42, 'name': 'Synthetic Patient'}],
-                                'treatments': {'hyaluron': ['2442', '1', '5']}}
+                                'catalog': CATALOG, 'treatments': {'hyaluron': ['2442', '1', '5']}}
         admin = get_user_model().objects.create_user(username='pdf-browser-fixture', is_staff=True)
         self.client.force_login(admin)
         output = BytesIO()
@@ -34,7 +41,7 @@ class GoaeDraftBrowserTests(StaticLiveServerTestCase):
         def intercept(route):
             request = route.request
             if request.url == self.live_server_url + '/verwaltung/api/goae-quote/':
-                route.fulfill(json={'ok': True, 'total_cents': 26000, 'tax_cents': 0, 'items': []})
+                route.fulfill(json={'ok': True, 'total_cents': 14999, 'tax_cents': 0, 'items': []})
             elif request.url == self.live_server_url + '/verwaltung/api/goae-pdf-preview/':
                 calls.append(request.post_data_json)
                 route.fulfill(status=200, content_type='application/pdf', body=pdf)
@@ -53,20 +60,25 @@ class GoaeDraftBrowserTests(StaticLiveServerTestCase):
             page = context.new_page()
             page.add_init_script('window.print = () => {throw new Error("Browser printing is forbidden")};')
             page.goto(self.live_server_url + '/verwaltung/app/invoices/', wait_until='load')
-            page.locator('#goae-rechnung > details > summary').click()
+            expect(page.locator('[data-mlr]')).to_be_visible()
+            expect(page.locator('[data-goae-quick]')).to_have_count(0)
             page.locator('[data-mlr-details]').evaluate('(details) => { details.open = true }')
             page.locator('.clinic-patient-trigger').click()
             page.locator('.clinic-patient-option').first.click()
+            page.locator('[data-target-input]').fill('150')
             page.locator('[data-material]').fill('0,00')
             for checkbox in page.locator('[data-g="clinical_confirmed"]').all():
                 checkbox.check()
+            page.locator('[data-goae-preview]').click()
+            expect(page.locator('[data-goae-feedback]')).to_contain_text('Wunschpreis')
+            page.locator('[data-use-calculated]').click()
             with page.expect_download() as event:
                 page.locator('[data-print-simulation]').click()
             download = event.value
             self.assertEqual(download.suggested_filename, 'GOAE-Rechnungsentwurf.pdf')
             self.assertEqual(download.path().read_bytes(), pdf)
             self.assertEqual(len(calls), 1)
-            self.assertEqual(calls[0]['target_total_cents'], 26000)
+            self.assertEqual(calls[0]['target_total_cents'], 14999)
             expect(page.locator('[data-goae-feedback]')).to_contain_text('heruntergeladen')
             browser.close()
 
@@ -75,7 +87,7 @@ class GoaeDraftBrowserTests(StaticLiveServerTestCase):
         from playwright.sync_api import expect, sync_playwright
 
         billing.return_value = {'ok': True, 'customers': [{'id': 42, 'name': 'Synthetic Patient'}],
-                                'treatments': {'hyaluron': ['2442', '1', '5']}}
+                                'catalog': CATALOG, 'treatments': {'hyaluron': ['2442', '1', '5']}}
         admin = get_user_model().objects.create_user(username='goae-browser-fixture', is_staff=True)
         self.client.force_login(admin)
         path = '/verwaltung/app/invoices/'
@@ -87,7 +99,7 @@ class GoaeDraftBrowserTests(StaticLiveServerTestCase):
             request = route.request
             if request.url == self.live_server_url + quote_path and request.method == 'POST':
                 quotes.append(request.post_data)
-                route.fulfill(json={'ok': True, 'total_cents': 26000, 'tax_cents': 0, 'items': []})
+                route.fulfill(json={'ok': True, 'total_cents': 14999, 'tax_cents': 0, 'items': []})
             elif request.url == self.live_server_url + '/verwaltung/api/goae-patient-search/':
                 route.fulfill(json={'ok': True, 'patients': [{'id': 84, 'name': 'Remote Synthetic'}]})
             elif request.url == self.live_server_url + path and request.method == 'POST':
@@ -110,16 +122,20 @@ class GoaeDraftBrowserTests(StaticLiveServerTestCase):
             context.route('**/*', intercept)
             page = context.new_page()
             page.goto(self.live_server_url + path, wait_until='load')
-            page.locator('#goae-rechnung > details > summary').click()
+            expect(page.locator('[data-mlr]')).to_be_visible()
+            expect(page.locator('[data-goae-quick]')).to_have_count(0)
             page.locator('[data-mlr-details]').evaluate('(details) => { details.open = true }')
             page.locator('.clinic-patient-trigger').click()
             page.locator('[data-filter-patient-select=goaePatient]').fill('Synthetic Remote')
             expect(page.locator('[data-patient-search-status=goaePatient]')).to_contain_text('1 passende Patienten')
             page.locator('.clinic-patient-option').first.click()
             expect(page.locator('#goaePatient')).to_have_value('84')
+            page.locator('[data-target-input]').fill('150')
             page.locator('[data-material]').fill('0,00')
             for item in page.locator('[data-g="clinical_confirmed"]').all():
                 item.check()
+            page.locator('[data-goae-preview]').click()
+            page.locator('[data-use-calculated]').click()
             save = page.locator('.mlr-save')
             save.click()
             message = page.locator('[data-goae-feedback]')

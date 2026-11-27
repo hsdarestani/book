@@ -42,10 +42,16 @@ def smoke():
   page.route(base+'/',lambda route: route.fulfill(status=200,content_type='text/html',body=html))
   page.route(base+'/static/booking/goae-rechner-v2.css*',lambda route: route.fulfill(status=200,content_type='text/css',body=css))
   page.route(base+'/static/booking/goae-rechner-v2.js*',lambda route: route.fulfill(status=200,content_type='application/javascript',body=js))
+  assistant_js=(ROOT/'static/booking/goae-assistant.js').read_text(encoding='utf-8')
+  chat_requests=[]
+  page.route(base+'/static/booking/goae-assistant.js*',lambda route: route.fulfill(status=200,content_type='application/javascript',body=assistant_js))
+  page.route('**/verwaltung/api/goae-assistant/',lambda route: chat_requests.append(route.request.post_data_json) or route.fulfill(
+    json={'ok':True,'answer':'Faktor und Begründung prüfen.','ai':True}))
   page.route('**/verwaltung/api/goae-quote/',lambda route: requests.append(route.request.post_data) or route.fulfill(
     status=400,content_type='application/json',body='{"ok":false,"message":"Synthetic quote rejected: no clinical confirmation."}'))
   page.goto(base+'/',wait_until='networkidle')
-  page.locator('#goae-rechnung > details > summary').click()
+  assert page.locator('[data-mlr]').is_visible()
+  assert page.locator('[data-goae-quick]').count()==0
   page.locator('[data-total]').wait_for(state='visible')
   assert page.locator('[data-total]').inner_text()=='260,00 €' or page.locator('[data-total]').inner_text()=='260,00 €'
   assert '142,06' in page.locator('[data-fee]').inner_text(),page.locator('[data-fee]').inner_text()
@@ -80,9 +86,10 @@ def smoke():
   page.locator('[data-target-input]').fill('260')
   page.locator('#goaeDetails>summary').click()
   assert page.locator('#goaeDetails').get_attribute('open') is None
+  page.locator('[data-preset="400"]').click()
   page.locator('[data-qty-plus]').click()
   assert '2' in page.locator('[data-qty]').inner_text()
-  assert '152,86' in page.locator('[data-material-total]').inner_text()
+  assert '152,86' in page.locator('[data-material-total]').inner_text(), (page.locator('[data-material-total]').inner_text(),page.locator('[data-law-status]').inner_text())
   page.locator('[data-qty-minus]').click()
   page.locator('[data-preset="400"]').click()
   assert '400,00' in page.locator('[data-total]').inner_text()
@@ -112,7 +119,8 @@ def smoke():
         'date',page.locator('#goaeDateGerman').input_value(), 'errors', errors, flush=True)
   assert len(requests)==0, 'Server must not quote clinically unconfirmed GOÄ positions'
   assert 'behandelnden' in page.locator('[data-goae-feedback]').inner_text(),page.locator('[data-goae-feedback]').inner_text()
-  page.locator('[data-material]').fill('0,00')
+  page.locator('[data-target-input]').fill('150')
+  page.locator('[data-no-material]').click()
   for checkbox in page.locator('[data-g="clinical_confirmed"]').all():
     checkbox.check()
   page.locator('[data-goae-preview]').click()
@@ -135,6 +143,18 @@ def smoke():
   assert page.locator('[data-invoice-date]').get_attribute('placeholder')=='TT.MM.JJJJ'
   assert 'Laser-Haarentfernung' in page.locator('[data-treatment-summary]').inner_text()
   assert page.locator('[data-paper-total]').inner_text()=='–'
+  panel=page.locator('[data-goae-assistant]')
+  panel.locator('[data-topic="factor"]').click()
+  panel.get_by_text('KI-Hilfe · Faktor und Begründung prüfen.').wait_for()
+  assert chat_requests==[{'topic':'factor'}]
+  panel.locator('textarea').fill('Hyaluron, 2 Spritzen, 350 € gesamt, 0 € Material, am 23.11.2026')
+  panel.get_by_role('button',name='Nachricht senden').click()
+  panel.get_by_role('button',name='In Formular übernehmen').click()
+  assert page.locator('[data-qty]').inner_text()=='2'
+  assert page.locator('[data-target-input]').input_value()=='350'
+  assert page.locator('[data-material]').input_value()=='0'
+  assert page.locator('#goaeDateGerman').input_value()=='23.11.2026'
+  assert chat_requests==[{'topic':'factor'}], 'Form values must remain in the browser'
   assert not errors,'Unexpected browser errors: '+str(errors)
   print('PASS: reference UI, deduplicated treatment cards, manual clinical entry, German text dates, no patient/no POST guard, mobile 390px; no real invoices created')
   browser.close()
