@@ -49,11 +49,11 @@ class BlockedPeriodAdmin(admin.ModelAdmin):
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ('last_name', 'first_name', 'salutation', 'email', 'phone', 'created_at')
+    list_display = ('last_name', 'first_name', 'salutation', 'contact_email', 'contact_phone', 'created_at')
     list_filter = ('salutation',)
-    search_fields = ('first_name', 'last_name', 'email', 'phone')
+    search_fields = ('first_name', 'last_name', 'email', 'phone', 'contact_email_override', 'contact_phone_override')
     ordering = ('last_name', 'first_name')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('contact_email', 'contact_phone', 'created_at', 'updated_at')
 
 
 @admin.register(Appointment)

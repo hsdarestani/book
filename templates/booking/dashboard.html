@@ -165,7 +165,7 @@
       {% for item in upcoming %}
       <div class="table-row">
         <time>{{ item.starts_at|date:"d.m.Y" }}<b>{{ item.starts_at|date:"H:i" }}</b></time>
-        <div><a class="patient-inline-link" href="/verwaltung/patienten/{{ item.customer.pk }}/"><strong>{{ item.customer.full_name }}</strong></a><small>{{ item.customer.email }} · {{ item.customer.phone }}</small></div>
+        <div><a class="patient-inline-link" href="/verwaltung/patienten/{{ item.customer.pk }}/"><strong>{{ item.customer.full_name }}</strong></a><small>{{ item.customer.contact_email }} · {{ item.customer.contact_phone }}</small></div>
         <div><strong>{{ item.service.name }}</strong><small>{% if item.returning_customer %}Bestandspatient{% else %}Neupatient{% endif %}</small></div>
         <div>{{ item.staff.display_name }}</div>
         <form method="post" class="status-form">{% csrf_token %}<input type="hidden" name="action" value="appointment_status"><input type="hidden" name="appointment_id" value="{{ item.pk }}">{% if selected_staff %}<input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">{% endif %}<select name="status" onchange="this.form.submit()">{% for value,label in appointment_statuses %}<option value="{{ value }}" {% if value == item.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></form>
@@ -179,9 +179,9 @@
     <label class="sb-search-field"><span>⌕</span><input type="search" placeholder="Kunden suchen..." data-customer-list-search></label>
     <div class="sb-customer-list" data-customer-list>
       {% for customer in customers %}
-      <a class="sb-customer-row" href="/verwaltung/patienten/{{ customer.pk }}/" data-customer-search="{{ customer.full_name|lower }} {{ customer.email|lower }} {{ customer.phone|lower }}">
+      <a class="sb-customer-row" href="/verwaltung/patienten/{{ customer.pk }}/" data-customer-search="{{ customer.full_name|lower }} {{ customer.contact_email|lower }} {{ customer.contact_phone|lower }}">
         <div class="customer-avatar">{{ customer.first_name|slice:":1" }}</div>
-        <div><strong>{{ customer.full_name }}</strong><span>{{ customer.email }}{% if customer.phone %} / {{ customer.phone }}{% endif %}</span></div>
+        <div><strong>{{ customer.full_name }}</strong><span>{{ customer.contact_email }}{% if customer.contact_phone %} / {{ customer.contact_phone }}{% endif %}</span></div>
         <b>⋮</b>
       </a>
       {% empty %}<div class="empty">Noch keine Kunden vorhanden.</div>{% endfor %}
@@ -282,8 +282,8 @@
     <button type="button" class="sb-add-customer-link" data-open-customer>Neuen Kunden hinzufügen</button>
     <div class="sb-picker-list" data-customer-picker-list>
       {% for customer in customers %}
-      <button type="button" class="sb-picker-customer" data-pick-customer="{{ customer.pk }}" data-customer-name="{{ customer.full_name }}" data-customer-phone="{{ customer.phone }}" data-customer-search="{{ customer.full_name|lower }} {{ customer.email|lower }} {{ customer.phone|lower }}">
-        <span class="customer-avatar">{{ customer.first_name|slice:":1" }}</span><div><strong>{{ customer.full_name }}</strong><small>{{ customer.email }}{% if customer.phone %} / {{ customer.phone }}{% endif %}</small></div>
+      <button type="button" class="sb-picker-customer" data-pick-customer="{{ customer.pk }}" data-customer-name="{{ customer.full_name }}" data-customer-phone="{{ customer.contact_phone }}" data-customer-search="{{ customer.full_name|lower }} {{ customer.contact_email|lower }} {{ customer.contact_phone|lower }}">
+        <span class="customer-avatar">{{ customer.first_name|slice:":1" }}</span><div><strong>{{ customer.full_name }}</strong><small>{{ customer.contact_email }}{% if customer.contact_phone %} / {{ customer.contact_phone }}{% endif %}</small></div>
       </button>
       {% endfor %}
     </div>

@@ -347,10 +347,10 @@ def _patient_context(request):
 
         # Prefer the selected profile contact data, then fall back to another linked profile.
         contact_customer = selected
-        if not selected.phone:
-            contact_customer = next((item for item in selected_group if item.phone), selected)
-        phone = _wa_phone(contact_customer.phone)
-        call_url = f'tel:{contact_customer.phone}' if contact_customer.phone else ''
+        if not selected.contact_phone and selected.contact_phone_override is None:
+            contact_customer = next((item for item in selected_group if item.contact_phone), selected)
+        phone = _wa_phone(contact_customer.contact_phone)
+        call_url = f'tel:{contact_customer.contact_phone}' if contact_customer.contact_phone else ''
         whatsapp_url = f'https://wa.me/{phone}' if phone else ''
         if phone:
             for template in WhatsAppTemplate.objects.filter(active=True):

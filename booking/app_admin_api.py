@@ -92,8 +92,8 @@ def _customer_payload(item, include_records=False):
         "name": item.full_name,
         "first_name": item.first_name,
         "last_name": item.last_name,
-        "email": item.email,
-        "phone": item.phone,
+        "email": item.contact_email,
+        "phone": item.contact_phone,
         "appointments": item.appointments.count(),
         "patient_records": item.patient_records.count(),
         "created_at": item.created_at.isoformat(),
@@ -123,8 +123,8 @@ def _appointment_payload(item):
         "public_id": str(item.public_id),
         "customer_id": item.customer_id,
         "customer_name": item.customer.full_name,
-        "customer_email": item.customer.email,
-        "customer_phone": item.customer.phone,
+        "customer_email": item.customer.contact_email,
+        "customer_phone": item.customer.contact_phone,
         "service_id": item.service_id,
         "service_name": item.service.name,
         "staff_id": item.staff_id,
@@ -293,6 +293,8 @@ def customers(request):
             | Q(last_name__icontains=query)
             | Q(email__icontains=query)
             | Q(phone__icontains=query)
+            | Q(contact_email_override__icontains=query)
+            | Q(contact_phone_override__icontains=query)
         )
     return _private({"ok": True, "customers": [_customer_payload(item) for item in qs[:250]]})
 

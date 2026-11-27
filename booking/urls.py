@@ -11,6 +11,7 @@ urlpatterns = [
     path('api/mobile/staff/forms/<int:ident>/pdf/', mobile_staff_api.workspace, {'action':'form-pdf'}),
     path('api/mobile/staff/forms/<int:ident>/link/', mobile_staff_api.workspace, {'action':'form-link'}),
     path('api/mobile/staff/patient/<int:ident>/', mobile_staff_api.workspace, {'action': 'patient'}),
+    path('api/mobile/staff/patient/<int:ident>/contact/', mobile_staff_api.workspace, {'action': 'patient-contact'}),
     path('api/mobile/staff/patient/<int:ident>/records/<uuid:record_id>/', mobile_staff_api.workspace, {'action': 'record'}),
     path('api/mobile/staff/patient/<int:ident>/visits/<uuid:record_id>/', mobile_staff_api.workspace, {'action': 'visit'}),
     path('', views.booking_page, name='home'),

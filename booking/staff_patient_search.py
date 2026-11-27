@@ -2,8 +2,8 @@
 import json
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db.models import F, Q, Value
-from django.db.models.functions import Replace
+from django.db.models import Q, Value
+from django.db.models.functions import Coalesce, Replace
 from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
@@ -34,18 +34,21 @@ def staff_patient_search(request):
         return JsonResponse({'ok': False}, status=400)
     digits = ''.join(c for c in query if c in '0123456789')
     if len(digits) >= 2 and all(c in '+0123456789 .()-/' for c in query):
-        phone = F('phone')
+        phone = Coalesce('contact_phone_override', 'phone')
         for char in '+ .()-/':
             phone = Replace(phone, Value(char), Value(''))
         patients = patients.annotate(phone_digits=phone).filter(phone_digits__contains=digits)
     else:
         for term in query.split():
             patients = patients.filter(Q(first_name__icontains=term) | Q(last_name__icontains=term)
-                                       | Q(email__icontains=term) | Q(phone__icontains=term))
-    rows = list(patients.only('first_name', 'last_name', 'email', 'phone', 'date_of_birth')
+                                       | Q(email__icontains=term) | Q(phone__icontains=term)
+                                       | Q(contact_email_override__icontains=term)
+                                       | Q(contact_phone_override__icontains=term))
+    rows = list(patients.only('first_name', 'last_name', 'email', 'phone', 'date_of_birth',
+                             'contact_email_override', 'contact_phone_override')
                 .order_by('last_name', 'first_name', 'pk')[offset:offset + 26])
     return JsonResponse({'ok': True, 'patients': [
-        {'id': row.pk, 'name': row.full_name, 'email': row.email, 'phone': row.phone,
+        {'id': row.pk, 'name': row.full_name, 'email': row.contact_email, 'phone': row.contact_phone,
          'birth_date': row.date_of_birth.strftime('%d.%m.%Y') if row.date_of_birth else ''}
         for row in rows[:25]
     ], 'next_offset': offset + 25 if len(rows) > 25 else None},

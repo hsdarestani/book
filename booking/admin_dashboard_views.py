@@ -30,7 +30,7 @@ def _wa_phone(value):
 
 
 def _customer_actions(customer, templates=None):
-    phone = _wa_phone(customer.phone)
+    phone = _wa_phone(customer.contact_phone)
     templates = []
     if phone:
         for item in (templates if templates is not None else WhatsAppTemplate.objects.filter(active=True)):
@@ -42,7 +42,7 @@ def _customer_actions(customer, templates=None):
                 'url': f'https://wa.me/{phone}?text={quote(text)}',
             })
     return {
-        'call_url': f'tel:{customer.phone}' if customer.phone else '',
+        'call_url': f'tel:{customer.contact_phone}' if customer.contact_phone else '',
         'whatsapp_url': f'https://wa.me/{phone}' if phone else '',
         'templates': templates,
     }
