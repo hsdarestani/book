@@ -172,3 +172,23 @@ class SameDomainInvoicesTests(TestCase):
         self.assertIn('class="sb-calendar-shell', grid)
         self.assertNotIn("clinic-header-v3", grid)
         self.assertNotIn("clinic-calendar-topbar", grid)
+
+    @patch('booking.app_management_views._billing_api')
+    @patch('booking.app_management_views._request_bridge')
+    def test_delete_draft_button_and_staff_permissions(self, bridge, billing):
+        issued = dict(self.data['invoices'][0], id=4, status='issued', number='SYNTHETIC-1')
+        self.data['invoices'].append(issued)
+        billing.return_value = self.data
+        payload = {'action': 'billing_delete_goae_draft', 'invoice_id': 3}
+        self.assertEqual(self.client.post(self.url, payload).status_code, 302)
+        self.client.force_login(self.staff)
+        self.assertContains(self.client.get(self.url), 'Entwurf löschen', count=1)
+        self.assertEqual(self.client.post(self.url, {**payload, 'invoice_id': '3/'}).status_code, 400)
+        bridge.assert_not_called()
+        response = self.client.post(self.url, payload)
+        self.assertRedirects(response, self.url + '?notice=goae_deleted#goae-history', fetch_redirect_response=False)
+        self.assertEqual(bridge.call_args.args[1], 'delete-draft/3')
+        self.assertEqual(bridge.call_args.kwargs, {'method': 'POST', 'payload': {}})
+        AdminAccessProfile.objects.create(user=self.staff, view_only=True)
+        self.assertEqual(self.client.post(self.url, payload).status_code, 403)
+        bridge.assert_called_once()

@@ -1,6 +1,7 @@
 from .record_previews import file_kind
 import base64
 import json
+import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
@@ -614,6 +615,13 @@ def app_management(request, section='bookings'):
                 }
                 _billing_api(request, 'billing/invoices/', method='POST', payload=payload)
                 return _redirect('invoices', 'goae_draft')
+
+            if section == 'invoices' and action == 'billing_delete_goae_draft':
+                invoice_id = request.POST.get('invoice_id', '')
+                if not re.fullmatch(r'[1-9][0-9]{0,17}', invoice_id):
+                    raise ValueError('Ungültiger Rechnungsentwurf.')
+                _request_bridge(request, f'delete-draft/{invoice_id}', method='POST', payload={})
+                return redirect('/verwaltung/app/invoices/?notice=goae_deleted#goae-history')
 
             if action == 'billing_finalize':
                 invoice_id = int(request.POST.get('invoice_id'))

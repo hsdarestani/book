@@ -28,6 +28,7 @@ def _request_bridge(request, operation, method="GET", payload=None, binary=False
         raise RuntimeError("Rechnungsanbindung nicht konfiguriert. Bitte Serververbindung prüfen.")
     if operation not in {"overview", "settings", "invoices", "goae", "quote", "draft", "patient-search", "pdf-preview", "quick-quote", "quick-draft"} and not (
         operation.startswith("services/") or operation.startswith("finalize/")
+        or operation.startswith("delete-draft/")
         or operation.startswith("pdf/")
     ):
         raise ValueError("Ungültige Rechnungsfunktion.")

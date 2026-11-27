@@ -383,7 +383,7 @@ html[data-admin-page="patients"] .patient-upload-studio button.patient-studio-sa
 <div class="sb-drawer-backdrop" data-drawer-backdrop></div><aside class="sb-drawer app-focused-drawer" data-drawer aria-hidden="true"><div class="sb-drawer-brand"><img src="{% static 'booking/logo.png' %}" alt="A+ Esthetic"><div><strong>A+ Esthetic</strong><span>Management</span></div></div><nav class="sb-drawer-nav app-focused-nav"><div class="app-nav-label">A+ MANAGEMENT</div><a href="/verwaltung/dashboard/"><span>⌂</span>Dashboard</a><a href="/verwaltung/kalender/"><span>▣</span>Kalender</a><a href="/verwaltung/app/patients/" class="{% if section == 'patients' %}is-active{% endif %}"><span>▤</span>Patientenakten</a><a href="/verwaltung/app/wallet/" class="{% if section == 'wallet' %}is-active{% endif %}"><span>◆</span>A+ Punkte</a><a href="/verwaltung/app/referrals/" class="{% if section == 'referrals' %}is-active{% endif %}"><span>↗</span>Empfehlungen</a><a href="/verwaltung/app/hero/" class="{% if section == 'hero' %}is-active{% endif %}"><span>▧</span>Startseitenbilder</a><a href="/verwaltung/app/forms/" class="{% if section == 'forms' %}is-active{% endif %}"><span>▤</span>Aufnahmebögen</a><a href="/verwaltung/app/invoices/" class="{% if section == 'invoices' %}is-active{% endif %}"><span>▧</span>Rechnungen</a><a href="/verwaltung/mehr/"><span>⋯</span>Mehr</a><div class="app-nav-spacer"></div><a href="/verwaltung/logout/"><span>↪</span>Abmelden</a></nav></aside>
 {% include "booking/_premium_sidebar.html" with active=section %}
 <main class="admin-shell sb-admin-shell app-management-shell">{% include "booking/_clinic_web_header_v3.html" %}
-{% if section != 'invoices' %}<div class="app-page-heading"><div class="eyebrow">A+ ESTHETIC</div><h1>{{ section_title }}</h1><p>{{ section_subtitle }}</p></div>{% endif %}{% if error %}<div class="admin-notice is-error">{{ error }}{% if needs_reauth %}<br>Bitte Verwaltung erneut aus der A+ App öffnen.{% endif %}</div>{% endif %}{% if notice %}<div class="admin-notice {% if notice == 'max_files' or notice == 'file_size' or notice == 'file_type' or notice == 'empty' or notice == 'type_error' %}is-error{% endif %}">
+{% if section != 'invoices' %}<div class="app-page-heading"><div class="eyebrow">A+ ESTHETIC</div><h1>{{ section_title }}</h1><p>{{ section_subtitle }}</p></div>{% endif %}{% if error %}<div class="admin-notice is-error">{{ error }}{% if needs_reauth %}<br>Bitte Verwaltung erneut aus der A+ App öffnen.{% endif %}</div>{% endif %}{% if notice and notice != 'goae_deleted' %}<div class="admin-notice {% if notice == 'max_files' or notice == 'file_size' or notice == 'file_type' or notice == 'empty' or notice == 'type_error' %}is-error{% endif %}">
   {% if notice == 'max_files' %}Maximal 12 Dateien pro Eintrag sind erlaubt.
   {% elif notice == 'file_size' %}Eine Datei ist zu groß oder leer.
   {% elif notice == 'file_type' %}Dieser Dateityp ist nicht erlaubt.
@@ -890,18 +890,31 @@ html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-custom
 {% include "booking/_office_intake_forms.html" %}
 {% elif section == 'invoices' %}
 {% include "booking/_billing_goae_form.html" %}
-<section class="admin-panel app-core-panel goae-history" aria-label="GOÄ Rechnungsverlauf">
+<section id="goae-history" class="admin-panel app-core-panel goae-history" aria-label="GOÄ Rechnungsverlauf">
   <div class="panel-head"><div><div class="eyebrow">GOÄ · VERLAUF</div><h2>GOÄ-Entwürfe und Rechnungen</h2>
-    <p>Bereits angelegte Dokumente bleiben erhalten. Die finale GOÄ-Ausstellung ist bis zur fachlichen Freigabe gesperrt.</p></div>
+    <p>Die finale GOÄ-Ausstellung ist bis zur fachlichen Freigabe gesperrt.</p></div>
     <span class="clinic-service-count">{{ goae_invoices|length }} Dokumente</span>
   </div>
+  {% if notice == 'goae_deleted' %}<p class="admin-notice" role="status">GOÄ-Entwurf wurde gelöscht.</p>{% endif %}
   <div class="billing-invoice-list">
   {% for invoice in goae_invoices %}
   <article class="billing-invoice-card">
     <div><span>{{ invoice.status_label }}</span><strong>{{ invoice.number|default:"GOÄ-Entwurf" }} · {{ invoice.customer_name }}</strong>
       <small>{{ invoice.service_date }} · {{ invoice.total }} € · {{ invoice.customer_email }}</small></div>
-    <div>{% if invoice.status == 'draft' or invoice.status == 'issued' %}
+    <div class="goae-history-actions">{% if invoice.status == 'draft' or invoice.status == 'issued' %}
       <a class="billing-small" href="/verwaltung/app/invoices/{{ invoice.id }}/pdf/" download>{% if invoice.status == 'draft' %}Entwurf-PDF herunterladen{% else %}Rechnung-PDF herunterladen{% endif %}</a>
+    {% endif %}
+    {% if invoice.status == 'draft' and not invoice.number and not invoice.issued_on and not invoice.document_id %}
+      <details class="goae-delete">
+        <summary>Entwurf löschen</summary>
+        <form method="post" action="/verwaltung/app/invoices/">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="billing_delete_goae_draft">
+          <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+          <p>Diesen GOÄ-Entwurf endgültig löschen?</p>
+          <button type="submit">Endgültig löschen</button>
+        </form>
+      </details>
     {% endif %}</div>
   </article>
   {% empty %}<p class="empty">Noch keine GOÄ-Dokumente vorhanden.</p>{% endfor %}
@@ -913,6 +926,10 @@ html[data-admin-page="patients"] body.admin-body .app-patient-layout[data-custom
   .goae-only-heading h2{font-size:clamp(30px,4vw,42px)}
   .goae-history{max-width:100%;margin:20px 0 30px}
   .goae-history .billing-invoice-list{display:grid;gap:10px}
+  .goae-history .goae-history-actions{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px}
+  .goae-delete summary,.goae-delete button{padding:8px 12px;border:1px solid #c78479;border-radius:10px;color:#83251c;background:#fff8f6;font:inherit;font-weight:700;cursor:pointer}
+  .goae-delete form{margin-top:8px;padding:10px;border:1px solid #e7c9c4;border-radius:10px}
+  .goae-delete form p{margin:0 0 8px;color:#632a24}
   @media(max-width:650px){.goae-only-status{white-space:normal}.goae-only-heading{display:flex;flex-direction:column;gap:12px}}
 </style>
 {% elif section == 'hero' %}
