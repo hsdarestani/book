@@ -1,0 +1,106 @@
+name: Correct compressed calendar asset variants safely
+on:
+  push:
+    branches: [release/calendar-editability-parity-20261127]
+    paths: ['.github/workflows/release-calendar-compressed-assets.yml']
+permissions:
+  contents: read
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Reconcile only compressed variants of the two deployed scripts
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
+            flock -n 9
+            test "$(git rev-parse HEAD)" = a1f810c9acc2fd5c04de186f5b2326b86879227a
+            test -z "$(git status --porcelain --untracked-files=no)"
+            systemctl is-active --quiet aesthetic-book
+            backup=$(mktemp -d /opt/aesthetic-book/remediation-rollbacks/calendar-compression-20261127.XXXXXX)
+            for name in admin.js admin-calendar-plus.js; do
+              base="staticfiles/booking/$name"
+              cmp -s "$base" "static/booking/$name"
+              for suffix in gz br; do
+                if test -f "$base.$suffix"; then cp -a "$base.$suffix" "$backup/$name.$suffix"; fi
+                test ! -e "$base.$suffix.calendar-compression-tmp"
+              done
+            done
+            changed=0
+            finish() {
+              result=$?
+              trap - EXIT
+              if [ "$result" != 0 ] && [ "$changed" = 1 ]; then
+                for name in admin.js admin-calendar-plus.js; do
+                  base="staticfiles/booking/$name"
+                  for suffix in gz br; do
+                    if test -f "$backup/$name.$suffix"; then
+                      cp -a --remove-destination "$backup/$name.$suffix" "$base.$suffix" || result=2
+                    elif test -f "$base.$suffix"; then
+                      mv "$base.$suffix" "$backup/failed-$name.$suffix" || result=2
+                    fi
+                  done
+                done
+                systemctl restart aesthetic-book && systemctl is-active --quiet aesthetic-book || result=2
+                echo COMPRESSED_ASSET_ROLLBACK=attempted
+              fi
+              for name in admin.js admin-calendar-plus.js; do
+                for suffix in gz br; do rm -f "staticfiles/booking/$name.$suffix.calendar-compression-tmp"; done
+              done
+              exit "$result"
+            }
+            trap finish EXIT
+            changed=1
+            for name in admin.js admin-calendar-plus.js; do
+              base="staticfiles/booking/$name"
+              cp -a "$base" "$base.gz.calendar-compression-tmp"
+              gzip -n -9 -c "$base" > "$base.gz.calendar-compression-tmp"
+              gzip -dc "$base.gz.calendar-compression-tmp" | cmp -s - "$base"
+              mv "$base.gz.calendar-compression-tmp" "$base.gz"
+              if test -f "$base.br"; then
+                if command -v brotli >/dev/null; then
+                  cp -a "$base" "$base.br.calendar-compression-tmp"
+                  brotli -q 11 -c "$base" > "$base.br.calendar-compression-tmp"
+                  brotli -dc "$base.br.calendar-compression-tmp" | cmp -s - "$base"
+                  mv "$base.br.calendar-compression-tmp" "$base.br"
+                elif /opt/aesthetic-book/venv/bin/python -c 'import brotli' >/dev/null 2>&1; then
+                  cp -a "$base" "$base.br.calendar-compression-tmp"
+                  /opt/aesthetic-book/venv/bin/python -c 'import brotli,sys; data=open(sys.argv[1],"rb").read(); result=brotli.compress(data); assert brotli.decompress(result)==data; sys.stdout.buffer.write(result)' "$base" > "$base.br.calendar-compression-tmp"
+                  mv "$base.br.calendar-compression-tmp" "$base.br"
+                else
+                  # Preserve an incompatible stale representation for rollback
+                  # outside the public static root; gzip/identity remain valid.
+                  mv "$base.br" "$backup/stale-$name.br"
+                fi
+              fi
+            done
+            systemctl restart aesthetic-book
+            for attempt in {1..12}; do
+              if systemctl is-active --quiet aesthetic-book && curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null; then break; fi
+              sleep 2
+            done
+            systemctl is-active --quiet aesthetic-book
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null
+            for name in admin.js admin-calendar-plus.js; do
+              expected=$(sha256sum "static/booking/$name" | cut -d' ' -f1)
+              for encoding in identity gzip; do
+                actual=$(curl -fsS --compressed --max-time 15 -H "Accept-Encoding: $encoding" -H 'Cache-Control: no-cache' "https://book.a-esthetic.de/static/booking/$name?v=20261127-source-revisions" | sha256sum | cut -d' ' -f1)
+                test "$expected" = "$actual"
+              done
+              actual=$(curl -fsS --compressed --max-time 15 -H 'Cache-Control: no-cache' "https://book.a-esthetic.de/static/booking/$name?v=20261127-source-revisions" | sha256sum | cut -d' ' -f1)
+              test "$expected" = "$actual"
+            done
+            echo COMPRESSED_CALENDAR_ASSETS_VERIFIED=yes
