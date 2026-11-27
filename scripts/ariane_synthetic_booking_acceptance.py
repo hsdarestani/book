@@ -1,4 +1,6 @@
 import logging
+from copy import copy
+from time import monotonic, sleep
 from datetime import timedelta
 from uuid import uuid4
 from urllib.error import HTTPError
@@ -8,14 +10,14 @@ import os
 import re
 
 from django.db import transaction
-from booking.clinical_time import add_elapsed, clinic_localdate
+from booking.clinical_time import add_elapsed, clinic_localdate, clinic_localtime
 from booking.models import Appointment, Customer, Service, SimplyBookClientLink, StaffMember
 from booking.services import available_slots
 from booking.simplybook_outbound import (
-    ARIANE, SERVICE_MAP, UNIT_ID, SyncConflict, _contact_matches, _dt, as_bool, session,
+    ARIANE, SERVICE_MAP, UNIT_ID, SyncConflict, _contact_matches, _dt, _verify_availability, _verify_readback, as_bool, session,
     source_slots, sync_existing,
 )
-from booking.simplybook_writeback import change_locked
+from booking.simplybook_writeback import _additional_values, _verified_cancellation, change_locked
 from booking.management.commands.sync_simplybook_notes import AUTH_URL, _request_json
 
 logging.disable(logging.CRITICAL)
@@ -124,6 +126,32 @@ try:
     item.refresh_from_db()
     assert item.starts_at == moved and item.public_id == public_id
     print('BOOK_RESCHEDULE_SOURCE_READBACK=true', flush=True)
+    stage = 'source_reschedule'
+    target = copy(item)
+    target.starts_at = start
+    target.ends_at = add_elapsed(start, item.reserved_duration)
+    source_id = int(item.simplybook_booking_id)
+    remote = call('getBookingDetails', [source_id])
+    additional = _additional_values(call, event, remote)
+    source_end = add_elapsed(start, item.simplybook_remote_ends_at - item.starts_at)
+    assert not _verify_availability(call, target, event, client_id, exclude_source_id=source_id, remote_end=source_end)
+    a, b = clinic_localtime(start), clinic_localtime(source_end)
+    call('editBook',[source_id,event,UNIT_ID,client_id,a.strftime('%Y-%m-%d'),a.strftime('%H:%M:%S'),
+                     b.strftime('%Y-%m-%d'),b.strftime('%H:%M:%S'),int(remote.get('client_time_offset') or 0),additional])
+    _verify_readback(call, source_id, target, event, client_id, remote_end=source_end)
+    print('SOURCE_RESCHEDULE_CONFIRMED_WAITING_FOR_BOOK_TIMER=true', flush=True)
+    stage = 'book_timer_mirror'
+    deadline = monotonic() + 11 * 60
+    while monotonic() < deadline:
+        item.refresh_from_db()
+        if item.starts_at == start:
+            assert (item.public_id, item.idempotency_key, item.ends_at) == (public_id, local_key, target.ends_at)
+            assert int(item.simplybook_booking_id) == source_id
+            print('SOURCE_RESCHEDULE_MIRRORED_BY_LIVE_BOOK_TIMER=true', flush=True)
+            break
+        sleep(15)
+    else:
+        raise RuntimeError('book_timer_did_not_reconcile_fixture')
     stage = 'booking_cancel'
     with transaction.atomic():
         StaffMember.objects.select_for_update().get(pk=staff.pk)
@@ -157,11 +185,9 @@ try:
                     detail = call('getBookingDetails', [ident])
                     if str(detail.get('client_id')) != str(client_id) or str(detail.get('unit_id')) != str(UNIT_ID) or str(detail.get('event_id')) != str(event):
                         raise RuntimeError('booking_cleanup_identity_mismatch')
-                    def cancelled(data):
-                        return as_bool(data.get('is_cancelled', data.get('is_canceled'))) or str(data.get('status','')).lower() in {'cancelled','canceled'}
-                    if not cancelled(detail):
+                    if not _verified_cancellation(call, item, ident, event, client_id):
                         call('cancelBooking', [ident])
-                        if not cancelled(call('getBookingDetails', [ident])):
+                        if not _verified_cancellation(call, item, ident, event, client_id):
                             raise RuntimeError('booking_cleanup_unverified')
             delete_client(client_id)
         with transaction.atomic():
