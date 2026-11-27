@@ -66,6 +66,35 @@ class WorkspaceTests(TestCase):
         with patch('booking.mobile_staff_api._verify', return_value=(None,401)):
             self.assertEqual(self.client.get('/api/mobile/staff/catalog/').status_code, 401)
 
+    @patch.dict('os.environ', {'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED':'true', 'SIMPLYBOOK_CALENDAR_WRITEBACK_ENABLED':'1'})
+    def test_native_calendar_diagnostic_is_scoped_to_one_admin_visible_record(self):
+        from .simplybook_outbound import ARIANE
+        from .management.commands.sync_simplybook_notes import _marker
+        ariane = StaffMember.objects.create(display_name=ARIANE)
+        self.foreign.staff = ariane
+        self.foreign.idempotency_key = 'simplybook-123'
+        self.foreign.save(update_fields=['staff','idempotency_key'])
+        block = BlockedPeriod.objects.create(staff=ariane, starts_at=self.foreign.starts_at,
+            ends_at=self.foreign.ends_at, reason='[NOTE][STAFF] Synthetic' + _marker(45))
+        base = {'start': self.day.isoformat(), 'days':1}
+        with patch('booking.mobile_staff_api._source_readback_diagnostic', return_value='source_scope_not_supported') as probe:
+            result = self.client.get('/api/mobile/staff/calendar/', base).json()
+            probe.assert_not_called()
+            self.assertEqual(result['calendar_actor_role'], 'admin')
+            selected = next(x for x in result['appointments'] if x['id']==self.foreign.pk)
+            self.assertEqual(selected['source_editability_reason'], 'eligible')
+            selected = next(x for x in result['blocks'] if x['record_id']==block.pk)
+            self.assertEqual(selected['source_editability_reason'], 'source_revision_missing')
+            self.assertFalse(selected['editable'])
+            result = self.client.get('/api/mobile/staff/calendar/', {**base, 'diagnose':f'block:{block.pk}'}).json()
+            selected = next(x for x in result['blocks'] if x['record_id']==block.pk)
+            self.assertEqual(selected['source_readback_diagnostic'],'source_scope_not_supported')
+            self.assertFalse(selected['editable'])
+            probe.assert_called_once()
+            self.identity['role']='doctor'
+            self.client.get('/api/mobile/staff/calendar/', {**base,'diagnose':f'block:{block.pk}'})
+            probe.assert_called_once()
+
     @patch.dict('os.environ', {'SIMPLYBOOK_OUTBOUND_ENABLED':'1'})
     def test_ariane_staff_creation_queues_verified_answers_and_replays(self):
         from .simplybook_outbound import ARIANE

@@ -5,7 +5,9 @@ import binascii
 import hashlib
 import json
 import logging
+import os
 import re
+from copy import copy
 from io import BytesIO
 from datetime import datetime, timedelta
 from uuid import UUID
@@ -27,7 +29,7 @@ from django.views.decorators.http import require_http_methods
 
 from .app_admin_api import _day_bounds, _private as _staff_private, _service_payload
 from .calendar_admin_api import _block_payload
-from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, clinic_wall_time, parse_clinic_wall_time
+from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, clinic_wall_time, parse_clinic_wall_time, parse_appointment_start
 from .doctor_views import _save_availability, _save_weekly, _time
 from .emails import send_customer_booking_email
 from .internal_api import _patient_path
@@ -38,9 +40,9 @@ from .models import (
 )
 from .intake_forms import build_intake_pdf, confirm_form_link
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder, notify_admin_source_changed
-from .simplybook_writeback import source_managed as _managed_appointment, source_editable, change_locked, source_id
-from .simplybook_outbound import ARIANE, SOURCE_AVAILABILITY_ERRORS, integrated
-from .simplybook_calendar import ACTION_ID_BASE, CalendarSourceConflict, mutate_note, notes_enabled, source_revision, source_staff
+from .simplybook_writeback import source_managed as _managed_appointment, source_editable, change_locked, source_id, _details, _identity
+from .simplybook_outbound import ARIANE, UNIT_ID, SOURCE_AVAILABILITY_ERRORS, integrated, session, _same_booking
+from .simplybook_calendar import ACTION_ID_BASE, CalendarSourceConflict, mutate_note, notes_enabled, source_revision, source_staff, _notes_session, _note, note_fields, _digest
 from .services import effective_working_ranges, prepare_staff_booking
 from .patient_identity_review import possible_duplicate_pairs
 from .patient_identity_views import process_decision
@@ -170,6 +172,92 @@ def _save_contact(request, actor, ident):
         return _private({'ok': True, 'patient': _contact(person)})
 
 
+def _appointment_editability_reason(item):
+    if not _managed_appointment(item):
+        return 'local'
+    if os.getenv('SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED', '').lower() != 'true':
+        return 'writeback_disabled'
+    if item.staff.display_name != ARIANE:
+        return 'provider_out_of_scope'
+    if item.starts_at <= timezone.now():
+        return 'not_future'
+    if item.status != 'confirmed':
+        return 'not_confirmed'
+    if item.simplybook_sync_state not in {'', 'linked'}:
+        return 'sync_state_not_ready'
+    if source_id(item) is None:
+        return 'source_booking_id_missing'
+    return 'eligible'
+
+
+def _block_editability_reason(item, *, admin):
+    if not item.simplybook_managed:
+        return 'local'
+    if not admin:
+        return 'administrator_required'
+    if not notes_enabled():
+        return 'writeback_disabled'
+    if not source_staff(item.staff):
+        return 'provider_out_of_scope'
+    if item.starts_at <= timezone.now():
+        return 'not_future'
+    start, end = clinic_localtime(item.starts_at), clinic_localtime(item.ends_at)
+    if start.date() != end.date():
+        return 'cross_day_interval'
+    if any(t.minute % 15 or t.second or t.microsecond for t in (start, end)):
+        return 'interval_not_quarter_hour'
+    return 'eligible' if source_revision(item) else 'source_revision_missing'
+
+
+def _source_readback_diagnostic(kind, item):
+    """An explicit administrator-only read of a single visible source entry.
+
+    Return finite categories, never a source record, identifier or token. No
+    external or local write, and no extra RPCs during ordinary calendar loads.
+    """
+    if kind == 'appointment':
+        if source_id(item) is None:
+            return 'source_booking_id_missing'
+        try:
+            remote = _details(session(), source_id(item))
+            event, client = _identity(item, remote)
+            expected = copy(item)
+            expected.ends_at = item.simplybook_remote_ends_at or item.ends_at
+            return 'source_identity_verified' if _same_booking(remote, expected, event, client) else 'source_booking_changed'
+        except SOURCE_AVAILABILITY_ERRORS as exc:
+            code = str(exc)
+            return code if code in {'source_service_mismatch', 'source_client_not_verified', 'source_client_not_unique', 'source_identity_unverified'} else 'source_readback_unverified'
+        except Exception:
+            return 'source_readback_unverified'
+    if not item.simplybook_managed:
+        return 'local'
+    try:
+        marker = item.reason[:-1].rpartition('\u2063')[2]
+        ident = int(marker.replace('\u200b', '0').replace('\u200c', '1'), 2)
+        if not 0 < ident < 10**18:
+            return 'source_note_id_missing'
+        remote = _note(_notes_session(), ident)
+        if remote is None:
+            return 'source_note_not_found'
+        if remote.get('mode') != 'provider' or str(remote.get('provider_id')) != str(UNIT_ID) or remote.get('service_id') not in (None, '', 0, '0'):
+            return 'source_scope_not_supported'
+        fields = note_fields(remote)
+        text = fields['note']
+        if len(text) > 120 or text != ' '.join(text.split()):
+            return 'source_text_not_lossless'
+        if parse_appointment_start(fields['start_date_time']) != item.starts_at or parse_appointment_start(fields['end_date_time']) != item.ends_at:
+            return 'source_time_mismatch'
+        rev = source_revision(item)
+        if not rev:
+            return 'source_revision_missing_with_valid_source'
+        if rev.source_id != ident or rev.digest != _digest(fields):
+            return 'source_revision_mismatch'
+        return 'source_identity_verified'
+    except Exception:
+        # Source exceptions may contain private information. Never forward them.
+        return 'source_readback_unverified'
+
+
 def _appointment(item):
     start = clinic_localtime(item.starts_at)
     end = clinic_localtime(item.ends_at)
@@ -183,6 +271,7 @@ def _appointment(item):
         'status': item.status, 'notes': item.notes_customer, 'revision': item.updated_at.isoformat(),
         'source_managed': source_managed,
         'source_editable': source_editable(item),
+        'source_editability_reason': _appointment_editability_reason(item),
         'sync_state': item.simplybook_sync_state,
         'source_identity_available': source_id(item) is not None,
         'source_time_supported': item.staff.display_name == ARIANE and item.starts_at > timezone.now()
@@ -207,6 +296,7 @@ def _block(item, editable, *, admin):
         'editable': bool(revision) if imported else editable and not (
             '[ALL]' in item.reason or '[SERVICE:' in item.reason),
         'source_editable': bool(revision),
+        'source_editability_reason': _block_editability_reason(item, admin=admin),
         'source_revision_available': bool(source_revision(item)) if imported and admin else False,
         'source_managed': imported,
         'management_system': 'SimplyBook' if imported else 'Book',
@@ -260,12 +350,24 @@ def _calendar(request, providers, *, admin):
                   .select_related('simplybook_revision', 'staff'))
     editable = set(MobileStaffCommand.objects.filter(action='block', object_id__in=[row.pk for row in blocks])
                    .values_list('object_id', flat=True))
+    appointments = list(_appointments(providers).filter(starts_at__lt=upper, ends_at__gt=lower).exclude(status='cancelled'))
+    appointment_payloads = [_appointment(item) for item in appointments]
+    block_payloads = [_block(item, admin or item.pk in editable, admin=admin) for item in blocks]
+    requested = request.GET.get('diagnose', '')
+    match = re.fullmatch(r'(appointment|block):([1-9]\d{0,17})', requested) if admin else None
+    if match:
+        kind, ident = match.group(1), int(match.group(2))
+        rows, payloads = (appointments, appointment_payloads) if kind == 'appointment' else (blocks, block_payloads)
+        for item, payload in zip(rows, payloads):
+            if item.pk == ident and (_managed_appointment(item) if kind == 'appointment' else item.simplybook_managed):
+                payload['source_readback_diagnostic'] = _source_readback_diagnostic(kind, item)
+                break
     return _private({
         'ok': True, 'availability': availability,
         'calendar_editability_contract': CALENDAR_EDITABILITY_CONTRACT,
-        'appointments': [_appointment(item) for item in _appointments(providers)
-                         .filter(starts_at__lt=upper, ends_at__gt=lower).exclude(status='cancelled')],
-        'blocks': [_block(item, admin or item.pk in editable, admin=admin) for item in blocks],
+        'calendar_actor_role': 'admin' if admin else 'doctor',
+        'appointments': appointment_payloads,
+        'blocks': block_payloads,
     })
 
 
