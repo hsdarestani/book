@@ -1,0 +1,92 @@
+name: Guarded unified Book release
+
+on:
+  push:
+    branches: [release/unified-book-b70]
+    paths: ['.github/workflows/release-unified-book-b70.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+
+env:
+  UNIFIED_BOOK_BASE_SHA: 6374aee85bb349d7c39e36e8122b383811c1827a
+  UNIFIED_BOOK_SOURCE_SHA: 81ccfa136d0ed44cdaea959fae45982d98df8a92
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.UNIFIED_BOOK_SOURCE_SHA }}
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Check the pinned source and targeted regression tests
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$UNIFIED_BOOK_BASE_SHA"
+          test -z "$(git diff --name-only HEAD^ HEAD -- booking/migrations config .github)"
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+          python manage.py test booking.test_mobile_staff_workspace booking.test_simplybook_outbound booking.test_simplybook_sync_integrity booking.test_simplybook_calendar_writeback booking.test_admin_mobile_flow booking.tests --noinput
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Activate the pinned code revision and check anonymous health
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: UNIFIED_BOOK_BASE_SHA,UNIFIED_BOOK_SOURCE_SHA
+          command_timeout: 6m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
+            flock -n 9
+            test "$(git rev-parse HEAD)" = "$UNIFIED_BOOK_BASE_SHA"
+            test -z "$(git status --porcelain --untracked-files=no)"
+            test -z "$(git diff --name-only)"
+            systemctl is-active --quiet aesthetic-book
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            git fetch -q --no-tags origin "$UNIFIED_BOOK_SOURCE_SHA"
+            test "$(git rev-parse "$UNIFIED_BOOK_SOURCE_SHA^")" = "$UNIFIED_BOOK_BASE_SHA"
+            test -z "$(git diff --name-only "$UNIFIED_BOOK_BASE_SHA" "$UNIFIED_BOOK_SOURCE_SHA" -- booking/migrations config .github)"
+            switched=0
+            finish() {
+              result=$?
+              trap - EXIT
+              if [ "$result" != 0 ] && [ "$switched" = 1 ]; then
+                git switch -q --no-overwrite-ignore --detach "$UNIFIED_BOOK_BASE_SHA" &&
+                  systemctl restart aesthetic-book && systemctl is-active --quiet aesthetic-book || result=2
+              fi
+              exit "$result"
+            }
+            trap finish EXIT
+            git switch -q --no-overwrite-ignore --detach "$UNIFIED_BOOK_SOURCE_SHA"
+            switched=1
+            systemctl restart aesthetic-book
+            for attempt in {1..12}; do
+              code=$(curl -s --max-time 8 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/mobile/staff/calendar/ || true)
+              if systemctl is-active --quiet aesthetic-book && [ "$code" = 401 ] &&
+                curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null; then
+                printf 'BOOK_UNIFIED_DEPLOYED=%s\n' "$UNIFIED_BOOK_SOURCE_SHA"
+                exit 0
+              fi
+              sleep 2
+            done
+            exit 1
