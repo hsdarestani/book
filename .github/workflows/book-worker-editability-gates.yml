@@ -1,0 +1,54 @@
+name: Verify live Book worker editability gates (no record access)
+on:
+  push:
+    branches: [qa/book-worker-editability-gates-20261127]
+    paths: ['.github/workflows/book-worker-editability-gates.yml']
+permissions:
+  contents: read
+jobs:
+  read-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Inspect actual Book service processes without exporting environment data
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+            service=aesthetic-book.service
+            systemctl is-active --quiet "$service"
+            root_pid=$(systemctl show "$service" -p MainPID --value)
+            group=$(systemctl show "$service" -p ControlGroup --value)
+            test "$root_pid" -gt 1
+            test -n "$group"
+            test -r "/sys/fs/cgroup${group}/cgroup.procs"
+            pids=$(sort -nu "/sys/fs/cgroup${group}/cgroup.procs")
+            test -n "$pids"
+            total=0
+            admin_missing=0
+            notes_missing=0
+            outbound_missing=0
+            for pid in $pids; do
+              test -r "/proc/$pid/environ"
+              total=$((total+1))
+              grep -zFxq 'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true' "/proc/$pid/environ" || admin_missing=$((admin_missing+1))
+              grep -zFxq 'SIMPLYBOOK_CALENDAR_WRITEBACK_ENABLED=1' "/proc/$pid/environ" || notes_missing=$((notes_missing+1))
+              grep -zFxq 'SIMPLYBOOK_OUTBOUND_ENABLED=1' "/proc/$pid/environ" || outbound_missing=$((outbound_missing+1))
+            done
+            test "$total" -ge 2
+            printf 'BOOK_SERVICE_PROCESS_COUNT=%s\nADMIN_GATE_MISSING=%s\nNOTE_GATE_MISSING=%s\nOUTBOUND_GATE_MISSING=%s\n' "$total" "$admin_missing" "$notes_missing" "$outbound_missing"
+            if test "$(git -C /opt/aesthetic-book/app rev-parse HEAD)" = 81ccfa136d0ed44cdaea959fae45982d98df8a92; then
+              echo BOOK_RELEASE_PIN_MATCH=yes
+            else
+              echo BOOK_RELEASE_PIN_MATCH=no
+            fi
+            curl -fsS --max-time 10 https://book.a-esthetic.de/api/health/ -o /dev/null
+            echo BOOK_PUBLIC_HEALTH=passed
+            test "$admin_missing" -eq 0
+            test "$notes_missing" -eq 0
+            test "$outbound_missing" -eq 0
