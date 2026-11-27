@@ -1,4 +1,4 @@
-name: Guarded admin booking push and email release
+name: Guarded SimplyBook calendar read protection release
 
 on:
   push:
@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BOOK_BASELINE: ee931357afe243ad9dbf3e8d2c53845a958ffeff
-  BOOK_TARGET: 5e33fba8f3bd6864831c1244a100efae3cbc927a
+  BOOK_BASELINE: 5e33fba8f3bd6864831c1244a100efae3cbc927a
+  BOOK_TARGET: d3022b198ba52d7e0800ae721b425fa56ab83085
   BOOK_TOOLS_REF: ${{ github.sha }}
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
           pip install -r requirements.txt
           python manage.py check
           python manage.py makemigrations --check --dry-run
-          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_admin_notification_routing booking.test_mobile_staff_workspace booking.test_simplybook_outbound booking.test_app_admin_api --noinput
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,testserver python manage.py test booking.test_block_conflict_alerts booking.test_simplybook_notes_rate_limit booking.test_admin_notification_routing booking.test_mobile_staff_workspace booking.test_simplybook_outbound booking.test_app_admin_api --noinput
 
   release:
     needs: rehearse
