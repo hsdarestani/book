@@ -127,7 +127,7 @@ def _appointment(item):
 def _block(item, editable):
     # SimplyBook note sync stores its source identifier after an invisible
     # separator. This is read-only provenance, NOT permission to change source.
-    imported = (item.reason or '').count('\u2063') >= 2
+    imported = item.simplybook_managed
     payload = _block_payload(item)
     if imported:
         payload['text'] = payload['text'].split('\u2063', 1)[0].strip()
@@ -608,7 +608,7 @@ def _save_block(data, providers):
     item = None
     if operation != 'create':
         item = BlockedPeriod.objects.select_for_update().filter(pk=int(data['id']), staff=staff).first()
-        if item and (item.reason or '').count('\u2063') >= 2:
+        if item and item.simplybook_managed:
             raise CommandConflict('Dieser Kalendereintrag wird über SimplyBook synchronisiert. Bitte direkt in SimplyBook ändern.')
         if not item or not MobileStaffCommand.objects.filter(action='block',object_id=item.pk).exists():
             raise CommandConflict('Dieser Eintrag wird in der Book-Verwaltung verwaltet. Bitte dort ändern.')

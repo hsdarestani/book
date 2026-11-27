@@ -3,13 +3,11 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.utils import timezone
 
+from booking.clinical_time import parse_appointment_start
 from booking.models import BlockedPeriod, StaffMember
 from booking.block_conflict_alerts import (
     enqueue_block_conflicts, process_pending_block_conflict_alerts, resolve_block_conflicts,
@@ -35,56 +33,43 @@ def _request_json(url, *, method='GET', payload=None, headers=None, timeout=120)
             raw = response.read().decode('utf-8')
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode('utf-8', errors='replace')[:800]
-        raise CommandError(f'SimplyBook notes HTTP {exc.code}: {detail}') from exc
-    except urllib.error.URLError as exc:
-        raise CommandError(f'SimplyBook notes network error: {exc}') from exc
+        detail = exc.read(800).decode('utf-8', errors='replace')
+        category = ': too many attempts' if 'too many attempts' in detail.lower() else ''
+        raise CommandError(f'SimplyBook notes HTTP {exc.code}{category}') from None
+    except (urllib.error.URLError, TimeoutError, UnicodeError, json.JSONDecodeError):
+        raise CommandError('SimplyBook notes response could not be read.') from None
 
 
 def _items_from_page(payload):
     if isinstance(payload, list):
         return payload
-    if not isinstance(payload, dict):
-        return []
-    for key in ('data', 'items', 'results', 'result'):
-        value = payload.get(key)
-        if isinstance(value, list):
-            return value
-        if isinstance(value, dict):
-            for nested in ('data', 'items', 'results'):
-                nested_value = value.get(nested)
-                if isinstance(nested_value, list):
-                    return nested_value
-    return []
+    if isinstance(payload, dict):
+        for key in ('data', 'items', 'results', 'result'):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+            if isinstance(value, dict):
+                for nested in ('data', 'items', 'results'):
+                    nested_value = value.get(nested)
+                    if isinstance(nested_value, list):
+                        return nested_value
+    raise CommandError('Unexpected SimplyBook calendar note list.')
 
 
 def _total_pages(payload):
     if not isinstance(payload, dict):
         return None
-    candidates = [payload, payload.get('meta'), payload.get('pagination')]
+    candidates = [payload, payload.get('metadata'), payload.get('meta'), payload.get('pagination')]
     for candidate in candidates:
         if not isinstance(candidate, dict):
             continue
-        for key in ('total_pages', 'pages', 'page_count', 'last_page'):
+        for key in ('pages_count', 'total_pages', 'pages', 'page_count', 'last_page'):
             try:
                 value = int(candidate.get(key) or 0)
             except (TypeError, ValueError):
                 continue
             if value > 0:
                 return value
-    return None
-
-
-def _parse_dt(value, source_tz):
-    raw = str(value or '').strip()
-    if not raw:
-        return None
-    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M'):
-        try:
-            parsed = datetime.strptime(raw, fmt)
-            return parsed.replace(tzinfo=source_tz).astimezone(timezone.get_current_timezone())
-        except ValueError:
-            pass
     return None
 
 
@@ -130,6 +115,7 @@ class Command(BaseCommand):
 
         headers = {'X-Company-Login': company, 'X-Token': token}
         all_notes = []
+        source_ids = set()
         per_page = 100
         for page in range(1, 501):
             query = urllib.parse.urlencode([
@@ -140,17 +126,26 @@ class Command(BaseCommand):
             ])
             payload = _request_json(f'{NOTES_URL}?{query}', headers=headers)
             items = _items_from_page(payload)
-            all_notes.extend(item for item in items if isinstance(item, dict))
+            for item in items:
+                note_id = str(item.get('id', '')) if isinstance(item, dict) else ''
+                if not (0 < len(note_id) <= 19 and note_id.isascii() and note_id.isdecimal() and note_id[0] != '0'):
+                    raise CommandError('Invalid SimplyBook calendar note identity.')
+                if note_id in source_ids:
+                    raise CommandError('SimplyBook calendar notes changed during paging.')
+                source_ids.add(note_id)
+            all_notes.extend(items)
             total_pages = _total_pages(payload)
-            if (total_pages and page >= total_pages) or len(items) < per_page:
+            last_page = page >= total_pages if total_pages is not None else len(items) < per_page
+            if last_page:
                 break
+        else:
+            raise CommandError('SimplyBook calendar note list did not finish paging.')
 
         ariane = StaffMember.objects.filter(display_name='Frau Ariane Regaei').order_by('pk').first()
         if ariane is None:
             raise CommandError('Frau Ariane Regaei was not found; refusing to import SimplyBook notes elsewhere.')
 
-        source_tz = ZoneInfo('Europe/Berlin')
-        seen_markers = set()
+        seen_markers = {_marker(note_id) for note_id in source_ids}
         created = 0
         updated = 0
         skipped = 0
@@ -160,17 +155,13 @@ class Command(BaseCommand):
         with transaction.atomic():
             for row in all_notes:
                 note_id = row.get('id')
-                if note_id in (None, ''):
-                    skipped += 1
-                    continue
-                starts_at = _parse_dt(row.get('start_date_time') or row.get('from'), source_tz)
-                ends_at = _parse_dt(row.get('end_date_time') or row.get('to'), source_tz)
+                starts_at = parse_appointment_start(row.get('start_date_time') or row.get('from'))
+                ends_at = parse_appointment_start(row.get('end_date_time') or row.get('to'))
                 if not starts_at or not ends_at or ends_at <= starts_at:
                     skipped += 1
                     continue
 
                 marker = _marker(note_id)
-                seen_markers.add(marker)
                 blocked_value = row.get('time_blocked')
                 blocked = blocked_value is True or str(blocked_value).strip().lower() in ('1', 'true', 'yes')
                 prefix = '[BLOCKNOTE][STAFF]' if blocked else '[NOTE][STAFF]'

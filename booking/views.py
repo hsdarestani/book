@@ -322,7 +322,11 @@ def dashboard(request):
             return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=block#einstellungen')
 
         if action == 'delete_block' and selected_staff:
-            BlockedPeriod.objects.filter(pk=request.POST.get('block_id'), staff=selected_staff).delete()
+            block = BlockedPeriod.objects.filter(pk=request.POST.get('block_id'), staff=selected_staff).first()
+            if block and block.simplybook_managed:
+                return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=simplybook-block-read-only#einstellungen')
+            if block:
+                block.delete()
             return redirect(f'/verwaltung/?staff={selected_staff.pk}&notice=block-deleted#einstellungen')
 
         if action == 'add_calendar_note' and selected_staff:
@@ -353,6 +357,8 @@ def dashboard(request):
 
         if action == 'delete_calendar_item':
             item = BlockedPeriod.objects.filter(pk=request.POST.get('block_id')).first()
+            if item and item.simplybook_managed:
+                return redirect(f'{calendar_return}&notice=simplybook-block-read-only')
             if item:
                 item.delete()
             return redirect(calendar_return)

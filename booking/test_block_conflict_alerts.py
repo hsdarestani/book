@@ -56,10 +56,12 @@ class SimplyBookBlockedBookingAlertTests(TestCase):
             "time_blocked": True,
         }
 
-    def sync(self, *, suppress=False):
+    def sync(self, *, suppress=False, pages=None):
         def source(url, **kwargs):
             if url.endswith("/admin/auth"):
                 return {"token": "test-token"}
+            if pages is not None:
+                return next(pages)
             return [dict(self.note)] if self.note is not None else []
         with patch.dict(os.environ, {
             "SIMPLYBOOK_COMPANY_LOGIN": "test-company",
@@ -73,6 +75,26 @@ class SimplyBookBlockedBookingAlertTests(TestCase):
                     stdout=output,
                 )
                 return output.getvalue()
+
+    def test_incomplete_source_page_preserves_imported_block(self):
+        from django.core.management.base import CommandError
+
+        self.sync(suppress=True)
+        block = BlockedPeriod.objects.get(staff=self.staff)
+        pages = iter([
+            {"data": [self.note], "metadata": {"pages_count": 2}},
+            {"message": "Invalid API response"},
+        ])
+        with self.assertRaises(CommandError):
+            self.sync(suppress=True, pages=pages)
+        self.assertEqual(BlockedPeriod.objects.get(staff=self.staff).pk, block.pk)
+
+    def test_note_with_ambiguous_berlin_timestamp_does_not_delete_existing_block(self):
+        self.sync(suppress=True)
+        block = BlockedPeriod.objects.get(staff=self.staff)
+        self.note["start_date_time"] = "2026-10-25 02:30:00"
+        self.sync(suppress=True)
+        self.assertEqual(BlockedPeriod.objects.get(staff=self.staff).starts_at, block.starts_at)
 
     @patch("booking.block_conflict_alerts._send_admin_conflict_push", return_value={"ok": True})
     def test_new_source_block_warns_admin_by_email_and_push_once(self, push):

@@ -114,6 +114,12 @@ class BlockedPeriod(models.Model):
     reason = models.CharField('Grund', max_length=160, blank=True)
     class Meta:
         ordering=['starts_at']; verbose_name='Abwesenheit'; verbose_name_plural='Abwesenheiten'
+
+    @property
+    def simplybook_managed(self):
+        _text, separator, marker = self.reason[:-1].rpartition('\u2063')
+        return self.reason.endswith('\u2063') and bool(separator and marker) and set(marker) <= {'\u200b', '\u200c'}
+
     def clean(self):
         if self.ends_at <= self.starts_at: raise ValidationError('Das Ende muss nach dem Beginn liegen.')
     def __str__(self): return f'{self.staff} – {self.starts_at:%d.%m.%Y %H:%M}'

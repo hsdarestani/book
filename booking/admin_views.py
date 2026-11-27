@@ -166,6 +166,7 @@ def _block_payload(item):
         'scope': scope,
         'service_id': service_id or '',
         'text': _clean_reason(item.reason),
+        'source_managed': item.simplybook_managed,
     }
 
 
@@ -634,6 +635,9 @@ def dashboard_proxy(request):
         item = BlockedPeriod.objects.filter(pk=request.POST.get('block_id')).select_related('staff').first()
         if not item:
             return redirect('/verwaltung/kalender/?notice=block-error')
+        if item.simplybook_managed:
+            return redirect(_calendar_url(day=clinic_localtime(item.starts_at).date(),
+                view=request.POST.get('return_view') or 'day', staff_id=item.staff_id, notice='simplybook-block-read-only'))
         starts_at = parse_clinic_wall_time(request.POST.get('item_date'), request.POST.get('item_start'))
         ends_at = parse_clinic_wall_time(request.POST.get('item_date'), request.POST.get('item_end'))
         if not starts_at or not ends_at or ends_at <= starts_at or not _is_quarter(starts_at) or not _is_quarter(ends_at):
@@ -668,6 +672,9 @@ def dashboard_proxy(request):
             return redirect('/verwaltung/kalender/?notice=block-deleted')
         day = clinic_localtime(item.starts_at).date()
         staff_id = item.staff_id
+        if item.simplybook_managed:
+            return redirect(_calendar_url(day=day, view=request.POST.get('return_view') or 'day',
+                staff_id=staff_id, notice='simplybook-block-read-only'))
         _period_group(item).delete()
         return redirect(_calendar_url(day=day, view=request.POST.get('return_view') or 'day', staff_id=staff_id, notice='block-deleted'))
 

@@ -425,7 +425,11 @@ def block_action(request):
     data = _json(request)
     action = str(data.get("action") or "create")
     if action == "delete":
-        BlockedPeriod.objects.filter(pk=data.get("id")).delete()
+        block = BlockedPeriod.objects.filter(pk=data.get("id")).first()
+        if block and block.simplybook_managed:
+            return _private({"ok": False, "error": "source_block_read_only"}, 409)
+        if block:
+            block.delete()
         return _private({"ok": True, "deleted": True})
     staff = StaffMember.clinical_choices().filter(pk=data.get("staff_id"), active=True).first()
     starts_at = parse_clinic_wall_time(data.get("date"), data.get("start"))
