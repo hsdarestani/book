@@ -1,0 +1,120 @@
+name: Guarded calendar editability parity release
+on:
+  push:
+    branches: [release/calendar-editability-parity-20261127]
+    paths: ['.github/workflows/release-calendar-editability-parity.yml']
+permissions:
+  contents: read
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+env:
+  BOOK_BASE_SHA: 81ccfa136d0ed44cdaea959fae45982d98df8a92
+  BOOK_SOURCE_SHA: a1f810c9acc2fd5c04de186f5b2326b86879227a
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BOOK_SOURCE_SHA }}
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Verify scoped patch, syntax and focused regressions
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$BOOK_BASE_SHA"
+          test -z "$(git diff --name-only HEAD^ HEAD -- booking/migrations config .github)"
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+          python manage.py test booking.test_fast_calendar_and_login.FastCalendarDayApiTests booking.test_simplybook_calendar_writeback booking.test_simplybook_outbound booking.test_iphone_calendar --noinput
+          node --check static/booking/admin-calendar-plus.js
+          node --check static/booking/admin.js
+  deploy:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Activate pinned source and exact two collected JS assets with rollback
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: BOOK_BASE_SHA,BOOK_SOURCE_SHA
+          command_timeout: 6m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
+            flock -n 9
+            test "$(git rev-parse HEAD)" = "$BOOK_BASE_SHA"
+            test -z "$(git status --porcelain --untracked-files=no)"
+            systemctl is-active --quiet aesthetic-book
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            git fetch -q --no-tags origin "$BOOK_SOURCE_SHA"
+            test "$(git rev-parse "$BOOK_SOURCE_SHA^")" = "$BOOK_BASE_SHA"
+            test "$(git diff --name-only "$BOOK_BASE_SHA" "$BOOK_SOURCE_SHA" | sort)" = "$(printf '%s\n' booking/admin_views.py booking/calendar_admin_api.py booking/test_fast_calendar_and_login.py static/booking/admin-calendar-plus.js static/booking/admin.js templates/booking/dashboard.html | sort)"
+            backup=$(mktemp -d /opt/aesthetic-book/remediation-rollbacks/calendar-editability-20261127.XXXXXX)
+            for name in admin.js admin-calendar-plus.js; do
+              cmp -s "static/booking/$name" "staticfiles/booking/$name"
+              cp -a "staticfiles/booking/$name" "$backup/$name"
+              test ! -e "staticfiles/booking/$name.calendar-release-tmp"
+            done
+            switched=0
+            finish() {
+              result=$?
+              trap - EXIT
+              if [ "$result" != 0 ] && [ "$switched" = 1 ]; then
+                for name in admin.js admin-calendar-plus.js; do
+                  cp -a --remove-destination "$backup/$name" "staticfiles/booking/$name" || result=2
+                done
+                git switch -q --no-overwrite-ignore --detach "$BOOK_BASE_SHA" &&
+                  systemctl restart aesthetic-book && systemctl is-active --quiet aesthetic-book || result=2
+                echo CALENDAR_EDITABILITY_ROLLBACK=attempted
+              fi
+              for name in admin.js admin-calendar-plus.js; do
+                rm -f "staticfiles/booking/$name.calendar-release-tmp"
+              done
+              exit "$result"
+            }
+            trap finish EXIT
+            git switch -q --no-overwrite-ignore --detach "$BOOK_SOURCE_SHA"
+            switched=1
+            for name in admin.js admin-calendar-plus.js; do
+              target="staticfiles/booking/$name"
+              cp -a "$target" "$target.calendar-release-tmp"
+              cp "static/booking/$name" "$target.calendar-release-tmp"
+              mv "$target.calendar-release-tmp" "$target"
+            done
+            systemctl restart aesthetic-book
+            for attempt in {1..12}; do
+              code=$(curl -s --max-time 8 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/mobile/staff/calendar/ || true)
+              if systemctl is-active --quiet aesthetic-book && [ "$code" = 401 ] &&
+                curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null; then break; fi
+              sleep 2
+            done
+            test "$code" = 401
+            systemctl is-active --quiet aesthetic-book
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null
+            for name in admin.js admin-calendar-plus.js; do
+              expected=$(sha256sum "static/booking/$name" | cut -d' ' -f1)
+              actual=$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "https://book.a-esthetic.de/static/booking/$name?v=20261127-source-revisions" | sha256sum | cut -d' ' -f1)
+              test "$expected" = "$actual"
+            done
+            group=$(systemctl show aesthetic-book -p ControlGroup --value)
+            test -r "/sys/fs/cgroup${group}/cgroup.procs"
+            for pid in $(sort -nu "/sys/fs/cgroup${group}/cgroup.procs"); do
+              for gate in SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true SIMPLYBOOK_CALENDAR_WRITEBACK_ENABLED=1 SIMPLYBOOK_OUTBOUND_ENABLED=1; do
+                grep -zFxq "$gate" "/proc/$pid/environ"
+              done
+            done
+            printf 'CALENDAR_EDITABILITY_DEPLOYED=%s\n' "$BOOK_SOURCE_SHA"
+            echo EXACT_PUBLIC_ASSETS_VERIFIED=yes
