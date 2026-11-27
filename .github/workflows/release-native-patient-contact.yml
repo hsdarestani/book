@@ -13,7 +13,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BASELINE: b66979a745fec9879052aaf152ba3306e0fa98a0
+  CONTACT_BOOK_LIVE_BASE_SHA: b66979a745fec9879052aaf152ba3306e0fa98a0
+  CONTACT_BOOK_RELEASE_SHA: d48fd7937000818c7ec0f43e8cb7616e8ab6bb6e
 
 jobs:
   verify:
@@ -30,8 +31,9 @@ jobs:
         name: Pin and verify the contact-only source delta
         run: |
           set -euo pipefail
-          target=$(git rev-parse HEAD^)
-          test "$(git rev-parse "$target^")" = "$BASELINE"
+          target="$CONTACT_BOOK_RELEASE_SHA"
+          git merge-base --is-ancestor "$target" HEAD
+          test "$(git rev-parse "$target^")" = "$CONTACT_BOOK_LIVE_BASE_SHA"
           diff -u <(cat <<'FILES'
           booking/admin.py
           booking/admin_dashboard_views.py
@@ -50,7 +52,7 @@ jobs:
           templates/booking/doctor_appointments.html
           templates/booking/patient_file.html
           FILES
-          ) <(git diff --name-only "$BASELINE" "$target")
+          ) <(git diff --name-only "$CONTACT_BOOK_LIVE_BASE_SHA" "$target")
           echo "target=$target" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@v5
         with:
@@ -66,7 +68,7 @@ jobs:
     needs: verify
     runs-on: ubuntu-24.04
     env:
-      TARGET: ${{ needs.verify.outputs.target }}
+      CONTACT_BOOK_RELEASE_SHA: ${{ needs.verify.outputs.target }}
     steps:
       - uses: appleboy/ssh-action@v1.2.0
         with:
@@ -74,7 +76,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           port: ${{ secrets.SERVER_PORT }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          envs: BASELINE,TARGET
+          envs: CONTACT_BOOK_LIVE_BASE_SHA,CONTACT_BOOK_RELEASE_SHA
           command_timeout: 12m
           script: |
             set -euo pipefail
@@ -84,12 +86,12 @@ jobs:
             cd "$app"
             exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
             flock -n 9
-            test "$(git rev-parse HEAD)" = "$BASELINE"
+            test "$(git rev-parse HEAD)" = "$CONTACT_BOOK_LIVE_BASE_SHA"
             test -z "$(git status --porcelain --untracked-files=no)"
             systemctl is-active --quiet aesthetic-book
             config_before=$(sha256sum "$env_file" "$calendar_config")
-            git fetch --no-tags origin "$TARGET"
-            test "$(git rev-parse "$TARGET^")" = "$BASELINE"
+            git fetch --no-tags origin "$CONTACT_BOOK_RELEASE_SHA"
+            test "$(git rev-parse "$CONTACT_BOOK_RELEASE_SHA^")" = "$CONTACT_BOOK_LIVE_BASE_SHA"
             original_branch=$(git symbolic-ref --quiet --short HEAD || true)
             stage=$(mktemp -d /opt/aesthetic-book/.patient-contact-stage.XXXXXXXX)
             switched=0
@@ -100,7 +102,7 @@ jobs:
                 if [ -n "$original_branch" ]; then
                   git switch --no-overwrite-ignore "$original_branch"
                 else
-                  git switch --no-overwrite-ignore --detach "$BASELINE"
+                  git switch --no-overwrite-ignore --detach "$CONTACT_BOOK_LIVE_BASE_SHA"
                 fi &&
                   systemctl restart aesthetic-book &&
                   systemctl is-active --quiet aesthetic-book &&
@@ -110,7 +112,7 @@ jobs:
               exit "$result"
             }
             trap finish EXIT
-            git worktree add --detach "$stage" "$TARGET"
+            git worktree add --detach "$stage" "$CONTACT_BOOK_RELEASE_SHA"
             chmod 0755 "$stage"
             django_at() {
               runuser -u aestheticbook -- bash -c '
@@ -134,14 +136,14 @@ jobs:
             PY
             django_at "$stage" migrate booking 0038_staff_patient_contact --noinput
             test "$(sha256sum "$env_file" "$calendar_config")" = "$config_before"
-            git switch --no-overwrite-ignore --detach "$TARGET"
+            git switch --no-overwrite-ignore --detach "$CONTACT_BOOK_RELEASE_SHA"
             switched=1
             systemctl restart aesthetic-book
             for attempt in {1..12}; do
               code=$(curl -s --max-time 8 -o /dev/null -w '%{http_code}' https://book.a-esthetic.de/api/mobile/staff/patient/1/contact/ || true)
               if systemctl is-active --quiet aesthetic-book && [ "$code" = 401 ]; then
                 test "$(sha256sum "$env_file" "$calendar_config")" = "$config_before"
-                echo "BOOK_CONTACT_DEPLOYED=$TARGET"
+                echo "BOOK_CONTACT_DEPLOYED=$CONTACT_BOOK_RELEASE_SHA"
                 exit 0
               fi
               sleep 2
