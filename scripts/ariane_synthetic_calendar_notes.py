@@ -19,7 +19,7 @@ tag = 'Book synchronization QA ' + uuid4().hex
 try:
     company = os.environ['SIMPLYBOOK_COMPANY_LOGIN']
     stage = 'rest_auth'
-    auth = _request_json(AUTH_URL, method='POST', payload={
+    auth = globals().get('fixture_rest_auth') or _request_json(AUTH_URL, method='POST', payload={
         'company': company, 'login': os.environ['SIMPLYBOOK_USER_LOGIN'],
         'password': os.environ['SIMPLYBOOK_USER_PASSWORD'],
     }, timeout=12)
@@ -92,7 +92,7 @@ try:
             try:
                 notes('/' + str(remote_id))
             except CommandError as exc:
-                if not str(exc).startswith('SimplyBook notes HTTP 404:'):
+                if not str(exc).startswith('SimplyBook notes HTTP 404'):
                     raise
             else:
                 raise RuntimeError('delete_not_confirmed')
@@ -100,5 +100,5 @@ try:
             print('VENDOR_NOTE_DELETED_AND_SLOT_RESTORED=true', flush=True)
 except Exception as exc:
     code = next((c for c in ('400','401','403','404','409','429','500')
-                 if isinstance(exc, CommandError) and str(exc).startswith('SimplyBook notes HTTP '+c+':')), '')
+                 if isinstance(exc, CommandError) and str(exc).startswith('SimplyBook notes HTTP '+c)), '')
     raise SystemExit('PILOT_FAILED=' + stage + ':' + type(exc).__name__ + ':' + code + (':rate_limited' if 'too many attempts' in str(exc).lower() else '')) from None
