@@ -45,7 +45,8 @@ def smoke():
   page.route('**/verwaltung/api/goae-quote/',lambda route: requests.append(route.request.post_data) or route.fulfill(
     status=400,content_type='application/json',body='{"ok":false,"message":"Synthetic quote rejected: no clinical confirmation."}'))
   page.goto(base+'/',wait_until='networkidle')
-  page.locator('#goae-rechnung > details > summary').click()
+  assert page.locator('[data-mlr]').is_visible()
+  assert page.locator('[data-goae-quick]').count()==0
   page.locator('[data-total]').wait_for(state='visible')
   assert page.locator('[data-total]').inner_text()=='260,00 €' or page.locator('[data-total]').inner_text()=='260,00 €'
   assert '142,06' in page.locator('[data-fee]').inner_text(),page.locator('[data-fee]').inner_text()
