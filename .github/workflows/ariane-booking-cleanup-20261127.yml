@@ -1,0 +1,33 @@
+name: SimplyBook isolated synthetic fixture reconciliation
+on:
+  push:
+    branches: [fix/simplybook-calendar-writeback-20261127]
+    paths: ['.github/workflows/ariane-booking-cleanup-20261127.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify cleanup of the unique synthetic appointment identity
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            printf 'LIVE_BOOK_SHA='
+            git rev-parse HEAD
+            systemctl is-active aesthetic-book
+            pid=$(systemctl show aesthetic-book -p MainPID --value)
+            for flag in SIMPLYBOOK_OUTBOUND_ENABLED=1 SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true SIMPLYBOOK_AVAILABILITY_ENABLED=1; do
+              if tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx "$flag" >/dev/null; then printf 'SERVICE_FLAG=%s\n' "$flag"; fi
+            done
+            source /etc/aesthetic-simplybook-credentials.env
+            git fetch --no-tags origin 1f99172af3d05d4043770bf45d4378d70241a372
+            git show 1f99172af3d05d4043770bf45d4378d70241a372:scripts/ariane_synthetic_cleanup.py |
+              runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -c "import django,sys; django.setup(); exec(compile(sys.stdin.read(), \"synthetic_booking_acceptance\", \"exec\"))"'
