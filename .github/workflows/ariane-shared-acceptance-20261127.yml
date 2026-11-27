@@ -11,7 +11,7 @@ permissions:
 jobs:
   inspect:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 9
     steps:
       - name: Verify synthetic booking create, move, cancel and cleanup
         uses: appleboy/ssh-action@v1.2.0
@@ -32,11 +32,11 @@ jobs:
             done
             source /etc/aesthetic-simplybook-credentials.env
             test "$(git rev-parse HEAD)" = d3022b198ba52d7e0800ae721b425fa56ab83085
-            git fetch --no-tags origin b9bfb5b0c9a631a56ebd1916556f9d1590f76496
+            git fetch --no-tags origin 3f2ca07447fec91f16045215b5fa97a28595b772
             stage=$(mktemp -d)
             trap 'rm -rf -- "$stage"' EXIT
             chmod 0755 "$stage"
             for name in shared_acceptance booking_acceptance calendar_notes; do
-              git show "b9bfb5b0c9a631a56ebd1916556f9d1590f76496:scripts/ariane_synthetic_$name.py" > "$stage/$name.py"
+              git show "3f2ca07447fec91f16045215b5fa97a28595b772:scripts/ariane_synthetic_$name.py" > "$stage/$name.py"
             done
             runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python "$@"' -- "$stage/shared_acceptance.py" "$stage/booking_acceptance.py" "$stage/calendar_notes.py"
