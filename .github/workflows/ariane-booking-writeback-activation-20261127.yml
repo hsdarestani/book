@@ -31,8 +31,8 @@ jobs:
             config=/etc/systemd/system/aesthetic-book.service.d/57-simplybook-appointment-writeback.conf
             test ! -e "$config"
             source /etc/aesthetic-simplybook-credentials.env
-            git fetch --no-tags origin 3a9b3c41aa01a1de3f64d13bc52953e90d7bee83
-            git show 3a9b3c41aa01a1de3f64d13bc52953e90d7bee83:scripts/ariane_synthetic_booking_acceptance.py |
+            git fetch --no-tags origin 5e9a72a04280b995aec1d273780c8cbd1fec5202
+            git show 5e9a72a04280b995aec1d273780c8cbd1fec5202:scripts/ariane_synthetic_booking_acceptance.py |
               runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -c "import django,sys; django.setup(); exec(compile(sys.stdin.read(), \"booking_acceptance\", \"exec\"))"'
             activated=0
             rollback() {
