@@ -27,30 +27,15 @@ jobs:
               python3 -c "import sys; s=sys.stdin.read().casefold(); print({k:s.count(k) for k in ('sync lock','timed out','rate limited','http 403','http 429','not found','traceback','commanderror','field','migration','operationalerror','integrityerror','invalid simplybook calendar note identity','unexpected simplybook calendar note list','appointment reconciliation','skipped bookings','after import','baseline completed','simplybook import completed','simplybook calendar notes synchronized') if k in s})"
             journalctl -u aesthetic-simplybook-sync.service --since '-30 min' --output=cat --no-pager |
               python3 -c 'import re,sys; s=sys.stdin.read(); pattern=r'\''File "/opt/aesthetic-book/app/(booking/[a-z0-9_/]+[.]py)", line (\d+)|(?:constraint|index) "([a-z0-9_]+)"|((?:ValueError|TypeError|CommandError|IntegrityError|RpcError|OperationalError|ValidationError):)|((?:Incomplete SimplyBook source import|Invalid SimplyBook calendar note identity|Unexpected SimplyBook calendar note list|source booking identity mismatch|SimplyBook notes HTTP [0-9]+))'\''; print(sorted({next(v for v in m.groups()[2:] if v) if not m.group(1) else m.group(1)+'\'':'\''+m.group(2) for m in re.finditer(pattern,s)}))'
-            source /etc/aesthetic-simplybook-credentials.env
-            runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
             from booking.models import ExternalSyncState
             state = ExternalSyncState.objects.filter(source='simplybook').first()
             if state:
                 print('SOURCE_SYNC_LAST_SUCCESS=' + str(state.last_success_at))
                 print('SOURCE_SYNC_LAST_NOTES_STATUS=' + str(state.metadata.get('last_notes_status')))
-            from booking.simplybook_outbound import session
-            def _booking_identity(row):
-                return tuple(str(row.get(key) or '').strip() for key in ('id','client_id','event_id'))
-            import logging
-            logging.disable(logging.CRITICAL)
-            try:
-                rpc = session()
-                clients = rpc('getClientList', ['', None])
-                window = {'date_from':'2000-01-01','date_to':'2035-12-31'}
-                booked = rpc('getBookings', [{**window,'booking_type':'all'}])
-                cancelled = rpc('getBookings', [{**window,'booking_type':'cancelled'}])
-                assert isinstance(clients,list) and isinstance(booked,list) and isinstance(cancelled,list)
-                clients = {str(row['id']) for row in clients if isinstance(row,dict) and row.get('id')}
-                missing = {_booking_identity(row) for row in booked if isinstance(row,dict) and row.get('client_id') and str(row['client_id']) not in clients}
-                terminal = {_booking_identity(row) for row in cancelled if isinstance(row,dict)}
-                print('SOURCE_BOOKING_CLIENT_LINKS_MISSING=' + str(len(missing)))
-                print('MISSING_CLIENT_LINKS_WITH_VERIFIED_CANCELLATION=' + str(len(missing & terminal)))
-            except Exception as exc:
-                print('SOURCE_CLIENT_LINK_PROBE=' + type(exc).__name__)
+
             PY
+            pid=$(systemctl show aesthetic-book -p MainPID --value)
+            for gate in SIMPLYBOOK_AVAILABILITY_ENABLED=1 SIMPLYBOOK_CALENDAR_WRITEBACK_ENABLED=1 SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true SIMPLYBOOK_OUTBOUND_ENABLED=1; do
+              if tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx "$gate" >/dev/null; then printf 'PRODUCTION_GATE=%s\n' "$gate"; fi
+            done
