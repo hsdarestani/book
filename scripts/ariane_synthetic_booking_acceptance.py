@@ -30,7 +30,7 @@ candidate_days = []
 delete_client = None
 try:
     company = os.environ['SIMPLYBOOK_COMPANY_LOGIN']
-    auth = _request_json(AUTH_URL, method='POST', payload={
+    auth = globals().get('fixture_rest_auth') or _request_json(AUTH_URL, method='POST', payload={
         'company': company, 'login': os.environ['SIMPLYBOOK_USER_LOGIN'],
         'password': os.environ['SIMPLYBOOK_USER_PASSWORD'],
     }, timeout=12)
