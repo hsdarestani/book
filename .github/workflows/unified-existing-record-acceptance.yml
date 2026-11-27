@@ -1,0 +1,84 @@
+name: Private validation of existing SimplyBook editability
+
+on:
+  push:
+    branches: [qa/unified-existing-record-acceptance]
+    paths: ['.github/workflows/unified-existing-record-acceptance.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Validate source identity without exporting any record data
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 4m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            test "$(git rev-parse HEAD)" = '81ccfa136d0ed44cdaea959fae45982d98df8a92'
+            pid=$(systemctl show aesthetic-book -p MainPID --value)
+            grep -zFx 'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true' "/proc/$pid/environ" >/dev/null
+            grep -zFx 'SIMPLYBOOK_CALENDAR_WRITEBACK_ENABLED=1' "/proc/$pid/environ" >/dev/null
+            source /etc/aesthetic-simplybook-credentials.env
+            export SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true SIMPLYBOOK_CALENDAR_WRITEBACK_ENABLED=1
+            if runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -' >/dev/null 2>&1 <<'PY'
+            import django
+            from copy import copy
+            django.setup()
+            from django.utils import timezone
+            from booking.models import Appointment, BlockedPeriod
+            from booking.mobile_staff_api import _appointment, _block
+            from booking.simplybook_calendar import _digest, _note, _notes_session, note_fields, source_revision
+            from booking.simplybook_outbound import ARIANE, SOURCE_AVAILABILITY_ERRORS, _same_booking, session
+            from booking.simplybook_writeback import _details, _identity, source_editable, source_id
+            now = timezone.now()
+
+            def appointment_valid():
+                source = session()
+                rows = Appointment.objects.filter(staff__display_name=ARIANE, starts_at__gt=now, status='confirmed',
+                    idempotency_key__startswith='simplybook-').exclude(customer__first_name__icontains='synthetic')
+                rows = rows.select_related('customer','staff','service','mobile_cancellation').order_by('starts_at')
+                for item in rows[:5]:
+                    if not source_editable(item):
+                        continue
+                    try:
+                        actual = _details(source, source_id(item))
+                        event, client = _identity(item, actual)
+                        expected = copy(item)
+                        expected.ends_at = item.simplybook_remote_ends_at or item.ends_at
+                        if _same_booking(actual, expected, event, client) and _appointment(item)['source_editable']:
+                            return True
+                    except SOURCE_AVAILABILITY_ERRORS:
+                        continue
+                return False
+
+            def note_valid():
+                source = _notes_session()
+                rows = BlockedPeriod.objects.filter(staff__display_name=ARIANE, starts_at__gt=now,
+                    simplybook_revision__isnull=False).select_related('staff','simplybook_revision').order_by('starts_at')
+                for item in rows[:5]:
+                    revision = source_revision(item)
+                    if not revision:
+                        continue
+                    if _digest(note_fields(_note(source, revision.source_id))) == revision.digest and _block(item, False, admin=True)['editable']:
+                        return True
+                return False
+
+            if not appointment_valid() or not note_valid():
+                raise SystemExit(1)
+            PY
+            then
+              echo 'EXISTING_IMPORTED_ACCEPTANCE=passed'
+            else
+              echo 'EXISTING_IMPORTED_ACCEPTANCE=unverified'
+              exit 1
+            fi
