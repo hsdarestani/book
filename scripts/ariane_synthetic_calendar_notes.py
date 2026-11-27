@@ -18,6 +18,7 @@ attempted = False
 tag = 'Book synchronization QA ' + uuid4().hex
 try:
     company = os.environ['SIMPLYBOOK_COMPANY_LOGIN']
+    stage = 'rest_auth'
     auth = _request_json(AUTH_URL, method='POST', payload={
         'company': company, 'login': os.environ['SIMPLYBOOK_USER_LOGIN'],
         'password': os.environ['SIMPLYBOOK_USER_PASSWORD'],
@@ -27,6 +28,7 @@ try:
     def notes(path='', **kwargs):
         return _request_json(NOTES_URL + path, headers=headers, timeout=12, **kwargs)
 
+    stage = 'booking_availability'
     call = session()
     event = SERVICE_MAP['aesthetische-erstberatung'][0]
     staff = StaffMember.objects.get(display_name=ARIANE, active=True)
@@ -41,6 +43,7 @@ try:
                  and not BlockedPeriod.objects.filter(staff=staff, starts_at__lt=s + timedelta(minutes=30),
                      ends_at__gt=s).exclude(reason__startswith='[NOTE]').exists())
     day = start.date().isoformat()
+    stage = 'notes_default_type'
     note_type = int(notes('/types/default')['id'])
     def fmt(instant):
         return clinic_localtime(instant).strftime('%Y-%m-%d %H:%M:%S')
@@ -98,4 +101,4 @@ try:
 except Exception as exc:
     code = next((c for c in ('400','401','403','404','409','429','500')
                  if isinstance(exc, CommandError) and str(exc).startswith('SimplyBook notes HTTP '+c+':')), '')
-    raise SystemExit('PILOT_FAILED=' + stage + ':' + type(exc).__name__ + ':' + code) from None
+    raise SystemExit('PILOT_FAILED=' + stage + ':' + type(exc).__name__ + ':' + code + (':rate_limited' if 'too many attempts' in str(exc).lower() else '')) from None
