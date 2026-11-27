@@ -26,7 +26,7 @@ jobs:
             cd /opt/aesthetic-book/app
             exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
             flock -w 30 9
-            test "$(git rev-parse HEAD)" = b66979a745fec9879052aaf152ba3306e0fa98a0
+            test "$(git rev-parse HEAD)" = 46c28748fa661572b70f0cf32227ce34fdc0139f
             systemctl is-active --quiet aesthetic-book
             config=/etc/systemd/system/aesthetic-book.service.d/57-simplybook-appointment-writeback.conf
             test ! -e "$config"
@@ -56,4 +56,5 @@ jobs:
             pid=$(systemctl show aesthetic-book -p MainPID --value)
             tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx 'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true' >/dev/null
             tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx 'SIMPLYBOOK_AVAILABILITY_ENABLED=1' >/dev/null
+            tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx 'SIMPLYBOOK_CALENDAR_WRITEBACK_ENABLED=1' >/dev/null
             echo 'SIMPLYBOOK_ARIANE_ADMIN_APPOINTMENT_WRITEBACK_ACTIVE=true'
