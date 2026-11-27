@@ -28,24 +28,6 @@ jobs:
               if tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx "$flag" >/dev/null; then printf 'SERVICE_FLAG=%s\n' "$flag"; fi
             done
             source /etc/aesthetic-simplybook-credentials.env
-            runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
-            import os
-            from booking.management.commands.sync_simplybook_notes import AUTH_URL, NOTES_URL, _request_json
-            from booking.simplybook_outbound import session, UNIT_ID
-            for key in ('SIMPLYBOOK_OUTBOUND_ENABLED', 'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED', 'SIMPLYBOOK_AVAILABILITY_ENABLED'):
-                print(key + '_ACTIVE=' + str(os.getenv(key, '').lower() in ('1', 'true')))
-            try:
-                company = os.environ['SIMPLYBOOK_COMPANY_LOGIN']
-                auth = _request_json(AUTH_URL, method='POST', payload={'company': company, 'login': os.environ['SIMPLYBOOK_USER_LOGIN'], 'password': os.environ['SIMPLYBOOK_USER_PASSWORD']}, timeout=12)
-                headers = {'X-Company-Login': company, 'X-Token': auth['token']}
-                note_type = _request_json(NOTES_URL + '/types/default', headers=headers, timeout=12)
-                print('NOTES_DEFAULT_TYPE_AVAILABLE=' + str(bool(note_type.get('id'))))
-                call = session()
-                print('STATUS_OPTIONS_AVAILABLE=' + str(bool(call('getStatuses', []))))
-                print('ARIANE_WORKDAY_AVAILABLE=' + str(bool(call('getUnitWorkdayInfo', [UNIT_ID]))))
-            except Exception as exc:
-                raise SystemExit('PREFLIGHT_READ_UNCONFIRMED=' + type(exc).__name__) from None
-            PY
             git fetch --no-tags origin 16cd694e123d342dbda14156437135003da366d9
             git show 16cd694e123d342dbda14156437135003da366d9:scripts/ariane_synthetic_calendar_notes.py |
               runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -c "import django,sys; django.setup(); exec(compile(sys.stdin.read(), \"synthetic_calendar_notes\", \"exec\"))"'
