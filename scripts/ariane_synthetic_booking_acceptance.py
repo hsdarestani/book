@@ -21,7 +21,7 @@ from booking.management.commands.sync_simplybook_notes import AUTH_URL, _request
 logging.disable(logging.CRITICAL)
 stage = 'rest_cleanup_access'
 tag = uuid4().hex
-email = 'esthetic-book-qa-' + tag + '@example.invalid'
+email = 'esthetic-book-qa-' + tag + '@example.com'
 os.environ['SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED'] = 'true'
 item = customer = None
 client_id = None
