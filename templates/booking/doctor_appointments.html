@@ -60,7 +60,7 @@ body.sb-admin-body[data-doctor-calendar="1"] .sb-mobile-title {
       {% for item in upcoming %}
       <div class="table-row">
         <time>{{ item.starts_at|date:"d.m.Y" }}<b>{{ item.starts_at|date:"H:i" }}</b></time>
-        <div><strong>{{ item.customer.full_name }}</strong><small>{{ item.customer.email }} · {{ item.customer.phone }}</small></div>
+        <div><strong>{{ item.customer.full_name }}</strong><small>{{ item.customer.contact_email }} · {{ item.customer.contact_phone }}</small></div>
         <div><strong>{{ item.service.name }}</strong><small>{% if item.returning_customer %}Bestandspatient{% else %}Neupatient{% endif %}</small></div>
         <div>{{ item.staff.display_name }}</div>
         <form method="post" class="status-form">{% csrf_token %}<input type="hidden" name="action" value="appointment_status"><input type="hidden" name="appointment_id" value="{{ item.pk }}">{% if selected_staff %}<input type="hidden" name="staff_id" value="{{ selected_staff.pk }}">{% endif %}<select name="status" onchange="this.form.submit()">{% for value,label in appointment_statuses %}<option value="{{ value }}" {% if value == item.status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></form>

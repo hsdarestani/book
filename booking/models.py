@@ -138,6 +138,10 @@ class Customer(models.Model):
     salutation = models.CharField('Anrede', max_length=10, choices=SALUTATION, blank=True, default='')
     phone = models.CharField('Telefon', max_length=40, blank=True)
     email = models.EmailField('E-Mail')
+    # A staff contact edit must not change the identifiers used for booking,
+    # verified app-account lookup, or reconciliation with external clients.
+    contact_email_override = models.EmailField('Kontakt E-Mail', null=True, blank=True, editable=False)
+    contact_phone_override = models.CharField('Kontakttelefon', max_length=40, null=True, blank=True, editable=False)
     date_of_birth = models.DateField('Geburtsdatum', null=True, blank=True)
     created_at = models.DateTimeField('Erstellt am', auto_now_add=True)
     updated_at = models.DateTimeField('Aktualisiert am', auto_now=True)
@@ -149,6 +153,16 @@ class Customer(models.Model):
 
     @property
     def full_name(self): return f'{self.first_name} {self.last_name}'.strip()
+    @property
+    def contact_email(self):
+        if self.contact_email_override is not None:
+            return self.contact_email_override
+        return '' if self.email.lower().endswith('@invalid.local') else self.email
+
+    @property
+    def contact_phone(self):
+        return self.phone if self.contact_phone_override is None else self.contact_phone_override
+
     def __str__(self): return self.full_name
 
 

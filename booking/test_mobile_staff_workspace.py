@@ -13,7 +13,7 @@ from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 
 from .clinical_time import CLINIC_TZ
-from .models import Appointment, BlockedPeriod, Customer, MobileStaffCancellation, OfficeIntakeForm, PatientRecord, Service, StaffMember, WorkingHour
+from .models import Appointment, BlockedPeriod, Customer, MobileStaffCancellation, OfficeIntakeForm, PatientRecord, Service, SimplyBookClientLink, StaffMember, WorkingHour
 
 
 def fixture():
@@ -65,6 +65,61 @@ class WorkspaceTests(TestCase):
     def test_calendar_with_no_bearer_is_unauthorized(self):
         with patch('booking.mobile_staff_api._verify', return_value=(None,401)):
             self.assertEqual(self.client.get('/api/mobile/staff/catalog/').status_code, 401)
+
+    def test_staff_contact_edits_keep_identity_and_are_visible_to_book_administrators(self):
+        from .app_admin_api import _appointment_payload, _customer_payload
+
+        endpoint = f'/api/mobile/staff/patient/{self.patient.pk}/contact/'
+        link = SimplyBookClientLink.objects.create(external_client_id='synthetic-contact',
+            customer=self.patient, source_email=self.patient.email, source_phone='03023125000')
+        initial = self.client.get(endpoint)
+        self.assertIn('no-store', initial.headers['Cache-Control'])
+        revision = initial.json()['patient']['contact_revision']
+        changes = {'revision':revision, 'phone':'+493023125000', 'email':'updated@example.test'}
+        count = Customer.objects.count()
+        for _ in range(2):
+            saved = self.client.post(endpoint, changes, content_type='application/json')
+            self.assertEqual(saved.status_code, 200)
+        profile = self.client.get(f'/api/mobile/staff/patient/{self.patient.pk}/').json()['patient']
+        self.assertEqual((profile['id'], profile['email'], profile['phone']),
+                         (self.patient.pk, changes['email'], changes['phone']))
+        self.assertEqual(self.client.get('/api/mobile/staff/patients/?q=updated@example.test').json()['items'][0]['id'], self.patient.pk)
+        self.patient.refresh_from_db()
+        self.assertEqual(Customer.objects.count(), count)
+        self.assertEqual((self.patient.email, self.patient.phone), ('own@example.test', ''))
+        self.assertEqual(_customer_payload(self.patient)['email'], changes['email'])
+        self.own.refresh_from_db()
+        self.assertEqual(_appointment_payload(self.own)['customer_phone'], changes['phone'])
+        link.refresh_from_db()
+        self.assertEqual((link.customer_id, link.source_email, link.source_phone),
+                         (self.patient.pk, 'own@example.test', '03023125000'))
+        self.assertEqual(self.client.post(endpoint, {**changes, 'email':'stale@example.test'},
+                                         content_type='application/json').status_code, 409)
+        clear = {'revision':saved.json()['patient']['contact_revision'], 'phone':'', 'email':''}
+        self.assertEqual(self.client.post(endpoint, clear, content_type='application/json').status_code, 200)
+        self.patient.refresh_from_db()
+        self.assertEqual((self.patient.contact_email, self.patient.contact_phone), ('', ''))
+
+    def test_staff_contact_permissions_validation_and_identity_collision(self):
+        endpoint = f'/api/mobile/staff/patient/{self.patient.pk}/contact/'
+        revision = self.client.get(endpoint).json()['patient']['contact_revision']
+        for data, status in [
+            ({'phone':'06900000'}, 400), ({'email':'invalid'}, 400),
+            ({'email':'somebody@invalid.local'}, 400), ({'phone':123}, 400),
+            ({'email':'changed@example.test', 'customer_id':self.outside.pk}, 400),
+            ({'email':'OTHER@example.test'}, 409),
+        ]:
+            result = self.client.post(endpoint, {'revision':revision, **data}, content_type='application/json')
+            self.assertEqual(result.status_code, status)
+        self.identity['role'] = 'doctor'
+        self.assertEqual(self.client.get(endpoint).status_code, 200)
+        self.assertEqual(self.client.get(f'/api/mobile/staff/patient/{self.outside.pk}/contact/').status_code, 404)
+        self.assertEqual(self.client.post(endpoint, {'revision':revision, 'phone':'+493023125000'},
+                                         content_type='application/json').status_code, 403)
+        with patch('booking.mobile_staff_api._verify', return_value=(None,401)):
+            self.assertEqual(self.client.get(endpoint).status_code, 401)
+        self.patient.refresh_from_db()
+        self.assertIsNone(self.patient.contact_phone_override)
 
     def test_premium_overview_and_private_signed_form_routes(self):
         overview = self.client.get('/api/mobile/staff/overview/').json()
