@@ -1,0 +1,32 @@
+name: Read-only live SimplyBook timer verification
+on:
+  push:
+    branches: [fix/simplybook-calendar-writeback-20261127]
+    paths: ['.github/workflows/ariane-live-sync-timer-status-20261127.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Read aggregate sync state from the production service
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 4m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            systemctl show aesthetic-simplybook-sync.timer -p ActiveState -p LastTriggerUSec
+            systemctl show aesthetic-simplybook-sync.service -p ActiveState -p Result
+            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from booking.models import ExternalSyncState
+            state = ExternalSyncState.objects.filter(source='simplybook').first()
+            if state:
+                print('SOURCE_SYNC_LAST_SUCCESS=' + str(state.last_success_at))
+                print('SOURCE_SYNC_LAST_NOTES_STATUS=' + str(state.metadata.get('last_notes_status')))
+            PY
