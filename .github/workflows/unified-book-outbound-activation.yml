@@ -1,0 +1,89 @@
+name: Activate verified Ariane outbound booking
+
+on:
+  push:
+    branches: [release/unified-book-outbound-activation]
+    paths: ['.github/workflows/unified-book-outbound-activation.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+
+jobs:
+  activation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Activate the Book and timer switches on the pinned release
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
+            flock -n 9
+            test "$(git rev-parse HEAD)" = '81ccfa136d0ed44cdaea959fae45982d98df8a92'
+            systemctl is-active --quiet aesthetic-book
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            exec 8>/var/lock/aesthetic-simplybook-sync.lock
+            flock -w 45 8
+            book_service=aesthetic-book.service
+            sync_service=aesthetic-simplybook-sync.service
+            book_config="/etc/systemd/system/$book_service.d/58-simplybook-outbound.conf"
+            sync_config="/etc/systemd/system/$sync_service.d/58-simplybook-outbound.conf"
+            test ! -e "$book_config"
+            test ! -e "$sync_config"
+            if grep -E '^[[:space:]]*(export[[:space:]]+)?SIMPLYBOOK_OUTBOUND_ENABLED[[:space:]]*=' /etc/aesthetic-book.env |
+                grep -qvE '=1[[:space:]]*$'; then
+              echo 'OUTBOUND_ACTIVATION_BLOCKED=conflicting_existing_configuration'
+              exit 1
+            fi
+            if ! runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; exec /opt/aesthetic-book/venv/bin/python manage.py shell -c "$1"' bash '
+            from django.utils import timezone
+            from booking.models import Appointment
+            from booking.simplybook_outbound import ARIANE
+            assert not Appointment.objects.filter(staff__display_name=ARIANE, starts_at__gt=timezone.now(), status="new", simplybook_sync_state="queued", simplybook_booking_id__isnull=True).exists()
+            ' >/dev/null 2>&1; then
+              echo 'OUTBOUND_ACTIVATION_BLOCKED=existing_queue_or_preflight_error'
+              exit 1
+            fi
+            switched=0
+            finish() {
+              result=$?
+              trap - EXIT
+              if [ "$result" != 0 ] && [ "$switched" = 1 ]; then
+                rm -f -- "$book_config" "$sync_config"
+                systemctl daemon-reload
+                systemctl restart "$book_service"
+              fi
+              exit "$result"
+            }
+            trap finish EXIT
+            mkdir -p "$(dirname "$sync_config")" "$(dirname "$book_config")"
+            switched=1
+            for config in "$book_config" "$sync_config"; do
+              printf '%s\n' '[Service]' 'Environment=SIMPLYBOOK_OUTBOUND_ENABLED=1' > "$config"
+              chmod 0644 "$config"
+            done
+            systemctl daemon-reload
+            systemctl restart "$book_service"
+            for attempt in {1..8}; do
+              if curl -fsS --max-time 7 https://book.a-esthetic.de/api/health/ -o /dev/null; then break; fi
+              sleep 2
+            done
+            curl -fsS --max-time 7 https://book.a-esthetic.de/api/health/ -o /dev/null
+            pid=$(systemctl show "$book_service" -p MainPID --value)
+            for gate in SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true SIMPLYBOOK_CALENDAR_WRITEBACK_ENABLED=1 SIMPLYBOOK_OUTBOUND_ENABLED=1; do
+              grep -zFx "$gate" "/proc/$pid/environ" >/dev/null
+            done
+            systemctl show "$sync_service" -p Environment --value | tr ' ' '\n' | grep -Fx 'SIMPLYBOOK_OUTBOUND_ENABLED=1' >/dev/null
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            echo 'ARIANE_OUTBOUND_AND_TIMER_ACTIVE=true'
