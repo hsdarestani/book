@@ -157,7 +157,9 @@ def _block_payload(item):
     local_start = clinic_localtime(item.starts_at)
     local_end = clinic_localtime(item.ends_at)
     scope, service_id = _scope_from_reason(item.reason)
-    revision = source_revision(item) if notes_enabled() and item.simplybook_managed else None
+    managed = item.simplybook_managed
+    revision = source_revision(item) if notes_enabled() and managed else None
+    text = _clean_reason(item.reason)
     return {
         'id': item.pk,
         'staff_id': item.staff_id,
@@ -167,8 +169,9 @@ def _block_payload(item):
         'kind': _kind_from_reason(item.reason),
         'scope': scope,
         'service_id': service_id or '',
-        'text': _clean_reason(item.reason),
-        'source_managed': item.simplybook_managed,
+        'text': text.split('\u2063', 1)[0].strip() if managed else text,
+        'source_managed': managed,
+        'source_editable': bool(revision) if managed else True,
         'source_revision': revision.pk if revision else '',
     }
 
@@ -470,6 +473,14 @@ def _polish_admin_response(
     form.elements.item_text.value = data.text || '';
     form.elements.item_service_id.value = data.service_id || '';
     form.querySelectorAll('input[name="item_scope"]').forEach((radio) => {{ radio.checked = radio.value === data.scope; }});
+    const managed = data.source_managed === true;
+    const readOnly = managed && data.source_editable !== true;
+    for (const name of ['item_kind', 'item_date', 'item_start', 'item_end', 'item_text']) {{
+      form.elements[name].disabled = readOnly;
+    }}
+    form.querySelectorAll('input[name="item_scope"]').forEach(radio => {{ radio.disabled = managed; }});
+    form.elements.item_service_id.disabled = managed;
+    modal.querySelectorAll('button[value="edit_calendar_item"], button[value="delete_calendar_item"]').forEach(button => {{ button.disabled = readOnly; }});
     const serviceRow = form.querySelector('.sb-edit-service-row');
     serviceRow?.classList.toggle('is-visible', data.scope === 'service');
     modal.querySelector('[data-edit-block-title]').textContent = data.kind === 'note' ? 'Notiz bearbeiten' : 'Sperrzeit bearbeiten';
@@ -525,6 +536,8 @@ def _polish_admin_response(
     for (const name of ['service_id', 'appointment_staff_id', 'customer_id']) {{
       form.elements[name].disabled = data.source_managed;
     }}
+    const patientTrigger = form.querySelector('.clinic-patient-trigger');
+    if (patientTrigger) patientTrigger.disabled = data.source_managed === true;
     for (const option of form.elements.status.options) {{
       option.hidden = !!data.source_managed && !['confirmed', 'cancelled'].includes(option.value);
       option.disabled = option.hidden;

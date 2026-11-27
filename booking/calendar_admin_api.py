@@ -13,6 +13,7 @@ from .clinical_time import CLINIC_TZ, clinic_localdate, clinic_localtime
 from .models import Appointment, BlockedPeriod, DailyAvailabilityOverride, StaffMember
 from .services import effective_working_ranges
 from .simplybook_calendar import notes_enabled, source_revision
+from .simplybook_writeback import source_managed, source_editable
 
 
 CALENDAR_START_MINUTE = 10 * 60
@@ -122,6 +123,9 @@ def _appointment_payload(item):
         'customer_name': item.customer.full_name,
         'service_name': item.service.name,
         'staff_name': item.staff.display_name,
+        'source_managed': source_managed(item),
+        'source_editable': source_editable(item),
+        'revision': item.updated_at.isoformat(),
         'top': top,
         'height': height,
     }
@@ -132,7 +136,9 @@ def _block_payload(item):
     local_end = clinic_localtime(item.ends_at)
     scope, service_id = _scope_from_reason(item.reason)
     top, height = _position(item.starts_at, item.ends_at)
-    revision = source_revision(item) if notes_enabled() and item.simplybook_managed else None
+    managed = item.simplybook_managed
+    revision = source_revision(item) if notes_enabled() and managed else None
+    text = _clean_reason(item.reason)
     return {
         'id': item.pk,
         'staff_id': item.staff_id,
@@ -142,9 +148,11 @@ def _block_payload(item):
         'kind': _block_kind(item.reason),
         'visual_kind': _block_visual_kind(item.reason),
         'source_revision': revision.pk if revision else '',
+        'source_managed': managed,
+        'source_editable': bool(revision) if managed else True,
         'scope': scope,
         'service_id': service_id or '',
-        'text': _clean_reason(item.reason),
+        'text': text.split('\u2063', 1)[0].strip() if managed else text,
         'top': top,
         'height': height,
     }

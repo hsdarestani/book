@@ -299,6 +299,24 @@
     form.elements.appointment_date.value = data.date;
     form.elements.appointment_time.value = data.time;
     form.elements.status.value = data.status;
+    if (form.elements.appointment_revision) form.elements.appointment_revision.value = data.revision || '';
+    const managed = data.source_managed === true;
+    const readOnly = managed && data.source_editable !== true;
+    for (const name of ['service_id', 'appointment_staff_id', 'customer_id']) {
+      form.elements[name].disabled = managed;
+    }
+    const patientTrigger = form.querySelector('.clinic-patient-trigger');
+    if (patientTrigger) patientTrigger.disabled = managed;
+    for (const name of ['appointment_date', 'appointment_time', 'status']) {
+      form.elements[name].disabled = readOnly;
+    }
+    for (const option of form.elements.status.options) {
+      option.hidden = managed && !['confirmed', 'cancelled'].includes(option.value);
+      option.disabled = managed && ![data.status, 'cancelled'].includes(option.value);
+    }
+    modal.querySelectorAll('button[value="edit_appointment"]').forEach(button => { button.disabled = readOnly; });
+    const deleteButton = form.querySelector('button[value="delete_appointment"]');
+    if (deleteButton) deleteButton.hidden = managed;
   }
 
   function openDynamicBlock(data) {
@@ -315,6 +333,14 @@
     form.elements.item_text.value = data.text || '';
     form.elements.item_service_id.value = data.service_id || '';
     form.querySelectorAll('input[name="item_scope"]').forEach((radio) => { radio.checked = radio.value === data.scope; });
+    const managed = data.source_managed === true;
+    const readOnly = managed && data.source_editable !== true;
+    for (const name of ['item_kind', 'item_date', 'item_start', 'item_end', 'item_text']) {
+      form.elements[name].disabled = readOnly;
+    }
+    form.querySelectorAll('input[name="item_scope"]').forEach(radio => { radio.disabled = managed; });
+    form.elements.item_service_id.disabled = managed;
+    modal.querySelectorAll('button[value="edit_calendar_item"], button[value="delete_calendar_item"]').forEach(button => { button.disabled = readOnly; });
     form.querySelector('.sb-edit-service-row')?.classList.toggle('is-visible', data.scope === 'service');
     const title = modal.querySelector('[data-edit-block-title]');
     if (title) title.textContent = data.kind === 'note' ? 'Notiz bearbeiten' : 'Sperrzeit bearbeiten';

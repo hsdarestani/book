@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase, override_settings
@@ -208,6 +209,42 @@ class FastCalendarDayApiTests(TestCase):
         self.assertEqual(payload['blocks'][0]['text'], 'Rückruf')
         self.assertTrue(payload['ranges'])
         self.assertIn('no-store', response['Cache-Control'])
+
+    @patch.dict('os.environ', {'SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED': 'true', 'SIMPLYBOOK_CALENDAR_WRITEBACK_ENABLED': '1'})
+    def test_fast_day_preserves_imported_appointment_and_note_revision_gates(self):
+        from .admin_views import _appointment_payload as initial_appointment, _block_payload as initial_block
+        from .management.commands.sync_simplybook_notes import _marker
+        from .models import SimplyBookCalendarRevision
+
+        self.appointment.idempotency_key = 'simplybook-123'
+        self.appointment.save(update_fields=['idempotency_key', 'updated_at'])
+        self.block.reason = '[NOTE][STAFF] Synthetic' + _marker(45)
+        self.block.save(update_fields=['reason'])
+        revision = SimplyBookCalendarRevision.objects.create(block=self.block, source_id=45, digest='a' * 64)
+        missing = BlockedPeriod.objects.create(staff=self.staff, starts_at=self.starts_at + timedelta(hours=4),
+            ends_at=self.starts_at + timedelta(hours=5), reason='[BLOCKNOTE][STAFF] Synthetic' + _marker(46))
+        self.client.force_login(self.user)
+        result = self.client.get('/verwaltung/api/calendar-day/', {'staff': self.staff.pk, 'date': self.day.isoformat()}).json()
+        appointment = result['appointments'][0]
+        for key in ('source_managed', 'source_editable', 'revision'):
+            self.assertEqual(appointment[key], initial_appointment(self.appointment)[key])
+        self.assertTrue(appointment['source_managed'])
+        self.assertTrue(appointment['source_editable'])
+        self.assertTrue(appointment['revision'])
+        blocks = {item['id']: item for item in result['blocks']}
+        for key in ('source_managed', 'source_editable', 'source_revision', 'text'):
+            self.assertEqual(blocks[self.block.pk][key], initial_block(self.block)[key])
+        self.assertEqual(blocks[self.block.pk]['source_revision'], revision.pk)
+        self.assertEqual(blocks[self.block.pk]['text'], 'Synthetic')
+        self.assertTrue(blocks[self.block.pk]['source_editable'])
+        self.assertTrue(blocks[missing.pk]['source_managed'])
+        self.assertFalse(blocks[missing.pk]['source_editable'])
+        self.assertEqual(blocks[missing.pk]['source_revision'], '')
+        self.assertEqual(blocks[missing.pk]['text'], 'Synthetic')
+        self.appointment.simplybook_sync_state = 'review'
+        self.appointment.save(update_fields=['simplybook_sync_state'])
+        locked = self.client.get('/verwaltung/api/calendar-day/', {'staff': self.staff.pk, 'date': self.day.isoformat()}).json()['appointments'][0]
+        self.assertFalse(locked['source_editable'])
 
 
 @override_settings(
