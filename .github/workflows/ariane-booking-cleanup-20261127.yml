@@ -28,6 +28,6 @@ jobs:
               if tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx "$flag" >/dev/null; then printf 'SERVICE_FLAG=%s\n' "$flag"; fi
             done
             source /etc/aesthetic-simplybook-credentials.env
-            git fetch --no-tags origin c4fddefc2c3f1f2d9ac92462b1d58784c17dc8fe
-            git show c4fddefc2c3f1f2d9ac92462b1d58784c17dc8fe:scripts/ariane_synthetic_cleanup.py |
+            git fetch --no-tags origin f4ed576892a0e0230cac0352cbf6512e7ab0d8a2
+            git show f4ed576892a0e0230cac0352cbf6512e7ab0d8a2:scripts/ariane_synthetic_cleanup.py |
               runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; DJANGO_SETTINGS_MODULE=config.settings exec /opt/aesthetic-book/venv/bin/python -c "import django,sys; django.setup(); exec(compile(sys.stdin.read(), \"synthetic_booking_acceptance\", \"exec\"))"'
