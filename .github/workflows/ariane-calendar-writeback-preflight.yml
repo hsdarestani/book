@@ -23,7 +23,12 @@ jobs:
             printf 'LIVE_BOOK_SHA='
             git rev-parse HEAD
             systemctl is-active aesthetic-book
-            runuser -u aestheticbook -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            pid=$(systemctl show aesthetic-book -p MainPID --value)
+            for flag in SIMPLYBOOK_OUTBOUND_ENABLED=1 SIMPLYBOOK_ADMIN_WRITEBACK_ENABLED=true SIMPLYBOOK_AVAILABILITY_ENABLED=1; do
+              if tr '\0' '\n' < "/proc/$pid/environ" | grep -Fx "$flag" >/dev/null; then printf 'SERVICE_FLAG=%s\n' "$flag"; fi
+            done
+            source /etc/aesthetic-simplybook-credentials.env
+            runuser -u aestheticbook --preserve-environment -- bash -c 'set -a; source /etc/aesthetic-book.env; set +a; /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
             import os
             from booking.management.commands.sync_simplybook_notes import AUTH_URL, NOTES_URL, _request_json
             from booking.simplybook_outbound import session, UNIT_ID
@@ -38,6 +43,6 @@ jobs:
                 call = session()
                 print('STATUS_OPTIONS_AVAILABLE=' + str(bool(call('getStatuses', []))))
                 print('ARIANE_WORKDAY_AVAILABLE=' + str(bool(call('getUnitWorkdayInfo', [UNIT_ID]))))
-            except Exception:
-                raise SystemExit('PREFLIGHT_READ_UNCONFIRMED') from None
+            except Exception as exc:
+                raise SystemExit('PREFLIGHT_READ_UNCONFIRMED=' + type(exc).__name__) from None
             PY
