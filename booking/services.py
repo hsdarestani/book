@@ -28,19 +28,19 @@ def effective_working_ranges(staff, day):
     return [(item.start_time, item.end_time) for item in hours], None
 
 
-def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None, reserved_duration=None, source_availability=None):
+def available_slots(service, staff, day, *, step_minutes=15, exclude_appointment_id=None, reserved_duration=None, source_availability=None, staff_booking=False):
     if not service.active or not service.bookable or not staff.active:
         return []
     if not staff.services.filter(pk=service.pk).exists():
         return []
     today = clinic_localdate()
-    if day < today or day > today + timedelta(days=BOOKING_HORIZON_DAYS):
+    if day < today or (not staff_booking and day > today + timedelta(days=BOOKING_HORIZON_DAYS)):
         return []
 
     duration = service.reserved_duration if reserved_duration is None else reserved_duration
     day_start = datetime.combine(day, datetime.min.time(), tzinfo=CLINIC_TZ)
     day_end = day_start + timedelta(days=1)
-    now_with_lead = timezone.now() + LEAD_TIME
+    now_with_lead = timezone.now() + (timedelta(0) if staff_booking else LEAD_TIME)
 
     # Entries prefixed with [NOTE] are visual/admin calendar notes only and must
     # never make a public booking slot unavailable.
@@ -163,7 +163,7 @@ def prepare_staff_booking(appointment, *, request_key=None):
     except SOURCE_AVAILABILITY_ERRORS as exc:
         raise ValidationError('Die SimplyBook-Verfügbarkeit kann gerade nicht geprüft werden.') from exc
     if availability is None or appointment.starts_at not in available_slots(
-        appointment.service, appointment.staff, day, source_availability=availability,
+        appointment.service, appointment.staff, day, source_availability=availability, staff_booking=True,
     ):
         raise ValidationError('Dieser Zeitraum ist in SimplyBook nicht verfügbar.')
     appointment.returning_customer, appointment.referral_source = patient_booking_answers(appointment.customer)

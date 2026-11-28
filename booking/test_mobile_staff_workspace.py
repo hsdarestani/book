@@ -96,6 +96,37 @@ class WorkspaceTests(TestCase):
             probe.assert_called_once()
 
     @patch.dict('os.environ', {'SIMPLYBOOK_OUTBOUND_ENABLED':'1'})
+    def test_staff_creation_does_not_inherit_public_lead_or_horizon(self):
+        from .simplybook_outbound import ARIANE
+        from .clinical_time import parse_clinic_wall_time
+        from .services import available_slots
+
+        ariane = StaffMember.objects.create(display_name=ARIANE)
+        service = Service.objects.get_or_create(slug='botox-neupatient', defaults={
+            'name':'Botox synthetic', 'duration_minutes':30, 'buffer_minutes':0})[0]
+        ariane.services.add(service)
+        near = parse_clinic_wall_time(self.day.isoformat(), '16:00')
+        far_day = self.day + timedelta(days=120)
+        far = parse_clinic_wall_time(far_day.isoformat(), '16:00')
+        with patch('booking.services.timezone.now', return_value=near-timedelta(minutes=15)):
+            for day, slot in ((self.day, near), (far_day, far)):
+                with self.subTest(day=day):
+                    source = ([slot], [])
+                    self.assertNotIn(slot, available_slots(service, ariane, day, source_availability=source))
+                    payload = dict(operation='create', staff_id=ariane.pk, service_id=service.pk,
+                                   customer_id=self.patient.pk, date=day.isoformat(), start='16:00')
+                    with patch('booking.services.booking_source_availability',
+                               return_value=({day.isoformat():[slot]}, [(slot, slot+timedelta(minutes=30))])):
+                        denied = self.post('appointment', **payload)
+                    self.assertEqual(denied.status_code, 400, denied.content)
+                    with patch('booking.services.booking_source_availability',
+                               return_value=({day.isoformat():[slot]}, [])):
+                        result = self.post('appointment', **payload)
+                    self.assertEqual(result.status_code, 200, result.content)
+                    item = Appointment.objects.get(pk=result.json()['id'])
+                    self.assertEqual((item.source, item.simplybook_sync_state), ('admin', 'queued'))
+
+    @patch.dict('os.environ', {'SIMPLYBOOK_OUTBOUND_ENABLED':'1'})
     def test_ariane_staff_creation_queues_verified_answers_and_replays(self):
         from .simplybook_outbound import ARIANE
         from .clinical_time import parse_clinic_wall_time
