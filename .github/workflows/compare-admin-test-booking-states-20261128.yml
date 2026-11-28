@@ -1,0 +1,33 @@
+name: Compare two admin test booking sync states
+on:
+  push:
+    branches: [ops/compare-admin-test-booking-states-20261128]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            git rev-parse HEAD
+            runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from datetime import datetime
+            from booking.clinical_time import CLINIC_TZ
+            from booking.models import Appointment
+            from booking.mobile_staff_api import _pending_local_cancellable
+            for day in (4,5):
+                rows=Appointment.objects.filter(starts_at=datetime(2026,12,day,16,0,tzinfo=CLINIC_TZ),staff__display_name__icontains="Ariane",source="admin")
+                print("DAY",day,"COUNT",rows.count())
+                for row in rows:
+                    print("DAY",day,"STATUS",row.status,"SYNC",row.simplybook_sync_state,"LINKED",bool(row.simplybook_booking_id),"EVENT",bool(row.simplybook_event_id),"CLIENT",bool(row.simplybook_client_id),"REMOTE_END",bool(row.simplybook_remote_ends_at),"CANCEL_ALLOWED",_pending_local_cancellable(row))
+            PY
