@@ -1,0 +1,49 @@
+name: Read-only Ariane service availability comparison
+on:
+  push:
+    branches: [ops/ariane-slot-compare-20261128]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 4m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            git rev-parse HEAD
+            runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from datetime import date, datetime
+            from booking.clinical_time import CLINIC_TZ, add_elapsed, clinic_localtime
+            from booking.models import Appointment, BlockedPeriod, StaffMember, Service
+            from booking.services import available_slots,effective_working_ranges
+            from booking.simplybook_outbound import ARIANE,SERVICE_MAP,session,source_slots
+            day=date(2026,12,5)
+            staff=StaffMember.objects.get(display_name=ARIANE)
+            service=Service.objects.get(slug='aesthetische-erstberatung')
+            print("DURATION",service.duration_minutes,service.buffer_minutes)
+            print("LOCAL_HOURS",effective_working_ranges(staff,day)[0])
+            availability=None
+            try:
+                days,blocks=source_slots(session(),SERVICE_MAP[service.slug][0],day.isoformat(),day.isoformat())
+                availability=(days.get(day.isoformat(),[]),blocks)
+                print("SOURCE_STARTS",[clinic_localtime(x).strftime('%H:%M') for x in availability[0]])
+            except Exception as exc:
+                print("SOURCE_READ_FAILED",type(exc).__name__)
+            for hour in (10,16):
+                start=datetime(2026,12,5,hour,0,tzinfo=CLINIC_TZ)
+                end=add_elapsed(start,service.reserved_duration)
+                local=Appointment.objects.filter(staff=staff,starts_at__lt=end,ends_at__gt=start,status__in=['new','confirmed'])
+                blocked=BlockedPeriod.objects.filter(staff=staff,starts_at__lt=end,ends_at__gt=start).exclude(reason__startswith='[NOTE]')
+                print("HOUR",hour,"LOCAL_BOOKINGS",list(local.values_list('source','status','simplybook_sync_state')),"LOCAL_BLOCKS",blocked.count())
+                if availability is not None:
+                    print("HOUR",hour,"SOURCE_START",start in availability[0],"SOURCE_OVERLAP",any(a<end and b>start for a,b in availability[1]),"BOOK_AVAILABLE",start in available_slots(service,staff,day,source_availability=availability,staff_booking=True))
+            PY
