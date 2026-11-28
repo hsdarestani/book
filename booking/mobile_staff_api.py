@@ -39,8 +39,8 @@ from .models import (
     MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour, OfficeIntakeForm,
 )
 from .intake_forms import build_intake_pdf, confirm_form_link
-from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder, notify_admin_source_changed
-from .simplybook_writeback import source_managed as _managed_appointment, source_editable, change_locked, source_id, _details, _identity
+from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder, notify_admin_source_changed, notify_admin_pending_created
+from .simplybook_writeback import source_managed as _managed_appointment, source_editable, change_locked, source_id, _details, _identity, pending_review_cancellable, cancel_pending_review_locked
 from .simplybook_outbound import ARIANE, UNIT_ID, SOURCE_AVAILABILITY_ERRORS, integrated, session, _same_booking
 from .simplybook_calendar import ACTION_ID_BASE, CalendarSourceConflict, mutate_note, notes_enabled, source_revision, source_staff, _notes_session, _note, note_fields, _digest
 from .services import effective_working_ranges, prepare_staff_booking
@@ -278,7 +278,7 @@ def _appointment(item):
         'date': start.date().isoformat(), 'start': start.strftime('%H:%M'), 'end': end.strftime('%H:%M'),
         'status': item.status, 'notes': item.notes_customer, 'revision': item.updated_at.isoformat(),
         'source_managed': source_managed,
-        'source_editable': source_editable(item) or _pending_local_cancellable(item),
+        'source_editable': source_editable(item) or _pending_local_cancellable(item) or pending_review_cancellable(item),
         'source_editability_reason': _appointment_editability_reason(item),
         'sync_state': item.simplybook_sync_state,
         'source_identity_available': source_id(item) is not None,
@@ -705,6 +705,19 @@ def _save_appointment(data, actor, providers, previous_item, *, key):
         revision = parse_datetime(str(data.get('revision') or ''))
         if revision != item.updated_at:
             raise CommandConflict('Der Termin wurde zwischenzeitlich geändert. Bitte neu laden.')
+        if pending_review_cancellable(item):
+            if actor['role'] != 'admin' or operation != 'cancel':
+                raise CommandConflict('Diese Buchungsanfrage kann nur durch Administratoren abgesagt werden.')
+            previous = appointment_snapshot(item)
+            try:
+                cancel_pending_review_locked(item)
+            except SOURCE_AVAILABILITY_ERRORS as exc:
+                raise CommandConflict('SimplyBook konnte die Absage noch nicht sicher bestätigen. Bitte erneut prüfen.') from exc
+            MobileStaffCancellation.objects.get_or_create(
+                booking_public_id=item.public_id, defaults={'appointment': item},
+            )
+            transaction.on_commit(lambda: _notify(notify_admin_source_changed, item, previous))
+            return item.pk
         if _pending_local_cancellable(item):
             if actor['role'] != 'admin':
                 raise CommandConflict('Nur Administratoren können diese Buchungsanfrage absagen.')
@@ -712,12 +725,14 @@ def _save_appointment(data, actor, providers, previous_item, *, key):
                 raise CommandConflict('Diese Buchungsanfrage kann abgesagt, aber noch nicht verschoben werden.')
             # The appointment row is locked by _mutate. The outbound worker
             # must claim it as sending before any remote booking write.
+            previous = appointment_snapshot(item)
             item.status = 'cancelled'
             item.simplybook_sync_state = 'cancelled'
             item.save(update_fields=['status', 'simplybook_sync_state', 'updated_at'])
             MobileStaffCancellation.objects.get_or_create(
                 booking_public_id=item.public_id, defaults={'appointment': item},
             )
+            transaction.on_commit(lambda: _notify(notify_admin_source_changed, item, previous))
             return item.pk
         if _managed_appointment(item):
             if actor['role'] != 'admin' or not source_editable(item):
@@ -802,6 +817,8 @@ def _save_appointment(data, actor, providers, previous_item, *, key):
     item.save()
     if previous:
         transaction.on_commit(lambda: _notify(notify_admin_changed, item, previous))
+    elif item.simplybook_sync_state == 'queued':
+        transaction.on_commit(lambda: _notify(notify_admin_pending_created, item))
     elif not item.simplybook_sync_state:
         if actor['role'] == 'admin':
             transaction.on_commit(lambda: _notify(send_customer_booking_email, item))

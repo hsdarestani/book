@@ -145,12 +145,14 @@ class WorkspaceTests(TestCase):
             'notes':'Synthetic local note', 'key':str(uuid4())}
         with patch('booking.services.booking_source_availability',
                    return_value=({self.day.isoformat():[slot]}, [])) as availability, patch(
-                       'booking.mobile_staff_api.notify_admin_created') as notify:
+                       'booking.mobile_staff_api.notify_admin_created') as notify, patch(
+                       'booking.mobile_staff_api.notify_admin_pending_created') as pending:
             with self.captureOnCommitCallbacks(execute=True):
                 result = self.post('appointment', **payload)
                 replay = self.post('appointment', **payload)
             availability.assert_called_once()
             notify.assert_not_called()
+            pending.assert_called_once()
             blocked = self.post('appointment', **{**payload, 'start':'17:00', 'key':str(uuid4())})
         self.assertEqual(result.status_code, 200, result.content)
         self.assertTrue(result.json()['external_confirmation_pending'])
@@ -173,12 +175,13 @@ class WorkspaceTests(TestCase):
         slot = parse_clinic_wall_time(self.day.isoformat(), '17:00')
         with patch('booking.services.booking_source_availability',
                    return_value=({self.day.isoformat():[slot]}, [])) as availability, patch(
-                       'booking.views.send_customer_booking_email') as confirm:
+                       'booking.views.send_customer_booking_email') as confirm, patch('booking.views.notify_admin_pending_created') as pending:
             for _ in range(2):
                 response = self.client.post('/verwaltung/kalender/', web)
                 self.assertIn('notice=booking-pending',response['Location'])
             availability.assert_called_once()
             confirm.assert_not_called()
+            pending.assert_called_once()
         self.assertEqual(Appointment.objects.filter(staff=ariane, simplybook_sync_state='queued').count(),2)
 
     def test_staff_contact_edits_keep_identity_and_are_visible_to_book_administrators(self):
@@ -408,6 +411,49 @@ class WorkspaceTests(TestCase):
                 self.assertEqual((item.status,item.simplybook_sync_state),('cancelled','cancelled'))
                 self.assertTrue(MobileStaffCancellation.objects.filter(appointment=item).exists())
                 self.assertEqual(self.post('appointment', **cancel).status_code,200)
+
+    def test_admin_cancels_review_after_verified_source_read(self):
+        from .simplybook_outbound import ARIANE
+        ariane = StaffMember.objects.create(display_name=ARIANE)
+        service = Service.objects.get_or_create(slug='aesthetische-erstberatung', defaults={
+            'name':'Synthetic consultation', 'duration_minutes':30, 'buffer_minutes':0})[0]
+        ariane.services.add(service)
+        SimplyBookClientLink.objects.create(customer=self.patient, external_client_id='98765')
+        for index, scenario in enumerate(('missing','remote','ambiguous','unavailable')):
+            start = self.own.starts_at + timedelta(hours=2+index)
+            end = start + timedelta(minutes=30)
+            item = Appointment.objects.create(staff=ariane, customer=self.patient, service=service,
+                starts_at=start, ends_at=end, source='admin', status='new',
+                simplybook_sync_state='review', simplybook_event_id='8',
+                simplybook_client_id='98765', simplybook_remote_ends_at=end)
+            from .clinical_time import clinic_localtime
+            row = {'id':str(7000+index),'event_id':'8','unit_id':'2','client_id':'98765',
+                   'start_date_time':clinic_localtime(start).strftime('%Y-%m-%d %H:%M:%S'),
+                   'end_date_time':clinic_localtime(end).strftime('%Y-%m-%d %H:%M:%S')}
+            def rpc(method, params):
+                if scenario=='unavailable':
+                    raise OSError('synthetic unavailable')
+                if method=='getBookings':
+                    return [] if scenario=='missing' else [row,row] if scenario=='ambiguous' else [row]
+                if method=='getBookingDetails':
+                    return row
+                if method=='cancelBooking':
+                    row['is_cancelled']=True
+                    return True
+                raise AssertionError(method)
+            calendar=self.client.get(f'/api/mobile/staff/calendar/?start={self.day}&days=1').json()
+            self.assertTrue(next(x for x in calendar['appointments'] if x['id']==item.pk)['source_editable'])
+            payload=dict(operation='cancel',id=item.pk,revision=item.updated_at.isoformat())
+            with patch('booking.simplybook_writeback.session',return_value=rpc):
+                response=self.post('appointment', **payload)
+            item.refresh_from_db()
+            if scenario in ('missing','remote'):
+                self.assertEqual(response.status_code,200,response.content)
+                self.assertEqual(item.status,'cancelled')
+                self.assertEqual(bool(item.simplybook_booking_id),scenario=='remote')
+            else:
+                self.assertEqual(response.status_code,409,response.content)
+                self.assertEqual(item.status,'new')
 
     def test_admin_cannot_cancel_uncertain_outbound_request_locally(self):
         for state in ('sending','review','blocked'):

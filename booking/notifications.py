@@ -184,13 +184,22 @@ def notify_admin_source_changed(appointment, previous):
     )
 
 
-def notify_admin_created(appointment):
+def notify_admin_pending_created(appointment):
+    return _notify_admin_action(appointment, event='admin_created', title='Neue Terminanfrage', email_event='created')
+
+
+def notify_admin_confirmed(appointment):
+    return _notify_admin_action(appointment, event='admin_status_changed', title='Termin bestätigt', email_event='status_changed')
+
+
+def notify_admin_created(appointment, *, include_admin=True):
     local = _local_start(appointment)
     result = _push(
         appointment, target="customer", event="admin_created", title="Neuer Termin",
         body=f"Für Sie wurde ein Termin für {appointment.service.name} am {local:%d.%m.%Y} um {local:%H:%M} eingetragen.",
     )
-    _notify_admin_action(appointment, event="admin_created", title="Neuer Termin", email_event="created")
+    if include_admin:
+        _notify_admin_action(appointment, event="admin_created", title="Neuer Termin", email_event="created")
     _referral_booking(appointment)
     _notify_doctor(
         appointment, event="booking_created", title="Neuer Termin",

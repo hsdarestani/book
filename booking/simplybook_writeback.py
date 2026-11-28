@@ -8,7 +8,7 @@ from .clinical_time import add_elapsed, clinic_localtime
 from .models import Appointment, BlockedPeriod, SimplyBookClientLink
 from .simplybook_outbound import (
     ARIANE, SERVICE_MAP, SOURCE_AVAILABILITY_ERRORS, UNIT_ID, SyncConflict, _same_booking,
-    _verify_availability, _verify_readback, as_bool, session,
+    _verify_availability, _verify_readback, _source_bookings, _dt, as_bool, session,
 )
 
 
@@ -121,6 +121,81 @@ def _verified_cancellation(call, item, remote_id, event, client):
     ) == 1
 
 
+def _check_payment(remote):
+    if (remote.get('invoice_id') not in (None, 0, '0', '')
+            or remote.get('invoice_payment_received') not in (None, 0, '0', '')
+            or as_bool(remote.get('deposit_is_enabled'))
+            or remote.get('price') not in (None, {}, [], '')
+            or remote.get('promo') not in (None, {}, [], '')
+            or remote.get('batch_id') not in (None, 0, '0', '')):
+        raise SyncConflict('source_payment_requires_review')
+
+
+def pending_review_cancellable(item):
+    mapping = SERVICE_MAP.get(item.service.slug)
+    return (item.source == 'admin' and item.status == 'new'
+            and item.simplybook_sync_state == 'review' and source_id(item) is None
+            and item.staff.display_name == ARIANE and mapping is not None
+            and item.simplybook_event_id == str(mapping[0])
+            and str(item.simplybook_client_id).isdecimal()
+            and item.simplybook_remote_ends_at is not None)
+
+
+def cancel_pending_review_locked(item, *, call=None):
+    """Resolve a finished, uncertain outbound create before cancelling.
+    The caller owns the row lock; never cancel an ambiguous source identity.
+    """
+    if not pending_review_cancellable(item):
+        raise SyncConflict('source_booking_not_editable')
+    event, client = int(item.simplybook_event_id), int(item.simplybook_client_id)
+    if not SimplyBookClientLink.objects.filter(customer_id=item.customer_id,
+                                                external_client_id=str(client)).exists():
+        raise SyncConflict('source_client_not_verified')
+    call = call or session()
+    end = item.simplybook_remote_ends_at
+    matches = []
+    for row in _source_bookings(call, item.starts_at, end):
+        if str(row.get('unit_id')) != str(UNIT_ID) or str(row.get('client_id')) != str(client):
+            continue
+        start = _dt(row.get('start_date_time') or row.get('start_date'))
+        finish = _dt(row.get('end_date_time') or row.get('end_date'))
+        if start is None or finish is None:
+            raise SyncConflict('source_booking_shape_unverified')
+        if start < end and finish > item.starts_at:
+            if start != item.starts_at or finish != end or str(row.get('event_id')) != str(event):
+                raise SyncConflict('source_booking_identity_ambiguous')
+            matches.append(row)
+    if len(matches) > 1:
+        raise SyncConflict('duplicate_source_bookings')
+    remote_id = None
+    if matches:
+        raw = str(matches[0].get('id') or '')
+        if not raw.isdecimal() or int(raw) <= 0:
+            raise SyncConflict('invalid_source_booking_id')
+        remote_id = int(raw)
+        if Appointment.objects.exclude(pk=item.pk).filter(simplybook_booking_id=str(remote_id)).exists() or (
+                Appointment.objects.exclude(pk=item.pk).filter(idempotency_key=f'simplybook-{remote_id}').exists()):
+            raise SyncConflict('source_booking_already_imported')
+        detail = _details(call, remote_id)
+        if (str(detail.get('unit_id')) != str(UNIT_ID) or str(detail.get('client_id')) != str(client)
+                or str(detail.get('event_id')) != str(event)
+                or _dt(detail.get('start_date_time') or detail.get('start_date')) != item.starts_at
+                or _dt(detail.get('end_date_time') or detail.get('end_date')) != end):
+            raise SyncConflict('source_booking_readback_mismatch')
+        _check_payment(detail)
+        call('cancelBooking', [remote_id])
+        if not _verified_cancellation(call, item, remote_id, event, client):
+            raise SyncConflict('source_cancellation_unverified')
+    item.status = 'cancelled'
+    item.simplybook_sync_state = 'linked' if remote_id else 'cancelled'
+    fields = ['status', 'simplybook_sync_state', 'updated_at']
+    if remote_id:
+        item.simplybook_booking_id = str(remote_id)
+        fields.append('simplybook_booking_id')
+    item.save(update_fields=fields)
+    return True
+
+
 def change_locked(item, *, starts_at=None, cancel=False, call=None):
     """The caller holds the provider and appointment locks.
 
@@ -137,13 +212,7 @@ def change_locked(item, *, starts_at=None, cancel=False, call=None):
     expected.ends_at = item.simplybook_remote_ends_at or item.ends_at
     if not _same_booking(remote, expected, event, client):
         raise SyncConflict('source_booking_changed')
-    if (remote.get('invoice_id') not in (None, 0, '0', '')
-            or remote.get('invoice_payment_received') not in (None, 0, '0', '')
-            or as_bool(remote.get('deposit_is_enabled'))
-            or remote.get('price') not in (None, {}, [], '')
-            or remote.get('promo') not in (None, {}, [], '')
-            or remote.get('batch_id') not in (None, 0, '0', '')):
-        raise SyncConflict('source_payment_requires_review')
+    _check_payment(remote)
 
     target = copy(item)
     remote_end = None

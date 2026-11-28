@@ -22,7 +22,7 @@ from .simplybook_calendar import source_staff
 from .emails import send_customer_booking_email
 from .clinical_time import CLINIC_TZ, add_elapsed, clinic_localdate, clinic_localtime, parse_clinic_wall_time
 from .models import Appointment, BlockedPeriod, Customer, PatientRecord, Service, StaffMember, WorkingHour
-from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created
+from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_admin_pending_created
 from .services import prepare_staff_booking
 
 logger = logging.getLogger(__name__)
@@ -431,6 +431,10 @@ def dashboard(request):
                 except ValidationError:
                     return redirect(f'{calendar_return}&notice=booking-conflict')
             if appointment.simplybook_sync_state == 'queued':
+                try:
+                    notify_admin_pending_created(appointment)
+                except Exception:
+                    logger.exception('Admin-Buchungsanfrage konnte nicht gemeldet werden')
                 return redirect(f'{calendar_return}&notice=booking-pending')
             try:
                 send_customer_booking_email(appointment)

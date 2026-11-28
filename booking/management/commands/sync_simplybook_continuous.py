@@ -10,6 +10,7 @@ from booking.models import Appointment, ExternalSyncState
 from booking.notifications import (
     appointment_snapshot,
     notify_admin_created,
+    notify_admin_confirmed,
     notify_booking_created,
     notify_customer_cancelled,
     notify_customer_rescheduled,
@@ -53,7 +54,7 @@ class Command(BaseCommand):
                     continue
                 if result['result'] == 'linked':
                     item = Appointment.objects.select_related('customer', 'service', 'staff').get(pk=pk)
-                    callbacks = (send_customer_booking_email, notify_admin_created) if item.source == 'admin' else (
+                    callbacks = (send_customer_booking_email, lambda appt: notify_admin_created(appt, include_admin=False), notify_admin_confirmed) if item.source == 'admin' else (
                         send_booking_emails, notify_booking_created)
                     for notify in callbacks:
                         try:

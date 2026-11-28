@@ -95,6 +95,20 @@ class AdminNotificationRoutingTests(TestCase):
         self.assertEqual(mail.outbox[0].to, ["info@a-esthetic.de"])
 
     @patch("booking.notifications._post_internal", return_value={"ok": True})
+    def test_pending_admin_booking_alerts_admin_only_before_confirmation(self, relay):
+        from booking.notifications import notify_admin_pending_created, notify_admin_confirmed
+        self.appointment.status = "new"
+        notify_admin_pending_created(self.appointment)
+        self.assertEqual([c.args[1].get("target") for c in relay.call_args_list], ["admin"])
+        self.assertEqual(len(mail.outbox),1)
+        self.assertEqual(mail.outbox[0].to, ["info@a-esthetic.de"])
+        self.appointment.status = "confirmed"
+        notify_admin_created(self.appointment, include_admin=False)
+        notify_admin_confirmed(self.appointment)
+        self.assertEqual([c.args[1]["event"] for c in relay.call_args_list if c.args[1].get("target")=="admin"], ["admin_created","admin_status_changed"])
+        self.assertEqual(len(mail.outbox),2)
+
+    @patch("booking.notifications._post_internal", return_value={"ok": True})
     def test_staff_created_alerts_admin_without_duplicate_customer_email(self, relay):
         notify_admin_created(self.appointment)
         targets = [call.args[1].get("target") for call in relay.call_args_list]
