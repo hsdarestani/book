@@ -20,7 +20,10 @@ jobs:
             set -euo pipefail
             cd /opt/aesthetic-book/app
             git rev-parse HEAD
-            runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            set -a
+            source /etc/aesthetic-simplybook-credentials.env
+            set +a
+            runuser -u aestheticbook --preserve-environment -- bash -c 'set -ae; source /etc/aesthetic-book.env; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
             from datetime import date, datetime
             from booking.clinical_time import CLINIC_TZ, add_elapsed, clinic_localtime
             from booking.models import Appointment, BlockedPeriod, StaffMember, Service
@@ -43,7 +46,7 @@ jobs:
                 end=add_elapsed(start,service.reserved_duration)
                 local=Appointment.objects.filter(staff=staff,starts_at__lt=end,ends_at__gt=start,status__in=['new','confirmed'])
                 blocked=BlockedPeriod.objects.filter(staff=staff,starts_at__lt=end,ends_at__gt=start).exclude(reason__startswith='[NOTE]')
-                print("HOUR",hour,"LOCAL_BOOKINGS",list(local.values_list('source','status','simplybook_sync_state')),"LOCAL_BLOCKS",blocked.count())
+                print("HOUR",hour,"LOCAL_BOOKINGS",list(local.values_list('source','status','simplybook_sync_state')),"LOCAL_BLOCKS",blocked.count(),"ALL_EXACT",list(Appointment.objects.filter(staff=staff,starts_at=start).values_list("source","status","simplybook_sync_state")))
                 if availability is not None:
                     print("HOUR",hour,"SOURCE_START",start in availability[0],"SOURCE_OVERLAP",any(a<end and b>start for a,b in availability[1]),"BOOK_AVAILABLE",start in available_slots(service,staff,day,source_availability=availability,staff_booking=True))
             PY
