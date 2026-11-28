@@ -258,6 +258,14 @@ def _source_readback_diagnostic(kind, item):
         return 'source_readback_unverified'
 
 
+def _pending_local_cancellable(item):
+    """Only reservations never claimed for an outbound booking mutation."""
+    return (item.source == 'admin' and item.status == 'new'
+            and item.simplybook_sync_state in {'queued', 'blocked'}
+            and source_id(item) is None and not item.simplybook_event_id
+            and not item.simplybook_client_id and item.simplybook_remote_ends_at is None)
+
+
 def _appointment(item):
     start = clinic_localtime(item.starts_at)
     end = clinic_localtime(item.ends_at)
@@ -270,7 +278,7 @@ def _appointment(item):
         'date': start.date().isoformat(), 'start': start.strftime('%H:%M'), 'end': end.strftime('%H:%M'),
         'status': item.status, 'notes': item.notes_customer, 'revision': item.updated_at.isoformat(),
         'source_managed': source_managed,
-        'source_editable': source_editable(item),
+        'source_editable': source_editable(item) or _pending_local_cancellable(item),
         'source_editability_reason': _appointment_editability_reason(item),
         'sync_state': item.simplybook_sync_state,
         'source_identity_available': source_id(item) is not None,
@@ -697,6 +705,20 @@ def _save_appointment(data, actor, providers, previous_item, *, key):
         revision = parse_datetime(str(data.get('revision') or ''))
         if revision != item.updated_at:
             raise CommandConflict('Der Termin wurde zwischenzeitlich geändert. Bitte neu laden.')
+        if _pending_local_cancellable(item):
+            if actor['role'] != 'admin':
+                raise CommandConflict('Nur Administratoren können diese Buchungsanfrage absagen.')
+            if operation != 'cancel':
+                raise CommandConflict('Diese Buchungsanfrage kann abgesagt, aber noch nicht verschoben werden.')
+            # The appointment row is locked by _mutate. The outbound worker
+            # must claim it as sending before any remote booking write.
+            item.status = 'cancelled'
+            item.simplybook_sync_state = 'cancelled'
+            item.save(update_fields=['status', 'simplybook_sync_state', 'updated_at'])
+            MobileStaffCancellation.objects.get_or_create(
+                booking_public_id=item.public_id, defaults={'appointment': item},
+            )
+            return item.pk
         if _managed_appointment(item):
             if actor['role'] != 'admin' or not source_editable(item):
                 raise CommandConflict('Dieser SimplyBook-Termin ist schreibgeschützt.')

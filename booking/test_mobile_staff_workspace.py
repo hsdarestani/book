@@ -386,6 +386,42 @@ class WorkspaceTests(TestCase):
             self.assertEqual(self.post('appointment-reminder', id=self.own.pk).status_code, 409)
             notify.assert_called_once()
 
+    def test_admin_can_cancel_unclaimed_outbound_request_from_existing_app(self):
+        for state in ('queued', 'blocked'):
+            with self.subTest(state=state):
+                item = Appointment.objects.create(staff=self.doctor, customer=self.patient,
+                    service=self.service, starts_at=self.own.starts_at+timedelta(hours=2),
+                    ends_at=self.own.ends_at+timedelta(hours=2), source='admin',
+                    status='new', simplybook_sync_state=state)
+                calendar = self.client.get(f'/api/mobile/staff/calendar/?start={self.day}&days=1').json()
+                row = next(x for x in calendar['appointments'] if x['id']==item.pk)
+                self.assertTrue(row['source_editable'])
+                cancel = dict(operation='cancel', id=item.pk, revision=item.updated_at.isoformat())
+                self.identity['role']='doctor'
+                self.assertEqual(self.post('appointment', **cancel).status_code,409)
+                self.identity['role']='admin'
+                with patch('booking.mobile_staff_api.change_locked') as remote:
+                    result = self.post('appointment', **cancel)
+                    self.assertEqual(result.status_code,200,result.content)
+                    remote.assert_not_called()
+                item.refresh_from_db()
+                self.assertEqual((item.status,item.simplybook_sync_state),('cancelled','cancelled'))
+                self.assertTrue(MobileStaffCancellation.objects.filter(appointment=item).exists())
+                self.assertEqual(self.post('appointment', **cancel).status_code,200)
+
+    def test_admin_cannot_cancel_uncertain_outbound_request_locally(self):
+        for state in ('sending','review','blocked'):
+            self.own.source='admin'
+            self.own.status='new'
+            self.own.simplybook_sync_state=state
+            self.own.simplybook_event_id='123' if state=='blocked' else ''
+            self.own.save()
+            response = self.post('appointment', operation='cancel', id=self.own.pk,
+                                 revision=self.own.updated_at.isoformat())
+            self.assertEqual(response.status_code,409,response.content)
+            self.own.refresh_from_db()
+            self.assertEqual(self.own.status,'new')
+
     def test_external_source_blocks_and_appointments_are_read_only(self):
         from .management.commands.sync_simplybook_notes import _marker
         from .models import MobileStaffCommand

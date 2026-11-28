@@ -1,0 +1,71 @@
+name: Book pending admin booking cancellation
+on:
+  push:
+    branches: [release/admin-pending-cancel-20261128]
+permissions:
+  contents: read
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: |
+          pip install -r requirements.txt
+          python manage.py check
+          python manage.py test booking.test_mobile_staff_workspace.WorkspaceTests.test_admin_can_cancel_unclaimed_outbound_request_from_existing_app booking.test_mobile_staff_workspace.WorkspaceTests.test_admin_cannot_cancel_uncertain_outbound_request_locally booking.test_mobile_staff_workspace.WorkspaceTests.test_appointment_update_uses_revision_and_cancellation_uses_durable_reconciliation booking.test_mobile_staff_workspace.WorkspaceTests.test_external_source_blocks_and_appointments_are_read_only --noinput
+      - uses: appleboy/ssh-action@v1.2.0
+        env:
+          BOOK_TARGET: ${{ github.sha }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 6m
+          envs: BOOK_TARGET
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
+            flock -n 9
+            base=38281417ae35795c9921912bcb0fb7a5d7a7b3be
+            test "$(git rev-parse HEAD)" = "$base"
+            test -z "$(git status --porcelain --untracked-files=no)"
+            git fetch -q --no-tags origin "$BOOK_TARGET"
+            test "$(git rev-parse "$BOOK_TARGET^")" = "$base"
+            scope="$(printf '%s\n' .github/workflows/release-admin-pending-cancel-20261128.yml booking/mobile_staff_api.py booking/test_mobile_staff_workspace.py | sort)"
+            test "$(git diff --name-only "$base" "$BOOK_TARGET" | sort)" = "$scope"
+            systemctl is-active --quiet aesthetic-book
+            switched=0
+            finish() {
+              result=$?
+              trap - EXIT
+              if (( result != 0 && switched )); then
+                git switch -q --no-overwrite-ignore --detach "$base" && systemctl restart aesthetic-book || result=2
+                echo "ADMIN_BOOKING_ROLLBACK=$result"
+              fi
+              exit "$result"
+            }
+            trap finish EXIT
+            git switch -q --no-overwrite-ignore --detach "$BOOK_TARGET"
+            switched=1
+            runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; exec /opt/aesthetic-book/venv/bin/python manage.py check'
+            systemctl restart aesthetic-book
+            for attempt in {1..12}; do
+              if systemctl is-active --quiet aesthetic-book && curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null; then break; fi
+              sleep 2
+            done
+            systemctl is-active --quiet aesthetic-book
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null
+            echo "ADMIN_PENDING_CANCEL_VERIFIED=$BOOK_TARGET"
