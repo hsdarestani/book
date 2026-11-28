@@ -1,0 +1,52 @@
+name: Read-only admin booking incident audit
+on:
+  push:
+    branches: [ops/admin-booking-incident-20261128]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            git rev-parse HEAD
+            systemctl is-active aesthetic-book aesthetic-simplybook-sync.timer
+            systemctl show aesthetic-simplybook-sync.timer -p LastTriggerUSec -p NextElapseUSecRealtime
+            systemctl show aesthetic-simplybook-sync.service -p ActiveState -p Result -p ExecMainStatus || true
+            runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from datetime import datetime, timedelta
+            from collections import Counter
+            from django.utils import timezone
+            from booking.models import Appointment, ExternalSyncState
+            from booking.clinical_time import CLINIC_TZ
+            from booking.simplybook_outbound import public_sync_enabled
+            print("OUTBOUND_ENABLED", public_sync_enabled())
+            start=datetime(2026,12,4,16,0,tzinfo=CLINIC_TZ)
+            rows=Appointment.objects.filter(starts_at=start,staff__display_name__icontains="Ariane",source="admin")
+            print("TARGET_COUNT",rows.count())
+            for row in rows:
+                print("TARGET_STATUS",row.status,row.simplybook_sync_state,"linked",bool(row.simplybook_booking_id),"answers",row.returning_customer_answered,"created",row.created_at.isoformat())
+            recent=Appointment.objects.filter(source="admin",created_at__gte=timezone.now()-timedelta(hours=2))
+            print("RECENT_ADMIN_STATES",dict(Counter((r.status,r.simplybook_sync_state,bool(r.simplybook_booking_id)) for r in recent)))
+            state=ExternalSyncState.objects.filter(source="simplybook").first()
+            print("LAST_SYNC_SUCCESS",state.last_success_at if state else None)
+            PY
+            python3 - <<'PY'
+            import subprocess, collections, re
+            p=subprocess.run(['journalctl','-u','aesthetic-book','-u','aesthetic-simplybook-sync','--since','90 minutes ago','--no-pager','-o','cat'],capture_output=True,text=True,timeout=20)
+            counts=collections.Counter()
+            for line in p.stdout.splitlines():
+                for key,pattern in [('outbound_review','outbound reservation needs review'),('worker_timeout','WORKER TIMEOUT'),('source_rate_limit','Too many attempts'),('sync_complete','continuous sync completed'),('appointment_bad_request','Bad Request: /api/mobile/staff/appointment/'),('appointment_unavailable','Service Unavailable: /api/mobile/staff/appointment/')]:
+                    if pattern.lower() in line.lower(): counts[key]+=1
+            print("SANITIZED_LOG_COUNTS",dict(counts))
+            PY
