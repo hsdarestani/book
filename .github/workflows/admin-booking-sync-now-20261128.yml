@@ -1,0 +1,46 @@
+name: Run existing SimplyBook synchronization and verify pending admin booking
+on:
+  push:
+    branches: [ops/admin-booking-incident-20261128]
+    paths: ['.github/workflows/admin-booking-sync-now-20261128.yml']
+permissions:
+  contents: read
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 6m
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            test "$(git rev-parse HEAD)" = 38281417ae35795c9921912bcb0fb7a5d7a7b3be
+            systemctl is-active --quiet aesthetic-simplybook-sync.timer
+            if systemctl show aesthetic-simplybook-sync.service -p Environment --value | tr ' ' '\n' | grep -Fx 'SIMPLYBOOK_OUTBOUND_ENABLED=1' >/dev/null; then
+              echo 'SYNC_SERVICE_OUTBOUND_ENABLED=true'
+            else
+              echo 'SYNC_SERVICE_OUTBOUND_ENABLED_NOT_VERIFIED'
+              exit 1
+            fi
+            systemctl start aesthetic-simplybook-sync.service
+            systemctl show aesthetic-simplybook-sync.service -p Result -p ExecMainStatus
+            runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; exec /opt/aesthetic-book/venv/bin/python manage.py shell' <<'PY'
+            from datetime import datetime
+            from booking.clinical_time import CLINIC_TZ
+            from booking.models import Appointment, ExternalSyncState
+            rows=Appointment.objects.filter(starts_at=datetime(2026,12,4,16,0,tzinfo=CLINIC_TZ),staff__display_name__icontains="Ariane",source="admin")
+            print("TARGET_COUNT",rows.count())
+            for row in rows:
+                print("TARGET_STATUS",row.status,row.simplybook_sync_state,"linked",bool(row.simplybook_booking_id))
+            state=ExternalSyncState.objects.filter(source="simplybook").first()
+            print("LAST_SYNC_SUCCESS",state.last_success_at if state else None)
+            PY
