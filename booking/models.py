@@ -471,3 +471,12 @@ class MobileStaffCancellation(models.Model):
     attempts = models.PositiveIntegerField(default=0)
     next_attempt_at = models.DateTimeField(default=timezone.now)
     completed_at = models.DateTimeField(null=True)
+
+
+class StaffBookingAlert(models.Model):
+    """Durable, independent admin email and push delivery for pending native bookings."""
+    appointment = models.OneToOneField(Appointment, on_delete=models.CASCADE, related_name='staff_booking_alert')
+    push_sent_at = models.DateTimeField(null=True, blank=True)
+    email_sent_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)

@@ -412,6 +412,39 @@ class WorkspaceTests(TestCase):
                 self.assertTrue(MobileStaffCancellation.objects.filter(appointment=item).exists())
                 self.assertEqual(self.post('appointment', **cancel).status_code,200)
 
+    @patch.dict('os.environ', {'SIMPLYBOOK_OUTBOUND_ENABLED':'1','MOBILE_ADMIN_DEFER_SOURCE_CHECK':'1'})
+    def test_native_admin_fast_booking_defers_external_io(self):
+        from .simplybook_outbound import ARIANE
+        from .models import StaffBookingAlert
+        from django.core.management import call_command
+        ariane=StaffMember.objects.create(display_name=ARIANE)
+        service=Service.objects.get_or_create(slug='aesthetische-erstberatung',defaults={
+            'name':'Synthetic consultation','duration_minutes':30,'buffer_minutes':10})[0]
+        ariane.services.add(service)
+        WorkingHour.objects.create(staff=ariane,weekday=self.day.weekday(),start_time=time(10),end_time=time(20))
+        payload={'operation':'create','staff_id':ariane.pk,'service_id':service.pk,
+                 'customer_id':self.patient.pk,'date':self.day.isoformat(),'start':'16:00','key':str(uuid4())}
+        with patch('booking.services.booking_source_availability') as source, patch('booking.mobile_staff_api.notify_admin_pending_created') as notice:
+            with self.captureOnCommitCallbacks(execute=True):
+                first=self.post('appointment',**payload)
+                replay=self.post('appointment',**payload)
+            self.assertEqual(first.status_code,200,first.content)
+            self.assertEqual(replay.json()['id'],first.json()['id'])
+            self.assertTrue(first.json()['external_confirmation_pending'])
+            source.assert_not_called()
+            notice.assert_not_called()
+        job=StaffBookingAlert.objects.get(appointment_id=first.json()['id'])
+        with override_settings(BOOKING_NOTIFICATION_EMAIL='admin@example.test'), patch('booking.management.commands.deliver_staff_booking_alerts._push',return_value={'ok':True}) as push, patch('booking.management.commands.deliver_staff_booking_alerts.send_admin_appointment_event_email') as email:
+            call_command('deliver_staff_booking_alerts')
+            call_command('deliver_staff_booking_alerts')
+            push.assert_called_once()
+            email.assert_called_once()
+        job.refresh_from_db()
+        self.assertIsNotNone(job.push_sent_at)
+        self.assertIsNotNone(job.email_sent_at)
+        overlap=self.post('appointment',**{**payload,'key':str(uuid4())})
+        self.assertIn(overlap.status_code,(400,409))
+
     def test_admin_cancels_review_after_verified_source_read(self):
         from .simplybook_outbound import ARIANE
         ariane = StaffMember.objects.create(display_name=ARIANE)

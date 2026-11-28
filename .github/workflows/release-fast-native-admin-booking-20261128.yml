@@ -1,0 +1,122 @@
+name: Fast native admin booking backend
+on:
+  push:
+    branches: [release/fast-native-admin-booking-20261128]
+permissions:
+  contents: read
+concurrency:
+  group: aesthetic-book-production
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DJANGO_DEBUG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: |
+          pip install -r requirements.txt
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+          python manage.py test booking.test_admin_notification_routing booking.test_mobile_staff_workspace.WorkspaceTests.test_native_admin_fast_booking_defers_external_io booking.test_mobile_staff_workspace.WorkspaceTests.test_ariane_staff_creation_queues_verified_answers_and_replays booking.test_mobile_staff_workspace.WorkspaceTests.test_admin_cancels_review_after_verified_source_read --noinput
+      - uses: appleboy/ssh-action@v1.2.0
+        env:
+          BOOK_TARGET: ${{ github.sha }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          port: ${{ secrets.SERVER_PORT }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 6m
+          envs: BOOK_TARGET
+          script: |
+            set -euo pipefail
+            cd /opt/aesthetic-book/app
+            exec 9>/opt/aesthetic-book/remediation-rollbacks/release.lock
+            flock -n 9
+            base=ddaf9f4581ac716b56b44b4eeff143e88a3c80fd
+            test "$(git rev-parse HEAD)" = "$base"
+            test -z "$(git status --porcelain --untracked-files=no)"
+            git fetch -q --no-tags origin "$BOOK_TARGET"
+            test "$(git rev-parse "$BOOK_TARGET^")" = "$base"
+            scope="$(printf '%s\n' .github/workflows/release-fast-native-admin-booking-20261128.yml booking/services.py booking/mobile_staff_api.py booking/models.py booking/management/commands/sync_simplybook_continuous.py booking/test_mobile_staff_workspace.py booking/migrations/0039_staff_booking_alert.py booking/management/commands/sync_simplybook_outbound_only.py booking/management/commands/deliver_staff_booking_alerts.py | sort)"
+            test "$(git diff --name-only "$base" "$BOOK_TARGET" | sort)" = "$scope"
+            systemctl is-active --quiet aesthetic-book
+            test -r /etc/aesthetic-simplybook-credentials.env
+            config=/etc/systemd/system/aesthetic-book.service.d/94-native-fast-booking.conf
+            for file in "$config" /etc/systemd/system/aesthetic-book-alerts.{service,timer} /etc/systemd/system/aesthetic-book-outbound.{service,timer}; do test ! -e "$file"; done
+            switched=0
+            finish() {
+              result=$?
+              trap - EXIT
+              if (( result != 0 && switched )); then
+                systemctl disable --now aesthetic-book-alerts.timer aesthetic-book-outbound.timer 2>/dev/null || true
+                rm -f "$config" /etc/systemd/system/aesthetic-book-alerts.{service,timer} /etc/systemd/system/aesthetic-book-outbound.{service,timer}
+                systemctl daemon-reload
+                git switch -q --no-overwrite-ignore --detach "$base" && systemctl restart aesthetic-book || result=2
+                echo "FAST_BOOKING_ROLLBACK=$result"
+              fi
+              exit "$result"
+            }
+            trap finish EXIT
+            git switch -q --no-overwrite-ignore --detach "$BOOK_TARGET"
+            switched=1
+            runuser -u aestheticbook -- bash -c 'set -ae; source /etc/aesthetic-book.env; exec /opt/aesthetic-book/venv/bin/python manage.py migrate booking 0039 --noinput'
+            mkdir -p "$(dirname "$config")"
+            printf '%s\n' '[Service]' 'Environment=MOBILE_ADMIN_DEFER_SOURCE_CHECK=1' > "$config"
+            cat > /etc/systemd/system/aesthetic-book-alerts.service <<'UNIT'
+            [Unit]
+            Description=Deliver native admin booking alerts
+            [Service]
+            Type=oneshot
+            WorkingDirectory=/opt/aesthetic-book/app
+            ExecStart=/usr/sbin/runuser -u aestheticbook -- /bin/bash -c 'set -ae; source /etc/aesthetic-book.env; exec /opt/aesthetic-book/venv/bin/python manage.py deliver_staff_booking_alerts'
+            TimeoutStartSec=4min
+            UMask=0077
+            UNIT
+            cat > /etc/systemd/system/aesthetic-book-alerts.timer <<'UNIT'
+            [Unit]
+            Description=Process booking alerts every 10 seconds
+            [Timer]
+            OnActiveSec=2s
+            OnUnitInactiveSec=10s
+            AccuracySec=1s
+            [Install]
+            WantedBy=timers.target
+            UNIT
+            cat > /etc/systemd/system/aesthetic-book-outbound.service <<'UNIT'
+            [Unit]
+            Description=Fast queued SimplyBook outbound bookings
+            [Service]
+            Type=oneshot
+            WorkingDirectory=/opt/aesthetic-book/app
+            ExecStart=/bin/bash -c 'set -ae; source /etc/aesthetic-simplybook-credentials.env; exec /usr/bin/flock -n -E 0 /var/lock/aesthetic-simplybook-sync.lock /usr/sbin/runuser -u aestheticbook --preserve-environment -- /bin/bash -c "set -ae; source /etc/aesthetic-book.env; exec /opt/aesthetic-book/venv/bin/python manage.py sync_simplybook_outbound_only"'
+            TimeoutStartSec=25min
+            UMask=0077
+            UNIT
+            cat > /etc/systemd/system/aesthetic-book-outbound.timer <<'UNIT'
+            [Unit]
+            Description=Process queued source bookings every 15 seconds
+            [Timer]
+            OnActiveSec=3s
+            OnUnitInactiveSec=15s
+            AccuracySec=1s
+            [Install]
+            WantedBy=timers.target
+            UNIT
+            systemctl daemon-reload
+            systemctl restart aesthetic-book
+            for attempt in {1..12}; do
+              if systemctl is-active --quiet aesthetic-book && curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null; then break; fi
+              sleep 2
+            done
+            systemctl is-active --quiet aesthetic-book
+            curl -fsS --max-time 8 https://book.a-esthetic.de/api/health/ -o /dev/null
+            systemctl enable --now aesthetic-book-alerts.timer aesthetic-book-outbound.timer
+            systemctl is-active --quiet aesthetic-book-alerts.timer aesthetic-book-outbound.timer aesthetic-simplybook-sync.timer
+            echo "FAST_NATIVE_BOOKING_VERIFIED=$BOOK_TARGET"

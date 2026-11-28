@@ -36,7 +36,7 @@ from .internal_api import _patient_path
 from .patient_uploads import save_patient_upload, PatientUploadError
 from .models import (
     Appointment, BlockedPeriod, Customer, DailyAvailabilityOverride, DoctorPatientAccess,
-    MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour, OfficeIntakeForm,
+    MobileStaffCancellation, MobileStaffCommand, PatientRecord, Service, StaffMember, WorkingHour, OfficeIntakeForm, StaffBookingAlert,
 )
 from .intake_forms import build_intake_pdf, confirm_form_link
 from .notifications import appointment_snapshot, notify_admin_changed, notify_admin_created, notify_manual_app_reminder, notify_admin_source_changed, notify_admin_pending_created
@@ -779,13 +779,17 @@ def _save_appointment(data, actor, providers, previous_item, *, key):
     end = add_elapsed(start, duration) if schedule_changed else item.ends_at
     if item and item.customer_id != customer.pk:
         raise CommandConflict('Der Patient eines bestehenden Termins kann hier nicht geändert werden.')
+    defer_source = bool(not item and actor['role'] == 'admin' and integrated(service, staff)
+                        and os.getenv('MOBILE_ADMIN_DEFER_SOURCE_CHECK') == '1')
     if schedule_changed:
         if item and item.service_id != service.pk:
             raise CommandConflict('Eine Änderung der Behandlung erfordert die Prüfung des Behandlungspakets.')
         if not service.active or not service.bookable:
             raise CommandConflict('Die Behandlung ist derzeit nicht buchbar.')
-        if item or not integrated(service, staff):
+        if item or not integrated(service, staff) or defer_source:
             _check_schedule(staff, start, end)
+        if defer_source and start <= timezone.now():
+            raise ValidationError('Bitte eine zukünftige Uhrzeit auswählen.')
 
     if not item:
         item = Appointment(
@@ -805,7 +809,7 @@ def _save_appointment(data, actor, providers, previous_item, *, key):
     if 'notes' in data:
         item.notes_customer = str(data['notes']).strip()[:3000]
     if not previous:
-        prepare_staff_booking(item, request_key=f'mobile-staff-{actor["id"]}-{key}')
+        prepare_staff_booking(item, request_key=f'mobile-staff-{actor["id"]}-{key}', defer_source_check=defer_source)
     if schedule_changed:
         for field in ('reminder_24h_sent_at', 'reminder_1h_sent_at', 'reminder_1h_admin_email_sent_at',
                       'reminder_1h_admin_push_sent_at'):
@@ -818,7 +822,10 @@ def _save_appointment(data, actor, providers, previous_item, *, key):
     if previous:
         transaction.on_commit(lambda: _notify(notify_admin_changed, item, previous))
     elif item.simplybook_sync_state == 'queued':
-        transaction.on_commit(lambda: _notify(notify_admin_pending_created, item))
+        if defer_source:
+            StaffBookingAlert.objects.get_or_create(appointment=item)
+        else:
+            transaction.on_commit(lambda: _notify(notify_admin_pending_created, item))
     elif not item.simplybook_sync_state:
         if actor['role'] == 'admin':
             transaction.on_commit(lambda: _notify(send_customer_booking_email, item))
